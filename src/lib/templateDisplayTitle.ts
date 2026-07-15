@@ -43,7 +43,15 @@ export function resolveTemplateDisplayTitle(
   // the title so Visual → "Dry Riser Visual", Pressure Test → "Dry Riser
   // Pressure Test", etc.
   if (isDryRiserName(name) || isWetRiserName(name)) {
-    return { title: name, subtitle: opts.brandingSubtitle?.trim() || RISER_SUBTITLE };
+    // Riser Viva Fire logo image already contains the "Wet & Dry Riser
+    // Specialists" strapline baked in. Emitting it again as a subtitle
+    // stacks it under the title and — because the title/subtitle gap is
+    // tight at 16pt — causes visible overlap on the printed sheet.
+    // Only surface a subtitle when the caller has supplied a NON-default
+    // branding line, e.g. a variant strapline for a different brand.
+    const branded = opts.brandingSubtitle?.trim();
+    const subtitle = branded && branded !== RISER_SUBTITLE ? branded : undefined;
+    return { title: name, subtitle };
   }
 
   return {
