@@ -222,6 +222,45 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
 
   return (
     <div className="space-y-4">
+      {canUpload && (
+        <div className="flex flex-wrap gap-2 rounded-lg border border-dashed bg-muted/30 p-3">
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            multiple
+            className="hidden"
+            onChange={(e) => { handleFiles(e.target.files); e.currentTarget.value = ""; }}
+          />
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*,application/pdf,video/*"
+            multiple
+            className="hidden"
+            onChange={(e) => { handleFiles(e.target.files); e.currentTarget.value = ""; }}
+          />
+          <Button
+            size="sm"
+            onClick={() => cameraInputRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Camera className="mr-1.5 h-4 w-4" />}
+            Take photo
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => galleryInputRef.current?.click()}
+            disabled={uploading}
+          >
+            <Upload className="mr-1.5 h-4 w-4" /> Upload from gallery
+          </Button>
+          <p className="text-xs text-muted-foreground self-center">Photos are attached to this job as evidence.</p>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2">
         {filters.map((f) => (
           <Button
