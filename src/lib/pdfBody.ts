@@ -261,6 +261,7 @@ function renderBlankSelectOptions(
   maxX: number,
   autoVal?: string,
   appendNa?: boolean,
+  rowH: number = 6,
 ): void {
   const normalizedAutoVal = getRawFieldText(autoVal).toLowerCase();
   const upperCaseOptions = isYesNoOptions(options);
@@ -271,31 +272,88 @@ function renderBlankSelectOptions(
   const renderedOptions = appendNa && !hasNaInOptions ? [...options, "N/A"] : options;
 
   doc.setFontSize(7);
+  const startX = x;
   let optionX = x;
+  let currentY = y;
 
   for (const opt of renderedOptions) {
-    if (optionX + 3 >= maxX) break;
-
     const label = upperCaseOptions ? opt.toUpperCase() : opt;
-    const maxLabelWidth = Math.max(6, maxX - optionX - 4);
-    const renderedLabel = truncateToWidth(doc, label, maxLabelWidth);
+    const labelW = doc.getTextWidth(label);
+    // Full slot: 3mm checkbox + 1mm gap + label + 3mm trailing gap for pen tick clearance
+    const slotW = 3 + 1 + labelW + 3;
+    if (optionX + slotW > maxX && optionX > startX) {
+      // Wrap onto the next line within the cell
+      optionX = startX;
+      currentY += rowH;
+    }
 
-    doc.rect(optionX, y + 1, 3, 3);
+    doc.rect(optionX, currentY + 1, 3, 3);
 
     if (normalizedAutoVal && normalizedAutoVal === opt.toLowerCase()) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      doc.text("✓", optionX + 0.5, y + 3.8);
+      doc.text("✓", optionX + 0.5, currentY + 3.8);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7);
     }
 
-    doc.text(renderedLabel, optionX + 4, y + 3.5);
-    optionX += 4 + doc.getTextWidth(renderedLabel) + 3;
+    doc.text(label, optionX + 4, currentY + 3.5);
+    optionX += slotW;
   }
 
   doc.setFontSize(9.5);
 }
+
+/**
+ * Estimate how many wrapped rows a blank select-option group needs to fit
+ * within `availableWidth`. Row growth means the calling row rectangle can
+ * expand vertically so no option is clipped.
+ */
+export function estimateBlankSelectOptionRows(
+  doc: jsPDF,
+  options: string[],
+  availableWidth: number,
+  allowNa: boolean,
+): number {
+  const hasNa = options.some((o) => NA_RESULT_TOKENS.has(o.toLowerCase()));
+  const rendered = allowNa && !hasNa ? [...options, "N/A"] : options;
+  const upperCaseOptions = isYesNoOptions(options);
+  const prevSize = (doc as any).internal.getFontSize?.() ?? 9.5;
+  doc.setFontSize(7);
+  let x = 0;
+  let rows = 1;
+  for (const opt of rendered) {
+    const label = upperCaseOptions ? opt.toUpperCase() : opt;
+    const slotW = 3 + 1 + doc.getTextWidth(label) + 3;
+    if (x + slotW > availableWidth && x > 0) {
+      rows++;
+      x = 0;
+    }
+    x += slotW;
+  }
+  doc.setFontSize(prevSize);
+  return rows;
+}
+
+/**
+ * Total height a blank field row will occupy on the printed sheet. Select
+ * fields with many/long options wrap onto multiple lines; the row grows to
+ * match so options are never clipped.
+ */
+export function estimateBlankFieldRowH(
+  doc: jsPDF,
+  field: PdfTemplateField,
+  rowH: number,
+  resultCellWidth: number,
+): number {
+  if (field.type === "signature") return Math.max(rowH * 2, 12);
+  if (field.type === "select" && field.options && field.options.length > 0) {
+    const rows = estimateBlankSelectOptionRows(doc, field.options, resultCellWidth, !!field.allow_na);
+    return rowH * rows;
+  }
+  return rowH;
+}
+
 
 function renderBlankUnderline(doc: jsPDF, x: number, y: number, width: number): void {
   doc.line(x, y + 3.5, x + Math.max(width, 8), y + 3.5);
@@ -689,12 +747,17 @@ export function renderBlankFieldRow(
   const rowH = opts.rowH;
   const handfill = opts.handfill ?? false;
 
+  // Compute the actual row height — select fields with many/long options
+  // wrap onto multiple lines and grow the row so nothing is clipped.
+  const resultCellWidth = maxWidth - colSplit - 4;
+  const actualRowH = estimateBlankFieldRowH(doc, field, rowH, resultCellWidth);
+
   // Always draw the row borders so each field reads as a discrete box on the
   // printed sheet. Use a lighter grey for the handfill version so the lines
   // stay subtle on a printed/photocopied page.
   doc.setDrawColor(handfill ? 200 : 180);
-  doc.rect(margin, y, colSplit, rowH);
-  doc.rect(margin + colSplit, y, maxWidth - colSplit, rowH);
+  doc.rect(margin, y, colSplit, actualRowH);
+  doc.rect(margin + colSplit, y, maxWidth - colSplit, actualRowH);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9.5);
@@ -715,9 +778,9 @@ export function renderBlankFieldRow(
   } else if (field.type === "checkbox") {
     renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal, !!field.allow_na);
   } else if (field.type === "select" && field.options && isYesNoOptions(field.options)) {
-    renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal, !!field.allow_na);
+    renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal, !!field.allow_na, rowH);
   } else if (field.type === "select" && field.options && field.options.length > 0) {
-    renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal, !!field.allow_na);
+    renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal, !!field.allow_na, rowH);
   } else if (isQuestionStyleYesNoField(field)) {
     renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal, !!field.allow_na);
   } else if (field.type === "signature" || field.type === "photo" || field.type === "file") {
@@ -747,8 +810,9 @@ export function renderBlankFieldRow(
   // For text/number/textarea/signature/photo/file fields without allow_na,
   // leave the result cell empty so engineers can write/sign in by hand.
 
-  return y + rowH;
+  return y + actualRowH;
 }
+
 
 function renderBlankNaBox(doc: jsPDF, x: number, y: number): void {
   const prevSize = (doc as any).internal.getFontSize?.() ?? 9.5;
