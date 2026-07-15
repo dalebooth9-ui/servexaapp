@@ -466,8 +466,10 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
                 </div>
               );
             })}
+            </div>
           </div>
         )}
+
 
         <DialogFooter className="gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
