@@ -1889,7 +1889,7 @@ export default function Jobs() {
                   <p className="font-semibold text-foreground">No jobs match your filters</p>
                   <p className="mt-1 text-sm text-muted-foreground">Try adjusting your search or clearing filters.</p>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatusFilter("all"); setPriorityFilter("all"); setCategoryFilter("all"); }}>
+                <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatusFilter("all"); setPriorityFilter("all"); setCategoryFilters([]); }}>
                   Clear filters
                 </Button>
               </>
