@@ -13,6 +13,7 @@ import {
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
+import { isPaperFormTemplate, renderPaperFormPage } from "@/workers/paperFormRenderer";
 
 /**
  * Strip trailing template-workflow status suffixes (e.g. "— DRAFT, AWAITING
