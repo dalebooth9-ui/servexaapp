@@ -47,12 +47,15 @@ function toStoragePath(fileUrl?: string | null): string | null {
  * submissions (WhatsApp / app uploads), defects, photo-checklist responses
  * and image-type job_documents. Read-only — nothing here mutates data.
  */
-export default function JobPhotos({ jobId, engineers = [], isAdmin }: {
+export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = true }: {
   jobId: string;
   engineers?: { id: string; name: string }[];
   isAdmin?: boolean;
+  /** Set false to hide the "Add photo" / "Upload" buttons (e.g. cancelled jobs). */
+  canUpload?: boolean;
 }) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [items, setItems] = useState<PhotoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
