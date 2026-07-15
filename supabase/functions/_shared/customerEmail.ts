@@ -13,11 +13,14 @@ export interface EmailBranding {
   logo_url: string | null;
   brand_color: string;
   company_name: string;
+  strapline: string | null;
   phone: string | null;
   website: string | null;
   address: string | null;
   signature_html: string | null;
   footer_note: string | null;
+  accreditation_logo_urls: string[];
+  sign_off_text: string;
 }
 
 const VIVA_ORG_ID = "11111111-1111-1111-1111-111111111111";
@@ -30,10 +33,13 @@ const DEFAULT_BRANDING: EmailBranding = {
   logo_url: null,
   brand_color: "#1e40af",
   company_name: "Viva Fire Protection Ltd",
-  phone: null,
+  strapline: "Wet & Dry Riser Specialists",
+  phone: "0845 269 8482",
   website: "https://www.vivafire.co.uk",
-  address: null,
+  address: "Unit 1 Lady Road, St Johns Industrial Estate, Lees, Oldham, OL4 3DZ",
   signature_html: null,
+  accreditation_logo_urls: [],
+  sign_off_text: "Kind regards,",
   footer_note:
     "This is an automated email from Viva Fire Protection. Reply to this message to contact us directly.",
 };
