@@ -7,11 +7,70 @@ import {
   computeSectionLayout,
   renderSectionHeader,
   renderBlankFieldRow,
+  estimateBlankFieldRowH,
   getAutoPopulatedValues,
 } from "@/lib/pdfBody";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
+
+/**
+ * Strip trailing template-workflow status suffixes (e.g. "— DRAFT, AWAITING
+ * TECHNICAL REVIEW", "(DRAFT)", "— PENDING APPROVAL") from a template name
+ * before printing the site sheet. Paper copies are for engineers on site;
+ * approval status is office-only noise that also causes the title to
+ * overflow the printable width.
+ */
+function stripTemplateStatusSuffix(name: string): string {
+  if (!name) return name;
+  let out = name;
+  // Repeatedly peel status-shaped trailing segments.
+  for (let i = 0; i < 4; i++) {
+    const next = out
+      .replace(/\s*[—\-–]\s*(draft|awaiting|pending|approved|under\s+review|in\s+review|review|active)\b[^—\-–]*$/i, "")
+      .replace(/\s*\((draft|awaiting[^)]*|pending[^)]*|approved|under\s+review|in\s+review|review)\)\s*$/i, "")
+      .trim();
+    if (next === out) break;
+    out = next;
+  }
+  return out || name;
+}
+
+/**
+ * Draw a centred, bold title that wraps to at most 2 lines and shrinks the
+ * font down from `baseSizePt` until it fits within `maxWidth`. Never clips.
+ * Returns the y position after the last line.
+ */
+function drawWrappedTitle(
+  doc: jsPDF,
+  text: string,
+  centerX: number,
+  y: number,
+  maxWidth: number,
+  baseSizePt: number,
+): number {
+  doc.setFont("helvetica", "bold");
+  const candidates = [baseSizePt, baseSizePt - 1, baseSizePt - 2, baseSizePt - 3, baseSizePt - 4, Math.max(baseSizePt - 5, 9)];
+  for (const size of candidates) {
+    doc.setFontSize(size);
+    const lines = (doc.splitTextToSize(text, maxWidth) as string[]).filter(Boolean);
+    if (lines.length <= 2) {
+      const lineH = size * 0.4; // mm — comfortable leading
+      lines.forEach((ln, i) => doc.text(ln, centerX, y + i * lineH + size * 0.35, { align: "center" }));
+      return y + lines.length * lineH + 1;
+    }
+  }
+  // Absolute fallback: force smallest size, two lines, allow ellipsis on 2nd.
+  const size = Math.max(baseSizePt - 5, 9);
+  doc.setFontSize(size);
+  const all = doc.splitTextToSize(text, maxWidth) as string[];
+  const lines = all.slice(0, 2);
+  if (all.length > 2) lines[1] = lines[1].replace(/\s*\S*$/, "") + "…";
+  const lineH = size * 0.4;
+  lines.forEach((ln, i) => doc.text(ln, centerX, y + i * lineH + size * 0.35, { align: "center" }));
+  return y + lines.length * lineH + 1;
+}
+
 
 type RgbTriple = [number, number, number];
 type WatermarkMode = "tinted" | "untinted" | "none";
