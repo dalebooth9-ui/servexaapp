@@ -620,40 +620,13 @@ export default function DirectorDashboard() {
             <VehicleCheckReviewCard />
           </div>
 
-          {/* Recent Activity */}
-          <Card className="md:col-span-2 lg:col-span-3">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Activity className="h-4 w-4 text-primary" /> Recent Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {activity.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">No recent activity</p>
-              ) : (
-                <ul className="divide-y divide-border">
-                  {activity.map(item => (
-                    <li key={item.id}>
-                      <Link to={item.href} className="flex items-start gap-3 py-2.5 hover:bg-muted/40 -mx-2 px-2 rounded transition-colors">
-                        <ActivityIcon kind={item.kind} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{item.title}</p>
-                          <p className="text-xs text-muted-foreground truncate">{item.detail}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          {item.who && <p className="text-xs text-foreground">{item.who}</p>}
-                          <p className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(item.at), { addSuffix: true })}</p>
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-
         </div>
       )}
+        </div>
+      </details>
+
+      {approvals.length + overdueJobs.length === 0 && null}
+      <ActionCardStyles />
     </div>
   );
 }
