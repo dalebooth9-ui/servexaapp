@@ -144,6 +144,11 @@ export default function Jobs() {
   const [bulkEngineerValue, setBulkEngineerValue] = useState("");
   const [engineers, setEngineers] = useState<{ user_id: string; full_name: string }[]>([]);
   const [jobTemplates, setJobTemplates] = useState<any[]>([]);
+  // Blank-job-sheet counts for pending-review jobs — used to warn the reviewer
+  // when a PO-intake job has no sheets and would otherwise reach an engineer empty.
+  const [pendingSheetCounts, setPendingSheetCounts] = useState<Record<string, number>>({});
+  const [sheetTemplates, setSheetTemplates] = useState<{ id: string; name: string; category: string | null; job_category: string | null }[]>([]);
+
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [quickScheduleJob, setQuickScheduleJob] = useState<any>(null);
@@ -213,7 +218,16 @@ export default function Jobs() {
       setJobTemplates(data || []);
     };
     fetchTemplates();
+
+    // Published job-sheet templates for the pending-review quick picker
+    supabase
+      .from("job_sheet_templates")
+      .select("id, name, category, job_category")
+      .eq("status", "published")
+      .order("name")
+      .then(({ data }) => setSheetTemplates((data as any) || []));
   }, []);
+
 
   const isAdmin = userRole === "admin";
 
@@ -366,6 +380,12 @@ export default function Jobs() {
   };
 
   const handleApproveJob = async (jobId: string) => {
+    if ((pendingSheetCounts[jobId] ?? 0) === 0) {
+      const ok = window.confirm(
+        "This job has no job sheets attached. The engineer will arrive on site with nothing to fill in.\n\nApprove anyway?"
+      );
+      if (!ok) return;
+    }
     const { error } = await supabase.from("jobs").update({ status: "active" } as any).eq("id", jobId);
     if (error) {
       toast({ title: "Error", description: "Failed to approve job.", variant: "destructive" });
@@ -377,6 +397,13 @@ export default function Jobs() {
 
   const handleBulkApprovePending = async (ids: string[]) => {
     if (ids.length === 0) return;
+    const emptyCount = ids.filter((id) => (pendingSheetCounts[id] ?? 0) === 0).length;
+    if (emptyCount > 0) {
+      const ok = window.confirm(
+        `${emptyCount} of the ${ids.length} selected job(s) have no job sheets attached. Engineers will arrive with nothing to fill in.\n\nApprove all anyway?`
+      );
+      if (!ok) return;
+    }
     const { error } = await supabase.from("jobs").update({ status: "active" } as any).in("id", ids);
     if (error) {
       toast({ title: "Error", description: "Failed to approve jobs.", variant: "destructive" });
@@ -386,6 +413,46 @@ export default function Jobs() {
       setSelectedPendingIds(new Set());
     }
   };
+
+
+  // Refresh blank-sheet counts whenever the pending list changes.
+  const refreshPendingSheetCounts = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) { setPendingSheetCounts({}); return; }
+    const { data } = await supabase
+      .from("job_documents" as any)
+      .select("job_id")
+      .eq("document_type", "blank_job_sheet")
+      .in("job_id", ids);
+    const counts: Record<string, number> = {};
+    for (const id of ids) counts[id] = 0;
+    for (const row of (data as any[] | null) || []) {
+      counts[row.job_id] = (counts[row.job_id] || 0) + 1;
+    }
+    setPendingSheetCounts(counts);
+  }, []);
+  useEffect(() => {
+    const ids = jobs.filter((j) => j.status === "pending_review").map((j) => j.id);
+    refreshPendingSheetCounts(ids);
+  }, [jobs, refreshPendingSheetCounts]);
+
+  const handleAttachSheetToPending = async (jobId: string, templateId: string) => {
+    const tpl = sheetTemplates.find((t) => t.id === templateId);
+    if (!tpl) return;
+    const { error } = await supabase.from("job_documents" as any).insert({
+      job_id: jobId,
+      document_type: "blank_job_sheet",
+      label: tpl.name,
+      source: "manual",
+      created_by: user?.id ?? null,
+    } as any);
+    if (error) {
+      toast({ title: "Could not attach sheet", description: error.message, variant: "destructive" });
+      return;
+    }
+    setPendingSheetCounts((prev) => ({ ...prev, [jobId]: (prev[jobId] || 0) + 1 }));
+    toast({ title: "Sheet attached", description: tpl.name });
+  };
+
 
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectingJob, setRejectingJob] = useState<any>(null);
@@ -1809,60 +1876,91 @@ export default function Jobs() {
                 )}
               </div>
               <div className="space-y-1.5">
-                {pendingReviewJobs.map((j) => (
+                {pendingReviewJobs.map((j) => {
+                  const sheetCount = pendingSheetCounts[j.id] ?? 0;
+                  const noSheets = sheetCount === 0;
+                  return (
                   <div
                     key={j.id}
-                    className="flex items-center justify-between gap-3 rounded-md bg-background border border-yellow-300 dark:border-yellow-700 px-3 py-2"
+                    className={`rounded-md bg-background border px-3 py-2 ${noSheets ? "border-red-400 dark:border-red-700" : "border-yellow-300 dark:border-yellow-700"}`}
                   >
-                    {isAdmin && (
-                      <Checkbox
-                        checked={selectedPendingIds.has(j.id)}
-                        onCheckedChange={(checked) => {
-                          setSelectedPendingIds((prev) => {
-                            const next = new Set(prev);
-                            if (checked) next.add(j.id);
-                            else next.delete(j.id);
-                            return next;
-                          });
-                        }}
-                      />
-                    )}
-                    <Link to={`/jobs/${j.id}`} className="flex-1 min-w-0 flex items-center gap-2 hover:underline">
-                      <span className="font-mono text-xs font-semibold text-primary shrink-0">{j.reference_number}</span>
-                      {(j as any).sites?.name && (
-                        <span className="text-xs font-medium text-muted-foreground truncate shrink-0">· {(j as any).sites.name}</span>
+                    <div className="flex items-center justify-between gap-3">
+                      {isAdmin && (
+                        <Checkbox
+                          checked={selectedPendingIds.has(j.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedPendingIds((prev) => {
+                              const next = new Set(prev);
+                              if (checked) next.add(j.id);
+                              else next.delete(j.id);
+                              return next;
+                            });
+                          }}
+                        />
                       )}
-                      <span className="text-sm font-medium truncate">{j.name}</span>
-                      <span className="text-xs text-muted-foreground truncate hidden sm:inline">
-                        {getCustomerName(j) || "Unassigned"}
-                      </span>
-                      {j.source && (
-                        <Badge variant="outline" className="border-orange-400 bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300 text-[10px] h-4 px-1.5">
-                          {j.source}
-                        </Badge>
+                      <Link to={`/jobs/${j.id}`} className="flex-1 min-w-0 flex items-center gap-2 hover:underline">
+                        <span className="font-mono text-xs font-semibold text-primary shrink-0">{j.reference_number}</span>
+                        {(j as any).sites?.name && (
+                          <span className="text-xs font-medium text-muted-foreground truncate shrink-0">· {(j as any).sites.name}</span>
+                        )}
+                        <span className="text-sm font-medium truncate">{j.name}</span>
+                        <span className="text-xs text-muted-foreground truncate hidden sm:inline">
+                          {getCustomerName(j) || "Unassigned"}
+                        </span>
+                        {j.source && (
+                          <Badge variant="outline" className="border-orange-400 bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300 text-[10px] h-4 px-1.5">
+                            {j.source}
+                          </Badge>
+                        )}
+                        {!noSheets && (
+                          <Badge variant="outline" className="border-green-400 bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300 text-[10px] h-4 px-1.5">
+                            {sheetCount} sheet{sheetCount === 1 ? "" : "s"}
+                          </Badge>
+                        )}
+                      </Link>
+                      {isAdmin && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white h-7 px-3"
+                            onClick={() => handleApproveJob(j.id)}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-7 px-3"
+                            onClick={() => openRejectDialog(j)}
+                          >
+                            Reject
+                          </Button>
+                        </div>
                       )}
-                    </Link>
-                    {isAdmin && (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <Button
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700 text-white h-7 px-3"
-                          onClick={() => handleApproveJob(j.id)}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="h-7 px-3"
-                          onClick={() => openRejectDialog(j)}
-                        >
-                          Reject
-                        </Button>
+                    </div>
+                    {isAdmin && noSheets && (
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-medium text-red-700 dark:text-red-300">
+                          ⚠ No job sheets assigned — select before approving
+                        </span>
+                        <Select value="" onValueChange={(v) => handleAttachSheetToPending(j.id, v)}>
+                          <SelectTrigger className="h-7 w-[260px] text-xs">
+                            <SelectValue placeholder="Attach a job sheet…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {sheetTemplates.map((t) => (
+                              <SelectItem key={t.id} value={t.id} className="text-xs">
+                                {t.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
+
               </div>
             </div>
           )}

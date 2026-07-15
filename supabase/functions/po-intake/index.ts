@@ -18,6 +18,8 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { inferJobScope } from "../_shared/inferJobScope.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -169,10 +171,24 @@ serve(async (req) => {
   const validDueDate =
     due_date && /^\d{4}-\d{2}-\d{2}$/.test(due_date) ? due_date : null;
 
+  // ---------- Infer scope from wording so pending job never lands empty ----
+  const inferred = inferJobScope({
+    description: job_description,
+    subject: email_subject,
+    body: email_body,
+  });
+
   const briefParts: string[] = [];
   if (email_subject) briefParts.push(`Subject: ${email_subject}`);
   if (sender_email) briefParts.push(`From: ${sender_email}`);
   if (email_body) briefParts.push(`\n${email_body}`);
+  if (inferred.reasons.length) {
+    briefParts.push("", "--- Auto-detected scope ---");
+    for (const r of inferred.reasons) briefParts.push(`• ${r}`);
+    if (inferred.templateNames.length) {
+      briefParts.push(`Templates pre-attached: ${inferred.templateNames.join(", ")}`);
+    }
+  }
   const brief = briefParts.join("\n").trim() || null;
 
   const jobInsert: Record<string, unknown> = {
@@ -181,7 +197,7 @@ serve(async (req) => {
     customer_id: customerId,
     address: (site_address || "").trim() || null,
     priority: validPriority,
-    category: "general",
+    category: inferred.categorySlug || "general",
     status: "pending_review",
     source: "email_po",
     brief,
@@ -189,6 +205,7 @@ serve(async (req) => {
     org_id: orgId,
   };
   if (po_number?.trim()) jobInsert.reference_number = po_number.trim();
+
 
   const attempt = async (payload: Record<string, unknown>) =>
     admin.from("jobs").insert(payload as any).select("id, reference_number").single();
@@ -204,11 +221,38 @@ serve(async (req) => {
     return json(500, { error: "Could not create job", detail: error?.message });
   }
 
+  // Pre-attach any inferred blank job sheets so the pending job is never empty.
+  if (inferred.templateNames.length) {
+    try {
+      const { data: matched } = await admin
+        .from("job_sheet_templates")
+        .select("name")
+        .eq("status", "published")
+        .in("name", inferred.templateNames);
+      const rows = (matched || []).map((t: any) => ({
+        job_id: job!.id,
+        document_type: "blank_job_sheet",
+        label: t.name,
+        source: "auto",
+        org_id: orgId,
+      }));
+      if (rows.length) {
+        const { error: docErr } = await admin.from("job_documents").insert(rows as any);
+        if (docErr) console.error("po-intake auto-attach failed", docErr);
+      }
+    } catch (e) {
+      console.error("po-intake auto-attach threw", e);
+    }
+  }
+
   console.log("po-intake created job", {
     job_id: job.id,
     reference_number: job.reference_number,
     matched_customer_id: customerId,
+    inferred_category: inferred.categorySlug,
+    inferred_templates: inferred.templateNames,
   });
+
 
   return json(200, {
     ok: true,
