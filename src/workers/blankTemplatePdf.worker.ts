@@ -13,6 +13,7 @@ import {
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
+import { isPaperFormTemplate, renderPaperFormPage } from "@/workers/paperFormRenderer";
 
 /**
  * Strip trailing template-workflow status suffixes (e.g. "— DRAFT, AWAITING
@@ -500,6 +501,41 @@ async function buildPdf(payload: WorkerPayload) {
   const commentsBoxBottom = sigY - 3;
   const CONTENT_BOTTOM = commentsBoxBottom - COMMENTS_MIN_H;
   const footerYForLogos = logoStripBottom;
+  // ── Paper-form fast path ─────────────────────────────────────────
+  // Riser / Hydrant / Sprinkler blank templates render with the
+  // long-standing Viva paper-form layout (dense two-column question/answer,
+  // full BS-referenced question text, dedicated ISSUES/RECOMMENDATION
+  // /PRIORITY block, dual signature strips, compliance sentence). This
+  // bypasses the generic renderer entirely so the field labels are
+  // preserved verbatim and the scan classifier stays locked on.
+  const usePaperForm = isPaperFormTemplate(cleanTemplateName);
+  if (usePaperForm) {
+    for (let sysIdx = 0; sysIdx < systemQty; sysIdx++) {
+      if (sysIdx > 0) doc.addPage();
+      renderPaperFormPage(doc, {
+        template: {
+          name: cleanTemplateName,
+          fields: template.fields,
+          branding: template.branding,
+        },
+        jobInfo,
+        logo: logoImage,
+        accreditationLogos: (accreditationLogos.filter(Boolean) as LoadedImage[]),
+        handfill,
+      });
+    }
+    // No watermark on paper-form sheets — the paper form has always been
+    // rendered on a clean background so nothing behind the writing lines
+    // can reduce legibility for the engineer or the scanner classifier.
+    const fileName = [
+      jobInfo?.reference_number || "blank",
+      template.name.replace(/\s+/g, "-").toLowerCase(),
+      customerName.replace(/\s+/g, "-").toLowerCase() || null,
+      systemQty > 1 ? `x${systemQty}` : null,
+      handfill ? "handfill" : null,
+    ].filter(Boolean).join("-") + ".pdf";
+    return { buffer: doc.output("arraybuffer") as ArrayBuffer, fileName };
+  }
 
   for (let sysIdx = 0; sysIdx < systemQty; sysIdx++) {
     if (sysIdx > 0) doc.addPage();
