@@ -512,6 +512,7 @@ async function buildPdf(payload: WorkerPayload) {
       riserLocation: riserLocValue,
       engineer: engineerList,
       systemLabel,
+      notes: (jobInfo?.printNotes || "").toString(),
     }, template.standard || sheetSubtitle, isDryRiser ? DRY_RISER_LAYOUT.header.brandBlueRgb : accentColor, {
       compact: false,
       marginX,
@@ -522,17 +523,53 @@ async function buildPdf(payload: WorkerPayload) {
     const skipIds = buildSkipIds(template.fields);
     const sections = getSections(template.fields);
     const colSplit = maxWidth * 0.68;
-    // Handwriting-friendly generous row heights. We now flow across
-    // multiple pages when needed rather than squashing rows to fit one.
+    const sectionHeaderH = 6;
+    const resultCellWidth = maxWidth - maxWidth * 0.68 - 4;
+
+    // Small, high-volume sheets should fit on a single page — engineers
+    // carry them in bulk. Larger inspection sheets (e.g. Sprinkler Annual
+    // BS EN 12845) flow to 2-3 pages with generous handwriting room.
+    const preferSinglePage = (() => {
+      const n = cleanTemplateName.toLowerCase();
+      if (/dry\s*riser\s*(pressure\s*test|visual)/.test(n)) return true;
+      if (/wet\s*riser\s*(pressure\s*test|visual)/.test(n)) return true;
+      if (/(fire\s*hydrant|hydrant)/.test(n)) return true;
+      // Smaller sprinkler sheets (weekly/monthly/quarterly/six-monthly).
+      if (/sprinkler/.test(n) && !/annual/.test(n)) return true;
+      return false;
+    })();
+
+    // Fixed generous row height by default; for compact templates search
+    // downwards from the generous baseline for the largest rowH that fits
+    // all field rows (including wrapped select-option growth) in the
+    // available content area — never below the minimum handwriting size.
+    const availableContentH = CONTENT_BOTTOM - y;
+    const computeFitRowH = (): number => {
+      const candidates = [8, 7.5, 7, 6.5, 6, 5.5, 5, 4.5, 4];
+      for (const r of candidates) {
+        let total = 0;
+        for (const sec of sections) {
+          const sf = getSectionFields(template.fields, sec, skipIds);
+          if (sf.length === 0) continue;
+          total += sectionHeaderH + 1;
+          for (const f of sf) {
+            const isScope = f.id === "scope_of_work" || f.label.toLowerCase().replace(/[:\s]+$/g, "").trim().includes("scope of work");
+            if (isDryRiser && isScope) continue;
+            total += estimateBlankFieldRowH(doc, f, r, resultCellWidth);
+          }
+        }
+        if (total <= availableContentH) return r;
+      }
+      return 4;
+    };
     const layout = {
-      rowH: 8,
-      sectionHeaderH: 6,
+      rowH: preferSinglePage ? computeFitRowH() : 8,
+      sectionHeaderH,
       totalFieldRows: 0,
       totalSectionHeaders: 0,
     };
-    // Retain the shared helper reference (types unchanged for callers that
-    // read the computed layout — not needed here).
     void computeSectionLayout;
+
 
     for (const section of sections) {
       const sectionFields = getSectionFields(template.fields, section, skipIds);
