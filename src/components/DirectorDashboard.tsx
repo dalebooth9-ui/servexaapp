@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Briefcase, PoundSterling, Users, AlertTriangle, ShieldCheck, Activity,
   ArrowRight, ArrowUp, ArrowDown, Clock, FileText, CheckCircle2, AlertCircle, CalendarDays,
+  BarChart2, ChevronDown,
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, Tooltip, XAxis } from "recharts";
 import { formatDistanceToNow, startOfWeek, addWeeks, format, startOfMonth, subMonths } from "date-fns";
