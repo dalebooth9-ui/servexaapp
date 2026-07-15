@@ -544,31 +544,48 @@ async function buildPdf(payload: WorkerPayload) {
     })();
 
     // Fixed generous row height by default; for compact templates search
-    // downwards from the generous baseline for the largest rowH that fits
-    // all field rows (including wrapped select-option growth) in the
-    // available content area — never below the minimum handwriting size.
+    // downwards from the generous baseline for the largest combination of
+    // (rowH, sectionHeaderH, inter-section gap) that fits all field rows
+    // (including wrapped select-option growth) in the available content
+    // area. Never below the minimum handwriting size.
     const availableContentH = CONTENT_BOTTOM - y;
-    const computeFitRowH = (): number => {
-      const candidates = [8, 7.5, 7, 6.5, 6, 5.5, 5, 4.5, 4];
-      for (const r of candidates) {
-        let total = 0;
-        for (const sec of sections) {
-          const sf = getSectionFields(template.fields, sec, skipIds);
-          if (sf.length === 0) continue;
-          total += sectionHeaderH + 1;
-          for (const f of sf) {
-            const isScope = f.id === "scope_of_work" || f.label.toLowerCase().replace(/[:\s]+$/g, "").trim().includes("scope of work");
-            if (isDryRiser && isScope) continue;
-            total += estimateBlankFieldRowH(doc, f, r, resultCellWidth);
+    type FitTuple = { rowH: number; secH: number; gap: number };
+    const computeFit = (): FitTuple => {
+      // Ordered largest → smallest so the first fit wins. Search over the
+      // three levers that visually affect page density.
+      const rowCandidates = [8, 7.5, 7, 6.5, 6, 5.5, 5, 4.5, 4];
+      const secCandidates = [6, 5.5, 5, 4.5, 4];
+      const gapCandidates = [1, 0.5, 0];
+      let best: FitTuple = { rowH: 4, secH: 4, gap: 0 };
+      for (const r of rowCandidates) {
+        for (const s of secCandidates) {
+          for (const g of gapCandidates) {
+            let total = 0;
+            for (const sec of sections) {
+              const sf = getSectionFields(template.fields, sec, skipIds);
+              if (sf.length === 0) continue;
+              total += s + g;
+              for (const f of sf) {
+                const isScope = f.id === "scope_of_work" || f.label.toLowerCase().replace(/[:\s]+$/g, "").trim().includes("scope of work");
+                if (isDryRiser && isScope) continue;
+                total += estimateBlankFieldRowH(doc, f, r, resultCellWidth);
+              }
+            }
+            if (total <= availableContentH) {
+              // First combination (largest values in each dim) that fits.
+              return { rowH: r, secH: s, gap: g };
+            }
+            best = { rowH: r, secH: s, gap: g };
           }
         }
-        if (total <= availableContentH) return r;
       }
-      return 4;
+      return best;
     };
+    const fit = preferSinglePage ? computeFit() : { rowH: 8, secH: sectionHeaderH, gap: 1 };
     const layout = {
-      rowH: preferSinglePage ? computeFitRowH() : 8,
-      sectionHeaderH,
+      rowH: fit.rowH,
+      sectionHeaderH: fit.secH,
+      interSectionGap: fit.gap,
       totalFieldRows: 0,
       totalSectionHeaders: 0,
     };
