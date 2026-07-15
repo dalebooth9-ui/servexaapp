@@ -72,6 +72,14 @@ serve(async (req) => {
     const branding = await getEmailBranding(orgId, supabaseAdmin);
     const identity = getSendIdentity(branding);
 
+    // Resolve caller's full name for the sign-off line ("Kind regards, {Name}").
+    let senderName: string | null = null;
+    try {
+      const { data: prof } = await supabaseAdmin
+        .from("profiles").select("full_name").eq("user_id", caller.id).maybeSingle();
+      senderName = (prof as any)?.full_name || null;
+    } catch { /* ignore, falls back to company name */ }
+
     // Mark invoice as sent if applicable
     if (emailType === "invoice" && invoiceId) {
       await supabaseAdmin
@@ -84,6 +92,7 @@ serve(async (req) => {
     const html = wrapCustomerEmail(branding, {
       previewText: subject,
       bodyHtml: `${greeting}${htmlBody || ""}`,
+      senderName,
     });
 
     const resendAttachments = Array.isArray(attachments)

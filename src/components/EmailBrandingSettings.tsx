@@ -19,11 +19,14 @@ interface BrandingRow {
   logo_url: string | null;
   brand_color: string;
   company_name: string;
+  strapline: string | null;
   phone: string | null;
   website: string | null;
   address: string | null;
   signature_html: string | null;
   footer_note: string | null;
+  accreditation_logo_urls: string[];
+  sign_off_text: string;
 }
 
 const DEFAULTS: BrandingRow = {
@@ -33,12 +36,15 @@ const DEFAULTS: BrandingRow = {
   logo_url: null,
   brand_color: "#1e40af",
   company_name: "Viva Fire Protection Ltd",
-  phone: null,
+  strapline: "Wet & Dry Riser Specialists",
+  phone: "0845 269 8482",
   website: "https://www.vivafire.co.uk",
-  address: null,
+  address: "Unit 1 Lady Road, St Johns Industrial Estate, Lees, Oldham, OL4 3DZ",
   signature_html: null,
   footer_note:
     "This is an automated email from Viva Fire Protection. Reply to this message to contact us directly.",
+  accreditation_logo_urls: [],
+  sign_off_text: "Kind regards,",
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -51,33 +57,74 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
-function buildPreviewHtml(b: BrandingRow): string {
+function renderSignatureHtml(b: BrandingRow, senderName: string): string {
   const brand = b.brand_color || "#1e40af";
-  const logo = b.logo_url
+  const phoneClean = (b.phone || "").replace(/\s+/g, "");
+  const websiteHref = b.website
+    ? (/^https?:\/\//i.test(b.website) ? b.website : `https://${b.website}`)
+    : "";
+  const websiteLabel = b.website ? b.website.replace(/^https?:\/\//i, "").replace(/\/$/, "") : "";
+  const signOff = (b.sign_off_text && b.sign_off_text.trim()) || "Kind regards,";
+
+  const signOffBlock = `
+    <p style="margin:0 0 14px;color:#111827;font-size:14px;line-height:1.5;">
+      ${escapeHtml(signOff)}<br/>
+      <strong>${escapeHtml(senderName)}</strong>
+    </p>`;
+
+  const divider = `<div style="height:3px;background:${brand};margin:0 0 14px;line-height:3px;font-size:0;">&nbsp;</div>`;
+
+  const logoRow = b.logo_url
+    ? `<img src="${b.logo_url}" alt="${escapeHtml(b.company_name)}" width="180" style="max-height:60px;max-width:180px;display:block;border:0;outline:none;margin:0 0 6px;" />`
+    : `<p style="margin:0 0 4px;font-weight:700;color:#111827;font-size:16px;">${escapeHtml(b.company_name)}</p>`;
+
+  const strapline = b.strapline
+    ? `<p style="margin:0 0 10px;color:${brand};font-size:12px;font-weight:600;letter-spacing:0.3px;text-transform:uppercase;">${escapeHtml(b.strapline)}</p>`
+    : "";
+
+  const rows: string[] = [];
+  if (b.phone) rows.push(`<tr><td style="padding:1px 0;font-size:12px;color:#374151;">Tel: <a href="tel:${phoneClean}" style="color:${brand};text-decoration:none;">${escapeHtml(b.phone)}</a></td></tr>`);
+  if (b.from_address) rows.push(`<tr><td style="padding:1px 0;font-size:12px;color:#374151;">Email: <a href="mailto:${b.from_address}" style="color:${brand};text-decoration:none;">${escapeHtml(b.from_address)}</a></td></tr>`);
+  if (b.website) rows.push(`<tr><td style="padding:1px 0;font-size:12px;color:#374151;">Web: <a href="${websiteHref}" style="color:${brand};text-decoration:none;">${escapeHtml(websiteLabel)}</a></td></tr>`);
+  const contact = rows.length ? `<table cellpadding="0" cellspacing="0" style="margin:0 0 8px;">${rows.join("")}</table>` : "";
+
+  const address = b.address
+    ? `<p style="margin:0 0 10px;font-size:12px;color:#6b7280;line-height:1.5;">${escapeHtml(b.address)}</p>`
+    : "";
+
+  const accreditations = b.accreditation_logo_urls.length
+    ? `<table cellpadding="0" cellspacing="0" style="margin:10px 0 0;"><tr>${b.accreditation_logo_urls
+        .filter(Boolean)
+        .map((url) => `<td style="padding:0 8px 0 0;vertical-align:middle;"><img src="${url}" alt="Accreditation" height="34" style="height:34px;width:auto;max-height:34px;display:block;border:0;outline:none;" /></td>`)
+        .join("")}</tr></table>`
+    : "";
+
+  const body = (b.signature_html && b.signature_html.trim().length > 0)
+    ? b.signature_html
+    : `${logoRow}${strapline}${contact}${address}${accreditations}`;
+
+  return `${signOffBlock}${divider}${body}`;
+}
+
+function buildPreviewHtml(b: BrandingRow, senderName: string): string {
+  const brand = b.brand_color || "#1e40af";
+  const headerLogo = b.logo_url
     ? `<img src="${b.logo_url}" alt="${escapeHtml(b.company_name)}" style="max-height:56px;max-width:220px;display:block;border:0;outline:none;" />`
     : `<h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:700;letter-spacing:0.2px;">${escapeHtml(b.company_name)}</h1>`;
-  const phoneClean = (b.phone || "").replace(/\s+/g, "");
-  const sig = (b.signature_html && b.signature_html.trim().length > 0)
-    ? b.signature_html
-    : `
-      <p style="margin:0 0 4px;font-weight:600;color:#111827;font-size:14px;">${escapeHtml(b.company_name)}</p>
-      ${b.phone ? `<p style="margin:0;font-size:13px;color:#374151;">Tel: <a href="tel:${phoneClean}" style="color:${brand};text-decoration:none;">${escapeHtml(b.phone)}</a></p>` : ""}
-      ${b.website ? `<p style="margin:0;font-size:13px;color:#374151;">Web: <a href="${b.website}" style="color:${brand};text-decoration:none;">${escapeHtml(b.website.replace(/^https?:\/\//, ""))}</a></p>` : ""}
-      ${b.address ? `<p style="margin:6px 0 0;font-size:12px;color:#6b7280;line-height:1.5;">${escapeHtml(b.address)}</p>` : ""}
-    `;
+
+  const sig = renderSignatureHtml(b, senderName);
 
   const sampleBody = `
     <p>Hi,</p>
     <p>We've booked in a new job for you: <strong>VFP-01234</strong> — 6-month sprinkler visual inspection.</p>
     <p><strong>Location:</strong> 1 Example Way, Sheffield S1 1AA</p>
     <p>We'll keep you updated as it progresses. If you need to reach us about it, just reply to this email.</p>
-    <p>Kind regards,<br/>${escapeHtml(b.company_name)}</p>
   `;
 
   return `
     <div style="background:#f4f6f9;padding:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#1f2937;">
       <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);border:1px solid #e5e7eb;">
-        <div style="background:${brand};padding:20px 28px;">${logo}</div>
+        <div style="background:${brand};padding:20px 28px;">${headerLogo}</div>
         <div style="padding:28px;font-size:15px;line-height:1.6;">${sampleBody}</div>
         <div style="padding:20px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;">${sig}</div>
         ${b.footer_note ? `<div style="padding:14px 28px;background:#f9fafb;border-top:1px solid #eef1f4;font-size:11px;color:#9ca3af;text-align:center;line-height:1.5;">${escapeHtml(b.footer_note)}</div>` : ""}
@@ -115,7 +162,11 @@ export default function EmailBrandingSettings() {
     if (user?.email && !testEmail) setTestEmail(user.email);
   }, [user?.email]);
 
-  const previewHtml = useMemo(() => buildPreviewHtml(row), [row]);
+  const previewSenderName = (user as any)?.user_metadata?.full_name || user?.email || row.company_name;
+  const previewHtml = useMemo(
+    () => buildPreviewHtml(row, previewSenderName),
+    [row, previewSenderName],
+  );
 
   const update = <K extends keyof BrandingRow>(k: K, v: BrandingRow[K]) =>
     setRow((prev) => ({ ...prev, [k]: v }));
@@ -141,11 +192,14 @@ export default function EmailBrandingSettings() {
       logo_url: row.logo_url,
       brand_color: row.brand_color.trim(),
       company_name: row.company_name.trim(),
+      strapline: row.strapline,
       phone: row.phone,
       website: row.website,
       address: row.address,
       signature_html: row.signature_html,
       footer_note: row.footer_note,
+      accreditation_logo_urls: row.accreditation_logo_urls || [],
+      sign_off_text: row.sign_off_text || "Kind regards,",
     };
     const { error } = row.id
       ? await supabase.from("email_branding").update(payload).eq("id", row.id)
@@ -179,6 +233,37 @@ export default function EmailBrandingSettings() {
     } finally {
       setUploadingLogo(false);
     }
+  };
+
+  const onAccreditationUpload = async (files: FileList | null) => {
+    if (!files || !files.length) return;
+    setUploadingLogo(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of Array.from(files)) {
+        if (file.size > 2 * 1024 * 1024) { toast.error(`${file.name} is over 2MB`); continue; }
+        const ext = file.name.split(".").pop() || "png";
+        const path = `email-branding/accreditations/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("customer-logos")
+          .upload(path, file, { upsert: true, contentType: file.type });
+        if (upErr) { toast.error(`${file.name}: ${upErr.message}`); continue; }
+        const { data } = supabase.storage.from("customer-logos").getPublicUrl(path);
+        uploaded.push(data.publicUrl);
+      }
+      if (uploaded.length) {
+        update("accreditation_logo_urls", [...(row.accreditation_logo_urls || []), ...uploaded]);
+        toast.success(`${uploaded.length} accreditation logo(s) uploaded — remember to Save`);
+      }
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const removeAccreditation = (idx: number) => {
+    const next = [...(row.accreditation_logo_urls || [])];
+    next.splice(idx, 1);
+    update("accreditation_logo_urls", next);
   };
 
   const sendPreview = async () => {
@@ -270,6 +355,11 @@ export default function EmailBrandingSettings() {
               </div>
             </div>
           </div>
+          <div className="space-y-1">
+            <Label>Strapline</Label>
+            <Input value={row.strapline ?? ""} onChange={(e) => update("strapline", e.target.value || null)} placeholder="Wet & Dry Riser Specialists" />
+            <p className="text-[11px] text-muted-foreground">Short tagline shown under the logo in the signature.</p>
+          </div>
           <div className="space-y-2">
             <Label>Logo</Label>
             <div className="flex items-center gap-3">
@@ -321,9 +411,46 @@ export default function EmailBrandingSettings() {
               <Textarea rows={4} value={row.signature_html ?? ""} onChange={(e) => update("signature_html", e.target.value || null)} placeholder="<p>Custom HTML signature…</p>" />
             </div>
             <div className="space-y-1 sm:col-span-2">
+              <Label>Sign-off text</Label>
+              <Input value={row.sign_off_text ?? ""} onChange={(e) => update("sign_off_text", e.target.value)} placeholder="Kind regards," />
+              <p className="text-[11px] text-muted-foreground">Appears above the signature. The sender's full name is added automatically (falls back to company name for system emails).</p>
+            </div>
+            <div className="space-y-1 sm:col-span-2">
               <Label>Footer note</Label>
               <Input value={row.footer_note ?? ""} onChange={(e) => update("footer_note", e.target.value || null)} />
             </div>
+          </div>
+        </section>
+
+        <Separator />
+
+        {/* Accreditations */}
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold">Accreditation logos</h3>
+          <p className="text-[11px] text-muted-foreground">Displayed in a row at the bottom of the signature (Constructionline, SSIP, SMAS Worksafe, FIRAS, ISO 9001, BAFE, etc.). Upload transparent PNGs at roughly the same height for best results.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {(row.accreditation_logo_urls || []).map((url, idx) => (
+              <div key={url + idx} className="relative rounded border bg-white p-1">
+                <img src={url} alt="Accreditation" className="h-10 w-auto" />
+                <button
+                  type="button"
+                  onClick={() => removeAccreditation(idx)}
+                  className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-[10px] leading-none flex items-center justify-center"
+                  aria-label="Remove accreditation"
+                >×</button>
+              </div>
+            ))}
+            <input
+              id="accreditation-upload"
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => { onAccreditationUpload(e.target.files); e.target.value = ""; }}
+            />
+            <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById("accreditation-upload")?.click()} disabled={uploadingLogo}>
+              {uploadingLogo ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Uploading…</> : "Upload accreditation logo(s)"}
+            </Button>
           </div>
         </section>
 

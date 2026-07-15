@@ -13,11 +13,14 @@ export interface EmailBranding {
   logo_url: string | null;
   brand_color: string;
   company_name: string;
+  strapline: string | null;
   phone: string | null;
   website: string | null;
   address: string | null;
   signature_html: string | null;
   footer_note: string | null;
+  accreditation_logo_urls: string[];
+  sign_off_text: string;
 }
 
 const VIVA_ORG_ID = "11111111-1111-1111-1111-111111111111";
@@ -30,10 +33,13 @@ const DEFAULT_BRANDING: EmailBranding = {
   logo_url: null,
   brand_color: "#1e40af",
   company_name: "Viva Fire Protection Ltd",
-  phone: null,
+  strapline: "Wet & Dry Riser Specialists",
+  phone: "0845 269 8482",
   website: "https://www.vivafire.co.uk",
-  address: null,
+  address: "Unit 1 Lady Road, St Johns Industrial Estate, Lees, Oldham, OL4 3DZ",
   signature_html: null,
+  accreditation_logo_urls: [],
+  sign_off_text: "Kind regards,",
   footer_note:
     "This is an automated email from Viva Fire Protection. Reply to this message to contact us directly.",
 };
@@ -82,25 +88,81 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
-export function wrapCustomerEmail(
+export function renderEmailSignature(
   b: EmailBranding,
-  opts: { previewText?: string; bodyHtml: string },
+  opts: { senderName?: string | null } = {},
 ): string {
   const brand = b.brand_color || "#1e40af";
-  const logo = b.logo_url
+  const phoneClean = (b.phone || "").replace(/\s+/g, "");
+  const websiteHref = b.website
+    ? (/^https?:\/\//i.test(b.website) ? b.website : `https://${b.website}`)
+    : "";
+  const websiteLabel = b.website ? b.website.replace(/^https?:\/\//i, "").replace(/\/$/, "") : "";
+  const signOffName = (opts.senderName && opts.senderName.trim()) || b.company_name;
+  const signOff = (b.sign_off_text && b.sign_off_text.trim()) || "Kind regards,";
+
+  // Sign-off line rendered at start of signature so every customer-facing email
+  // closes consistently — matches how a real office email would sign off.
+  const signOffBlock = `
+    <p style="margin:0 0 14px;color:#111827;font-size:14px;line-height:1.5;">
+      ${escapeHtml(signOff)}<br/>
+      <strong>${escapeHtml(signOffName)}</strong>
+    </p>`;
+
+  // Brand-colour divider bar
+  const divider = `<div style="height:3px;background:${brand};margin:0 0 14px;line-height:3px;font-size:0;">&nbsp;</div>`;
+
+  const logoRow = b.logo_url
+    ? `<img src="${b.logo_url}" alt="${escapeHtml(b.company_name)}" width="180" style="max-height:60px;max-width:180px;display:block;border:0;outline:none;margin:0 0 6px;" />`
+    : `<p style="margin:0 0 4px;font-weight:700;color:#111827;font-size:16px;">${escapeHtml(b.company_name)}</p>`;
+
+  const strapline = b.strapline
+    ? `<p style="margin:0 0 10px;color:${brand};font-size:12px;font-weight:600;letter-spacing:0.3px;text-transform:uppercase;">${escapeHtml(b.strapline)}</p>`
+    : "";
+
+  const contactRows: string[] = [];
+  if (b.phone) contactRows.push(`<tr><td style="padding:1px 0;font-size:12px;color:#374151;">Tel: <a href="tel:${phoneClean}" style="color:${brand};text-decoration:none;">${escapeHtml(b.phone)}</a></td></tr>`);
+  if (b.from_address) contactRows.push(`<tr><td style="padding:1px 0;font-size:12px;color:#374151;">Email: <a href="mailto:${b.from_address}" style="color:${brand};text-decoration:none;">${escapeHtml(b.from_address)}</a></td></tr>`);
+  if (b.website) contactRows.push(`<tr><td style="padding:1px 0;font-size:12px;color:#374151;">Web: <a href="${websiteHref}" style="color:${brand};text-decoration:none;">${escapeHtml(websiteLabel)}</a></td></tr>`);
+  const contactBlock = contactRows.length
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">${contactRows.join("")}</table>`
+    : "";
+
+  const addressBlock = b.address
+    ? `<p style="margin:0 0 10px;font-size:12px;color:#6b7280;line-height:1.5;">${escapeHtml(b.address)}</p>`
+    : "";
+
+  const accreditations = Array.isArray(b.accreditation_logo_urls) && b.accreditation_logo_urls.length
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:10px 0 0;"><tr>${
+        b.accreditation_logo_urls
+          .filter((u) => typeof u === "string" && u.trim().length)
+          .map(
+            (url) =>
+              `<td style="padding:0 8px 0 0;vertical-align:middle;"><img src="${url}" alt="Accreditation" height="34" style="height:34px;width:auto;max-height:34px;display:block;border:0;outline:none;" /></td>`,
+          )
+          .join("")
+      }</tr></table>`
+    : "";
+
+  // Custom signature HTML fully overrides the structured block, but sign-off
+  // + divider still lead so behaviour matches a real office email signature.
+  const body = (b.signature_html && b.signature_html.trim().length > 0)
+    ? b.signature_html
+    : `${logoRow}${strapline}${contactBlock}${addressBlock}${accreditations}`;
+
+  return `${signOffBlock}${divider}${body}`;
+}
+
+export function wrapCustomerEmail(
+  b: EmailBranding,
+  opts: { previewText?: string; bodyHtml: string; senderName?: string | null },
+): string {
+  const brand = b.brand_color || "#1e40af";
+  const headerLogo = b.logo_url
     ? `<img src="${b.logo_url}" alt="${escapeHtml(b.company_name)}" style="max-height:56px;max-width:220px;display:block;border:0;outline:none;" />`
     : `<h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:700;letter-spacing:0.2px;">${escapeHtml(b.company_name)}</h1>`;
 
-  const phoneClean = (b.phone || "").replace(/\s+/g, "");
-  const sig = (b.signature_html && b.signature_html.trim().length > 0)
-    ? b.signature_html
-    : `
-      <p style="margin:0 0 4px;font-weight:600;color:#111827;font-size:14px;">${escapeHtml(b.company_name)}</p>
-      ${b.phone ? `<p style="margin:0;font-size:13px;color:#374151;">Tel: <a href="tel:${phoneClean}" style="color:${brand};text-decoration:none;">${escapeHtml(b.phone)}</a></p>` : ""}
-      ${b.website ? `<p style="margin:0;font-size:13px;color:#374151;">Web: <a href="${b.website}" style="color:${brand};text-decoration:none;">${escapeHtml(b.website.replace(/^https?:\/\//, ""))}</a></p>` : ""}
-      ${b.address ? `<p style="margin:6px 0 0;font-size:12px;color:#6b7280;line-height:1.5;">${escapeHtml(b.address)}</p>` : ""}
-    `;
-
+  const sig = renderEmailSignature(b, { senderName: opts.senderName });
   const preview = opts.previewText ? escapeHtml(opts.previewText) : "";
 
   return `<!doctype html>
@@ -111,7 +173,7 @@ export function wrapCustomerEmail(
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:24px 12px;">
       <tr><td align="center">
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);border:1px solid #e5e7eb;">
-          <tr><td style="background:${brand};padding:20px 28px;">${logo}</td></tr>
+          <tr><td style="background:${brand};padding:20px 28px;">${headerLogo}</td></tr>
           <tr><td style="padding:28px;color:#1f2937;font-size:15px;line-height:1.6;">${opts.bodyHtml}</td></tr>
           <tr><td style="padding:20px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;">${sig}</td></tr>
           ${b.footer_note ? `<tr><td style="padding:14px 28px;background:#f9fafb;border-top:1px solid #eef1f4;font-size:11px;color:#9ca3af;text-align:center;line-height:1.5;">${escapeHtml(b.footer_note)}</td></tr>` : ""}

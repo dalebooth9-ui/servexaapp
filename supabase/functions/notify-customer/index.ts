@@ -80,7 +80,7 @@ serve(async (req) => {
           <p>We've booked in a new job for you: <strong>${job.reference_number}</strong> — ${job.name}.</p>
           ${job.address ? `<p><strong>Location:</strong> ${job.address}</p>` : ""}
           <p>We'll keep you updated as it progresses. If you need to reach us about it, just reply to this email.</p>
-          <p>Kind regards,<br/>Viva Fire Protection</p>`,
+          `,
       },
       engineer_dispatched: {
         subject: `Engineer dispatched — ${job.reference_number}`,
@@ -89,7 +89,7 @@ serve(async (req) => {
           <p>An engineer has been dispatched for job <strong>${job.reference_number}</strong> — ${job.name}.</p>
           ${job.address ? `<p><strong>Location:</strong> ${job.address}</p>` : ""}
           <p>We'll notify you once the work is completed.</p>
-          <p>Kind regards,<br/>Viva Fire Protection</p>`,
+          `,
       },
       job_completed: {
         subject: `Job completed — ${job.reference_number}`,
@@ -98,7 +98,7 @@ serve(async (req) => {
           <p>We're pleased to confirm that job <strong>${job.reference_number}</strong> — ${job.name} has been completed.</p>
           ${job.address ? `<p><strong>Location:</strong> ${job.address}</p>` : ""}
           <p>Any questions, just reply to this email or give us a call.</p>
-          <p>Kind regards,<br/>Viva Fire Protection</p>`,
+          `,
       },
       certificate_issued: {
         subject: `Certificate issued — ${job.reference_number}`,
@@ -106,7 +106,7 @@ serve(async (req) => {
         body: `<p>Hi,</p>
           <p>A compliance certificate has been issued for job <strong>${job.reference_number}</strong> — ${job.name}.</p>
           <p>Please contact us if you require a copy of the documentation.</p>
-          <p>Kind regards,<br/>Viva Fire Protection</p>`,
+          `,
       },
     };
 
