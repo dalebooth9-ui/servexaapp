@@ -38,11 +38,13 @@ type Props = {
   isRemedial: boolean;
   isAdmin: boolean;
   isAssignedEngineer: boolean;
+  /** When true, always render on admin view (used by the "Add works checklist" action on non-remedial jobs). */
+  forceShow?: boolean;
   onItemsChanged?: () => void;
 };
 
 export default function JobRemedialChecklist({
-  jobId, jobOrgId, isRemedial, isAdmin, isAssignedEngineer, onItemsChanged,
+  jobId, jobOrgId, isRemedial, isAdmin, isAssignedEngineer, forceShow, onItemsChanged,
 }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
