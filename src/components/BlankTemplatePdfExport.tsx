@@ -70,6 +70,8 @@ type JobInfo = {
   other_qty?: number;
   other_service_type?: string | null;
   due_date?: string | null;
+  /** Free-text note printed in the header; edit-before-print only. */
+  printNotes?: string | null;
   site?: {
     name: string;
     address: string | null;
@@ -80,6 +82,7 @@ type JobInfo = {
     riser_location?: string | null;
   } | null;
 };
+
 
 interface Props {
   template: Template;

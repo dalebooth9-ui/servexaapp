@@ -10,12 +10,15 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Loader2, Printer, Download, Eye, FileText } from "lucide-react";
 import BlankTemplatePdfExport, {
   type BlankTemplatePdfExportHandle,
 } from "@/components/BlankTemplatePdfExport";
 import { useToast } from "@/hooks/use-toast";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
+
 
 type Props = {
   jobId: string | null;
@@ -58,6 +61,31 @@ function defaultCopies(templateName: string, job: any): number {
   return 1;
 }
 
+/** Header fields the user can edit before printing. Applies to printout only. */
+type PrintOverrides = {
+  customerName: string;
+  siteName: string;
+  siteAddress: string;
+  sitePostcode: string;
+  riserLocation: string;
+  refNumber: string;
+  dueDate: string; // ISO yyyy-mm-dd
+  engineers: string; // comma-separated
+  notes: string;
+};
+
+const EMPTY_OVERRIDES: PrintOverrides = {
+  customerName: "",
+  siteName: "",
+  siteAddress: "",
+  sitePostcode: "",
+  riserLocation: "",
+  refNumber: "",
+  dueDate: "",
+  engineers: "",
+  notes: "",
+};
+
 export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Props) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -65,6 +93,7 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
   const [copies, setCopies] = useState<Record<string, number>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [printingAll, setPrintingAll] = useState(false);
+  const [overrides, setOverrides] = useState<PrintOverrides>(EMPTY_OVERRIDES);
 
   const refs = useRef<Record<string, BlankTemplatePdfExportHandle | null>>({});
 
@@ -97,9 +126,6 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
           .map((p) => p.full_name)
           .filter(Boolean);
 
-        // Templates to offer — same resolution logic as post-create prefill,
-        // but include the job's own category plus pressure_test / visual
-        // whenever a matching quantity is set.
         const categories = new Set<string>();
         if (job.category) categories.add(job.category);
         if ((job.pressure_test_qty || 0) > 0) categories.add("pressure_test");
@@ -116,19 +142,33 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
           fields: typeof t.fields === "string" ? JSON.parse(t.fields) : (t.fields || []),
         }));
 
-        // Sensible per-template default copies.
         const defaults: Record<string, number> = {};
         for (const t of templates) defaults[t.id] = defaultCopies(t.name, job);
 
         if (cancelled) return;
+        const jobAny = job as any;
+        const site = jobAny.sites || null;
+        const customer = jobAny.customers || null;
         setBundle({
           job,
-          site: (job as any).sites || null,
-          customer: (job as any).customers || null,
+          site,
+          customer,
           engineers: engineerNames,
           templates,
         });
         setCopies(defaults);
+        // Prefill overrides from the job — user can tweak before printing.
+        setOverrides({
+          customerName: (customer?.name || jobAny.customer || "").toString(),
+          siteName: (site?.name || "").toString(),
+          siteAddress: (site?.address || jobAny.address || "").toString(),
+          sitePostcode: (site?.postcode || "").toString(),
+          riserLocation: (site?.riser_location || "").toString(),
+          refNumber: (jobAny.reference_number || "").toString(),
+          dueDate: (jobAny.due_date ? String(jobAny.due_date).slice(0, 10) : ""),
+          engineers: engineerNames.join(", "),
+          notes: "",
+        });
       } catch (err: any) {
         toast({
           title: "Couldn't load site sheets",
@@ -145,14 +185,22 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
     };
   }, [open, jobId, onOpenChange, toast]);
 
+  // Effective jobInfo used for PDF generation — merges the user's
+  // edit-before-print overrides on top of the loaded job. Never persisted.
   const jobInfo = useMemo(() => {
     if (!bundle) return null;
-    const { job, site, customer, engineers } = bundle;
+    const { job, customer } = bundle;
+    const engineersList = overrides.engineers
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
     return {
-      address: job.address || site?.address || null,
-      customer: customer?.name || job.customer || null,
-      customers: customer ? { name: customer.name, logo_url: customer.logo_url || null } : null,
-      reference_number: job.reference_number || "",
+      address: overrides.siteAddress || null,
+      customer: overrides.customerName || null,
+      customers: customer
+        ? { name: overrides.customerName || customer.name, logo_url: customer.logo_url || null }
+        : (overrides.customerName ? { name: overrides.customerName, logo_url: null } : null),
+      reference_number: overrides.refNumber,
       category: job.category || null,
       name: job.name || null,
       priority: job.priority || null,
@@ -160,21 +208,23 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
       pressure_test_qty: job.pressure_test_qty || 0,
       other_qty: job.other_qty || 0,
       other_service_type: job.other_service_type || null,
-      due_date: job.due_date || null,
-      engineers,
-      site: site
+      due_date: overrides.dueDate || null,
+      engineers: engineersList,
+      printNotes: overrides.notes || null,
+      site: (overrides.siteName || overrides.siteAddress || overrides.riserLocation || overrides.sitePostcode)
         ? {
-            name: site.name,
-            address: site.address,
-            postcode: site.postcode,
+            name: overrides.siteName,
+            address: overrides.siteAddress,
+            postcode: overrides.sitePostcode,
             contact_name: null,
             contact_phone: null,
             contact_email: null,
-            riser_location: (site as any).riser_location || null,
+            riser_location: overrides.riserLocation || null,
           }
         : null,
     };
-  }, [bundle]);
+  }, [bundle, overrides]);
+
 
   const runOne = async (
     templateId: string,
@@ -237,8 +287,100 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
             No published job-sheet templates match this job's category.
           </div>
         ) : (
-          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+            {/* Edit-before-print — printout-only overrides, never saved back. */}
+            <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-sm font-semibold">Sheet details</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Edits apply to the printout only — they do not update the job record.
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Customer</Label>
+                  <Input
+                    value={overrides.customerName}
+                    onChange={(e) => setOverrides((p) => ({ ...p, customerName: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">PO / Reference</Label>
+                  <Input
+                    value={overrides.refNumber}
+                    onChange={(e) => setOverrides((p) => ({ ...p, refNumber: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Site name</Label>
+                  <Input
+                    value={overrides.siteName}
+                    onChange={(e) => setOverrides((p) => ({ ...p, siteName: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Site postcode</Label>
+                  <Input
+                    value={overrides.sitePostcode}
+                    onChange={(e) => setOverrides((p) => ({ ...p, sitePostcode: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="sm:col-span-2 space-y-1">
+                  <Label className="text-xs">Site address</Label>
+                  <Input
+                    value={overrides.siteAddress}
+                    onChange={(e) => setOverrides((p) => ({ ...p, siteAddress: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Riser / equipment location</Label>
+                  <Input
+                    value={overrides.riserLocation}
+                    onChange={(e) => setOverrides((p) => ({ ...p, riserLocation: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Scheduled date</Label>
+                  <Input
+                    type="date"
+                    value={overrides.dueDate}
+                    onChange={(e) => setOverrides((p) => ({ ...p, dueDate: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="sm:col-span-2 space-y-1">
+                  <Label className="text-xs">Engineer(s) — comma separated</Label>
+                  <Input
+                    value={overrides.engineers}
+                    onChange={(e) => setOverrides((p) => ({ ...p, engineers: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="sm:col-span-2 space-y-1">
+                  <Label className="text-xs">Notes for engineer (access, parking, keys, contact…)</Label>
+                  <Textarea
+                    value={overrides.notes}
+                    onChange={(e) => setOverrides((p) => ({ ...p, notes: e.target.value }))}
+                    rows={2}
+                    className="text-sm resize-none"
+                    placeholder="e.g. Ring buzzer 3B on arrival — park in visitor bay 12. Keys with concierge."
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-sm font-semibold">Sheets to print</div>
             {bundle.templates.map((t) => {
+
               const { title } = resolveTemplateDisplayTitle(t.name, {
                 brandingSubtitle: t.branding?.company_subtitle ?? null,
               });
@@ -324,8 +466,10 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
                 </div>
               );
             })}
+            </div>
           </div>
         )}
+
 
         <DialogFooter className="gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
