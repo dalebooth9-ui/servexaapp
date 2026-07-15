@@ -643,6 +643,20 @@ export default function Jobs() {
     const dt = e.dataTransfer;
     let file: File | null = null;
 
+    const readString = (type: string): Promise<string | null> =>
+      new Promise((resolve) => {
+        if (dt.items) {
+          for (let i = 0; i < dt.items.length; i++) {
+            const it = dt.items[i];
+            if (it.kind === "string" && it.type === type) {
+              it.getAsString((s) => resolve(s));
+              return;
+            }
+          }
+        }
+        try { resolve(dt.getData(type) || null); } catch { resolve(null); }
+      });
+
     // 1) Standard files array (works for Explorer / Finder drags)
     if (dt.files && dt.files.length > 0) {
       file = dt.files[0];
@@ -661,19 +675,6 @@ export default function Jobs() {
 
     // 3) URI-list / HTML payload — try to fetch the referenced file
     if (!file) {
-      const readString = (type: string): Promise<string | null> =>
-        new Promise((resolve) => {
-          if (!dt.items) return resolve(null);
-          for (let i = 0; i < dt.items.length; i++) {
-            const it = dt.items[i];
-            if (it.kind === "string" && it.type === type) {
-              it.getAsString((s) => resolve(s));
-              return;
-            }
-          }
-          try { resolve(dt.getData(type) || null); } catch { resolve(null); }
-        });
-
       const uriList = (await readString("text/uri-list")) || (await readString("text/plain")) || "";
       const htmlPayload = await readString("text/html");
       const candidates: string[] = [];
@@ -700,13 +701,37 @@ export default function Jobs() {
     }
 
     if (!file) {
+      // TEMP diagnostics — collect what New Outlook / Chromium actually exposed
+      const itemsSummary: Array<{ kind: string; type: string; preview?: string }> = [];
+      const itemCount = dt.items?.length ?? 0;
+      for (let i = 0; i < itemCount; i++) {
+        const it = dt.items![i];
+        const entry: { kind: string; type: string; preview?: string } = { kind: it.kind, type: it.type };
+        if (it.kind === "string") {
+          try {
+            const s = await readString(it.type);
+            entry.preview = (s || "").slice(0, 120);
+          } catch { /* ignore */ }
+        }
+        itemsSummary.push(entry);
+      }
+      const typesArr = Array.from(dt.types || []);
+      const dump = {
+        filesLength: dt.files?.length ?? 0,
+        types: typesArr,
+        items: itemsSummary,
+      };
+      // eslint-disable-next-line no-console
+      console.log("[PO-DROP-DEBUG]", dump);
+      const short = JSON.stringify(dump);
       toast({
-        title: "No file detected",
-        description: "Could not read the dragged attachment. In Outlook, try saving the attachment to your desktop first, then drop it here.",
+        title: "No file detected (debug)",
+        description: `types=[${typesArr.join(",")}] files=${dt.files?.length ?? 0} items=${itemCount} :: ${short}`.slice(0, 300),
         variant: "destructive",
       });
       return;
     }
+
 
     const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
     if (![".pdf", ".doc", ".docx"].includes(ext)) {
