@@ -55,9 +55,13 @@ function drawWrappedTitle(
     doc.setFontSize(size);
     const lines = (doc.splitTextToSize(text, maxWidth) as string[]).filter(Boolean);
     if (lines.length <= 2) {
-      const lineH = size * 0.4; // mm — comfortable leading
+      const lineH = size * 0.45; // mm — comfortable leading between wrapped title lines
       lines.forEach((ln, i) => doc.text(ln, centerX, y + i * lineH + size * 0.35, { align: "center" }));
-      return y + lines.length * lineH + 1;
+      // Return y BELOW the last baseline with enough padding that a
+      // subsequent 10pt subtitle (~3.5mm tall) cannot collide with the
+      // title glyphs. Previously used +1mm which caused visible overlap
+      // between "DRY RISER VISUAL" and the branding strapline.
+      return y + (lines.length - 1) * lineH + size * 0.35 + 3.5;
     }
   }
   // Absolute fallback: force smallest size, two lines, allow ellipsis on 2nd.
@@ -66,9 +70,9 @@ function drawWrappedTitle(
   const all = doc.splitTextToSize(text, maxWidth) as string[];
   const lines = all.slice(0, 2);
   if (all.length > 2) lines[1] = lines[1].replace(/\s*\S*$/, "") + "…";
-  const lineH = size * 0.4;
+  const lineH = size * 0.45;
   lines.forEach((ln, i) => doc.text(ln, centerX, y + i * lineH + size * 0.35, { align: "center" }));
-  return y + lines.length * lineH + 1;
+  return y + (lines.length - 1) * lineH + size * 0.35 + 3.5;
 }
 
 
