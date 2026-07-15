@@ -411,9 +411,46 @@ export default function EmailBrandingSettings() {
               <Textarea rows={4} value={row.signature_html ?? ""} onChange={(e) => update("signature_html", e.target.value || null)} placeholder="<p>Custom HTML signature…</p>" />
             </div>
             <div className="space-y-1 sm:col-span-2">
+              <Label>Sign-off text</Label>
+              <Input value={row.sign_off_text ?? ""} onChange={(e) => update("sign_off_text", e.target.value)} placeholder="Kind regards," />
+              <p className="text-[11px] text-muted-foreground">Appears above the signature. The sender's full name is added automatically (falls back to company name for system emails).</p>
+            </div>
+            <div className="space-y-1 sm:col-span-2">
               <Label>Footer note</Label>
               <Input value={row.footer_note ?? ""} onChange={(e) => update("footer_note", e.target.value || null)} />
             </div>
+          </div>
+        </section>
+
+        <Separator />
+
+        {/* Accreditations */}
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold">Accreditation logos</h3>
+          <p className="text-[11px] text-muted-foreground">Displayed in a row at the bottom of the signature (Constructionline, SSIP, SMAS Worksafe, FIRAS, ISO 9001, BAFE, etc.). Upload transparent PNGs at roughly the same height for best results.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {(row.accreditation_logo_urls || []).map((url, idx) => (
+              <div key={url + idx} className="relative rounded border bg-white p-1">
+                <img src={url} alt="Accreditation" className="h-10 w-auto" />
+                <button
+                  type="button"
+                  onClick={() => removeAccreditation(idx)}
+                  className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-[10px] leading-none flex items-center justify-center"
+                  aria-label="Remove accreditation"
+                >×</button>
+              </div>
+            ))}
+            <input
+              id="accreditation-upload"
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => { onAccreditationUpload(e.target.files); e.target.value = ""; }}
+            />
+            <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById("accreditation-upload")?.click()} disabled={uploadingLogo}>
+              {uploadingLogo ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Uploading…</> : "Upload accreditation logo(s)"}
+            </Button>
           </div>
         </section>
 
