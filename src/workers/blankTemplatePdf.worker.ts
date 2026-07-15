@@ -690,13 +690,39 @@ async function buildPdf(payload: WorkerPayload) {
 
     // Comments + signature block + declaration box, all inside the reserved
     // footer area so nothing overlaps the accreditation logo strip.
-    const commentsBoxTop = Math.min(y + 4, commentsBoxBottom - COMMENTS_MIN_H);
-    const commentsAvailH = Math.max(commentsBoxBottom - commentsBoxTop, COMMENTS_MIN_H);
+    //
+    // Two layouts:
+    //  • "anchored" (default): comments expand upward from the fixed
+    //    signature Y so the sig block always sits above the footer strip.
+    //    Used when content fills most of the page.
+    //  • "flow" (spill pages that are mostly empty): give the comments a
+    //    modest height and place the signature block immediately below the
+    //    comments. Prevents a huge dead gap between the last row and the
+    //    signature strip when content only partially filled the final page.
+    const anchoredCommentsAvail = commentsBoxBottom - (y + 4);
+    // If more than ~1/3 of the reserved comments area would be empty, flow
+    // instead of anchoring.
+    const shouldFlow = pageHeight * 0.35 > (pageHeight - margin) - y;
+    let effectiveSigY = sigY;
+    let commentsBoxTop: number;
+    let commentsAvailH: number;
+    if (shouldFlow) {
+      const flowCommentsH = 25;
+      commentsBoxTop = y + 4;
+      commentsAvailH = flowCommentsH;
+      effectiveSigY = commentsBoxTop + commentsAvailH + SIG_GAP;
+      // Never exceed the reserved sig position (would collide with footer).
+      if (effectiveSigY > sigY) effectiveSigY = sigY;
+    } else {
+      commentsBoxTop = Math.min(y + 4, commentsBoxBottom - COMMENTS_MIN_H);
+      commentsAvailH = Math.max(commentsBoxBottom - commentsBoxTop, COMMENTS_MIN_H);
+    }
+    void anchoredCommentsAvail;
     doc.setFontSize(9.5);
     doc.setFont("helvetica", "bold");
     doc.text("Comments:", margin, commentsBoxTop - 1);
     if (!handfill) { doc.setDrawColor(180); doc.rect(margin, commentsBoxTop, maxWidth, commentsAvailH); }
-    renderPdfSignatures(doc, sigY, { dateStr: "", technicianName: engineerList, customerName: "" }, { blank: true });
+    renderPdfSignatures(doc, effectiveSigY, { dateStr: "", technicianName: engineerList, customerName: "" }, { blank: true });
     if (declarationText) {
       renderPdfFooter(doc, declTop, declarationText);
     }
