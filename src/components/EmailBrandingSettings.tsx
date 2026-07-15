@@ -19,11 +19,14 @@ interface BrandingRow {
   logo_url: string | null;
   brand_color: string;
   company_name: string;
+  strapline: string | null;
   phone: string | null;
   website: string | null;
   address: string | null;
   signature_html: string | null;
   footer_note: string | null;
+  accreditation_logo_urls: string[];
+  sign_off_text: string;
 }
 
 const DEFAULTS: BrandingRow = {
@@ -33,12 +36,15 @@ const DEFAULTS: BrandingRow = {
   logo_url: null,
   brand_color: "#1e40af",
   company_name: "Viva Fire Protection Ltd",
-  phone: null,
+  strapline: "Wet & Dry Riser Specialists",
+  phone: "0845 269 8482",
   website: "https://www.vivafire.co.uk",
-  address: null,
+  address: "Unit 1 Lady Road, St Johns Industrial Estate, Lees, Oldham, OL4 3DZ",
   signature_html: null,
   footer_note:
     "This is an automated email from Viva Fire Protection. Reply to this message to contact us directly.",
+  accreditation_logo_urls: [],
+  sign_off_text: "Kind regards,",
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -51,33 +57,74 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
-function buildPreviewHtml(b: BrandingRow): string {
+function renderSignatureHtml(b: BrandingRow, senderName: string): string {
   const brand = b.brand_color || "#1e40af";
-  const logo = b.logo_url
+  const phoneClean = (b.phone || "").replace(/\s+/g, "");
+  const websiteHref = b.website
+    ? (/^https?:\/\//i.test(b.website) ? b.website : `https://${b.website}`)
+    : "";
+  const websiteLabel = b.website ? b.website.replace(/^https?:\/\//i, "").replace(/\/$/, "") : "";
+  const signOff = (b.sign_off_text && b.sign_off_text.trim()) || "Kind regards,";
+
+  const signOffBlock = `
+    <p style="margin:0 0 14px;color:#111827;font-size:14px;line-height:1.5;">
+      ${escapeHtml(signOff)}<br/>
+      <strong>${escapeHtml(senderName)}</strong>
+    </p>`;
+
+  const divider = `<div style="height:3px;background:${brand};margin:0 0 14px;line-height:3px;font-size:0;">&nbsp;</div>`;
+
+  const logoRow = b.logo_url
+    ? `<img src="${b.logo_url}" alt="${escapeHtml(b.company_name)}" width="180" style="max-height:60px;max-width:180px;display:block;border:0;outline:none;margin:0 0 6px;" />`
+    : `<p style="margin:0 0 4px;font-weight:700;color:#111827;font-size:16px;">${escapeHtml(b.company_name)}</p>`;
+
+  const strapline = b.strapline
+    ? `<p style="margin:0 0 10px;color:${brand};font-size:12px;font-weight:600;letter-spacing:0.3px;text-transform:uppercase;">${escapeHtml(b.strapline)}</p>`
+    : "";
+
+  const rows: string[] = [];
+  if (b.phone) rows.push(`<tr><td style="padding:1px 0;font-size:12px;color:#374151;">Tel: <a href="tel:${phoneClean}" style="color:${brand};text-decoration:none;">${escapeHtml(b.phone)}</a></td></tr>`);
+  if (b.from_address) rows.push(`<tr><td style="padding:1px 0;font-size:12px;color:#374151;">Email: <a href="mailto:${b.from_address}" style="color:${brand};text-decoration:none;">${escapeHtml(b.from_address)}</a></td></tr>`);
+  if (b.website) rows.push(`<tr><td style="padding:1px 0;font-size:12px;color:#374151;">Web: <a href="${websiteHref}" style="color:${brand};text-decoration:none;">${escapeHtml(websiteLabel)}</a></td></tr>`);
+  const contact = rows.length ? `<table cellpadding="0" cellspacing="0" style="margin:0 0 8px;">${rows.join("")}</table>` : "";
+
+  const address = b.address
+    ? `<p style="margin:0 0 10px;font-size:12px;color:#6b7280;line-height:1.5;">${escapeHtml(b.address)}</p>`
+    : "";
+
+  const accreditations = b.accreditation_logo_urls.length
+    ? `<table cellpadding="0" cellspacing="0" style="margin:10px 0 0;"><tr>${b.accreditation_logo_urls
+        .filter(Boolean)
+        .map((url) => `<td style="padding:0 8px 0 0;vertical-align:middle;"><img src="${url}" alt="Accreditation" height="34" style="height:34px;width:auto;max-height:34px;display:block;border:0;outline:none;" /></td>`)
+        .join("")}</tr></table>`
+    : "";
+
+  const body = (b.signature_html && b.signature_html.trim().length > 0)
+    ? b.signature_html
+    : `${logoRow}${strapline}${contact}${address}${accreditations}`;
+
+  return `${signOffBlock}${divider}${body}`;
+}
+
+function buildPreviewHtml(b: BrandingRow, senderName: string): string {
+  const brand = b.brand_color || "#1e40af";
+  const headerLogo = b.logo_url
     ? `<img src="${b.logo_url}" alt="${escapeHtml(b.company_name)}" style="max-height:56px;max-width:220px;display:block;border:0;outline:none;" />`
     : `<h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:700;letter-spacing:0.2px;">${escapeHtml(b.company_name)}</h1>`;
-  const phoneClean = (b.phone || "").replace(/\s+/g, "");
-  const sig = (b.signature_html && b.signature_html.trim().length > 0)
-    ? b.signature_html
-    : `
-      <p style="margin:0 0 4px;font-weight:600;color:#111827;font-size:14px;">${escapeHtml(b.company_name)}</p>
-      ${b.phone ? `<p style="margin:0;font-size:13px;color:#374151;">Tel: <a href="tel:${phoneClean}" style="color:${brand};text-decoration:none;">${escapeHtml(b.phone)}</a></p>` : ""}
-      ${b.website ? `<p style="margin:0;font-size:13px;color:#374151;">Web: <a href="${b.website}" style="color:${brand};text-decoration:none;">${escapeHtml(b.website.replace(/^https?:\/\//, ""))}</a></p>` : ""}
-      ${b.address ? `<p style="margin:6px 0 0;font-size:12px;color:#6b7280;line-height:1.5;">${escapeHtml(b.address)}</p>` : ""}
-    `;
+
+  const sig = renderSignatureHtml(b, senderName);
 
   const sampleBody = `
     <p>Hi,</p>
     <p>We've booked in a new job for you: <strong>VFP-01234</strong> — 6-month sprinkler visual inspection.</p>
     <p><strong>Location:</strong> 1 Example Way, Sheffield S1 1AA</p>
     <p>We'll keep you updated as it progresses. If you need to reach us about it, just reply to this email.</p>
-    <p>Kind regards,<br/>${escapeHtml(b.company_name)}</p>
   `;
 
   return `
     <div style="background:#f4f6f9;padding:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#1f2937;">
       <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);border:1px solid #e5e7eb;">
-        <div style="background:${brand};padding:20px 28px;">${logo}</div>
+        <div style="background:${brand};padding:20px 28px;">${headerLogo}</div>
         <div style="padding:28px;font-size:15px;line-height:1.6;">${sampleBody}</div>
         <div style="padding:20px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;">${sig}</div>
         ${b.footer_note ? `<div style="padding:14px 28px;background:#f9fafb;border-top:1px solid #eef1f4;font-size:11px;color:#9ca3af;text-align:center;line-height:1.5;">${escapeHtml(b.footer_note)}</div>` : ""}
