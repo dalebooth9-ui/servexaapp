@@ -794,7 +794,33 @@ serve(async (req) => {
     }
     jobId = newJob.id;
     createdJobRef = newJob.reference_number;
+
+    // Pre-attach any inferred blank job sheets on new jobs only — duplicates
+    // reuse the existing draft which already has its own attachments.
+    if (inferred.templateNames.length) {
+      try {
+        const { data: matched } = await admin
+          .from("job_sheet_templates")
+          .select("name")
+          .eq("status", "published")
+          .in("name", inferred.templateNames);
+        const rows = (matched || []).map((t: any) => ({
+          job_id: jobId,
+          document_type: "blank_job_sheet",
+          label: t.name,
+          source: "auto",
+          org_id: orgId,
+        }));
+        if (rows.length) {
+          const { error: docErr } = await admin.from("job_documents").insert(rows as any);
+          if (docErr) console.error("inbound-po-email auto-attach failed", docErr);
+        }
+      } catch (e) {
+        console.error("inbound-po-email auto-attach threw", e);
+      }
+    }
   }
+
 
   // ── Store raw .eml + attachments in po-intake bucket ───────────────────
   const uploads: { path: string; label: string; contentType: string; bytes: Uint8Array }[] = [];
