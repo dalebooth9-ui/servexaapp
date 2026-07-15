@@ -137,9 +137,11 @@ export default function JobCompleteAction({
       formsSubmitted: sheets.filter((s: any) => s.status === "submitted").length,
       drafts,
       photos: photosRes.count || 0,
-      remedialOutstanding: remedial.filter(
-        (i: any) => i.status !== "done" && i.status !== "unable" && i.status !== "completed",
-      ).length,
+      remedialOutstanding:
+        remedial.filter(
+          (i: any) => i.status !== "done" && i.status !== "unable" && i.status !== "completed",
+        ).length
+        + remedialItems.filter((i: any) => i.status === "pending").length,
       loading: false,
     });
   };
