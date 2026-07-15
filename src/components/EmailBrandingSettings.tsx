@@ -355,6 +355,11 @@ export default function EmailBrandingSettings() {
               </div>
             </div>
           </div>
+          <div className="space-y-1">
+            <Label>Strapline</Label>
+            <Input value={row.strapline ?? ""} onChange={(e) => update("strapline", e.target.value || null)} placeholder="Wet & Dry Riser Specialists" />
+            <p className="text-[11px] text-muted-foreground">Short tagline shown under the logo in the signature.</p>
+          </div>
           <div className="space-y-2">
             <Label>Logo</Label>
             <div className="flex items-center gap-3">
