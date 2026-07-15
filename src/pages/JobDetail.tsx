@@ -47,6 +47,9 @@ import { ALLOWED_EXTENSIONS, extractStoragePath } from "@/lib/fileUtils";
 import { buildAttachPlan, insertDraftResponses, lockJobTemplate, type MatchSlot, type TemplateOption } from "@/lib/autoAttachJobDocuments";
 import { useJobPhotoCount } from "@/hooks/useJobPhotoCount";
 import JobCompleteAction from "@/components/jobs/JobCompleteAction";
+import JobRemedialChecklist from "@/components/jobs/JobRemedialChecklist";
+import { Switch } from "@/components/ui/switch";
+import { Wrench, ClipboardPlus } from "lucide-react";
 
 // Heavy children — code-split out of the JobDetail bundle. Each one pulls in
 // hefty deps (jspdf/html2canvas/tiptap/exceljs/docx) transitively, so we
@@ -122,6 +125,20 @@ export default function JobDetail() {
   const [siteSheetOpen, setSiteSheetOpen] = useState(false);
   const [jobW3W, setJobW3W] = useState<string | null>(null);
   const jobUploadUrl = `${window.location.origin}/jobs/${id}`;
+  const [showChecklistOptIn, setShowChecklistOptIn] = useState(false);
+  const [savingRemedialFlag, setSavingRemedialFlag] = useState(false);
+  const toggleIsRemedial = async (next: boolean) => {
+    if (!id) return;
+    setSavingRemedialFlag(true);
+    const { error } = await supabase.from("jobs").update({ is_remedial: next } as any).eq("id", id);
+    setSavingRemedialFlag(false);
+    if (error) {
+      toast({ title: "Failed to update", description: error.message, variant: "destructive" });
+    } else {
+      setJob((j: any) => j ? { ...j, is_remedial: next } : j);
+      toast({ title: next ? "Marked as remedial" : "Remedial flag removed" });
+    }
+  };
 
   // Tab state — persisted per-job in sessionStorage so navigating away & back
   // keeps the same active section for the current browser session.
@@ -580,7 +597,12 @@ export default function JobDetail() {
 
       {activeTab === "photos" && id && (
         <Suspense fallback={<LazyFallback />}>
-          <JobPhotos jobId={id} engineers={engineers} isAdmin={userRole === "admin"} />
+          <JobPhotos
+            jobId={id}
+            engineers={engineers}
+            isAdmin={userRole === "admin"}
+            canUpload={job?.status !== "cancelled" && (userRole === "admin" || (user ? assignedEngineerIds.includes(user.id) : false))}
+          />
         </Suspense>
       )}
 
@@ -848,8 +870,40 @@ export default function JobDetail() {
                 </div>
               </div>
             ))}
-          </CollapsibleContent>
-        </Collapsible>
+           </CollapsibleContent>
+         </Collapsible>
+
+        {/* Remedial flag + works checklist (visible on every job to admin; engineers see checklist only when items exist) */}
+        {userRole === "admin" && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Wrench className="h-4 w-4 text-primary" />
+              <div>
+                <div className="text-sm font-medium">Remedial job</div>
+                <div className="text-xs text-muted-foreground">Flag jobs where defects/snags are being rectified. Enables the works checklist and gates completion until items are resolved.</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {!job.is_remedial && !showChecklistOptIn && (
+                <Button size="sm" variant="outline" onClick={() => setShowChecklistOptIn(true)}>
+                  <ClipboardPlus className="mr-1.5 h-4 w-4" /> Add works checklist
+                </Button>
+              )}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Remedial</span>
+                <Switch checked={!!job.is_remedial} disabled={savingRemedialFlag} onCheckedChange={toggleIsRemedial} />
+              </div>
+            </div>
+          </div>
+        )}
+        <JobRemedialChecklist
+          jobId={id!}
+          jobOrgId={job.org_id}
+          isRemedial={!!job.is_remedial}
+          isAdmin={userRole === "admin"}
+          isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+          forceShow={showChecklistOptIn}
+        />
       </>)}
 
 

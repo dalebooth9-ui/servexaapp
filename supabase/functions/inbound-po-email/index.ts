@@ -727,6 +727,7 @@ serve(async (req) => {
     address: siteAddress || null,
     priority,
     category: inferred.categorySlug || "general",
+    is_remedial: inferred.isRemedial,
     due_date: extracted.due_date && /^\d{4}-\d{2}-\d{2}$/.test(extracted.due_date) ? extracted.due_date : null,
     status: "pending_review",
     source: "email_po",
@@ -797,13 +798,17 @@ serve(async (req) => {
 
     // Pre-attach any inferred blank job sheets on new jobs only — duplicates
     // reuse the existing draft which already has its own attachments.
-    if (inferred.templateNames.length) {
+    const templateNames = [...inferred.templateNames];
+    if (inferred.isRemedial && templateNames.length === 0) {
+      templateNames.push("Remedial Works Completion");
+    }
+    if (templateNames.length) {
       try {
         const { data: matched } = await admin
           .from("job_sheet_templates")
           .select("name")
           .eq("status", "published")
-          .in("name", inferred.templateNames);
+          .in("name", templateNames);
         const rows = (matched || []).map((t: any) => ({
           job_id: jobId,
           document_type: "blank_job_sheet",
@@ -817,6 +822,24 @@ serve(async (req) => {
         }
       } catch (e) {
         console.error("inbound-po-email auto-attach threw", e);
+      }
+    }
+
+    // Seed remedial items when the wording read like a list of works
+    if (inferred.isRemedial && inferred.remedialItems.length) {
+      try {
+        const rows = inferred.remedialItems.map((description, i) => ({
+          job_id: jobId,
+          org_id: orgId,
+          seq: i,
+          description,
+          status: "pending",
+          source: "po_inference",
+        }));
+        const { error: itemsErr } = await admin.from("job_remedial_items").insert(rows as any);
+        if (itemsErr) console.error("inbound-po-email remedial-items seed failed", itemsErr);
+      } catch (e) {
+        console.error("inbound-po-email remedial-items seed threw", e);
       }
     }
   }

@@ -3867,6 +3867,65 @@ export type Database = {
           },
         ]
       }
+      job_remedial_items: {
+        Row: {
+          comment: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          done_at: string | null
+          done_by: string | null
+          id: string
+          job_id: string
+          org_id: string | null
+          photo_submission_id: string | null
+          seq: number
+          source: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          done_at?: string | null
+          done_by?: string | null
+          id?: string
+          job_id: string
+          org_id?: string | null
+          photo_submission_id?: string | null
+          seq?: number
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          done_at?: string | null
+          done_by?: string | null
+          id?: string
+          job_id?: string
+          org_id?: string | null
+          photo_submission_id?: string | null
+          seq?: number
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_remedial_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_schedule: {
         Row: {
           acknowledged_at: string | null
@@ -4486,6 +4545,7 @@ export type Database = {
           due_date: string | null
           fault_code_id: string | null
           id: string
+          is_remedial: boolean
           job_type: string
           name: string
           org_id: string | null
@@ -4523,6 +4583,7 @@ export type Database = {
           due_date?: string | null
           fault_code_id?: string | null
           id?: string
+          is_remedial?: boolean
           job_type?: string
           name: string
           org_id?: string | null
@@ -4560,6 +4621,7 @@ export type Database = {
           due_date?: string | null
           fault_code_id?: string | null
           id?: string
+          is_remedial?: boolean
           job_type?: string
           name?: string
           org_id?: string | null

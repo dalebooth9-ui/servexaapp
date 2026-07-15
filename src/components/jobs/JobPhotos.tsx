@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useFileUpload } from "@/hooks/useFileUpload";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck, FileImage } from "lucide-react";
+import { Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck, FileImage, Upload, Plus } from "lucide-react";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import { extractStoragePath, isImageFile } from "@/lib/fileUtils";
 import { resolveManyToSignedUrls } from "@/lib/durableStorageRef";
@@ -45,16 +47,31 @@ function toStoragePath(fileUrl?: string | null): string | null {
  * submissions (WhatsApp / app uploads), defects, photo-checklist responses
  * and image-type job_documents. Read-only — nothing here mutates data.
  */
-export default function JobPhotos({ jobId, engineers = [], isAdmin }: {
+export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = true }: {
   jobId: string;
   engineers?: { id: string; name: string }[];
   isAdmin?: boolean;
+  /** Set false to hide the "Add photo" / "Upload" buttons (e.g. cancelled jobs). */
+  canUpload?: boolean;
 }) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [items, setItems] = useState<PhotoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [sourceFilter, setSourceFilter] = useState<"all" | Source>("all");
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const { uploading, uploadFilesAsSubmissions } = useFileUpload({ onComplete: () => load() });
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0 || !user) return;
+    const arr = Array.from(files);
+    const uploaded = await uploadFilesAsSubmissions(arr, jobId, user.id);
+    if (uploaded > 0) {
+      toast({ title: `Uploaded ${uploaded} photo${uploaded === 1 ? "" : "s"}` });
+    }
+  };
 
   const engineerName = useCallback((uid?: string) => {
     if (!uid) return undefined;
@@ -205,6 +222,45 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin }: {
 
   return (
     <div className="space-y-4">
+      {canUpload && (
+        <div className="flex flex-wrap gap-2 rounded-lg border border-dashed bg-muted/30 p-3">
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            multiple
+            className="hidden"
+            onChange={(e) => { handleFiles(e.target.files); e.currentTarget.value = ""; }}
+          />
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*,application/pdf,video/*"
+            multiple
+            className="hidden"
+            onChange={(e) => { handleFiles(e.target.files); e.currentTarget.value = ""; }}
+          />
+          <Button
+            size="sm"
+            onClick={() => cameraInputRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Camera className="mr-1.5 h-4 w-4" />}
+            Take photo
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => galleryInputRef.current?.click()}
+            disabled={uploading}
+          >
+            <Upload className="mr-1.5 h-4 w-4" /> Upload from gallery
+          </Button>
+          <p className="text-xs text-muted-foreground self-center">Photos are attached to this job as evidence.</p>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2">
         {filters.map((f) => (
           <Button
