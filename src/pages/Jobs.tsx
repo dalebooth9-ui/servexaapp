@@ -24,6 +24,7 @@ import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/
 import ScanCompletedJobDialog from "@/components/ScanCompletedJobDialog";
 import PaperScanQueueBadge from "@/components/paper-scan/PaperScanQueueBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Accordion } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { useJobCategories } from "@/hooks/useJobCategories";
