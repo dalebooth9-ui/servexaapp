@@ -78,7 +78,7 @@ export default function JobRemedialChecklist({
   // OR when items exist (works-checklist opt-in on any job).
   if (loading) return null;
   const hasItems = items.length > 0;
-  if (!hasItems && !(isAdmin && isRemedial)) return null;
+  if (!hasItems && !(isAdmin && (isRemedial || forceShow))) return null;
 
   const addItem = async () => {
     const desc = newDesc.trim();
