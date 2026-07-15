@@ -19,6 +19,10 @@ export interface InferredScope {
   templateNames: string[];
   /** Human-readable reasons, surfaced in the job brief for the reviewer. */
   reasons: string[];
+  /** True when the wording indicates remedial / snag / retest / supply-and-fit-replacement work. */
+  isRemedial: boolean;
+  /** Extracted individual works items (bulleted / numbered / action-clause lines), when the description reads like a list. */
+  remedialItems: string[];
 }
 
 const norm = (s: string | null | undefined) => (s || "").toLowerCase();
