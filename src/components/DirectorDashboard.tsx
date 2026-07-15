@@ -72,6 +72,16 @@ type ActivityItem = {
   href: string;
 };
 
+type ActionableJob = {
+  id: string;
+  reference_number: string;
+  name: string;
+  due_date: string | null;
+  status: string;
+  customer: string | null;
+  source?: string | null;
+};
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Component
 // ──────────────────────────────────────────────────────────────────────────────
@@ -84,6 +94,9 @@ export default function DirectorDashboard() {
   const [defects, setDefects] = useState<DefectData | null>(null);
   const [compliance, setCompliance] = useState<ComplianceData | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [approvals, setApprovals] = useState<ActionableJob[]>([]);
+  const [overdueJobs, setOverdueJobs] = useState<ActionableJob[]>([]);
+  const [weekScheduled, setWeekScheduled] = useState<number>(0);
 
   useEffect(() => {
     void loadAll();
@@ -91,8 +104,30 @@ export default function DirectorDashboard() {
 
   const loadAll = async () => {
     setLoading(true);
-    await Promise.all([loadJobs(), loadRevenue(), loadEngineers(), loadDefects(), loadCompliance(), loadActivity()]);
+    await Promise.all([loadJobs(), loadRevenue(), loadEngineers(), loadDefects(), loadCompliance(), loadActivity(), loadActionable()]);
     setLoading(false);
+  };
+
+  const loadActionable = async () => {
+    const now = new Date();
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const weekEnd = addWeeks(weekStart, 1);
+    const [draftsRes, overdueRes, weekRes] = await Promise.all([
+      supabase.from("jobs").select("id, reference_number, name, due_date, status, customer, source")
+        .in("status", ["draft"]).order("created_at", { ascending: false }).limit(10),
+      supabase.from("jobs").select("id, reference_number, name, due_date, status, customer")
+        .not("status", "in", "(completed,archived,cancelled)")
+        .not("due_date", "is", null)
+        .lt("due_date", now.toISOString().slice(0, 10))
+        .order("due_date", { ascending: true }).limit(10),
+      supabase.from("jobs").select("id", { count: "exact", head: true })
+        .eq("status", "scheduled")
+        .gte("due_date", weekStart.toISOString().slice(0, 10))
+        .lt("due_date", weekEnd.toISOString().slice(0, 10)),
+    ]);
+    setApprovals(((draftsRes.data || []) as any[]).map(j => ({ ...j, customer: j.customer })));
+    setOverdueJobs(((overdueRes.data || []) as any[]).map(j => ({ ...j, customer: j.customer })));
+    setWeekScheduled(weekRes.count ?? 0);
   };
 
   // ── Jobs ────────────────────────────────────────────────────────────────────
