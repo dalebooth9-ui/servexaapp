@@ -218,7 +218,16 @@ export default function Jobs() {
       setJobTemplates(data || []);
     };
     fetchTemplates();
+
+    // Published job-sheet templates for the pending-review quick picker
+    supabase
+      .from("job_sheet_templates")
+      .select("id, name, category, job_category")
+      .eq("status", "published")
+      .order("name")
+      .then(({ data }) => setSheetTemplates((data as any) || []));
   }, []);
+
 
   const isAdmin = userRole === "admin";
 
