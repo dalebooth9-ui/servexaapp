@@ -192,11 +192,14 @@ export default function EmailBrandingSettings() {
       logo_url: row.logo_url,
       brand_color: row.brand_color.trim(),
       company_name: row.company_name.trim(),
+      strapline: row.strapline,
       phone: row.phone,
       website: row.website,
       address: row.address,
       signature_html: row.signature_html,
       footer_note: row.footer_note,
+      accreditation_logo_urls: row.accreditation_logo_urls || [],
+      sign_off_text: row.sign_off_text || "Kind regards,",
     };
     const { error } = row.id
       ? await supabase.from("email_branding").update(payload).eq("id", row.id)
