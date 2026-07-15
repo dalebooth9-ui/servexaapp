@@ -84,13 +84,26 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
 
       {/* Main content */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Line 1: ref + name + primary status */}
+        <div className="flex items-center gap-2 min-w-0">
           <Link to={`/jobs/${job.id}`} className="font-mono text-xs font-semibold text-primary hover:underline shrink-0">
             {job.reference_number}
           </Link>
           <Link to={`/jobs/${job.id}`} className="text-sm font-medium text-foreground hover:underline truncate">
             {job.name}
           </Link>
+          <Badge variant="secondary" className={`${statusColor(job.status)} text-[10px] uppercase h-4 px-1.5 shrink-0`}>
+            {job.status.replace(/_/g, " ")}
+          </Badge>
+          {job.priority === "high" && (
+            <Badge variant="destructive" className="text-[10px] uppercase h-4 px-1.5 shrink-0">High</Badge>
+          )}
+          {job.result === "pass" && (
+            <Badge className="bg-green-700 text-primary-foreground text-[10px] uppercase h-4 px-1.5 shrink-0">Pass</Badge>
+          )}
+          {job.result === "fail" && (
+            <Badge variant="destructive" className="text-[10px] uppercase h-4 px-1.5 shrink-0">Fail</Badge>
+          )}
           {(job.submissions || []).some((s: any) => s.type === "document") && (
             <span title="Has compliance / RAMS documents">
               <ShieldCheck className="h-3.5 w-3.5 text-primary shrink-0" />
@@ -98,55 +111,29 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
           )}
         </div>
 
-        {/* Tags row */}
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-          <Badge variant="secondary" className={`${statusColor(job.status)} text-[10px] uppercase h-4 px-1.5`}>
-            {job.status.replace(/_/g, " ")}
-          </Badge>
+        {/* Line 2: muted metadata */}
+        <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground truncate">
           {(() => {
             const siteLabel = job.sites?.name || job.address;
-            return siteLabel ? (
-              <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal text-muted-foreground border-muted-foreground/30 max-w-[180px] truncate">
-                {siteLabel}
-              </Badge>
-            ) : null;
+            const parts: (string | null)[] = [
+              siteLabel || null,
+              job.category && job.category !== "general" ? job.category : null,
+              dueDate ? format(dueDate, "dd MMM") : null,
+            ];
+            const scope: string[] = [];
+            if (job.pressure_test_qty > 0) scope.push(`PT×${job.pressure_test_qty}`);
+            if (job.visual_qty > 0) scope.push(`Vis×${job.visual_qty}`);
+            if (job.other_qty > 0 && job.other_service_type) scope.push(`${job.other_service_type}×${job.other_qty}`);
+            if (scope.length) parts.push(scope.join(" · "));
+            if ((job.submissions?.length || 0) > 0) parts.push(`${job.submissions.length} sub${job.submissions.length !== 1 ? "s" : ""}`);
+            const joined = parts.filter(Boolean).join(" · ");
+            return (
+              <span className={`truncate ${overdue ? "text-destructive font-medium" : dueToday ? "text-amber-500 font-medium" : ""}`}>
+                {(overdue || dueToday) && <AlertCircle className="inline h-2.5 w-2.5 mr-1 shrink-0" />}
+                {joined || "—"}
+              </span>
+            );
           })()}
-          {job.priority === "high" && (
-            <Badge variant="destructive" className="text-[10px] uppercase h-4 px-1.5">High</Badge>
-          )}
-          {job.result === "pass" && (
-            <Badge className="bg-green-700 text-primary-foreground text-[10px] uppercase h-4 px-1.5">Pass</Badge>
-          )}
-          {job.result === "fail" && (
-            <Badge variant="destructive" className="text-[10px] uppercase h-4 px-1.5">Fail</Badge>
-          )}
-          {job.category && job.category !== "general" && (
-            <span className="text-[10px] text-muted-foreground capitalize">{job.category}</span>
-          )}
-          {dueDate && (
-            <span className={`text-[10px] flex items-center gap-0.5 ${overdue ? "text-destructive font-medium" : dueToday ? "text-amber-500 font-medium" : "text-muted-foreground"}`}>
-              {(overdue || dueToday) && <AlertCircle className="h-2.5 w-2.5 shrink-0" />}
-              {format(dueDate, "dd MMM")}
-            </span>
-          )}
-          {job.pressure_test_qty > 0 && (
-            <span className="inline-flex items-center gap-0.5 rounded bg-primary/10 border border-primary/20 px-1 py-0 text-[10px] font-medium text-primary">
-              PT ×{job.pressure_test_qty}
-            </span>
-          )}
-          {job.visual_qty > 0 && (
-            <span className="inline-flex items-center gap-0.5 rounded bg-secondary border border-border px-1 py-0 text-[10px] font-medium text-secondary-foreground">
-              Vis ×{job.visual_qty}
-            </span>
-          )}
-          {job.other_qty > 0 && job.other_service_type && (
-            <span className="inline-flex items-center gap-0.5 rounded bg-accent border border-border px-1 py-0 text-[10px] font-medium text-accent-foreground">
-              {job.other_service_type} ×{job.other_qty}
-            </span>
-          )}
-          {(job.submissions?.length || 0) > 0 && (
-            <span className="text-[10px] text-muted-foreground">{job.submissions.length} sub{job.submissions.length !== 1 ? "s" : ""}</span>
-          )}
         </div>
       </div>
 

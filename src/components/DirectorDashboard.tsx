@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Briefcase, PoundSterling, Users, AlertTriangle, ShieldCheck, Activity,
   ArrowRight, ArrowUp, ArrowDown, Clock, FileText, CheckCircle2, AlertCircle, CalendarDays,
+  BarChart2, ChevronDown,
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, Tooltip, XAxis } from "recharts";
 import { formatDistanceToNow, startOfWeek, addWeeks, format, startOfMonth, subMonths } from "date-fns";
@@ -72,6 +73,16 @@ type ActivityItem = {
   href: string;
 };
 
+type ActionableJob = {
+  id: string;
+  reference_number: string;
+  name: string;
+  due_date: string | null;
+  status: string;
+  customer: string | null;
+  source?: string | null;
+};
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Component
 // ──────────────────────────────────────────────────────────────────────────────
@@ -84,6 +95,9 @@ export default function DirectorDashboard() {
   const [defects, setDefects] = useState<DefectData | null>(null);
   const [compliance, setCompliance] = useState<ComplianceData | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [approvals, setApprovals] = useState<ActionableJob[]>([]);
+  const [overdueJobs, setOverdueJobs] = useState<ActionableJob[]>([]);
+  const [weekScheduled, setWeekScheduled] = useState<number>(0);
 
   useEffect(() => {
     void loadAll();
@@ -91,8 +105,30 @@ export default function DirectorDashboard() {
 
   const loadAll = async () => {
     setLoading(true);
-    await Promise.all([loadJobs(), loadRevenue(), loadEngineers(), loadDefects(), loadCompliance(), loadActivity()]);
+    await Promise.all([loadJobs(), loadRevenue(), loadEngineers(), loadDefects(), loadCompliance(), loadActivity(), loadActionable()]);
     setLoading(false);
+  };
+
+  const loadActionable = async () => {
+    const now = new Date();
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const weekEnd = addWeeks(weekStart, 1);
+    const [draftsRes, overdueRes, weekRes] = await Promise.all([
+      supabase.from("jobs").select("id, reference_number, name, due_date, status, customer, source")
+        .in("status", ["draft"]).order("created_at", { ascending: false }).limit(10),
+      supabase.from("jobs").select("id, reference_number, name, due_date, status, customer")
+        .not("status", "in", "(completed,archived,cancelled)")
+        .not("due_date", "is", null)
+        .lt("due_date", now.toISOString().slice(0, 10))
+        .order("due_date", { ascending: true }).limit(10),
+      supabase.from("jobs").select("id", { count: "exact", head: true })
+        .eq("status", "scheduled")
+        .gte("due_date", weekStart.toISOString().slice(0, 10))
+        .lt("due_date", weekEnd.toISOString().slice(0, 10)),
+    ]);
+    setApprovals(((draftsRes.data || []) as any[]).map(j => ({ ...j, customer: j.customer })));
+    setOverdueJobs(((overdueRes.data || []) as any[]).map(j => ({ ...j, customer: j.customer })));
+    setWeekScheduled(weekRes.count ?? 0);
   };
 
   // ── Jobs ────────────────────────────────────────────────────────────────────
@@ -317,14 +353,95 @@ export default function DirectorDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Director Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Real-time business performance across operations.</p>
+        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">What needs your attention today.</p>
       </div>
 
       <SetupChecklist />
 
+      {/* ── Needs me today ─────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <ActionCard
+          title="Awaiting approval"
+          icon={AlertCircle}
+          empty="No jobs waiting for review"
+          items={approvals.map(j => ({
+            id: j.id, href: `/jobs/${j.id}`,
+            primary: `${j.reference_number} — ${j.name}`,
+            secondary: j.source ? `Source: ${j.source}` : (j.customer || "Draft"),
+          }))}
+          footerHref="/jobs?status=draft"
+          footerLabel="View all drafts"
+        />
+        <ActionCard
+          title="Overdue jobs"
+          icon={AlertTriangle}
+          empty="Nothing overdue — good going"
+          items={overdueJobs.map(j => ({
+            id: j.id, href: `/jobs/${j.id}`,
+            primary: `${j.reference_number} — ${j.name}`,
+            secondary: `${j.customer || "—"} · due ${j.due_date ? format(new Date(j.due_date), "dd MMM") : "—"}`,
+          }))}
+          footerHref="/jobs?filter=overdue"
+          footerLabel="View all overdue"
+        />
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-primary" /> This week
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <p className="text-3xl font-bold">{weekScheduled}</p>
+              <p className="text-xs text-muted-foreground">Jobs scheduled this week</p>
+            </div>
+            <Button asChild variant="outline" size="sm" className="w-full">
+              <Link to="/planner"><CalendarDays className="mr-2 h-3.5 w-3.5" /> Open planner</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
 
+      {/* ── Recent activity (always visible) ─────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Activity className="h-4 w-4 text-primary" /> Recent activity
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {activity.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">No recent activity</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {activity.map(item => (
+                <li key={item.id}>
+                  <Link to={item.href} className="flex items-start gap-3 py-2.5 hover:bg-muted/40 -mx-2 px-2 rounded transition-colors">
+                    <ActivityIcon kind={item.kind} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{item.title}</p>
+                      <p className="text-xs text-muted-foreground truncate">{item.detail}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      {item.who && <p className="text-xs text-foreground">{item.who}</p>}
+                      <p className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(item.at), { addSuffix: true })}</p>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
+      {/* ── Business KPIs (collapsed by default — reference data) ────── */}
+      <details className="group rounded-lg border bg-card">
+        <summary className="cursor-pointer list-none flex items-center justify-between px-4 py-3 font-semibold hover:bg-muted transition-colors">
+          <span className="flex items-center gap-2"><BarChart2 className="h-4 w-4" /> Business KPIs &amp; charts</span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="p-4 pt-0">
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-56" />)}
@@ -503,40 +620,13 @@ export default function DirectorDashboard() {
             <VehicleCheckReviewCard />
           </div>
 
-          {/* Recent Activity */}
-          <Card className="md:col-span-2 lg:col-span-3">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Activity className="h-4 w-4 text-primary" /> Recent Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {activity.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">No recent activity</p>
-              ) : (
-                <ul className="divide-y divide-border">
-                  {activity.map(item => (
-                    <li key={item.id}>
-                      <Link to={item.href} className="flex items-start gap-3 py-2.5 hover:bg-muted/40 -mx-2 px-2 rounded transition-colors">
-                        <ActivityIcon kind={item.kind} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{item.title}</p>
-                          <p className="text-xs text-muted-foreground truncate">{item.detail}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          {item.who && <p className="text-xs text-foreground">{item.who}</p>}
-                          <p className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(item.at), { addSuffix: true })}</p>
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-
         </div>
       )}
+        </div>
+      </details>
+
+      {approvals.length + overdueJobs.length === 0 && null}
+      <ActionCardStyles />
     </div>
   );
 }
@@ -588,3 +678,42 @@ function ActivityIcon({ kind }: { kind: ActivityItem["kind"] }) {
     </div>
   );
 }
+
+type ActionItem = { id: string; href: string; primary: string; secondary?: string };
+function ActionCard({
+  title, icon: Icon, items, empty, footerHref, footerLabel,
+}: { title: string; icon: any; items: ActionItem[]; empty: string; footerHref?: string; footerLabel?: string }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Icon className="h-4 w-4 text-primary" /> {title}
+          {items.length > 0 && <span className="ml-auto text-xs font-normal text-muted-foreground">{items.length}</span>}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4 text-center">{empty}</p>
+        ) : (
+          <ul className="divide-y divide-border -mx-2">
+            {items.slice(0, 6).map(it => (
+              <li key={it.id}>
+                <Link to={it.href} className="block px-2 py-2 hover:bg-muted/40 rounded transition-colors">
+                  <p className="text-sm font-medium truncate">{it.primary}</p>
+                  {it.secondary && <p className="text-xs text-muted-foreground truncate">{it.secondary}</p>}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+        {footerHref && items.length > 0 && (
+          <Button asChild variant="ghost" size="sm" className="w-full">
+            <Link to={footerHref}>{footerLabel} <ArrowRight className="ml-1 h-3 w-3" /></Link>
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ActionCardStyles() { return null; }

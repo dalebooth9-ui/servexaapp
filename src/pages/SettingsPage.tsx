@@ -3,7 +3,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { MessageSquare, Copy, CheckCircle2, ArrowLeft, Loader2, Send, BarChart2, Smartphone, Mail, ShieldCheck, RotateCcw, AlertTriangle, Calendar, Link2, ExternalLink, RefreshCw } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { MessageSquare, Copy, CheckCircle2, ArrowLeft, Loader2, Send, BarChart2, Smartphone, Mail, ShieldCheck, RotateCcw, AlertTriangle, Calendar, Link2, ExternalLink, RefreshCw, ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -13,7 +14,8 @@ import XeroSettings from "@/components/XeroSettings";
 import RamsTemplateSettings from "@/components/RamsTemplateSettings";
 import FollowUpReminderSettings from "@/components/FollowUpReminderSettings";
 import EmailDeliveryTestCard from "@/components/EmailDeliveryTestCard";
-import StorageMigrationPanel from "@/components/StorageMigrationPanel";
+// StorageMigrationPanel intentionally not imported — one-off migration completed.
+// Reach the panel via /settings/storage-migration for emergencies only.
 import HelpArticlesAdmin from "@/components/HelpArticlesAdmin";
 import EmailFromSettings from "@/components/EmailFromSettings";
 import EmailBrandingSettings from "@/components/EmailBrandingSettings";
@@ -301,20 +303,29 @@ export default function SettingsPage() {
           <JobTemplateSettings />
           <CategoryDocumentTemplateSettings />
           <RamsTemplateSettings />
-          <FilenameFormatSettings />
-          <WordExportSettings />
-          <WatermarkSettings />
           <EngineerSignatureSettings />
-          <VehicleCheckSettings />
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Fleet vehicles</CardTitle>
-              <CardDescription>Manage the vehicles engineers select when doing their daily check.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild variant="outline"><a href="/fleet">Open fleet manager</a></Button>
-            </CardContent>
-          </Card>
+
+          <Collapsible>
+            <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border bg-card px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+              Advanced document settings
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-6 pt-4">
+              <FilenameFormatSettings />
+              <WordExportSettings />
+              <WatermarkSettings />
+              <VehicleCheckSettings />
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Fleet vehicles</CardTitle>
+                  <CardDescription>Manage the vehicles engineers select when doing their daily check.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline"><a href="/fleet">Open fleet manager</a></Button>
+                </CardContent>
+              </Card>
+            </CollapsibleContent>
+          </Collapsible>
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6 mt-0">
@@ -394,15 +405,22 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          <XeroSettings />
-          <QuoteHoundIntegrationCard />
-          <CustomerMergeSuggestionsPanel />
-          <CustomerReassignWizard />
-          <JobDocumentReattachSettings />
+          <Collapsible>
+            <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border bg-card px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+              Advanced integrations
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-6 pt-4">
+              <XeroSettings />
+              <QuoteHoundIntegrationCard />
+              <CustomerMergeSuggestionsPanel />
+              <CustomerReassignWizard />
+              <JobDocumentReattachSettings />
+            </CollapsibleContent>
+          </Collapsible>
         </TabsContent>
 
         <TabsContent value="advanced" className="space-y-6 mt-0">
-          <StorageMigrationPanel />
           <HelpArticlesAdmin />
           {/* Weekly Report Settings */}
           <Card>

@@ -394,14 +394,16 @@ export default function JobDetail() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-6 space-y-3">
+        {/* Row 1: title + meta */}
         <div>
           <h1 className="text-2xl font-bold">{job.name}</h1>
           <p className="text-sm text-muted-foreground">
             <span className="font-mono">{job.reference_number}</span>
-            {job.sites?.name && <> <span className="font-medium text-foreground">· {job.sites.name}</span></>}
-            {custName && <> • <span className="text-muted-foreground/80">Customer:</span> <span className="font-medium text-foreground">{custName}</span></>}
-            {job.address && <> • <span className="text-muted-foreground/80">Site:</span> <span className="font-medium text-foreground">{job.address}</span></>}
+            {custName && <> · <span className="font-medium text-foreground">{custName}</span></>}
+            {job.sites?.name && <> · <span className="font-medium text-foreground">{job.sites.name}</span></>}
+            {!job.sites?.name && job.address && <> · <span className="text-foreground">{job.address}</span></>}
+            {categoryDisplayName && <> · <span className="text-muted-foreground">{categoryDisplayName}</span></>}
           </p>
           {jobW3W && (
             <a
@@ -415,148 +417,117 @@ export default function JobDetail() {
               {jobW3W}
             </a>
           )}
-          {categoryDisplayName && (
-            <div className="mt-1">
-              <Badge variant="secondary" className="text-xs">{categoryDisplayName}</Badge>
-            </div>
-          )}
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1.5 text-xs"
-              onClick={() => document.getElementById("sign-off-signatures-section")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            >
-              <PenLine className="h-3.5 w-3.5" /> Customer Sign-Off
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1.5 text-xs"
-              onClick={() => setSiteSheetOpen(true)}
-              title="Print blank site sheets pre-filled from this job"
-            >
-              <Printer className="h-3.5 w-3.5" /> Print for site
-            </Button>
-          </div>
-          {job.category === "installation" ? (
-            job.other_qty > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 border border-primary/20 px-2 py-0.5 text-xs font-medium text-primary">
-                  Dry Riser Systems <span className="font-bold">× {job.other_qty}</span>
-                </span>
-              </div>
-            )
-          ) : (
-            (job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {job.pressure_test_qty > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 border border-primary/20 px-2 py-0.5 text-xs font-medium text-primary">
-                    Pressure Test <span className="font-bold">× {job.pressure_test_qty}</span>
-                  </span>
-                )}
-                {job.visual_qty > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-secondary border border-border px-2 py-0.5 text-xs font-medium text-secondary-foreground">
-                    Visual Inspection <span className="font-bold">× {job.visual_qty}</span>
-                  </span>
-                )}
-                {job.other_qty > 0 && job.other_service_type && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-accent border border-border px-2 py-0.5 text-xs font-medium text-accent-foreground">
-                    {job.other_service_type} <span className="font-bold">× {job.other_qty}</span>
-                  </span>
-                )}
-              </div>
-            )
-          )}
-          {userRole === "admin" ? (
-            <div className="mt-1.5 flex items-center gap-2">
-              <Select
-                value={job.priority || "medium"}
-                onValueChange={async (v) => {
-                  const { error } = await supabase.from("jobs").update({ priority: v } as any).eq("id", id!);
-                  if (error) { toast({ title: "Error", description: "Failed to update priority.", variant: "destructive" }); }
-                  else { setJob((prev: any) => ({ ...prev, priority: v })); toast({ title: "Priority updated" }); }
-                }}
-              >
-                <SelectTrigger className="h-7 w-[110px] text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="high">🔴 High</SelectItem>
-                  <SelectItem value="medium">🟡 Medium</SelectItem>
-                  <SelectItem value="low">🟢 Low</SelectItem>
-                </SelectContent>
-              </Select>
-              <FaultCodeSelect
-                value={(job as any).result || null}
-                onChange={async (v) => {
-                  const { error } = await supabase.from("jobs").update({ result: v } as any).eq("id", id!);
-                  if (error) { toast({ title: "Error", description: "Failed to update result.", variant: "destructive" }); }
-                  else { setJob((prev: any) => ({ ...prev, result: v })); toast({ title: "Result updated" }); }
-                }}
-              />
-            </div>
-          ) : (
-            <div className="mt-1.5 flex items-center gap-2">
-              <Badge variant={job.priority === "high" ? "destructive" : "secondary"} className="text-[10px] uppercase">
-                {job.priority || "medium"} priority
-              </Badge>
-              {job.category && job.category !== "general" && (
-                <Badge variant="outline" className="text-[10px] uppercase">{job.category}</Badge>
-              )}
-            </div>
-          )}
         </div>
+
+        {/* Row 2: primary + Actions menu */}
         {userRole === "admin" ? (
-          <div className="flex items-center gap-2">
-            <AiJobBriefDialog job={job} />
+          <div className="flex flex-wrap items-center gap-2">
             <SendToCustomerMenu jobId={id!} job={job} customerEmail={customerEmail} />
-            <JobPdfReport jobId={id!} job={job} />
-            <JobWordReport jobId={id!} job={job} />
-            <CloneJobDialog sourceJob={job} />
-            {(job.status === "completed" || job.status === "archived") && (
-              <ScheduleFollowUpJobs sourceJob={job} />
-            )}
-            <CreateInvoiceDialog
-              jobId={id!}
-              customerName={custName || ""}
-              customerEmail={customerEmail}
-              customerAddress={job.address || ""}
-              jobName={job.name}
-              documentType="quote"
-              trigger={
-                <Button size="sm" variant="outline">
-                  <FileText className="mr-1.5 h-4 w-4" /> Create Quote
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  Actions <ChevronDown className="h-3.5 w-3.5" />
                 </Button>
-              }
-            />
-            {(job.status === "completed" || job.status === "archived") && (
-              <CreateInvoiceDialog
-                jobId={id!}
-                customerName={custName || ""}
-                customerEmail={customerEmail}
-                customerAddress={job.address || ""}
-                jobName={job.name}
-              />
-            )}
-            {job.status !== "scheduled" && (
-              <Button variant="secondary" size="sm" onClick={() => handleStatusChange("scheduled")}>
-                Save & Submit to Planner
-              </Button>
-            )}
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-64 p-2">
+                <div className="flex flex-col gap-1 [&>*]:w-full [&_button]:w-full [&_button]:justify-start">
+                  <AiJobBriefDialog job={job} />
+                  <JobPdfReport jobId={id!} job={job} />
+                  <JobWordReport jobId={id!} job={job} />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start"
+                    onClick={() => setSiteSheetOpen(true)}
+                  >
+                    <Printer className="mr-2 h-3.5 w-3.5" /> Print for site
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start"
+                    onClick={() => document.getElementById("sign-off-signatures-section")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                  >
+                    <PenLine className="mr-2 h-3.5 w-3.5" /> Jump to sign-off
+                  </Button>
+                  <CloneJobDialog sourceJob={job} />
+                  {(job.status === "completed" || job.status === "archived") && (
+                    <ScheduleFollowUpJobs sourceJob={job} />
+                  )}
+                  <CreateInvoiceDialog
+                    jobId={id!}
+                    customerName={custName || ""}
+                    customerEmail={customerEmail}
+                    customerAddress={job.address || ""}
+                    jobName={job.name}
+                    documentType="quote"
+                    trigger={
+                      <Button size="sm" variant="ghost" className="justify-start">
+                        <FileText className="mr-2 h-3.5 w-3.5" /> Create Quote
+                      </Button>
+                    }
+                  />
+                  {(job.status === "completed" || job.status === "archived") && (
+                    <CreateInvoiceDialog
+                      jobId={id!}
+                      customerName={custName || ""}
+                      customerEmail={customerEmail}
+                      customerAddress={job.address || ""}
+                      jobName={job.name}
+                    />
+                  )}
+                  {job.status !== "scheduled" && (
+                    <Button variant="ghost" size="sm" className="justify-start" onClick={() => handleStatusChange("scheduled")}>
+                      <CalendarClock className="mr-2 h-3.5 w-3.5" /> Submit to Planner
+                    </Button>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        ) : (
+          <div>
+            <Badge variant="secondary" className={job.status === "active" ? "bg-accent/10 text-accent" : "bg-muted text-muted-foreground"}>
+              {job.status}
+            </Badge>
+          </div>
+        )}
+
+        {/* Row 3: compact controls — status / priority / result */}
+        {userRole === "admin" && (
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={job.status} onValueChange={handleStatusChange}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue>{getStatusLabel(job.status)}</SelectValue>
-              </SelectTrigger>
+              <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue>{getStatusLabel(job.status)}</SelectValue></SelectTrigger>
               <SelectContent>
                 {ALL_JOB_STATUSES.map((s) => (
                   <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <Select
+              value={job.priority || "medium"}
+              onValueChange={async (v) => {
+                const { error } = await supabase.from("jobs").update({ priority: v } as any).eq("id", id!);
+                if (error) { toast({ title: "Error", description: "Failed to update priority.", variant: "destructive" }); }
+                else { setJob((prev: any) => ({ ...prev, priority: v })); toast({ title: "Priority updated" }); }
+              }}
+            >
+              <SelectTrigger className="h-8 w-[110px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="high">🔴 High</SelectItem>
+                <SelectItem value="medium">🟡 Medium</SelectItem>
+                <SelectItem value="low">🟢 Low</SelectItem>
+              </SelectContent>
+            </Select>
+            <FaultCodeSelect
+              value={(job as any).result || null}
+              onChange={async (v) => {
+                const { error } = await supabase.from("jobs").update({ result: v } as any).eq("id", id!);
+                if (error) { toast({ title: "Error", description: "Failed to update result.", variant: "destructive" }); }
+                else { setJob((prev: any) => ({ ...prev, result: v })); toast({ title: "Result updated" }); }
+              }}
+            />
           </div>
-        ) : (
-          <Badge variant="secondary" className={job.status === "active" ? "bg-accent/10 text-accent" : "bg-muted text-muted-foreground"}>
-            {job.status}
-          </Badge>
         )}
       </div>
 
