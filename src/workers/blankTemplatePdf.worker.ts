@@ -398,14 +398,18 @@ async function buildPdf(payload: WorkerPayload) {
     : null;
   const systemQty = Math.max(overrideQty ?? autoQty, 1);
   const customerLogoUrl = jobInfo?.customers?.logo_url || null;
-  const isDryRiser = /dry\s*riser/i.test(template.name || "");
-  const isWetRiser = /wet\s*riser/i.test(template.name || "");
+  // Strip office-only workflow status suffix ("DRAFT, AWAITING TECHNICAL
+  // REVIEW", etc.) from the printed sheet title. Site copies show template
+  // identity only so the scanner classifier still locks on cleanly.
+  const cleanTemplateName = stripTemplateStatusSuffix(template.name);
+  const isDryRiser = /dry\s*riser/i.test(cleanTemplateName || "");
+  const isWetRiser = /wet\s*riser/i.test(cleanTemplateName || "");
   const isRiserTemplate = isDryRiser || isWetRiser;
   const branding = isRiserTemplate
     ? { ...(template.branding || {}), logo_url: "/vivafire-logo.png" }
     : { ...(template.branding || {}), ...(customerLogoUrl ? { logo_url: customerLogoUrl } : {}) };
-  const footerText = getDefaultFooterText(template.name, branding, template.footer_text);
-  const autoVals = getAutoPopulatedValues(template.name, template.fields, jobInfo ? { ...jobInfo, categoryName } : jobInfo);
+  const footerText = getDefaultFooterText(cleanTemplateName, branding, template.footer_text);
+  const autoVals = getAutoPopulatedValues(cleanTemplateName, template.fields, jobInfo ? { ...jobInfo, categoryName } : jobInfo);
   const customerName = jobInfo?.customers?.name || jobInfo?.customer || "";
   const siteName = jobInfo?.site?.name || "";
   const siteAddress = [jobInfo?.site?.address || jobInfo?.address || "", jobInfo?.site?.postcode || ""].filter(Boolean).join(", ");
@@ -436,9 +440,34 @@ async function buildPdf(payload: WorkerPayload) {
   const margin = marginX;
   const maxWidth = pageWidth - marginX * 2;
 
+  // Reserve a clean footer stack (bottom-up) so nothing collides:
+  //   [ accreditation logo strip ]  ← flush at pageHeight - margin
+  //   3mm gap
+  //   [ declaration / compliance box (~9mm) ]
+  //   4mm gap
+  //   [ signature block (~28mm) ]
+  //   3mm gap
+  //   [ Comments box ]
+  //   Content must stop above the Comments box.
+  const LOGO_H = 9;
+  const logoStripBottom = pageHeight - margin;
+  const logoStripTop = logoStripBottom - LOGO_H;
+  const declarationText = (footerText || "").trim()
+    || (isDryRiser ? ((template.branding?.declaration_text || "").trim() || "Tested and inspected in accordance with BS 9990:2015") : "");
+  const DECL_H = declarationText ? 9 : 0;
+  const DECL_GAP = declarationText ? 3 : 0;
+  const declTop = logoStripTop - DECL_GAP - DECL_H;
+  const SIG_H = 28;
+  const SIG_GAP = 4;
+  const sigY = declTop - SIG_GAP - SIG_H;
+  const COMMENTS_MIN_H = 6;
+  const commentsBoxBottom = sigY - 3;
+  const CONTENT_BOTTOM = commentsBoxBottom - COMMENTS_MIN_H;
+  const footerYForLogos = logoStripBottom;
+
   for (let sysIdx = 0; sysIdx < systemQty; sysIdx++) {
     if (sysIdx > 0) doc.addPage();
-    const { title: sheetTitle, subtitle: sheetSubtitle } = resolveTemplateDisplayTitle(template.name, {
+    const { title: sheetTitle, subtitle: sheetSubtitle } = resolveTemplateDisplayTitle(cleanTemplateName, {
       brandingSubtitle: template.branding?.company_subtitle ?? null,
     });
     const systemLabel = systemQty > 1 ? `System ${sysIdx + 1} of ${systemQty}` : "";
@@ -461,9 +490,17 @@ async function buildPdf(payload: WorkerPayload) {
     const skipIds = buildSkipIds(template.fields);
     const sections = getSections(template.fields);
     const colSplit = maxWidth * 0.68;
-    const footerSpace = isDryRiser ? 58 : 50;
-    const availableH = pageHeight - y - footerSpace;
-    const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, { sectionHeaderH: 5, maxRowH: 6 });
+    // Handwriting-friendly generous row heights. We now flow across
+    // multiple pages when needed rather than squashing rows to fit one.
+    const layout = {
+      rowH: 8,
+      sectionHeaderH: 6,
+      totalFieldRows: 0,
+      totalSectionHeaders: 0,
+    };
+    // Retain the shared helper reference (types unchanged for callers that
+    // read the computed layout — not needed here).
+    void computeSectionLayout;
 
     for (const section of sections) {
       const sectionFields = getSectionFields(template.fields, section, skipIds);
@@ -500,7 +537,7 @@ async function buildPdf(payload: WorkerPayload) {
         }
         if (currentRow.length > 0) rows.push(currentRow);
         const totalH = rows.length * inlineH;
-        if (y + layout.sectionHeaderH + totalH > pageHeight - footerSpace) { doc.addPage(); y = margin; }
+        if (y + layout.sectionHeaderH + totalH > CONTENT_BOTTOM) { doc.addPage(); y = margin; }
         y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH, showResultLabel: false, handfill });
         for (const row of rows) {
           if (!handfill) { doc.setDrawColor(180); doc.rect(margin, y, maxWidth, inlineH); }
@@ -538,60 +575,48 @@ async function buildPdf(payload: WorkerPayload) {
         continue;
       }
 
-      const sectionRowUnits = sectionFields.reduce((sum, field) => sum + (field.type === "signature" ? 2 : 1), 0);
-      if (y + layout.sectionHeaderH + sectionRowUnits * layout.rowH > pageHeight - footerSpace) { doc.addPage(); y = margin; }
+      // Page-break the section header with at least one row of content beneath.
+      if (y + layout.sectionHeaderH + layout.rowH > CONTENT_BOTTOM) { doc.addPage(); y = margin; }
       y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH, handfill });
+      const resultCellWidth = maxWidth - colSplit - 4;
       for (const field of sectionFields) {
         const isScopeField = field.id === "scope_of_work" || field.label.toLowerCase().replace(/[:\s]+$/g, "").trim().includes("scope of work");
         if (isDryRiser && isScopeField) continue;
         const isDrainField = field.label.toLowerCase().includes("drain") || field.label.toLowerCase().includes("drop leg");
         const allowAuto = !isDryRiser && (isScopeField || isDrainField);
         const autoVal = (field.options && field.options.length > 0 && !allowAuto) ? undefined : (isDryRiser ? undefined : autoVals[field.id]);
+        const fieldH = estimateBlankFieldRowH(doc, field, layout.rowH, resultCellWidth);
+        if (y + fieldH > CONTENT_BOTTOM) {
+          doc.addPage();
+          y = margin;
+          // Re-draw the section header on the continuation page so context is
+          // preserved for the engineer.
+          y = renderSectionHeader(doc, `${section} (cont.)`, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH, handfill });
+        }
         y = renderBlankFieldRow(doc, field, autoVal, y, { margin, maxWidth, colSplit, rowH: layout.rowH, handfill });
       }
       y += 1;
     }
 
-    const logoH = 9;
-    const footerYForLogos = isDryRiser ? pageHeight - margin - 9 - 2 : pageHeight - 1;
-    const accredStripTop = footerYForLogos - logoH - 3;
-    const sigY = accredStripTop - 28 - 1;
-    const commentsBoxBottom = sigY - 3;
-    const minCommentsH = 6;
-    const commentsBoxTop = Math.min(y + 4, commentsBoxBottom - minCommentsH);
-    const commentsAvailH = commentsBoxBottom - commentsBoxTop;
-    const commentsRectH = isDryRiser ? Math.max(commentsAvailH, minCommentsH) : Math.max(Math.min(commentsAvailH, 45), minCommentsH);
+    // Comments + signature block + declaration box, all inside the reserved
+    // footer area so nothing overlaps the accreditation logo strip.
+    const commentsBoxTop = Math.min(y + 4, commentsBoxBottom - COMMENTS_MIN_H);
+    const commentsAvailH = Math.max(commentsBoxBottom - commentsBoxTop, COMMENTS_MIN_H);
     doc.setFontSize(9.5);
     doc.setFont("helvetica", "bold");
     doc.text("Comments:", margin, commentsBoxTop - 1);
-    if (!handfill) { doc.setDrawColor(180); doc.rect(margin, commentsBoxTop, maxWidth, commentsRectH); }
+    if (!handfill) { doc.setDrawColor(180); doc.rect(margin, commentsBoxTop, maxWidth, commentsAvailH); }
     renderPdfSignatures(doc, sigY, { dateStr: "", technicianName: engineerList, customerName: "" }, { blank: true });
-    if (!isDryRiser) {
-      renderPdfFooter(doc, pageHeight - margin - 9, footerText);
-    } else {
-      const declarationText = (template.branding?.declaration_text || "").trim() || "Tested and inspected in accordance with BS 9990:2015";
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
-      const padX = 4;
-      const padY = 2.5;
-      const lineH = 4;
-      const lines = doc.splitTextToSize(declarationText, pageWidth - margin * 2 - padX * 2) as string[];
-      const textH = lines.length * lineH;
-      const declH = Math.max(9, textH + padY * 2);
-      const declY = pageHeight - margin - declH;
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.5);
-      doc.rect(margin, declY, pageWidth - margin * 2, declH);
-      let ty = declY + (declH - textH) / 2 + lineH - 1;
-      lines.forEach((ln) => { doc.text(ln, pageWidth / 2, ty, { align: "center" }); ty += lineH; });
+    if (declarationText) {
+      renderPdfFooter(doc, declTop, declarationText);
     }
   }
 
   const wm = resolveWatermark(payload.watermarkSettings, payload.watermarkOverride);
-  const footerYForLogos = isDryRiser ? pageHeight - margin - 9 - 2 : pageHeight - 1;
   addWatermark(doc, watermark, accentColor, wm.mode, wm.opacity);
-  addAccreditationLogos(doc, accreditationLogos.filter(Boolean) as LoadedImage[], footerYForLogos, 9, wm.accreditationOpacity);
+  addAccreditationLogos(doc, accreditationLogos.filter(Boolean) as LoadedImage[], footerYForLogos, LOGO_H, wm.accreditationOpacity);
+
+
 
   const fileName = [
     jobInfo?.reference_number || "blank",
