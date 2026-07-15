@@ -87,7 +87,7 @@ export default function JobCompleteAction({
 
   const loadReadiness = async () => {
     setReadiness((r) => ({ ...r, loading: true }));
-    const [sigsRes, sheetsRes, photosRes, remedialRes] = await Promise.all([
+    const [sigsRes, sheetsRes, photosRes, remedialRes, remedialItemsRes] = await Promise.all([
       supabase.from("job_signatures").select("signer_role").eq("job_id", jobId),
       supabase
         .from("job_sheet_responses")
@@ -98,9 +98,15 @@ export default function JobCompleteAction({
         .select("id", { count: "exact", head: true })
         .eq("job_id", jobId)
         .eq("type", "photo"),
-      // Remedial checklist may not exist yet — swallow errors.
+      // Legacy pre_completion_checklist_items — swallow errors if table absent.
       supabase
         .from("pre_completion_checklist_items" as any)
+        .select("status")
+        .eq("job_id", jobId)
+        .then((r) => r, () => ({ data: [] as any[] })),
+      // New job_remedial_items — the primary works checklist for remedial jobs.
+      supabase
+        .from("job_remedial_items" as any)
         .select("status")
         .eq("job_id", jobId)
         .then((r) => r, () => ({ data: [] as any[] })),
@@ -109,6 +115,7 @@ export default function JobCompleteAction({
     const sigs = sigsRes.data || [];
     const sheets = (sheetsRes.data || []) as any[];
     const remedial = (remedialRes as any).data || [];
+    const remedialItems = (remedialItemsRes as any).data || [];
 
     const submittedTplIds = new Set(
       sheets.filter((s) => s.status === "submitted").map((s) => s.template_id),
