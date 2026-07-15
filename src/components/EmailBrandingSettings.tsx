@@ -162,7 +162,11 @@ export default function EmailBrandingSettings() {
     if (user?.email && !testEmail) setTestEmail(user.email);
   }, [user?.email]);
 
-  const previewHtml = useMemo(() => buildPreviewHtml(row), [row]);
+  const previewSenderName = (user as any)?.user_metadata?.full_name || user?.email || row.company_name;
+  const previewHtml = useMemo(
+    () => buildPreviewHtml(row, previewSenderName),
+    [row, previewSenderName],
+  );
 
   const update = <K extends keyof BrandingRow>(k: K, v: BrandingRow[K]) =>
     setRow((prev) => ({ ...prev, [k]: v }));
