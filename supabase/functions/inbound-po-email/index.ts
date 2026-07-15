@@ -727,6 +727,7 @@ serve(async (req) => {
     address: siteAddress || null,
     priority,
     category: inferred.categorySlug || "general",
+    is_remedial: inferred.isRemedial,
     due_date: extracted.due_date && /^\d{4}-\d{2}-\d{2}$/.test(extracted.due_date) ? extracted.due_date : null,
     status: "pending_review",
     source: "email_po",
