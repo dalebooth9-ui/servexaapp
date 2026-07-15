@@ -223,7 +223,9 @@ function renderHeader(
     riserLocation: string;
     engineer?: string;
     systemLabel?: string;
+    notes?: string;
   },
+
   standard: string | null | undefined,
   accent: RgbTriple,
   opts: { compact?: boolean; marginX?: number; logo?: LoadedImage | null; isDryRiser?: boolean },
