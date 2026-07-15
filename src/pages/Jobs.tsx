@@ -380,6 +380,12 @@ export default function Jobs() {
   };
 
   const handleApproveJob = async (jobId: string) => {
+    if ((pendingSheetCounts[jobId] ?? 0) === 0) {
+      const ok = window.confirm(
+        "This job has no job sheets attached. The engineer will arrive on site with nothing to fill in.\n\nApprove anyway?"
+      );
+      if (!ok) return;
+    }
     const { error } = await supabase.from("jobs").update({ status: "active" } as any).eq("id", jobId);
     if (error) {
       toast({ title: "Error", description: "Failed to approve job.", variant: "destructive" });
@@ -391,6 +397,13 @@ export default function Jobs() {
 
   const handleBulkApprovePending = async (ids: string[]) => {
     if (ids.length === 0) return;
+    const emptyCount = ids.filter((id) => (pendingSheetCounts[id] ?? 0) === 0).length;
+    if (emptyCount > 0) {
+      const ok = window.confirm(
+        `${emptyCount} of the ${ids.length} selected job(s) have no job sheets attached. Engineers will arrive with nothing to fill in.\n\nApprove all anyway?`
+      );
+      if (!ok) return;
+    }
     const { error } = await supabase.from("jobs").update({ status: "active" } as any).in("id", ids);
     if (error) {
       toast({ title: "Error", description: "Failed to approve jobs.", variant: "destructive" });
@@ -400,6 +413,7 @@ export default function Jobs() {
       setSelectedPendingIds(new Set());
     }
   };
+
 
   // Refresh blank-sheet counts whenever the pending list changes.
   const refreshPendingSheetCounts = useCallback(async (ids: string[]) => {
