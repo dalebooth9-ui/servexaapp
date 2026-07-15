@@ -105,6 +105,10 @@ type JobInfo = {
   other_qty?: number;
   other_service_type?: string | null;
   due_date?: string | null;
+  /** Free-text note the office prints in the header — access, parking, keys,
+   *  contact-on-arrival etc. Overridden per-print in the edit-before-print
+   *  dialog; never persisted back to the job record. */
+  printNotes?: string | null;
   site?: {
     name: string;
     address: string | null;
@@ -115,6 +119,8 @@ type JobInfo = {
     riser_location?: string | null;
   } | null;
 };
+
+
 
 type WorkerPayload = {
   template: Template;
