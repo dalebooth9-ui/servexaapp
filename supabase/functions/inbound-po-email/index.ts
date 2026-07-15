@@ -704,6 +704,20 @@ serve(async (req) => {
   if (desc) briefParts.push(desc);
   if (forwardedBody) briefParts.push("", "--- Email body ---", forwardedBody.slice(0, 4000));
 
+  // Scope inference — pre-attach the right job sheets so pending jobs are
+  // never empty, and set the job category when we can guess confidently.
+  const inferred = inferJobScope({
+    description: desc,
+    subject: email.subject,
+    body: forwardedBody,
+  });
+  if (inferred.reasons.length) {
+    briefParts.push("", "--- Auto-detected scope ---");
+    for (const r of inferred.reasons) briefParts.push(`• ${r}`);
+    if (inferred.templateNames.length) {
+      briefParts.push(`Templates pre-attached: ${inferred.templateNames.join(", ")}`);
+    }
+  }
 
   const jobInsert: Record<string, unknown> = {
     name: jobName,
@@ -712,12 +726,13 @@ serve(async (req) => {
     customer: customerName,
     address: siteAddress || null,
     priority,
-    category: "general",
+    category: inferred.categorySlug || "general",
     due_date: extracted.due_date && /^\d{4}-\d{2}-\d{2}$/.test(extracted.due_date) ? extracted.due_date : null,
     status: "pending_review",
     source: "email_po",
     brief: briefParts.join("\n").trim() || null,
   };
+
 
   // ── Idempotency ────────────────────────────────────────────────────────
   // If the same PO number from the same sender has landed in the approval
