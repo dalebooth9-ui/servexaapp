@@ -801,14 +801,34 @@ export function renderBlankFieldRow(
     doc.setFontSize(9.5);
     doc.text("_______ / _______ / _______", margin + colSplit + 2, y + 3.5);
     if (field.allow_na) renderBlankNaBox(doc, margin + maxWidth - 12, y);
-  } else if (field.allow_na) {
-    // Plain text/number/textarea field with N/A allowed — show an N/A tickbox
-    // on the right edge of the result cell so the engineer can mark the field
-    // as not applicable instead of writing a value.
-    renderBlankNaBox(doc, margin + maxWidth - 12, y);
+  } else {
+    // Plain writable text / number / textarea / short_text field. Draw a
+    // ruled writing line (like the Comments block) inside the result cell
+    // so it's obviously a write-here space. Textareas get multiple lines
+    // stacked within the taller row.
+    const naReserve = field.allow_na ? 14 : 2;
+    const lineStartX = margin + colSplit + 2;
+    const lineEndX = margin + maxWidth - naReserve;
+    doc.setDrawColor(handfill ? 180 : 150);
+    doc.setLineWidth(0.2);
+    const isMultiline = field.type === "textarea" || field.type === "long_text";
+    const lineSpacing = 5;
+    // First writing line sits near the baseline so it reads as a rule to
+    // write ON (not a strike-through above the text).
+    const firstLineY = y + actualRowH - 1.5;
+    doc.line(lineStartX, firstLineY, lineEndX, firstLineY);
+    if (isMultiline) {
+      // Stack additional lines going upward until we run out of row height.
+      let ly = firstLineY - lineSpacing;
+      while (ly > y + 2) {
+        doc.line(lineStartX, ly, lineEndX, ly);
+        ly -= lineSpacing;
+      }
+    }
+    if (field.allow_na) renderBlankNaBox(doc, margin + maxWidth - 12, y);
   }
-  // For text/number/textarea/signature/photo/file fields without allow_na,
-  // leave the result cell empty so engineers can write/sign in by hand.
+  // For text/number/textarea/short_text fields the ruled writing line above
+  // ensures the answer cell is obviously a write-here space.
 
   return y + actualRowH;
 }

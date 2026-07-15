@@ -55,9 +55,13 @@ function drawWrappedTitle(
     doc.setFontSize(size);
     const lines = (doc.splitTextToSize(text, maxWidth) as string[]).filter(Boolean);
     if (lines.length <= 2) {
-      const lineH = size * 0.4; // mm — comfortable leading
+      const lineH = size * 0.45; // mm — comfortable leading between wrapped title lines
       lines.forEach((ln, i) => doc.text(ln, centerX, y + i * lineH + size * 0.35, { align: "center" }));
-      return y + lines.length * lineH + 1;
+      // Return y BELOW the last baseline with enough padding that a
+      // subsequent 10pt subtitle (~3.5mm tall) cannot collide with the
+      // title glyphs. Previously used +1mm which caused visible overlap
+      // between "DRY RISER VISUAL" and the branding strapline.
+      return y + (lines.length - 1) * lineH + size * 0.35 + 3.5;
     }
   }
   // Absolute fallback: force smallest size, two lines, allow ellipsis on 2nd.
@@ -66,9 +70,9 @@ function drawWrappedTitle(
   const all = doc.splitTextToSize(text, maxWidth) as string[];
   const lines = all.slice(0, 2);
   if (all.length > 2) lines[1] = lines[1].replace(/\s*\S*$/, "") + "…";
-  const lineH = size * 0.4;
+  const lineH = size * 0.45;
   lines.forEach((ln, i) => doc.text(ln, centerX, y + i * lineH + size * 0.35, { align: "center" }));
-  return y + lines.length * lineH + 1;
+  return y + (lines.length - 1) * lineH + size * 0.35 + 3.5;
 }
 
 
@@ -540,31 +544,48 @@ async function buildPdf(payload: WorkerPayload) {
     })();
 
     // Fixed generous row height by default; for compact templates search
-    // downwards from the generous baseline for the largest rowH that fits
-    // all field rows (including wrapped select-option growth) in the
-    // available content area — never below the minimum handwriting size.
+    // downwards from the generous baseline for the largest combination of
+    // (rowH, sectionHeaderH, inter-section gap) that fits all field rows
+    // (including wrapped select-option growth) in the available content
+    // area. Never below the minimum handwriting size.
     const availableContentH = CONTENT_BOTTOM - y;
-    const computeFitRowH = (): number => {
-      const candidates = [8, 7.5, 7, 6.5, 6, 5.5, 5, 4.5, 4];
-      for (const r of candidates) {
-        let total = 0;
-        for (const sec of sections) {
-          const sf = getSectionFields(template.fields, sec, skipIds);
-          if (sf.length === 0) continue;
-          total += sectionHeaderH + 1;
-          for (const f of sf) {
-            const isScope = f.id === "scope_of_work" || f.label.toLowerCase().replace(/[:\s]+$/g, "").trim().includes("scope of work");
-            if (isDryRiser && isScope) continue;
-            total += estimateBlankFieldRowH(doc, f, r, resultCellWidth);
+    type FitTuple = { rowH: number; secH: number; gap: number };
+    const computeFit = (): FitTuple => {
+      // Ordered largest → smallest so the first fit wins. Search over the
+      // three levers that visually affect page density.
+      const rowCandidates = [8, 7.5, 7, 6.5, 6, 5.5, 5, 4.5, 4];
+      const secCandidates = [6, 5.5, 5, 4.5, 4];
+      const gapCandidates = [1, 0.5, 0];
+      let best: FitTuple = { rowH: 4, secH: 4, gap: 0 };
+      for (const r of rowCandidates) {
+        for (const s of secCandidates) {
+          for (const g of gapCandidates) {
+            let total = 0;
+            for (const sec of sections) {
+              const sf = getSectionFields(template.fields, sec, skipIds);
+              if (sf.length === 0) continue;
+              total += s + g;
+              for (const f of sf) {
+                const isScope = f.id === "scope_of_work" || f.label.toLowerCase().replace(/[:\s]+$/g, "").trim().includes("scope of work");
+                if (isDryRiser && isScope) continue;
+                total += estimateBlankFieldRowH(doc, f, r, resultCellWidth);
+              }
+            }
+            if (total <= availableContentH) {
+              // First combination (largest values in each dim) that fits.
+              return { rowH: r, secH: s, gap: g };
+            }
+            best = { rowH: r, secH: s, gap: g };
           }
         }
-        if (total <= availableContentH) return r;
       }
-      return 4;
+      return best;
     };
+    const fit = preferSinglePage ? computeFit() : { rowH: 8, secH: sectionHeaderH, gap: 1 };
     const layout = {
-      rowH: preferSinglePage ? computeFitRowH() : 8,
-      sectionHeaderH,
+      rowH: fit.rowH,
+      sectionHeaderH: fit.secH,
+      interSectionGap: fit.gap,
       totalFieldRows: 0,
       totalSectionHeaders: 0,
     };
@@ -640,7 +661,7 @@ async function buildPdf(payload: WorkerPayload) {
           }
           y += inlineH;
         }
-        y += 1;
+        y += layout.interSectionGap;
         continue;
       }
 
@@ -664,18 +685,44 @@ async function buildPdf(payload: WorkerPayload) {
         }
         y = renderBlankFieldRow(doc, field, autoVal, y, { margin, maxWidth, colSplit, rowH: layout.rowH, handfill });
       }
-      y += 1;
+      y += layout.interSectionGap;
     }
 
     // Comments + signature block + declaration box, all inside the reserved
     // footer area so nothing overlaps the accreditation logo strip.
-    const commentsBoxTop = Math.min(y + 4, commentsBoxBottom - COMMENTS_MIN_H);
-    const commentsAvailH = Math.max(commentsBoxBottom - commentsBoxTop, COMMENTS_MIN_H);
+    //
+    // Two layouts:
+    //  • "anchored" (default): comments expand upward from the fixed
+    //    signature Y so the sig block always sits above the footer strip.
+    //    Used when content fills most of the page.
+    //  • "flow" (spill pages that are mostly empty): give the comments a
+    //    modest height and place the signature block immediately below the
+    //    comments. Prevents a huge dead gap between the last row and the
+    //    signature strip when content only partially filled the final page.
+    const anchoredCommentsAvail = commentsBoxBottom - (y + 4);
+    // If more than ~1/3 of the reserved comments area would be empty, flow
+    // instead of anchoring.
+    const shouldFlow = pageHeight * 0.35 > (pageHeight - margin) - y;
+    let effectiveSigY = sigY;
+    let commentsBoxTop: number;
+    let commentsAvailH: number;
+    if (shouldFlow) {
+      const flowCommentsH = 25;
+      commentsBoxTop = y + 4;
+      commentsAvailH = flowCommentsH;
+      effectiveSigY = commentsBoxTop + commentsAvailH + SIG_GAP;
+      // Never exceed the reserved sig position (would collide with footer).
+      if (effectiveSigY > sigY) effectiveSigY = sigY;
+    } else {
+      commentsBoxTop = Math.min(y + 4, commentsBoxBottom - COMMENTS_MIN_H);
+      commentsAvailH = Math.max(commentsBoxBottom - commentsBoxTop, COMMENTS_MIN_H);
+    }
+    void anchoredCommentsAvail;
     doc.setFontSize(9.5);
     doc.setFont("helvetica", "bold");
     doc.text("Comments:", margin, commentsBoxTop - 1);
     if (!handfill) { doc.setDrawColor(180); doc.rect(margin, commentsBoxTop, maxWidth, commentsAvailH); }
-    renderPdfSignatures(doc, sigY, { dateStr: "", technicianName: engineerList, customerName: "" }, { blank: true });
+    renderPdfSignatures(doc, effectiveSigY, { dateStr: "", technicianName: engineerList, customerName: "" }, { blank: true });
     if (declarationText) {
       renderPdfFooter(doc, declTop, declarationText);
     }
