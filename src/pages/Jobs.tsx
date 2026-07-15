@@ -401,6 +401,45 @@ export default function Jobs() {
     }
   };
 
+  // Refresh blank-sheet counts whenever the pending list changes.
+  const refreshPendingSheetCounts = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) { setPendingSheetCounts({}); return; }
+    const { data } = await supabase
+      .from("job_documents" as any)
+      .select("job_id")
+      .eq("document_type", "blank_job_sheet")
+      .in("job_id", ids);
+    const counts: Record<string, number> = {};
+    for (const id of ids) counts[id] = 0;
+    for (const row of (data as any[] | null) || []) {
+      counts[row.job_id] = (counts[row.job_id] || 0) + 1;
+    }
+    setPendingSheetCounts(counts);
+  }, []);
+  useEffect(() => {
+    const ids = jobs.filter((j) => j.status === "pending_review").map((j) => j.id);
+    refreshPendingSheetCounts(ids);
+  }, [jobs, refreshPendingSheetCounts]);
+
+  const handleAttachSheetToPending = async (jobId: string, templateId: string) => {
+    const tpl = sheetTemplates.find((t) => t.id === templateId);
+    if (!tpl) return;
+    const { error } = await supabase.from("job_documents" as any).insert({
+      job_id: jobId,
+      document_type: "blank_job_sheet",
+      label: tpl.name,
+      source: "manual",
+      created_by: user?.id ?? null,
+    } as any);
+    if (error) {
+      toast({ title: "Could not attach sheet", description: error.message, variant: "destructive" });
+      return;
+    }
+    setPendingSheetCounts((prev) => ({ ...prev, [jobId]: (prev[jobId] || 0) + 1 }));
+    toast({ title: "Sheet attached", description: tpl.name });
+  };
+
+
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectingJob, setRejectingJob] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState("");
