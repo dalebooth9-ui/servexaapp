@@ -176,7 +176,19 @@ export default function Jobs() {
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [categoryFilters, setCategoryFilters] = useState<string[]>(() => {
+    try {
+      const raw = sessionStorage.getItem("jobs-category-filters");
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : [];
+    } catch { return []; }
+  });
+  useEffect(() => {
+    try { sessionStorage.setItem("jobs-category-filters", JSON.stringify(categoryFilters)); } catch {}
+  }, [categoryFilters]);
+  const toggleCategoryFilter = (slug: string) => {
+    setCategoryFilters((prev) => prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]);
+  };
   const [showFilters, setShowFilters] = useState(false);
   // Visible primary status tab — Active (default), Pending Review, Completed, All
   const [statusTab, setStatusTab] = useState<"active" | "pending_review" | "completed" | "rejected" | "all">("active");
