@@ -638,25 +638,73 @@ export default function Jobs() {
 
   const handleDialogFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
 
-    // Try dataTransfer.items first (works better with email clients like Outlook/Gmail)
+    const dt = e.dataTransfer;
     let file: File | null = null;
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      for (let i = 0; i < e.dataTransfer.items.length; i++) {
-        const item = e.dataTransfer.items[i];
+
+    // 1) Standard files array (works for Explorer / Finder drags)
+    if (dt.files && dt.files.length > 0) {
+      file = dt.files[0];
+    }
+
+    // 2) DataTransferItems — Outlook / Gmail / other email clients often expose files here
+    if (!file && dt.items && dt.items.length > 0) {
+      for (let i = 0; i < dt.items.length; i++) {
+        const item = dt.items[i];
         if (item.kind === "file") {
-          file = item.getAsFile();
-          if (file) break;
+          const f = item.getAsFile();
+          if (f && f.size > 0) { file = f; break; }
         }
       }
     }
-    // Fallback to files array
-    if (!file && e.dataTransfer.files.length > 0) {
-      file = e.dataTransfer.files[0];
+
+    // 3) URI-list / HTML payload — try to fetch the referenced file
+    if (!file) {
+      const readString = (type: string): Promise<string | null> =>
+        new Promise((resolve) => {
+          if (!dt.items) return resolve(null);
+          for (let i = 0; i < dt.items.length; i++) {
+            const it = dt.items[i];
+            if (it.kind === "string" && it.type === type) {
+              it.getAsString((s) => resolve(s));
+              return;
+            }
+          }
+          try { resolve(dt.getData(type) || null); } catch { resolve(null); }
+        });
+
+      const uriList = (await readString("text/uri-list")) || (await readString("text/plain")) || "";
+      const htmlPayload = await readString("text/html");
+      const candidates: string[] = [];
+      uriList.split(/\r?\n/).forEach((line) => {
+        const t = line.trim();
+        if (t && !t.startsWith("#") && /^https?:\/\//i.test(t)) candidates.push(t);
+      });
+      if (htmlPayload) {
+        const matches = htmlPayload.match(/https?:\/\/[^"'\s<>]+\.(?:pdf|docx?|PDF|DOCX?|Doc)/g);
+        if (matches) candidates.push(...matches);
+      }
+
+      for (const url of candidates) {
+        try {
+          const resp = await fetch(url, { credentials: "omit" });
+          if (!resp.ok) continue;
+          const blob = await resp.blob();
+          if (blob.size === 0) continue;
+          const name = decodeURIComponent(url.split("/").pop()?.split("?")[0] || "document.pdf");
+          file = new File([blob], name, { type: blob.type || "application/octet-stream" });
+          break;
+        } catch { /* try next */ }
+      }
     }
 
     if (!file) {
-      toast({ title: "No file detected", description: "Could not read the dragged file. Try saving the attachment first, then dropping it here.", variant: "destructive" });
+      toast({
+        title: "No file detected",
+        description: "Could not read the dragged attachment. In Outlook, try saving the attachment to your desktop first, then drop it here.",
+        variant: "destructive",
+      });
       return;
     }
 
