@@ -287,7 +287,97 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
             No published job-sheet templates match this job's category.
           </div>
         ) : (
-          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+            {/* Edit-before-print — printout-only overrides, never saved back. */}
+            <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-sm font-semibold">Sheet details</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Edits apply to the printout only — they do not update the job record.
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Customer</Label>
+                  <Input
+                    value={overrides.customerName}
+                    onChange={(e) => setOverrides((p) => ({ ...p, customerName: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">PO / Reference</Label>
+                  <Input
+                    value={overrides.refNumber}
+                    onChange={(e) => setOverrides((p) => ({ ...p, refNumber: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Site name</Label>
+                  <Input
+                    value={overrides.siteName}
+                    onChange={(e) => setOverrides((p) => ({ ...p, siteName: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Site postcode</Label>
+                  <Input
+                    value={overrides.sitePostcode}
+                    onChange={(e) => setOverrides((p) => ({ ...p, sitePostcode: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="sm:col-span-2 space-y-1">
+                  <Label className="text-xs">Site address</Label>
+                  <Input
+                    value={overrides.siteAddress}
+                    onChange={(e) => setOverrides((p) => ({ ...p, siteAddress: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Riser / equipment location</Label>
+                  <Input
+                    value={overrides.riserLocation}
+                    onChange={(e) => setOverrides((p) => ({ ...p, riserLocation: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Scheduled date</Label>
+                  <Input
+                    type="date"
+                    value={overrides.dueDate}
+                    onChange={(e) => setOverrides((p) => ({ ...p, dueDate: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="sm:col-span-2 space-y-1">
+                  <Label className="text-xs">Engineer(s) — comma separated</Label>
+                  <Input
+                    value={overrides.engineers}
+                    onChange={(e) => setOverrides((p) => ({ ...p, engineers: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="sm:col-span-2 space-y-1">
+                  <Label className="text-xs">Notes for engineer (access, parking, keys, contact…)</Label>
+                  <Textarea
+                    value={overrides.notes}
+                    onChange={(e) => setOverrides((p) => ({ ...p, notes: e.target.value }))}
+                    rows={2}
+                    className="text-sm resize-none"
+                    placeholder="e.g. Ring buzzer 3B on arrival — park in visitor bay 12. Keys with concierge."
+                  />
+                </div>
+              </div>
+            </div>
+
+
             {bundle.templates.map((t) => {
               const { title } = resolveTemplateDisplayTitle(t.name, {
                 brandingSubtitle: t.branding?.company_subtitle ?? null,
