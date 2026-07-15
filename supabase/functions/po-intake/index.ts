@@ -171,10 +171,24 @@ serve(async (req) => {
   const validDueDate =
     due_date && /^\d{4}-\d{2}-\d{2}$/.test(due_date) ? due_date : null;
 
+  // ---------- Infer scope from wording so pending job never lands empty ----
+  const inferred = inferJobScope({
+    description: job_description,
+    subject: email_subject,
+    body: email_body,
+  });
+
   const briefParts: string[] = [];
   if (email_subject) briefParts.push(`Subject: ${email_subject}`);
   if (sender_email) briefParts.push(`From: ${sender_email}`);
   if (email_body) briefParts.push(`\n${email_body}`);
+  if (inferred.reasons.length) {
+    briefParts.push("", "--- Auto-detected scope ---");
+    for (const r of inferred.reasons) briefParts.push(`• ${r}`);
+    if (inferred.templateNames.length) {
+      briefParts.push(`Templates pre-attached: ${inferred.templateNames.join(", ")}`);
+    }
+  }
   const brief = briefParts.join("\n").trim() || null;
 
   const jobInsert: Record<string, unknown> = {
@@ -183,7 +197,7 @@ serve(async (req) => {
     customer_id: customerId,
     address: (site_address || "").trim() || null,
     priority: validPriority,
-    category: "general",
+    category: inferred.categorySlug || "general",
     status: "pending_review",
     source: "email_po",
     brief,
@@ -191,6 +205,7 @@ serve(async (req) => {
     org_id: orgId,
   };
   if (po_number?.trim()) jobInsert.reference_number = po_number.trim();
+
 
   const attempt = async (payload: Record<string, unknown>) =>
     admin.from("jobs").insert(payload as any).select("id, reference_number").single();
