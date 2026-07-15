@@ -303,20 +303,29 @@ export default function SettingsPage() {
           <JobTemplateSettings />
           <CategoryDocumentTemplateSettings />
           <RamsTemplateSettings />
-          <FilenameFormatSettings />
-          <WordExportSettings />
-          <WatermarkSettings />
           <EngineerSignatureSettings />
-          <VehicleCheckSettings />
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Fleet vehicles</CardTitle>
-              <CardDescription>Manage the vehicles engineers select when doing their daily check.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild variant="outline"><a href="/fleet">Open fleet manager</a></Button>
-            </CardContent>
-          </Card>
+
+          <Collapsible>
+            <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border bg-card px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+              Advanced document settings
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-6 pt-4">
+              <FilenameFormatSettings />
+              <WordExportSettings />
+              <WatermarkSettings />
+              <VehicleCheckSettings />
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Fleet vehicles</CardTitle>
+                  <CardDescription>Manage the vehicles engineers select when doing their daily check.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline"><a href="/fleet">Open fleet manager</a></Button>
+                </CardContent>
+              </Card>
+            </CollapsibleContent>
+          </Collapsible>
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6 mt-0">
