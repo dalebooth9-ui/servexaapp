@@ -125,6 +125,20 @@ export default function JobDetail() {
   const [siteSheetOpen, setSiteSheetOpen] = useState(false);
   const [jobW3W, setJobW3W] = useState<string | null>(null);
   const jobUploadUrl = `${window.location.origin}/jobs/${id}`;
+  const [showChecklistOptIn, setShowChecklistOptIn] = useState(false);
+  const [savingRemedialFlag, setSavingRemedialFlag] = useState(false);
+  const toggleIsRemedial = async (next: boolean) => {
+    if (!id) return;
+    setSavingRemedialFlag(true);
+    const { error } = await supabase.from("jobs").update({ is_remedial: next } as any).eq("id", id);
+    setSavingRemedialFlag(false);
+    if (error) {
+      toast({ title: "Failed to update", description: error.message, variant: "destructive" });
+    } else {
+      setJob((j: any) => j ? { ...j, is_remedial: next } : j);
+      toast({ title: next ? "Marked as remedial" : "Remedial flag removed" });
+    }
+  };
 
   // Tab state — persisted per-job in sessionStorage so navigating away & back
   // keeps the same active section for the current browser session.
