@@ -354,8 +354,32 @@ function renderHeader(
     y += detailH + 2;
   }
 
+  // Optional site-notes strip below the details grid — access, parking,
+  // keys etc. printed for the engineer. Wraps to at most 2 lines.
+  const notesText = (data.notes || "").trim();
+  if (notesText) {
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.2);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    const labelW = doc.getTextWidth("SITE NOTES: ") + 2;
+    const wrapW = maxWidth - labelW - 3;
+    doc.setFont("helvetica", "italic");
+    const wrapped = (doc.splitTextToSize(notesText, wrapW) as string[]).slice(0, 2);
+    const lineH = 4;
+    const boxH = Math.max(7, wrapped.length * lineH + 2);
+    doc.rect(margin, y, maxWidth, boxH);
+    doc.setFont("helvetica", "bold");
+    doc.text("SITE NOTES:", margin + 2, y + 4.5);
+    doc.setFont("helvetica", "italic");
+    wrapped.forEach((ln, i) => doc.text(ln, margin + labelW, y + 4.5 + i * lineH));
+    doc.setFont("helvetica", "normal");
+    y += boxH + 2;
+  }
+
   return y;
 }
+
 
 function addAccreditationLogos(doc: jsPDF, logos: LoadedImage[], footerY: number, logoH: number, opacity: number) {
   if (logos.length === 0) return;
