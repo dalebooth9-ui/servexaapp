@@ -403,7 +403,6 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="advanced" className="space-y-6 mt-0">
-          <StorageMigrationPanel />
           <HelpArticlesAdmin />
           {/* Weekly Report Settings */}
           <Card>
