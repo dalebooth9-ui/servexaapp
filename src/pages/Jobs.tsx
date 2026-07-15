@@ -1243,7 +1243,7 @@ export default function Jobs() {
   const prefiltered = jobs.filter((j) => {
     if (statusFilter !== "all" && j.status !== statusFilter) return false;
     if (priorityFilter !== "all" && j.priority !== priorityFilter) return false;
-    if (categoryFilter !== "all" && j.category !== categoryFilter) return false;
+    if (categoryFilters.length > 0 && !categoryFilters.includes(j.category)) return false;
     return true;
   });
   const filtered = fuzzyFilter(prefiltered, search, (j) => [
