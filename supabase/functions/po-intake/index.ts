@@ -221,11 +221,38 @@ serve(async (req) => {
     return json(500, { error: "Could not create job", detail: error?.message });
   }
 
+  // Pre-attach any inferred blank job sheets so the pending job is never empty.
+  if (inferred.templateNames.length) {
+    try {
+      const { data: matched } = await admin
+        .from("job_sheet_templates")
+        .select("name")
+        .eq("status", "published")
+        .in("name", inferred.templateNames);
+      const rows = (matched || []).map((t: any) => ({
+        job_id: job!.id,
+        document_type: "blank_job_sheet",
+        label: t.name,
+        source: "auto",
+        org_id: orgId,
+      }));
+      if (rows.length) {
+        const { error: docErr } = await admin.from("job_documents").insert(rows as any);
+        if (docErr) console.error("po-intake auto-attach failed", docErr);
+      }
+    } catch (e) {
+      console.error("po-intake auto-attach threw", e);
+    }
+  }
+
   console.log("po-intake created job", {
     job_id: job.id,
     reference_number: job.reference_number,
     matched_customer_id: customerId,
+    inferred_category: inferred.categorySlug,
+    inferred_templates: inferred.templateNames,
   });
+
 
   return json(200, {
     ok: true,
