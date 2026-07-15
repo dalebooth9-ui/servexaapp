@@ -438,8 +438,8 @@ export default function DirectorDashboard() {
       {/* ── Business KPIs (collapsed by default — reference data) ────── */}
       <details className="group rounded-lg border bg-card">
         <summary className="cursor-pointer list-none flex items-center justify-between px-4 py-3 font-semibold hover:bg-muted transition-colors">
-          <span className="flex items-center gap-2"><BarChart2Icon /> Business KPIs &amp; charts</span>
-          <ChevronDownIcon />
+          <span className="flex items-center gap-2"><BarChart2 className="h-4 w-4" /> Business KPIs &amp; charts</span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
         </summary>
         <div className="p-4 pt-0">
       {loading ? (
