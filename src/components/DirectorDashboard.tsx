@@ -678,3 +678,42 @@ function ActivityIcon({ kind }: { kind: ActivityItem["kind"] }) {
     </div>
   );
 }
+
+type ActionItem = { id: string; href: string; primary: string; secondary?: string };
+function ActionCard({
+  title, icon: Icon, items, empty, footerHref, footerLabel,
+}: { title: string; icon: any; items: ActionItem[]; empty: string; footerHref?: string; footerLabel?: string }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Icon className="h-4 w-4 text-primary" /> {title}
+          {items.length > 0 && <span className="ml-auto text-xs font-normal text-muted-foreground">{items.length}</span>}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4 text-center">{empty}</p>
+        ) : (
+          <ul className="divide-y divide-border -mx-2">
+            {items.slice(0, 6).map(it => (
+              <li key={it.id}>
+                <Link to={it.href} className="block px-2 py-2 hover:bg-muted/40 rounded transition-colors">
+                  <p className="text-sm font-medium truncate">{it.primary}</p>
+                  {it.secondary && <p className="text-xs text-muted-foreground truncate">{it.secondary}</p>}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+        {footerHref && items.length > 0 && (
+          <Button asChild variant="ghost" size="sm" className="w-full">
+            <Link to={footerHref}>{footerLabel} <ArrowRight className="ml-1 h-3 w-3" /></Link>
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ActionCardStyles() { return null; }
