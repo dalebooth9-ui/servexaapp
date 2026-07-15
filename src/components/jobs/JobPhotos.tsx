@@ -60,6 +60,18 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
   const [loading, setLoading] = useState(true);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [sourceFilter, setSourceFilter] = useState<"all" | Source>("all");
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const { uploading, uploadFilesAsSubmissions } = useFileUpload({ onComplete: () => load() });
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0 || !user) return;
+    const arr = Array.from(files);
+    const uploaded = await uploadFilesAsSubmissions(arr, jobId, user.id);
+    if (uploaded > 0) {
+      toast({ title: `Uploaded ${uploaded} photo${uploaded === 1 ? "" : "s"}` });
+    }
+  };
 
   const engineerName = useCallback((uid?: string) => {
     if (!uid) return undefined;
