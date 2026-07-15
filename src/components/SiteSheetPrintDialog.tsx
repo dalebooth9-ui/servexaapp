@@ -377,8 +377,10 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
               </div>
             </div>
 
-
+            <div className="space-y-2">
+              <div className="text-sm font-semibold">Sheets to print</div>
             {bundle.templates.map((t) => {
+
               const { title } = resolveTemplateDisplayTitle(t.name, {
                 brandingSubtitle: t.branding?.company_subtitle ?? null,
               });
