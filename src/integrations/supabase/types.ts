@@ -1850,6 +1850,7 @@ export type Database = {
       }
       email_branding: {
         Row: {
+          accreditation_logo_urls: string[]
           address: string | null
           brand_color: string
           company_name: string
@@ -1862,11 +1863,14 @@ export type Database = {
           org_id: string
           phone: string | null
           reply_to: string
+          sign_off_text: string
           signature_html: string | null
+          strapline: string | null
           updated_at: string
           website: string | null
         }
         Insert: {
+          accreditation_logo_urls?: string[]
           address?: string | null
           brand_color?: string
           company_name?: string
@@ -1879,11 +1883,14 @@ export type Database = {
           org_id: string
           phone?: string | null
           reply_to?: string
+          sign_off_text?: string
           signature_html?: string | null
+          strapline?: string | null
           updated_at?: string
           website?: string | null
         }
         Update: {
+          accreditation_logo_urls?: string[]
           address?: string | null
           brand_color?: string
           company_name?: string
@@ -1896,7 +1903,9 @@ export type Database = {
           org_id?: string
           phone?: string | null
           reply_to?: string
+          sign_off_text?: string
           signature_html?: string | null
+          strapline?: string | null
           updated_at?: string
           website?: string | null
         }
