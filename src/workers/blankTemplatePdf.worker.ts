@@ -685,7 +685,7 @@ async function buildPdf(payload: WorkerPayload) {
         }
         y = renderBlankFieldRow(doc, field, autoVal, y, { margin, maxWidth, colSplit, rowH: layout.rowH, handfill });
       }
-      y += 1;
+      y += layout.interSectionGap;
     }
 
     // Comments + signature block + declaration box, all inside the reserved
