@@ -405,11 +405,19 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          <XeroSettings />
-          <QuoteHoundIntegrationCard />
-          <CustomerMergeSuggestionsPanel />
-          <CustomerReassignWizard />
-          <JobDocumentReattachSettings />
+          <Collapsible>
+            <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border bg-card px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+              Advanced integrations
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-6 pt-4">
+              <XeroSettings />
+              <QuoteHoundIntegrationCard />
+              <CustomerMergeSuggestionsPanel />
+              <CustomerReassignWizard />
+              <JobDocumentReattachSettings />
+            </CollapsibleContent>
+          </Collapsible>
         </TabsContent>
 
         <TabsContent value="advanced" className="space-y-6 mt-0">
