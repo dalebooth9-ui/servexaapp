@@ -10,12 +10,15 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Loader2, Printer, Download, Eye, FileText } from "lucide-react";
 import BlankTemplatePdfExport, {
   type BlankTemplatePdfExportHandle,
 } from "@/components/BlankTemplatePdfExport";
 import { useToast } from "@/hooks/use-toast";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
+
 
 type Props = {
   jobId: string | null;
