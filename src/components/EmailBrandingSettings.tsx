@@ -235,6 +235,37 @@ export default function EmailBrandingSettings() {
     }
   };
 
+  const onAccreditationUpload = async (files: FileList | null) => {
+    if (!files || !files.length) return;
+    setUploadingLogo(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of Array.from(files)) {
+        if (file.size > 2 * 1024 * 1024) { toast.error(`${file.name} is over 2MB`); continue; }
+        const ext = file.name.split(".").pop() || "png";
+        const path = `email-branding/accreditations/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("customer-logos")
+          .upload(path, file, { upsert: true, contentType: file.type });
+        if (upErr) { toast.error(`${file.name}: ${upErr.message}`); continue; }
+        const { data } = supabase.storage.from("customer-logos").getPublicUrl(path);
+        uploaded.push(data.publicUrl);
+      }
+      if (uploaded.length) {
+        update("accreditation_logo_urls", [...(row.accreditation_logo_urls || []), ...uploaded]);
+        toast.success(`${uploaded.length} accreditation logo(s) uploaded — remember to Save`);
+      }
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const removeAccreditation = (idx: number) => {
+    const next = [...(row.accreditation_logo_urls || [])];
+    next.splice(idx, 1);
+    update("accreditation_logo_urls", next);
+  };
+
   const sendPreview = async () => {
     const to = testEmail.trim();
     if (!EMAIL_RE.test(to)) { toast.error("Enter a valid email"); return; }
