@@ -661,7 +661,7 @@ async function buildPdf(payload: WorkerPayload) {
           }
           y += inlineH;
         }
-        y += 1;
+        y += layout.interSectionGap;
         continue;
       }
 
