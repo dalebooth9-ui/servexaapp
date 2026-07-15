@@ -747,12 +747,17 @@ export function renderBlankFieldRow(
   const rowH = opts.rowH;
   const handfill = opts.handfill ?? false;
 
+  // Compute the actual row height — select fields with many/long options
+  // wrap onto multiple lines and grow the row so nothing is clipped.
+  const resultCellWidth = maxWidth - colSplit - 4;
+  const actualRowH = estimateBlankFieldRowH(doc, field, rowH, resultCellWidth);
+
   // Always draw the row borders so each field reads as a discrete box on the
   // printed sheet. Use a lighter grey for the handfill version so the lines
   // stay subtle on a printed/photocopied page.
   doc.setDrawColor(handfill ? 200 : 180);
-  doc.rect(margin, y, colSplit, rowH);
-  doc.rect(margin + colSplit, y, maxWidth - colSplit, rowH);
+  doc.rect(margin, y, colSplit, actualRowH);
+  doc.rect(margin + colSplit, y, maxWidth - colSplit, actualRowH);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9.5);
@@ -773,9 +778,9 @@ export function renderBlankFieldRow(
   } else if (field.type === "checkbox") {
     renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal, !!field.allow_na);
   } else if (field.type === "select" && field.options && isYesNoOptions(field.options)) {
-    renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal, !!field.allow_na);
+    renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal, !!field.allow_na, rowH);
   } else if (field.type === "select" && field.options && field.options.length > 0) {
-    renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal, !!field.allow_na);
+    renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal, !!field.allow_na, rowH);
   } else if (isQuestionStyleYesNoField(field)) {
     renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal, !!field.allow_na);
   } else if (field.type === "signature" || field.type === "photo" || field.type === "file") {
@@ -805,8 +810,9 @@ export function renderBlankFieldRow(
   // For text/number/textarea/signature/photo/file fields without allow_na,
   // leave the result cell empty so engineers can write/sign in by hand.
 
-  return y + rowH;
+  return y + actualRowH;
 }
+
 
 function renderBlankNaBox(doc: jsPDF, x: number, y: number): void {
   const prevSize = (doc as any).internal.getFontSize?.() ?? 9.5;
