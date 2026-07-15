@@ -82,6 +82,8 @@ const ErrorLog = lazy(() => import("@/pages/ErrorLog"));
 const SupportTickets = lazy(() => import("@/pages/SupportTickets"));
 const ImportWizard = lazy(() => import("@/pages/ImportWizard"));
 const FleetVehicles = lazy(() => import("@/pages/FleetVehicles"));
+// Hidden emergency route — no visible entry. Reach via direct URL.
+const StorageMigrationPanel = lazy(() => import("@/components/StorageMigrationPanel"));
 
 const queryClient = new QueryClient();
 
