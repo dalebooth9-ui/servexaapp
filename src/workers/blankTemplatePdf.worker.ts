@@ -246,15 +246,15 @@ function renderHeader(
   }
 
   let y = logoBottomY;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(opts.isDryRiser ? DRY_RISER_LAYOUT.header.titleSizePt : 15);
+  const baseTitleSize = opts.isDryRiser ? DRY_RISER_LAYOUT.header.titleSizePt : 15;
   doc.setTextColor(...accent);
   const titleY = compact ? y + 2 : y;
   const titleText = data.systemLabel
     ? `${templateName.toUpperCase()} — ${data.systemLabel.toUpperCase()}`
     : templateName.toUpperCase();
-  doc.text(titleText, pageWidth / 2, titleY, { align: "center" });
-  y = titleY + 4;
+  // Wrap to at most 2 lines, shrink font to fit within the printable width.
+  y = drawWrappedTitle(doc, titleText, pageWidth / 2, titleY, maxWidth, baseTitleSize);
+
 
   if (standard) {
     doc.setFont("helvetica", "bold");
