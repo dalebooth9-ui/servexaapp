@@ -597,7 +597,12 @@ export default function JobDetail() {
 
       {activeTab === "photos" && id && (
         <Suspense fallback={<LazyFallback />}>
-          <JobPhotos jobId={id} engineers={engineers} isAdmin={userRole === "admin"} />
+          <JobPhotos
+            jobId={id}
+            engineers={engineers}
+            isAdmin={userRole === "admin"}
+            canUpload={job?.status !== "cancelled" && (userRole === "admin" || (user ? assignedEngineerIds.includes(user.id) : false))}
+          />
         </Suspense>
       )}
 
