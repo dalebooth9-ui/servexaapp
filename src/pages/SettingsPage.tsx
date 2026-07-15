@@ -13,7 +13,8 @@ import XeroSettings from "@/components/XeroSettings";
 import RamsTemplateSettings from "@/components/RamsTemplateSettings";
 import FollowUpReminderSettings from "@/components/FollowUpReminderSettings";
 import EmailDeliveryTestCard from "@/components/EmailDeliveryTestCard";
-import StorageMigrationPanel from "@/components/StorageMigrationPanel";
+// StorageMigrationPanel intentionally not imported — one-off migration completed.
+// Reach the panel via /settings/storage-migration for emergencies only.
 import HelpArticlesAdmin from "@/components/HelpArticlesAdmin";
 import EmailFromSettings from "@/components/EmailFromSettings";
 import EmailBrandingSettings from "@/components/EmailBrandingSettings";
