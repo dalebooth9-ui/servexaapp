@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useFileUpload } from "@/hooks/useFileUpload";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck, FileImage } from "lucide-react";
+import { Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck, FileImage, Upload, Plus } from "lucide-react";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import { extractStoragePath, isImageFile } from "@/lib/fileUtils";
 import { resolveManyToSignedUrls } from "@/lib/durableStorageRef";
