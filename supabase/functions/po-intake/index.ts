@@ -203,6 +203,7 @@ serve(async (req) => {
     brief,
     due_date: validDueDate,
     org_id: orgId,
+    is_remedial: inferred.isRemedial,
   };
   if (po_number?.trim()) jobInsert.reference_number = po_number.trim();
 
@@ -211,7 +212,6 @@ serve(async (req) => {
     admin.from("jobs").insert(payload as any).select("id, reference_number").single();
 
   let { data: job, error } = await attempt(jobInsert);
-  // If po_number collides with an existing reference_number, retry without it.
   if (error?.code === "23505" && jobInsert.reference_number) {
     delete jobInsert.reference_number;
     ({ data: job, error } = await attempt(jobInsert));
@@ -222,13 +222,18 @@ serve(async (req) => {
   }
 
   // Pre-attach any inferred blank job sheets so the pending job is never empty.
-  if (inferred.templateNames.length) {
+  const templateNames = [...inferred.templateNames];
+  // If remedial and no other sheets inferred, fall back to the generic remedial sheet.
+  if (inferred.isRemedial && templateNames.length === 0) {
+    templateNames.push("Remedial Works Completion");
+  }
+  if (templateNames.length) {
     try {
       const { data: matched } = await admin
         .from("job_sheet_templates")
         .select("name")
         .eq("status", "published")
-        .in("name", inferred.templateNames);
+        .in("name", templateNames);
       const rows = (matched || []).map((t: any) => ({
         job_id: job!.id,
         document_type: "blank_job_sheet",
@@ -242,6 +247,24 @@ serve(async (req) => {
       }
     } catch (e) {
       console.error("po-intake auto-attach threw", e);
+    }
+  }
+
+  // Seed remedial items when the wording read like a list of works
+  if (inferred.isRemedial && inferred.remedialItems.length) {
+    try {
+      const rows = inferred.remedialItems.map((description, i) => ({
+        job_id: job!.id,
+        org_id: orgId,
+        seq: i,
+        description,
+        status: "pending",
+        source: "po_inference",
+      }));
+      const { error: itemsErr } = await admin.from("job_remedial_items").insert(rows as any);
+      if (itemsErr) console.error("po-intake remedial-items seed failed", itemsErr);
+    } catch (e) {
+      console.error("po-intake remedial-items seed threw", e);
     }
   }
 
