@@ -24,6 +24,7 @@ import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/
 import ScanCompletedJobDialog from "@/components/ScanCompletedJobDialog";
 import PaperScanQueueBadge from "@/components/paper-scan/PaperScanQueueBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Accordion } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { useJobCategories } from "@/hooks/useJobCategories";
@@ -176,7 +177,19 @@ export default function Jobs() {
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [categoryFilters, setCategoryFilters] = useState<string[]>(() => {
+    try {
+      const raw = sessionStorage.getItem("jobs-category-filters");
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : [];
+    } catch { return []; }
+  });
+  useEffect(() => {
+    try { sessionStorage.setItem("jobs-category-filters", JSON.stringify(categoryFilters)); } catch {}
+  }, [categoryFilters]);
+  const toggleCategoryFilter = (slug: string) => {
+    setCategoryFilters((prev) => prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]);
+  };
   const [showFilters, setShowFilters] = useState(false);
   // Visible primary status tab — Active (default), Pending Review, Completed, All
   const [statusTab, setStatusTab] = useState<"active" | "pending_review" | "completed" | "rejected" | "all">("active");
@@ -1231,7 +1244,7 @@ export default function Jobs() {
   const prefiltered = jobs.filter((j) => {
     if (statusFilter !== "all" && j.status !== statusFilter) return false;
     if (priorityFilter !== "all" && j.priority !== priorityFilter) return false;
-    if (categoryFilter !== "all" && j.category !== categoryFilter) return false;
+    if (categoryFilters.length > 0 && !categoryFilters.includes(j.category)) return false;
     return true;
   });
   const filtered = fuzzyFilter(prefiltered, search, (j) => [
@@ -1643,19 +1656,28 @@ export default function Jobs() {
             <Input className="pl-9 bg-background" placeholder="Search jobs..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           <Button
-            variant={showFilters || statusFilter !== "all" || priorityFilter !== "all" || categoryFilter !== "all" ? "secondary" : "outline"}
+            variant={showFilters || statusFilter !== "all" || priorityFilter !== "all" || categoryFilters.length > 0 ? "secondary" : "outline"}
             size="icon"
             onClick={() => setShowFilters((v) => !v)}
             title="Toggle filters"
+            className="relative"
           >
             <SlidersHorizontal className="h-4 w-4" />
+            {(() => {
+              const activeCount = (statusFilter !== "all" ? 1 : 0) + (priorityFilter !== "all" ? 1 : 0) + categoryFilters.length;
+              return activeCount > 0 ? (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                  {activeCount}
+                </span>
+              ) : null;
+            })()}
           </Button>
-          {(statusFilter !== "all" || priorityFilter !== "all" || categoryFilter !== "all") && (
+          {(statusFilter !== "all" || priorityFilter !== "all" || categoryFilters.length > 0) && (
             <Button
               variant="ghost"
               size="sm"
               className="text-xs text-muted-foreground"
-              onClick={() => { setStatusFilter("all"); setPriorityFilter("all"); setCategoryFilter("all"); }}
+              onClick={() => { setStatusFilter("all"); setPriorityFilter("all"); setCategoryFilters([]); }}
             >
               Clear
             </Button>
@@ -1690,17 +1712,66 @@ export default function Jobs() {
                 <SelectItem value="low">Low</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[150px] bg-background">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {(() => {
+              const usedSlugs = new Set(jobs.map((j) => j.category).filter(Boolean));
+              const catOptions = categories.filter((c) => usedSlugs.has(c.slug));
+              // include any slugs present on jobs but missing from the categories table
+              const knownSlugs = new Set(catOptions.map((c) => c.slug));
+              const orphanSlugs = Array.from(usedSlugs).filter((s) => !knownSlugs.has(s as string)) as string[];
+              return (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="h-10 min-w-[170px] justify-between bg-background font-normal">
+                      <span className="truncate">
+                        {categoryFilters.length === 0
+                          ? "All categories"
+                          : categoryFilters.length === 1
+                          ? (categories.find((c) => c.slug === categoryFilters[0])?.name || categoryFilters[0])
+                          : `${categoryFilters.length} categories`}
+                      </span>
+                      <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-64 p-2">
+                    <div className="flex items-center justify-between px-1 pb-2">
+                      <span className="text-xs font-medium text-muted-foreground">Filter by category</span>
+                      {categoryFilters.length > 0 && (
+                        <button
+                          type="button"
+                          className="text-xs text-primary hover:underline"
+                          onClick={() => setCategoryFilters([])}
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-64 overflow-y-auto space-y-1">
+                      {catOptions.length === 0 && orphanSlugs.length === 0 && (
+                        <div className="px-2 py-3 text-xs text-muted-foreground">No categories in use.</div>
+                      )}
+                      {catOptions.map((c) => (
+                        <label key={c.slug} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-accent cursor-pointer">
+                          <Checkbox
+                            checked={categoryFilters.includes(c.slug)}
+                            onCheckedChange={() => toggleCategoryFilter(c.slug)}
+                          />
+                          <span className="text-sm">{c.name}</span>
+                        </label>
+                      ))}
+                      {orphanSlugs.map((s) => (
+                        <label key={s} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-accent cursor-pointer">
+                          <Checkbox
+                            checked={categoryFilters.includes(s)}
+                            onCheckedChange={() => toggleCategoryFilter(s)}
+                          />
+                          <span className="text-sm capitalize">{s.replace(/_/g, " ")}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              );
+            })()}
             <span className="pl-2 text-[11px] text-muted-foreground self-center">
               Use the tabs above to switch between Active, Pending Review, Completed and All.
             </span>
@@ -1818,7 +1889,7 @@ export default function Jobs() {
                   <p className="font-semibold text-foreground">No jobs match your filters</p>
                   <p className="mt-1 text-sm text-muted-foreground">Try adjusting your search or clearing filters.</p>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatusFilter("all"); setPriorityFilter("all"); setCategoryFilter("all"); }}>
+                <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatusFilter("all"); setPriorityFilter("all"); setCategoryFilters([]); }}>
                   Clear filters
                 </Button>
               </>
