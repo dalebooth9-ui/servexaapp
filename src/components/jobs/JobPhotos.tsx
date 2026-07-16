@@ -5,10 +5,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck, FileImage, Upload, Plus } from "lucide-react";
+import { Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck, FileImage, Upload, Plus, GripVertical } from "lucide-react";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import { extractStoragePath, isImageFile } from "@/lib/fileUtils";
 import { resolveManyToSignedUrls } from "@/lib/durableStorageRef";
+import {
+  DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter,
+  useSensor, useSensors, DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 type Source = "whatsapp" | "app" | "defect" | "checklist" | "document";
 
@@ -23,6 +29,10 @@ type PhotoItem = {
   engineerName?: string;
   timestamp: string;
   signedUrl?: string;
+  /** Manual ordering (submissions only). Lower = earlier. */
+  displayOrder?: number | null;
+  /** Row id in `submissions` if source is submission-backed. */
+  submissionId?: string;
 };
 
 const BUCKET = "submissions";
@@ -40,6 +50,79 @@ function sourceMeta(s: Source) {
 function toStoragePath(fileUrl?: string | null): string | null {
   if (!fileUrl) return null;
   return extractStoragePath(fileUrl);
+}
+
+function SortablePhotoTile({
+  photo,
+  index,
+  onOpen,
+  onDownload,
+}: {
+  photo: PhotoItem;
+  index: number;
+  onOpen: () => void;
+  onDownload: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: photo.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    touchAction: "none",
+  };
+  const meta = sourceMeta(photo.source);
+  const Icon = meta.icon;
+  return (
+    <div ref={setNodeRef} style={style} className="group relative rounded-lg overflow-hidden border bg-muted">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="block w-full aspect-square"
+        aria-label={photo.caption || photo.fileName || "Photo"}
+      >
+        {photo.signedUrl ? (
+          <img
+            src={photo.signedUrl}
+            alt={photo.caption || photo.fileName || "Job photo"}
+            loading="lazy"
+            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs">Unavailable</div>
+        )}
+      </button>
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label="Drag to reorder"
+        className="absolute top-1.5 left-1.5 rounded bg-background/90 p-1 cursor-grab active:cursor-grabbing shadow-sm opacity-80 group-hover:opacity-100"
+      >
+        <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+      </button>
+      <div className="absolute top-1.5 left-9">
+        <Badge className={`gap-1 border-0 ${meta.className}`}>
+          <Icon className="h-3 w-3" />
+          <span className="text-[10px] font-medium">{meta.label}</span>
+        </Badge>
+      </div>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onDownload(); }}
+        className="absolute top-1.5 right-1.5 rounded bg-background/90 p-1.5 opacity-0 group-hover:opacity-100 focus:opacity-100 transition"
+        aria-label="Download photo"
+      >
+        <Download className="h-3.5 w-3.5" />
+      </button>
+      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-2 text-white">
+        <p className="text-[10px] truncate">
+          {photo.engineerName || "Unknown"} · {new Date(photo.timestamp).toLocaleDateString("en-GB")}
+        </p>
+        {photo.caption && <p className="text-[10px] text-white/70 truncate">{photo.caption}</p>}
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -82,8 +165,9 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     setLoading(true);
     const [subs, defects, checklists, docs] = await Promise.all([
       supabase.from("submissions")
-        .select("id, engineer_id, type, file_url, file_name, content, source, created_at")
+        .select("id, engineer_id, type, file_url, file_name, content, source, created_at, display_order")
         .eq("job_id", jobId)
+        .order("display_order", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: false }),
       supabase.from("defects")
         .select("id, reported_by, title, photo_url, photos, created_at")
@@ -104,6 +188,7 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
       const isWa = (s.source || "").toLowerCase().includes("whatsapp") || /whatsapp/i.test(s.file_name || "");
       out.push({
         id: `sub:${s.id}`,
+        submissionId: s.id,
         source: isWa ? "whatsapp" : "app",
         storagePath: toStoragePath(s.file_url),
         fallbackUrl: s.file_url,
@@ -112,6 +197,7 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
         engineerId: s.engineer_id,
         engineerName: engineerName(s.engineer_id),
         timestamp: s.created_at,
+        displayOrder: s.display_order ?? null,
       });
     }
 
@@ -167,7 +253,14 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
       });
     }
 
-    out.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    out.sort((a, b) => {
+      const ao = a.displayOrder ?? null;
+      const bo = b.displayOrder ?? null;
+      if (ao !== null && bo !== null) return ao - bo;
+      if (ao !== null) return -1;
+      if (bo !== null) return 1;
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
 
     // Batch-sign. Most sources live in "submissions", but job_documents
     // may point at other buckets (e.g. "po-intake" for email attachments).
@@ -208,6 +301,46 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
       URL.revokeObjectURL(url);
     } catch (e: any) {
       toast({ title: "Download failed", description: e?.message, variant: "destructive" });
+    }
+  };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+    useSensor(KeyboardSensor),
+  );
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const currentIds = filtered.map((p) => p.id);
+    const oldIndex = currentIds.indexOf(String(active.id));
+    const newIndex = currentIds.indexOf(String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+    const reorderedFiltered = arrayMove(filtered, oldIndex, newIndex);
+
+    // Rebuild the full items list: put the reordered filtered view first
+    // (respecting the new order) then any items not in the current filter.
+    const filteredIds = new Set(currentIds);
+    const rest = items.filter((p) => !filteredIds.has(p.id));
+    const nextItems = [...reorderedFiltered, ...rest];
+    setItems(nextItems);
+
+    // Persist display_order for submission-backed items in the reordered
+    // view. Non-submission sources (defect / checklist / document) keep
+    // their created_at ordering — we can't write display_order there.
+    const updates = reorderedFiltered
+      .map((p, i) => ({ id: p.submissionId, display_order: (i + 1) * 10 }))
+      .filter((u) => !!u.id) as Array<{ id: string; display_order: number }>;
+    if (updates.length === 0) return;
+    try {
+      await Promise.all(
+        updates.map((u) =>
+          supabase.from("submissions").update({ display_order: u.display_order }).eq("id", u.id),
+        ),
+      );
+    } catch (e: any) {
+      toast({ title: "Reorder failed", description: e?.message, variant: "destructive" });
     }
   };
 
@@ -283,53 +416,21 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
           {items.length === 0 ? "No photos on this job yet." : "No photos match this filter."}
         </p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
-          {filtered.map((p, idx) => {
-            const meta = sourceMeta(p.source);
-            const Icon = meta.icon;
-            return (
-              <div key={p.id} className="group relative rounded-lg overflow-hidden border bg-muted">
-                <button
-                  type="button"
-                  onClick={() => setLightboxIdx(idx)}
-                  className="block w-full aspect-square"
-                  aria-label={p.caption || p.fileName || "Photo"}
-                >
-                  {p.signedUrl ? (
-                    <img
-                      src={p.signedUrl}
-                      alt={p.caption || p.fileName || "Job photo"}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs">Unavailable</div>
-                  )}
-                </button>
-                <div className="absolute top-1.5 left-1.5">
-                  <Badge className={`gap-1 border-0 ${meta.className}`}>
-                    <Icon className="h-3 w-3" />
-                    <span className="text-[10px] font-medium">{meta.label}</span>
-                  </Badge>
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); download(p); }}
-                  className="absolute top-1.5 right-1.5 rounded bg-background/90 p-1.5 opacity-0 group-hover:opacity-100 focus:opacity-100 transition"
-                  aria-label="Download photo"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                </button>
-                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-2 text-white">
-                  <p className="text-[10px] truncate">
-                    {p.engineerName || "Unknown"} · {new Date(p.timestamp).toLocaleDateString("en-GB")}
-                  </p>
-                  {p.caption && <p className="text-[10px] text-white/70 truncate">{p.caption}</p>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={filtered.map((p) => p.id)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
+              {filtered.map((p, idx) => (
+                <SortablePhotoTile
+                  key={p.id}
+                  photo={p}
+                  index={idx}
+                  onOpen={() => setLightboxIdx(idx)}
+                  onDownload={() => download(p)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       <PhotoLightbox

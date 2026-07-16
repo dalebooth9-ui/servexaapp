@@ -38,6 +38,7 @@ import AiRamsAutoFill from "./AiRamsAutoFill";
 import RepeatingTableField from "./job-sheets/RepeatingTableField";
 import RepeatingTableReadOnly from "./job-sheets/RepeatingTableReadOnly";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import SortablePhotoGrid from "./SortablePhotoGrid";
 
 type TemplateField = {
   id: string;
@@ -1786,49 +1787,63 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               {/* Previously uploaded photos (from a prior submission) */}
               {Array.isArray(formData._site_photo_urls) && formData._site_photo_urls.length > 0 && (
                 <div className="mb-3">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">Previously uploaded</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {(formData._site_photo_urls as string[]).map((url, i) => (
-                      <div key={`existing-${i}`} className="relative space-y-1">
-                        <div className="relative">
-                          <img src={url} alt={`Existing site photo ${i + 1}`} className="rounded border object-cover w-full aspect-[4/3]" />
-                          <button
-                            type="button"
-                            className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full h-5 w-5 flex items-center justify-center text-[11px]"
-                            title="Remove this photo from the report"
-                            onClick={() => {
-                              const urls = [...((formData._site_photo_urls as string[]) || [])];
-                              const paths = [...((formData._site_photo_paths as string[]) || [])];
-                              const caps = [...((formData._site_photo_captions as string[]) || [])];
-                              urls.splice(i, 1);
-                              paths.splice(i, 1);
-                              caps.splice(i, 1);
-                              setFormData((prev) => ({
-                                ...prev,
-                                _site_photo_urls: urls,
-                                _site_photo_paths: paths,
-                                _site_photo_captions: caps,
-                              }));
-                            }}
-                          >×</button>
-                        </div>
-                        <input
-                          type="text"
-                          maxLength={100}
-                          value={(formData._site_photo_captions as string[] | undefined)?.[i] || ""}
-                          placeholder={`Caption (optional) — defaults to "Photo ${i + 1}"`}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            const caps = [...((formData._site_photo_captions as string[]) || [])];
-                            while (caps.length <= i) caps.push("");
-                            caps[i] = v;
-                            setFormData((prev) => ({ ...prev, _site_photo_captions: caps }));
-                          }}
-                          className="w-full text-xs px-2 py-1 border rounded bg-background"
-                        />
-                      </div>
-                    ))}
-                  </div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">Previously uploaded — drag to reorder</p>
+                  {(() => {
+                    const urls = (formData._site_photo_urls as string[]) || [];
+                    const paths = (formData._site_photo_paths as string[]) || [];
+                    const caps = (formData._site_photo_captions as string[]) || [];
+                    const rows = urls.map((url, i) => ({ url, path: paths[i] || "", caption: caps[i] || "", key: `${paths[i] || url}-${i}` }));
+                    return (
+                      <SortablePhotoGrid
+                        items={rows}
+                        getId={(r) => r.key}
+                        onReorder={(next) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            _site_photo_urls: next.map((r) => r.url),
+                            _site_photo_paths: next.map((r) => r.path),
+                            _site_photo_captions: next.map((r) => r.caption),
+                          }));
+                        }}
+                        renderItem={(r, i) => (
+                          <div className="space-y-1">
+                            <div className="relative">
+                              <img src={r.url} alt={`Existing site photo ${i + 1}`} className="rounded border object-cover w-full aspect-[4/3]" />
+                              <button
+                                type="button"
+                                className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full h-5 w-5 flex items-center justify-center text-[11px]"
+                                title="Remove this photo from the report"
+                                onClick={() => {
+                                  const nUrls = [...urls]; const nPaths = [...paths]; const nCaps = [...caps];
+                                  nUrls.splice(i, 1); nPaths.splice(i, 1); nCaps.splice(i, 1);
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    _site_photo_urls: nUrls,
+                                    _site_photo_paths: nPaths,
+                                    _site_photo_captions: nCaps,
+                                  }));
+                                }}
+                              >×</button>
+                            </div>
+                            <input
+                              type="text"
+                              maxLength={100}
+                              value={r.caption}
+                              placeholder={`Caption (optional) — defaults to "Photo ${i + 1}"`}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                const nCaps = [...caps];
+                                while (nCaps.length <= i) nCaps.push("");
+                                nCaps[i] = v;
+                                setFormData((prev) => ({ ...prev, _site_photo_captions: nCaps }));
+                              }}
+                              className="w-full text-xs px-2 py-1 border rounded bg-background"
+                            />
+                          </div>
+                        )}
+                      />
+                    );
+                  })()}
                 </div>
               )}
               <div
@@ -1870,36 +1885,41 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     <p className="text-xs text-muted-foreground">Drag & drop site photos here or click to browse</p>
                   </>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3" onClick={(e) => e.stopPropagation()}>
-                    {sitePhotos.map((photo, i) => (
-                      <div key={i} className="relative space-y-1">
-                        <div className="relative">
-                          <img src={photo.preview} alt={`Site ${i + 1}`} className="rounded border object-cover w-full aspect-[4/3]" />
-                          <button
-                            type="button"
-                            className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full h-5 w-5 flex items-center justify-center text-[11px]"
-                            onClick={() => {
-                              URL.revokeObjectURL(photo.preview);
-                              setSitePhotos(prev => prev.filter((_, idx) => idx !== i));
+                  <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
+                    <SortablePhotoGrid
+                      items={sitePhotos}
+                      getId={(p, i) => `pending-${p.preview}-${i}`}
+                      onReorder={(next) => setSitePhotos(next)}
+                      renderItem={(photo, i) => (
+                        <div className="space-y-1">
+                          <div className="relative">
+                            <img src={photo.preview} alt={`Site ${i + 1}`} className="rounded border object-cover w-full aspect-[4/3]" />
+                            <button
+                              type="button"
+                              className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full h-5 w-5 flex items-center justify-center text-[11px]"
+                              onClick={() => {
+                                URL.revokeObjectURL(photo.preview);
+                                setSitePhotos(prev => prev.filter((_, idx) => idx !== i));
+                              }}
+                            >×</button>
+                          </div>
+                          <input
+                            type="text"
+                            maxLength={100}
+                            value={photo.caption}
+                            placeholder={`Caption (optional) — defaults to "Photo ${i + 1}"`}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setSitePhotos(prev => prev.map((p, idx) => idx === i ? { ...p, caption: v } : p));
                             }}
-                          >×</button>
+                            className="w-full text-xs px-2 py-1 border rounded bg-background"
+                          />
                         </div>
-                        <input
-                          type="text"
-                          maxLength={100}
-                          value={photo.caption}
-                          placeholder={`Caption (optional) — defaults to "Photo ${i + 1}"`}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setSitePhotos(prev => prev.map((p, idx) => idx === i ? { ...p, caption: v } : p));
-                          }}
-                          className="w-full text-xs px-2 py-1 border rounded bg-background"
-                        />
-                      </div>
-                    ))}
+                      )}
+                    />
                     {sitePhotos.length < 10 && (
                       <div
-                        className="border border-dashed rounded flex items-center justify-center aspect-[4/3] text-muted-foreground hover:bg-muted/50 cursor-pointer"
+                        className="border border-dashed rounded flex items-center justify-center aspect-[4/3] text-muted-foreground hover:bg-muted/50 cursor-pointer max-w-[calc(50%-0.375rem)]"
                         onClick={() => {
                           const input = document.createElement("input");
                           input.type = "file";
@@ -1921,7 +1941,6 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                       </div>
                     )}
                   </div>
-
                 )}
               </div>
               {sitePhotos.length > 0 && (

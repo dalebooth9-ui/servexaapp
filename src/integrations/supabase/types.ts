@@ -6585,6 +6585,7 @@ export type Database = {
         Row: {
           content: string | null
           created_at: string
+          display_order: number | null
           engineer_id: string
           file_name: string | null
           file_url: string | null
@@ -6599,6 +6600,7 @@ export type Database = {
         Insert: {
           content?: string | null
           created_at?: string
+          display_order?: number | null
           engineer_id: string
           file_name?: string | null
           file_url?: string | null
@@ -6613,6 +6615,7 @@ export type Database = {
         Update: {
           content?: string | null
           created_at?: string
+          display_order?: number | null
           engineer_id?: string
           file_name?: string | null
           file_url?: string | null
