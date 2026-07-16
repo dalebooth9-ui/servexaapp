@@ -5,7 +5,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck, FileImage, Upload, Plus, GripVertical } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck,
+  FileImage, Upload, GripVertical, Trash2, CheckSquare, X,
+} from "lucide-react";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import { createSubmissionPhotoSignedUrl, fetchJobPhotoMeta } from "@/lib/jobPhotos";
 import {
@@ -14,6 +18,10 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type Source = "whatsapp" | "app" | "defect" | "checklist" | "document";
 
@@ -28,9 +36,7 @@ type PhotoItem = {
   engineerName?: string;
   timestamp: string;
   signedUrl?: string;
-  /** Manual ordering (submissions only). Lower = earlier. */
   displayOrder?: number | null;
-  /** Row id in `submissions` if source is submission-backed. */
   submissionId?: string;
 };
 
@@ -50,30 +56,44 @@ function toStoragePath(fileUrl?: string | null): string | null {
 
 function SortablePhotoTile({
   photo,
-  index,
   onOpen,
   onDownload,
+  onDelete,
+  canDelete,
+  selectMode,
+  selected,
+  onToggleSelect,
 }: {
   photo: PhotoItem;
-  index: number;
   onOpen: () => void;
   onDownload: () => void;
+  onDelete: () => void;
+  canDelete: boolean;
+  selectMode: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: photo.id });
+    useSortable({ id: photo.id, disabled: selectMode });
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    touchAction: "none",
+    touchAction: selectMode ? "auto" : "none",
   };
   const meta = sourceMeta(photo.source);
   const Icon = meta.icon;
   return (
-    <div ref={setNodeRef} style={style} className="group relative rounded-lg overflow-hidden border bg-muted">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group relative rounded-lg overflow-hidden border bg-muted ${
+        selected ? "ring-2 ring-primary" : ""
+      }`}
+    >
       <button
         type="button"
-        onClick={onOpen}
+        onClick={selectMode ? onToggleSelect : onOpen}
         className="block w-full aspect-square"
         aria-label={photo.caption || photo.fileName || "Photo"}
       >
@@ -88,29 +108,58 @@ function SortablePhotoTile({
           <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs">Unavailable</div>
         )}
       </button>
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        aria-label="Drag to reorder"
-        className="absolute top-1.5 left-1.5 rounded bg-background/90 p-1 cursor-grab active:cursor-grabbing shadow-sm opacity-80 group-hover:opacity-100"
-      >
-        <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
-      </button>
-      <div className="absolute top-1.5 left-9">
+
+      {!selectMode && (
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          aria-label="Drag to reorder"
+          className="absolute top-1.5 left-1.5 rounded bg-background/90 p-1 cursor-grab active:cursor-grabbing shadow-sm opacity-80 group-hover:opacity-100"
+        >
+          <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+      )}
+
+      {selectMode && (
+        <div
+          className="absolute top-1.5 left-1.5 rounded bg-background/95 p-1 shadow-sm"
+          onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
+        >
+          <Checkbox checked={selected} aria-label="Select photo" />
+        </div>
+      )}
+
+      <div className={`absolute top-1.5 ${selectMode ? "left-10" : "left-9"}`}>
         <Badge className={`gap-1 border-0 ${meta.className}`}>
           <Icon className="h-3 w-3" />
           <span className="text-[10px] font-medium">{meta.label}</span>
         </Badge>
       </div>
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onDownload(); }}
-        className="absolute top-1.5 right-1.5 rounded bg-background/90 p-1.5 opacity-0 group-hover:opacity-100 focus:opacity-100 transition"
-        aria-label="Download photo"
-      >
-        <Download className="h-3.5 w-3.5" />
-      </button>
+
+      {!selectMode && (
+        <div className="absolute top-1.5 right-1.5 flex gap-1">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDownload(); }}
+            className="rounded bg-background/90 p-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition"
+            aria-label="Download photo"
+          >
+            <Download className="h-3.5 w-3.5" />
+          </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="rounded bg-background/90 p-1.5 text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition"
+              aria-label="Delete photo"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-2 text-white">
         <p className="text-[10px] truncate">
           {photo.engineerName || "Unknown"} · {new Date(photo.timestamp).toLocaleDateString("en-GB")}
@@ -121,20 +170,14 @@ function SortablePhotoTile({
   );
 }
 
-/**
- * Aggregates all photos on a job across every source:
- * submissions (WhatsApp / app uploads), defects, photo-checklist responses
- * and image-type job_documents. Read-only — nothing here mutates data.
- */
 export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = true }: {
   jobId: string;
   engineers?: { id: string; name: string }[];
   isAdmin?: boolean;
-  /** Set false to hide the "Add photo" / "Upload" buttons (e.g. cancelled jobs). */
   canUpload?: boolean;
 }) {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, profile, orgId } = useAuth();
   const [items, setItems] = useState<PhotoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
@@ -145,6 +188,16 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
 
   const [isDragOver, setIsDragOver] = useState(false);
   const dragDepth = useRef(0);
+
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pendingDelete, setPendingDelete] = useState<PhotoItem[] | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const canDeletePhoto = useCallback(
+    (p: PhotoItem) => !!user && (isAdmin || (p.engineerId && p.engineerId === user.id)),
+    [user, isAdmin],
+  );
 
   const handleFiles = async (files: FileList | File[] | null, { imagesOnly = false }: { imagesOnly?: boolean } = {}) => {
     if (!files || !user) return;
@@ -265,6 +318,17 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     return c;
   }, [items]);
 
+  // Prune stale ids from selection when filter/items change.
+  useEffect(() => {
+    if (!selectMode) return;
+    setSelected((prev) => {
+      const validIds = new Set(items.map((i) => i.id));
+      const next = new Set<string>();
+      prev.forEach((id) => { if (validIds.has(id)) next.add(id); });
+      return next.size === prev.size ? prev : next;
+    });
+  }, [items, selectMode]);
+
   const download = async (p: PhotoItem) => {
     if (!p.signedUrl) return;
     try {
@@ -296,16 +360,11 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     if (oldIndex < 0 || newIndex < 0) return;
     const reorderedFiltered = arrayMove(filtered, oldIndex, newIndex);
 
-    // Rebuild the full items list: put the reordered filtered view first
-    // (respecting the new order) then any items not in the current filter.
     const filteredIds = new Set(currentIds);
     const rest = items.filter((p) => !filteredIds.has(p.id));
     const nextItems = [...reorderedFiltered, ...rest];
     setItems(nextItems);
 
-    // Persist display_order for submission-backed items in the reordered
-    // view. Non-submission sources (defect / checklist / document) keep
-    // their created_at ordering — we can't write display_order there.
     const updates = reorderedFiltered
       .map((p, i) => ({ id: p.submissionId, display_order: (i + 1) * 10 }))
       .filter((u) => !!u.id) as Array<{ id: string; display_order: number }>;
@@ -345,6 +404,163 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     }
   };
 
+  // ---------- Deletion ----------
+
+  const removePhotoStorage = async (p: PhotoItem) => {
+    if (!p.storagePath) return;
+    const paths = new Set<string>([p.storagePath.replace(/^\/+/, "")]);
+    if (orgId && !p.storagePath.startsWith(`${orgId}/`)) {
+      paths.add(`${orgId}/${p.storagePath.replace(/^\/+/, "")}`);
+    }
+    try {
+      await supabase.storage.from("submissions").remove([...paths]);
+    } catch {
+      // storage may be missing; carry on so the record still goes away
+    }
+  };
+
+  const deletePhotoRecord = async (p: PhotoItem) => {
+    if (p.id.startsWith("sub:")) {
+      const id = p.id.slice(4);
+      await supabase.from("submissions").delete().eq("id", id);
+      return;
+    }
+    if (p.id.startsWith("site:")) {
+      const [, respId, idxStr] = p.id.split(":");
+      const idx = Number(idxStr);
+      const { data } = await supabase
+        .from("job_sheet_responses")
+        .select("responses")
+        .eq("id", respId)
+        .maybeSingle();
+      const responses = ((data as any)?.responses || {}) as Record<string, any>;
+      const drop = (k: string) =>
+        Array.isArray(responses[k]) ? responses[k].filter((_: any, i: number) => i !== idx) : responses[k];
+      const next = {
+        ...responses,
+        _site_photo_urls: drop("_site_photo_urls"),
+        _site_photo_paths: drop("_site_photo_paths"),
+        _site_photo_captions: drop("_site_photo_captions"),
+      };
+      await supabase.from("job_sheet_responses").update({ responses: next } as any).eq("id", respId);
+      return;
+    }
+    if (p.id.startsWith("def:")) {
+      const [, defId, idxStr] = p.id.split(":");
+      const idx = Number(idxStr);
+      const { data } = await supabase
+        .from("defects")
+        .select("photo_url, photos")
+        .eq("id", defId)
+        .maybeSingle();
+      const photos = Array.isArray((data as any)?.photos) ? [...(data as any).photos] : [];
+      let photoUrl: string | null = (data as any)?.photo_url ?? null;
+      // Loader ordering is [photo_url, ...photos]; but when photo_url is null,
+      // index 0 becomes photos[0]. Reconstruct the same ordering:
+      const combined: Array<{ src: "col" | "arr"; arrIdx?: number }> = [];
+      if (photoUrl) combined.push({ src: "col" });
+      photos.forEach((_, i) => combined.push({ src: "arr", arrIdx: i }));
+      const target = combined[idx];
+      if (target?.src === "col") photoUrl = null;
+      else if (target?.src === "arr" && typeof target.arrIdx === "number") photos.splice(target.arrIdx, 1);
+      await supabase.from("defects").update({ photo_url: photoUrl, photos } as any).eq("id", defId);
+      return;
+    }
+    if (p.id.startsWith("chk:")) {
+      const [, chkId, idxStr] = p.id.split(":");
+      const idx = Number(idxStr);
+      const col = idx === 0 ? "photo_url" : idx === 1 ? "before_photo_url" : "after_photo_url";
+      await supabase.from("job_photo_checklist_responses").update({ [col]: null } as any).eq("id", chkId);
+      return;
+    }
+    if (p.id.startsWith("doc:")) {
+      const id = p.id.slice(4);
+      await supabase.from("job_documents").delete().eq("id", id);
+      return;
+    }
+  };
+
+  const logDeletion = async (p: PhotoItem) => {
+    if (!user) return;
+    const actorName = profile?.full_name || user.email || "User";
+    const detailBits = [
+      `by ${actorName}`,
+      p.fileName ? `file: ${p.fileName}` : null,
+      p.caption ? `caption: ${p.caption}` : null,
+      `source: ${sourceMeta(p.source).label}`,
+    ].filter(Boolean);
+    try {
+      await supabase.from("job_activity_log").insert({
+        job_id: jobId,
+        user_id: user.id,
+        ...(orgId ? { org_id: orgId } : {}),
+        action: "photo_removed",
+        details: `Photo removed ${detailBits.join(" · ")}`,
+      } as any);
+    } catch {
+      // logging must never block a successful delete
+    }
+  };
+
+  const runDelete = async (targets: PhotoItem[]) => {
+    if (!user || targets.length === 0) return;
+    setDeleting(true);
+    const targetIds = new Set(targets.map((t) => t.id));
+    // Optimistic UI update
+    setItems((prev) => prev.filter((p) => !targetIds.has(p.id)));
+    let ok = 0;
+    let fail = 0;
+    for (const p of targets) {
+      if (!canDeletePhoto(p)) { fail++; continue; }
+      try {
+        await removePhotoStorage(p);
+        await deletePhotoRecord(p);
+        await logDeletion(p);
+        ok++;
+      } catch (e: any) {
+        fail++;
+        // eslint-disable-next-line no-console
+        console.error("Photo delete failed", p.id, e);
+      }
+    }
+    setDeleting(false);
+    setPendingDelete(null);
+    setSelected(new Set());
+    if (ok > 0) toast({ title: `Deleted ${ok} photo${ok === 1 ? "" : "s"}` });
+    if (fail > 0) toast({ title: `${fail} photo${fail === 1 ? "" : "s"} failed to delete`, variant: "destructive" });
+    // Re-sync from source of truth (also re-signs URLs)
+    await load();
+  };
+
+  // ---------- Selection helpers ----------
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const selectableInFilter = useMemo(
+    () => filtered.filter(canDeletePhoto),
+    [filtered, canDeletePhoto],
+  );
+  const allFilterSelected =
+    selectableInFilter.length > 0 && selectableInFilter.every((p) => selected.has(p.id));
+  const toggleSelectAll = () => {
+    setSelected((prev) => {
+      if (allFilterSelected) {
+        const next = new Set(prev);
+        selectableInFilter.forEach((p) => next.delete(p.id));
+        return next;
+      }
+      const next = new Set(prev);
+      selectableInFilter.forEach((p) => next.add(p.id));
+      return next;
+    });
+  };
+  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); };
+
   const filters: Array<{ key: "all" | Source; label: string }> = [
     { key: "all", label: "All" },
     { key: "whatsapp", label: "WhatsApp" },
@@ -353,6 +569,11 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     { key: "checklist", label: "Checklist" },
     { key: "document", label: "Docs" },
   ];
+
+  const selectedItems = useMemo(
+    () => items.filter((p) => selected.has(p.id)),
+    [items, selected],
+  );
 
   return (
     <div
@@ -416,7 +637,7 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {filters.map((f) => (
           <Button
             key={f.key}
@@ -429,7 +650,53 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
             {counts[f.key] ? <span className="ml-1.5 text-xs text-muted-foreground">({counts[f.key]})</span> : null}
           </Button>
         ))}
+        <div className="ml-auto">
+          {selectMode ? (
+            <Button size="sm" variant="ghost" onClick={exitSelectMode} className="h-8">
+              <X className="mr-1.5 h-4 w-4" /> Cancel
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setSelectMode(true)}
+              className="h-8"
+              disabled={items.length === 0}
+            >
+              <CheckSquare className="mr-1.5 h-4 w-4" /> Select
+            </Button>
+          )}
+        </div>
       </div>
+
+      {selectMode && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={toggleSelectAll}
+            disabled={selectableInFilter.length === 0}
+            className="h-8"
+          >
+            {allFilterSelected ? "Clear selection" : `Select all (${selectableInFilter.length})`}
+          </Button>
+          <span className="text-muted-foreground">
+            {selected.size} selected
+          </span>
+          <div className="ml-auto">
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={selected.size === 0 || deleting}
+              onClick={() => setPendingDelete(selectedItems)}
+              className="h-8"
+            >
+              {deleting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1.5 h-4 w-4" />}
+              Delete selected ({selected.size})
+            </Button>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="py-16 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
@@ -448,9 +715,13 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
                 <SortablePhotoTile
                   key={p.id}
                   photo={p}
-                  index={idx}
                   onOpen={() => setLightboxIdx(idx)}
                   onDownload={() => download(p)}
+                  onDelete={() => setPendingDelete([p])}
+                  canDelete={canDeletePhoto(p)}
+                  selectMode={selectMode}
+                  selected={selected.has(p.id)}
+                  onToggleSelect={() => canDeletePhoto(p) && toggleSelect(p.id)}
                 />
               ))}
             </div>
@@ -474,6 +745,34 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
         onOpenChange={(o) => !o && setLightboxIdx(null)}
         onIndexChange={(i) => setLightboxIdx(i)}
       />
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(o) => { if (!o && !deleting) setPendingDelete(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {pendingDelete?.length === 1 ? "photo" : `${pendingDelete?.length ?? 0} photos`}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes {pendingDelete?.length === 1 ? "this photo" : "these photos"} from the job,
+              the report editor, and any generated reports. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(e) => { e.preventDefault(); if (pendingDelete) runDelete(pendingDelete); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1.5 h-4 w-4" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
