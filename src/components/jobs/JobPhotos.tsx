@@ -52,6 +52,79 @@ function toStoragePath(fileUrl?: string | null): string | null {
   return extractStoragePath(fileUrl);
 }
 
+function SortablePhotoTile({
+  photo,
+  index,
+  onOpen,
+  onDownload,
+}: {
+  photo: PhotoItem;
+  index: number;
+  onOpen: () => void;
+  onDownload: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: photo.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    touchAction: "none",
+  };
+  const meta = sourceMeta(photo.source);
+  const Icon = meta.icon;
+  return (
+    <div ref={setNodeRef} style={style} className="group relative rounded-lg overflow-hidden border bg-muted">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="block w-full aspect-square"
+        aria-label={photo.caption || photo.fileName || "Photo"}
+      >
+        {photo.signedUrl ? (
+          <img
+            src={photo.signedUrl}
+            alt={photo.caption || photo.fileName || "Job photo"}
+            loading="lazy"
+            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs">Unavailable</div>
+        )}
+      </button>
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label="Drag to reorder"
+        className="absolute top-1.5 left-1.5 rounded bg-background/90 p-1 cursor-grab active:cursor-grabbing shadow-sm opacity-80 group-hover:opacity-100"
+      >
+        <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+      </button>
+      <div className="absolute top-1.5 left-9">
+        <Badge className={`gap-1 border-0 ${meta.className}`}>
+          <Icon className="h-3 w-3" />
+          <span className="text-[10px] font-medium">{meta.label}</span>
+        </Badge>
+      </div>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onDownload(); }}
+        className="absolute top-1.5 right-1.5 rounded bg-background/90 p-1.5 opacity-0 group-hover:opacity-100 focus:opacity-100 transition"
+        aria-label="Download photo"
+      >
+        <Download className="h-3.5 w-3.5" />
+      </button>
+      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-2 text-white">
+        <p className="text-[10px] truncate">
+          {photo.engineerName || "Unknown"} · {new Date(photo.timestamp).toLocaleDateString("en-GB")}
+        </p>
+        {photo.caption && <p className="text-[10px] text-white/70 truncate">{photo.caption}</p>}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Aggregates all photos on a job across every source:
  * submissions (WhatsApp / app uploads), defects, photo-checklist responses
