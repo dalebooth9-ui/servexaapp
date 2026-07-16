@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "sdk_version": "0.22.2",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://geyrqplwjzwdiaeqaeul.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "servexa-mcp",
+      "version": "0.1.0",
+      "title": "Servexa"
+    },
+    "tools": [
+      {
+        "name": "list_jobs",
+        "title": "List jobs",
+        "description": "List jobs in Servexa for the signed-in user's organisation. Optional filters for status, category, and a text search on the job name or reference number.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "description": "Filter by status (e.g. scheduled, in_progress, completed, cancelled)."
+            },
+            "category": {
+              "type": "string",
+              "description": "Filter by job category."
+            },
+            "search": {
+              "type": "string",
+              "description": "Case-insensitive substring match on job name or reference number (e.g. VFP-00169)."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "description": "Max rows (default 25)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_job",
+        "title": "Get job",
+        "description": "Fetch a single Servexa job by its VFP reference number (e.g. VFP-00169) or by its UUID id. Returns the full job record.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "reference": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Job reference number (VFP-xxxxx) or the job's UUID id."
+            }
+          },
+          "required": [
+            "reference"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_customers",
+        "title": "List customers",
+        "description": "List customers visible to the signed-in user's organisation, optionally filtered by a substring of the customer name.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "search": {
+              "type": "string",
+              "description": "Case-insensitive substring match on the customer name."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "description": "Max rows (default 25)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
