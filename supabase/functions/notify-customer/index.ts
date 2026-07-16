@@ -49,10 +49,18 @@ serve(async (req) => {
     // Fetch job details with customer info
     const { data: job, error: jobErr } = await supabase
       .from("jobs")
-      .select("id, name, reference_number, customer, address, status, org_id")
+      .select("id, name, reference_number, customer_po, customer, address, status, org_id")
       .eq("id", job_id)
       .single();
     if (jobErr || !job) throw new Error("Job not found");
+
+    // Customer paperwork leads with the customer's PO; VFP- is the fallback.
+    const _custPo = ((job as any).customer_po || "").trim();
+    const _intRef = (job.reference_number || "").trim();
+    const primaryRef = _custPo || _intRef;
+    const refBody = _custPo && _intRef && _custPo !== _intRef
+      ? `${_custPo} (our ref: ${_intRef})`
+      : primaryRef;
 
     // Find customer email from customers table
     let customerEmail: string | null = null;
