@@ -280,7 +280,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
   ): Promise<Blob | null | void> => {
     setGenerating(true);
     const pendingName = [
-      jobInfo?.reference_number || "blank",
+      jobInfo?.customer_po || jobInfo?.reference_number || "blank",
       template.name.replace(/\s+/g, "-").toLowerCase(),
       handfill ? "handfill" : null,
     ].filter(Boolean).join("-") + ".pdf";
