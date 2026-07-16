@@ -20,6 +20,8 @@ installGlobalErrorHandlers();
 // Eagerly loaded — used immediately on auth/landing
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
+const OAuthConsent = lazy(() => import("@/pages/OAuthConsent"));
+import Dashboard from "@/pages/Dashboard";
 
 // Lazily loaded — heavier pages loaded on demand
 const Jobs = lazy(() => import("@/pages/Jobs"));
