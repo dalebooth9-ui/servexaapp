@@ -223,6 +223,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
 
   const [openDefectCount, setOpenDefectCount] = useReactState<number>(0);
   const [pendingReviewCount, setPendingReviewCount] = useReactState<number>(0);
+  const [platformSupportOpen, setPlatformSupportOpen] = useReactState<number>(0);
 
   useEffect(() => {
     supabase.from("app_settings").select("value").eq("key", "business_whatsapp_number").single()
