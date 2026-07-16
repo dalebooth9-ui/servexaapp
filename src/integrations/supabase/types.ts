@@ -4549,6 +4549,7 @@ export type Database = {
           intake_last_email_at: string | null
           intake_message_ids: string[]
           intake_normalized_subject: string | null
+          intake_original_sender_email: string | null
           intake_sender_domain: string | null
           intake_sender_email: string | null
           is_remedial: boolean
@@ -4593,6 +4594,7 @@ export type Database = {
           intake_last_email_at?: string | null
           intake_message_ids?: string[]
           intake_normalized_subject?: string | null
+          intake_original_sender_email?: string | null
           intake_sender_domain?: string | null
           intake_sender_email?: string | null
           is_remedial?: boolean
@@ -4637,6 +4639,7 @@ export type Database = {
           intake_last_email_at?: string | null
           intake_message_ids?: string[]
           intake_normalized_subject?: string | null
+          intake_original_sender_email?: string | null
           intake_sender_domain?: string | null
           intake_sender_email?: string | null
           is_remedial?: boolean
