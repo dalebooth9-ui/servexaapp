@@ -594,6 +594,15 @@ serve(async (req) => {
     console.error("Resend fetch failed", e);
     return json(502, { error: "Resend fetch failed" });
   }
+
+  // Classify attachments up-front: mark inline signature images so we can
+  // drop them from job Photos, and flag ambiguous images for review.
+  classifyAttachments(email.attachments, email.html);
+  const droppedInline = email.attachments.filter((a) => a.isInlineSignature);
+  if (droppedInline.length > 0) {
+    email.attachments = email.attachments.filter((a) => !a.isInlineSignature);
+  }
+
   // Diagnostic log for EVERY inbound email — so failed intakes are traceable
   // even if we bail early later. Michelle can grep function logs by subject/from.
   console.log("[inbound-po-email] received", {
@@ -603,7 +612,8 @@ serve(async (req) => {
     subject: email.subject,
     intake: intakeAddr,
     attachment_count: email.attachments.length,
-    attachment_names: email.attachments.map((a) => `${a.filename} (${a.bytes.byteLength}b, ${a.contentType})`),
+    attachment_names: email.attachments.map((a) => `${a.filename} (${a.bytes.byteLength}b, ${a.contentType}${a.reviewFlag ? ", review" : ""})`),
+    dropped_inline_signature_images: droppedInline.map((a) => `${a.filename} (${a.bytes.byteLength}b)`),
     body_text_length: email.text.length,
     body_html_length: email.html.length,
     has_raw_eml: !!email.rawEmlBase64,
