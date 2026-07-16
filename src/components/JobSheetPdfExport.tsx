@@ -88,6 +88,7 @@ type JobInfo = {
   customer: string | null;
   customers?: { name: string; logo_url?: string | null } | null;
   reference_number: string;
+  customer_po?: string | null;
   category?: string | null;
   pressure_test_qty?: number;
   visual_qty?: number;
