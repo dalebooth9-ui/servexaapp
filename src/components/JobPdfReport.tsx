@@ -900,10 +900,9 @@ export default function JobPdfReport({ jobId, job }: Props) {
         y = sectionTitle(doc, "Servexa Reports", y, margin, maxWidth);
         reports.forEach((r: any) => {
           checkPage(15);
-          drawTableRow(doc, y, [
+          y += drawTableRow(doc, y, [
             { text: r.title || "Untitled Report", x: margin, width: maxWidth, bold: true },
           ], rowH, margin, maxWidth, [245, 248, 255]);
-          y += rowH;
           if (r.summary) {
             const lines = doc.splitTextToSize(r.summary, maxWidth - 4);
             lines.forEach((line: string) => {
@@ -926,18 +925,18 @@ export default function JobPdfReport({ jobId, job }: Props) {
         y = sectionTitle(doc, "Engineer Notes", y, margin, maxWidth);
         const noteDateW = maxWidth * 0.2;
         const noteTextW = maxWidth * 0.8;
-        drawTableRow(doc, y, [
+        y += drawTableRow(doc, y, [
           { text: "Date", x: margin, width: noteDateW, bold: true },
           { text: "Note", x: 0, width: noteTextW, bold: true },
         ], rowH, margin, maxWidth, [235, 240, 248]);
-        y += rowH;
         notes.forEach((n: any) => {
-          checkPage(rowH);
-          drawTableRow(doc, y, [
+          const cols: TableCol[] = [
             { text: new Date(n.created_at).toLocaleDateString("en-GB"), x: margin, width: noteDateW },
-            { text: (n.content || "").substring(0, 80), x: 0, width: noteTextW },
-          ], rowH, margin, maxWidth);
-          y += rowH;
+            { text: n.content || "", x: 0, width: noteTextW },
+          ];
+          const h = measureTableRowHeight(doc, cols, rowH);
+          checkPage(h);
+          y += drawTableRow(doc, y, cols, rowH, margin, maxWidth);
         });
         y += 6;
       }
