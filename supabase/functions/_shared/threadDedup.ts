@@ -40,12 +40,19 @@ export function normalizeMessageId(id: string | null | undefined): string | null
 export function normalizeSubject(subject: string | null | undefined): string {
   if (!subject) return "";
   let s = String(subject);
-  // strip leading list tags [FOO], bracketed prefixes are rare on PO emails
-  // remove reply/forward prefixes repeatedly
-  for (let i = 0; i < 6; i++) {
-    const next = s.replace(/^\s*(re|fw|fwd|aw|tr|antw)\s*(\[\d+\])?\s*:\s*/i, "");
-    if (next === s) break;
-    s = next;
+  // Strip repeatedly, in any order, until stable:
+  //   - leading bracketed mailbox tags like [EXTERNAL], [EXT], [SPAM], [SECURE],
+  //     or any [....] block at the start (also handles (EXTERNAL) style)
+  //   - reply/forward prefixes (re, fw, fwd, aw, tr, antw), case-insensitive,
+  //     with or without whitespace around the colon, optional [n] counter
+  const bracketRe = /^\s*[\[\(][^\]\)]{1,40}[\]\)]\s*/i;
+  const replyRe = /^\s*(re|fw|fwd|aw|tr|antw)\s*(\[\d+\])?\s*[:\-]\s*/i;
+  for (let i = 0; i < 20; i++) {
+    const before = s;
+    s = s.replace(bracketRe, "");
+    s = s.replace(replyRe, "");
+    s = s.trim();
+    if (s === before) break;
   }
   return s.replace(/\s+/g, " ").trim().toLowerCase();
 }

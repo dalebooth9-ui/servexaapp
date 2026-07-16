@@ -17,7 +17,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { inferJobScope } from "../_shared/inferJobScope.ts";
-import { buildThreadHeaders, findExistingThreadJob } from "../_shared/threadDedup.ts";
+import { buildThreadHeaders, findExistingThreadJob, extractSenderEmail } from "../_shared/threadDedup.ts";
 
 
 const MAX_BODY_BYTES = 25 * 1024 * 1024;
@@ -961,6 +961,11 @@ serve(async (req) => {
     (jobInsert as any).intake_normalized_subject = threadHeaders.normalizedSubject || null;
     (jobInsert as any).intake_sender_email = threadHeaders.senderEmail || null;
     (jobInsert as any).intake_sender_domain = threadHeaders.senderDomain || null;
+    // Recovered original sender from a forwarded email (e.g. the customer
+    // beneath the forwarding-mailbox header). Kept separate from
+    // intake_sender_email so dedup/display can prefer the true sender when
+    // the forwarding mailbox handles many unrelated conversations.
+    (jobInsert as any).intake_original_sender_email = extractSenderEmail(forwardedFrom || "") || null;
     (jobInsert as any).intake_last_email_at = new Date().toISOString();
 
     const { data: newJob, error: jobErr } = await admin
