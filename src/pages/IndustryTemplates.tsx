@@ -1356,23 +1356,64 @@ export default function IndustryTemplates() {
             Pre-loaded industry-standard inspection &amp; service forms. Download as a blank PDF or import as an editable job sheet template.
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleExportAllToWord}
-          disabled={bulkExporting || filtered.length === 0}
-          className="gap-1.5 shrink-0"
-          title="Download every visible template as .docx in a single zip"
-        >
-          {bulkExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileArchive className="h-4 w-4" />}
-          {bulkExporting
-            ? bulkProgress > 0 && bulkProgress < bulkTotal
-              ? `Generating ${bulkProgress} of ${bulkTotal}…`
-              : bulkProgress >= bulkTotal && bulkTotal > 0
-              ? "Packaging zip…"
-              : "Preparing…"
-            : `Export all to Word (${filtered.length})`}
-        </Button>
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <Button
+            variant="default"
+            size="sm"
+            className="gap-1.5"
+            disabled={!user}
+            onClick={async () => {
+              if (!user) return;
+              const { data, error } = await supabase
+                .from("job_sheet_templates")
+                .insert({
+                  name: "New Custom Template",
+                  description: "Built from scratch",
+                  fields: [
+                    { id: `sec_${Date.now()}`, label: "Section 1", type: "text", required: false, section: "Section 1" },
+                  ] as any,
+                  created_by: user.id,
+                  status: "draft",
+                } as any)
+                .select("id, name, description, fields, category, job_category, branding, footer_text")
+                .single();
+              if (error || !data) {
+                toast({ title: "Could not create template", description: error?.message, variant: "destructive" });
+                return;
+              }
+              setEditingTemplate({
+                id: (data as any).id,
+                name: (data as any).name,
+                description: (data as any).description,
+                fields: (data as any).fields || [],
+                category: (data as any).category || "",
+                job_category: (data as any).job_category || "",
+                branding: (data as any).branding || {},
+                footer_text: (data as any).footer_text || null,
+              } as any);
+              setEditOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4" /> New blank template
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportAllToWord}
+            disabled={bulkExporting || filtered.length === 0}
+            className="gap-1.5"
+            title="Download every visible template as .docx in a single zip"
+          >
+            {bulkExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileArchive className="h-4 w-4" />}
+            {bulkExporting
+              ? bulkProgress > 0 && bulkProgress < bulkTotal
+                ? `Generating ${bulkProgress} of ${bulkTotal}…`
+                : bulkProgress >= bulkTotal && bulkTotal > 0
+                ? "Packaging zip…"
+                : "Preparing…"
+              : `Export all to Word (${filtered.length})`}
+          </Button>
+        </div>
       </div>
 
 
