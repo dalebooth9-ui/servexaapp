@@ -143,13 +143,58 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const { uploading, uploadFilesAsSubmissions } = useFileUpload({ onComplete: () => load() });
 
-  const handleFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0 || !user) return;
-    const arr = Array.from(files);
-    const uploaded = await uploadFilesAsSubmissions(arr, jobId, user.id);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragDepth = useRef(0);
+
+  const handleFiles = async (files: FileList | File[] | null, { imagesOnly = false }: { imagesOnly?: boolean } = {}) => {
+    if (!files || !user) return;
+    const arr = Array.from(files as ArrayLike<File>);
+    if (arr.length === 0) return;
+    let toUpload = arr;
+    if (imagesOnly) {
+      const images = arr.filter((f) => f.type.startsWith("image/"));
+      const rejected = arr.length - images.length;
+      if (rejected > 0) {
+        toast({
+          title: `Skipped ${rejected} non-image file${rejected === 1 ? "" : "s"}`,
+          description: "Only image files can be dropped here.",
+          variant: "destructive",
+        });
+      }
+      if (images.length === 0) return;
+      toUpload = images;
+    }
+    const uploaded = await uploadFilesAsSubmissions(toUpload, jobId, user.id);
     if (uploaded > 0) {
       toast({ title: `Uploaded ${uploaded} photo${uploaded === 1 ? "" : "s"}` });
     }
+  };
+
+  const dtHasFiles = (dt: DataTransfer | null) =>
+    !!dt && Array.from(dt.types || []).includes("Files");
+
+  const onDragEnter = (e: React.DragEvent) => {
+    if (!canUpload || !dtHasFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    dragDepth.current += 1;
+    setIsDragOver(true);
+  };
+  const onDragOver = (e: React.DragEvent) => {
+    if (!canUpload || !dtHasFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+  const onDragLeave = (e: React.DragEvent) => {
+    if (!canUpload) return;
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setIsDragOver(false);
+  };
+  const onDrop = (e: React.DragEvent) => {
+    if (!canUpload) return;
+    e.preventDefault();
+    dragDepth.current = 0;
+    setIsDragOver(false);
+    handleFiles(e.dataTransfer?.files ?? null, { imagesOnly: true });
   };
 
   const engineerName = useCallback((uid?: string) => {
@@ -310,7 +355,28 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
   ];
 
   return (
-    <div className="space-y-4">
+    <div
+      className={`relative space-y-4 rounded-lg transition-colors ${
+        isDragOver ? "outline outline-2 outline-primary/60 outline-offset-4" : ""
+      }`}
+      onDragEnter={onDragEnter}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
+      {isDragOver && canUpload && (
+        <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-primary/10 backdrop-blur-[1px]">
+          <Upload className="h-8 w-8 text-primary" />
+          <p className="text-sm font-medium text-primary">Drop photos to add to this job</p>
+          <p className="text-xs text-primary/70">Images only · multi-file supported</p>
+        </div>
+      )}
+      {uploading && (
+        <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Uploading photos…</span>
+        </div>
+      )}
       {canUpload && (
         <div className="flex flex-wrap gap-2 rounded-lg border border-dashed bg-muted/30 p-3">
           <input
@@ -368,9 +434,12 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
       {loading ? (
         <div className="py-16 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
       ) : filtered.length === 0 ? (
-        <p className="py-16 text-center text-sm text-muted-foreground border border-dashed rounded-md">
-          {items.length === 0 ? "No photos on this job yet." : "No photos match this filter."}
-        </p>
+        <div className="py-16 text-center text-sm text-muted-foreground border border-dashed rounded-md">
+          <p>{items.length === 0 ? "No photos on this job yet." : "No photos match this filter."}</p>
+          {canUpload && items.length === 0 && (
+            <p className="mt-1 text-xs text-muted-foreground/80">Drag & drop images here, or use the buttons above.</p>
+          )}
+        </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={filtered.map((p) => p.id)} strategy={rectSortingStrategy}>
