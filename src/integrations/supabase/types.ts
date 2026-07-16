@@ -4545,6 +4545,11 @@ export type Database = {
           due_date: string | null
           fault_code_id: string | null
           id: string
+          intake_last_email_at: string | null
+          intake_message_ids: string[]
+          intake_normalized_subject: string | null
+          intake_sender_domain: string | null
+          intake_sender_email: string | null
           is_remedial: boolean
           job_type: string
           name: string
@@ -4583,6 +4588,11 @@ export type Database = {
           due_date?: string | null
           fault_code_id?: string | null
           id?: string
+          intake_last_email_at?: string | null
+          intake_message_ids?: string[]
+          intake_normalized_subject?: string | null
+          intake_sender_domain?: string | null
+          intake_sender_email?: string | null
           is_remedial?: boolean
           job_type?: string
           name: string
@@ -4621,6 +4631,11 @@ export type Database = {
           due_date?: string | null
           fault_code_id?: string | null
           id?: string
+          intake_last_email_at?: string | null
+          intake_message_ids?: string[]
+          intake_normalized_subject?: string | null
+          intake_sender_domain?: string | null
+          intake_sender_email?: string | null
           is_remedial?: boolean
           job_type?: string
           name?: string

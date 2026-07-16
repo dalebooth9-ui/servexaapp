@@ -17,6 +17,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { inferJobScope } from "../_shared/inferJobScope.ts";
+import { buildThreadHeaders, findExistingThreadJob } from "../_shared/threadDedup.ts";
 
 
 const MAX_BODY_BYTES = 25 * 1024 * 1024;
@@ -100,6 +101,7 @@ interface InboundEmail {
   html: string;
   rawEmlBase64: string | null;
   attachments: Attachment[];
+  webhookHeaders: Record<string, string>;
 }
 
 function normaliseRecipients(d: any): string[] {
@@ -215,6 +217,32 @@ async function fetchInboundFromResend(
     }
   }
 
+  // Capture RFC822-ish headers surfaced by Resend so we can dedup threads
+  // without always having to fetch and parse the raw .eml.
+  const webhookHeaders: Record<string, string> = {};
+  const rawHeaders: any = d?.headers ?? d?.headers_map ?? null;
+  if (rawHeaders && typeof rawHeaders === "object") {
+    if (Array.isArray(rawHeaders)) {
+      for (const h of rawHeaders) {
+        const n = String(h?.name ?? h?.key ?? "").trim().toLowerCase();
+        const v = String(h?.value ?? h?.val ?? "").trim();
+        if (n && v && !webhookHeaders[n]) webhookHeaders[n] = v;
+      }
+    } else {
+      for (const [k, v] of Object.entries(rawHeaders)) {
+        if (v == null) continue;
+        webhookHeaders[String(k).toLowerCase()] = String(v);
+      }
+    }
+  }
+  // Some Resend payloads surface these at the top level.
+  for (const k of ["message_id", "in_reply_to", "references"]) {
+    const v = (d as any)?.[k];
+    if (v && !webhookHeaders[k.replace("_", "-")]) {
+      webhookHeaders[k.replace("_", "-")] = String(v);
+    }
+  }
+
   return {
     from: String(from).trim(),
     to: normaliseRecipients(d),
@@ -223,6 +251,7 @@ async function fetchInboundFromResend(
     html: String(d?.html ?? ""),
     rawEmlBase64,
     attachments,
+    webhookHeaders,
   };
 }
 
@@ -735,17 +764,39 @@ serve(async (req) => {
   };
 
 
-  // ── Idempotency ────────────────────────────────────────────────────────
-  // If the same PO number from the same sender has landed in the approval
-  // queue within the last 7 days, attach these new files to the existing
-  // draft instead of creating another duplicate job. Only applies while the
-  // original is still pending_review — once approved / rejected we let a
-  // new job through so genuine "same PO, new work" cases aren't blocked.
+  // ── Thread-aware dedup ─────────────────────────────────────────────────
+  // Reply/forward chains and re-forwards used to spawn a fresh draft for
+  // every email. Now we resolve the conversation the email belongs to:
+  //   (a) In-Reply-To / References ancestry against any job we've filed, or
+  //   (b) legacy PO+sender match (kept as a safety net for pre-header jobs),
+  //   (c) normalised-subject + sender-domain match on a pending draft from
+  //       the last 14 days.
+  // If any hit, attach to that draft instead of creating a new one.
   let jobId: string;
   let createdJobRef: string;
   let idempotentReuse = false;
+  let dedupMatchedBy: "headers" | "subject_sender" | "po_sender" | null = null;
+
+  const rawEmlText = email.rawEmlBase64
+    ? (() => { try { return new TextDecoder().decode(b64ToBytes(email.rawEmlBase64!)); } catch { return null; } })()
+    : null;
+  const threadHeaders = buildThreadHeaders({
+    fromRaw: email.from,
+    subject: email.subject,
+    rawEmlText,
+    webhookHeaders: email.webhookHeaders,
+  });
+  const messageIdsForJob = threadHeaders.messageId ? [threadHeaders.messageId] : [];
+
+  // (a) + (c) unified lookup.
+  const threadHit = await findExistingThreadJob(admin, orgId, threadHeaders);
+  let existing: { id: string; reference_number: string | null; brief: string | null; name: string | null } | null = threadHit;
+  if (threadHit) dedupMatchedBy = threadHit.matchedBy;
+
+  // (b) Legacy PO + forwarder match — protects drafts created before we
+  // recorded thread headers.
   const senderKey = (email.from || "").toLowerCase().trim();
-  if (poNum && senderKey) {
+  if (!existing && poNum && senderKey) {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const { data: dupCandidates } = await admin
       .from("jobs")
@@ -756,34 +807,78 @@ serve(async (req) => {
       .gte("created_at", sevenDaysAgo)
       .order("created_at", { ascending: false })
       .limit(20);
-    const poNeedle = `PO ${poNum}`;
-    const senderNeedle = `Forwarded by: ${senderKey}`;
-    const existing = (dupCandidates || []).find((j: any) => {
+    const poNeedle = `po ${poNum.toLowerCase()}`;
+    const senderNeedle = `forwarded by: ${senderKey}`;
+    existing = (dupCandidates || []).find((j: any) => {
       const name = (j.name || "").toLowerCase();
       const brief = (j.brief || "").toLowerCase();
-      const poHit = name.includes(poNeedle.toLowerCase()) || brief.includes(`po number: ${poNum.toLowerCase()}`);
-      const senderHit = brief.includes(senderNeedle.toLowerCase());
+      const poHit = name.includes(poNeedle) || brief.includes(`po number: ${poNum.toLowerCase()}`);
+      const senderHit = brief.includes(senderNeedle);
       return poHit && senderHit;
+    }) || null;
+    if (existing) dedupMatchedBy = "po_sender";
+  }
+
+  if (existing) {
+    idempotentReuse = true;
+    jobId = existing.id;
+    createdJobRef = existing.reference_number ?? "";
+    console.log("Thread-dedup PO intake — attaching to existing draft", {
+      jobId, createdJobRef, matchedBy: dedupMatchedBy,
+      messageId: threadHeaders.messageId,
+      normalizedSubject: threadHeaders.normalizedSubject,
+      senderDomain: threadHeaders.senderDomain,
     });
-    if (existing) {
-      idempotentReuse = true;
-      jobId = existing.id;
-      createdJobRef = existing.reference_number;
-      console.log("Idempotent PO intake — attaching to existing draft", {
-        jobId, createdJobRef, poNum, senderKey,
-      });
-      // Append a note to the existing job so Michelle sees the duplicate arrived.
-      try {
-        await admin.from("job_messages").insert({
-          job_id: jobId,
-          message: `Duplicate PO email received from ${email.from} — attachments added to this draft.`,
-          author_role: "system",
-        } as any);
-      } catch (e) { console.warn("dup note insert failed", e); }
+
+    // Append a thread note so the office can see additional traffic arrived.
+    try {
+      await admin.from("job_messages").insert({
+        job_id: jobId,
+        message: `Further email received on this thread from ${email.from}${threadHeaders.messageId ? ` (${threadHeaders.messageId})` : ""} — ${email.attachments.length} attachment(s) added.`,
+        author_role: "system",
+      } as any);
+    } catch (e) { console.warn("thread note insert failed", e); }
+
+    // If the earlier draft had no PO number and this email carries one,
+    // upgrade the draft in-place so office review isn't stuck at "no PO".
+    if (poNum) {
+      const existingName = (existing.name || "").toLowerCase();
+      const existingBrief = (existing.brief || "").toLowerCase();
+      const hasPo = existingName.includes(`po ${poNum.toLowerCase()}`) ||
+        existingBrief.includes(`po number: ${poNum.toLowerCase()}`);
+      const looksLikeNoPo = existingName.includes("needs review — no po number") || !hasPo;
+      if (!hasPo && looksLikeNoPo) {
+        const newName = customerName ? `PO ${poNum} — ${customerName}` : `PO ${poNum}`;
+        const appendBrief = `${existing.brief ? existing.brief + "\n\n" : ""}--- PO number found in follow-up email ---\nPO number: ${poNum}`;
+        try {
+          await admin.from("jobs")
+            .update({ name: newName.slice(0, 200), brief: appendBrief } as any)
+            .eq("id", jobId);
+        } catch (e) { console.warn("po-upgrade failed", e); }
+      }
     }
+
+    // Merge new message-id + refresh last_email_at on the existing draft.
+    try {
+      const merged = Array.from(new Set([
+        ...(existing as any).intake_message_ids || [],
+        ...messageIdsForJob,
+      ]));
+      await admin.from("jobs").update({
+        intake_message_ids: merged,
+        intake_last_email_at: new Date().toISOString(),
+      } as any).eq("id", jobId);
+    } catch (e) { console.warn("thread headers merge failed", e); }
   }
 
   if (!idempotentReuse) {
+    // Persist thread headers on the new draft so future replies match.
+    (jobInsert as any).intake_message_ids = messageIdsForJob;
+    (jobInsert as any).intake_normalized_subject = threadHeaders.normalizedSubject || null;
+    (jobInsert as any).intake_sender_email = threadHeaders.senderEmail || null;
+    (jobInsert as any).intake_sender_domain = threadHeaders.senderDomain || null;
+    (jobInsert as any).intake_last_email_at = new Date().toISOString();
+
     const { data: newJob, error: jobErr } = await admin
       .from("jobs")
       .insert(jobInsert as any)

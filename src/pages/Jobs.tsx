@@ -427,6 +427,79 @@ export default function Jobs() {
     }
   };
 
+  const handleBulkDismissPending = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const ok = window.confirm(
+      `Dismiss ${ids.length} pending draft(s)? They'll be marked rejected and removed from the review queue. This can't be undone from here.`
+    );
+    if (!ok) return;
+    const { error } = await supabase
+      .from("jobs")
+      .update({ status: "rejected", rejection_reason: "Bulk-dismissed from Pending Review as duplicate/junk" } as any)
+      .in("id", ids);
+    if (error) {
+      toast({ title: "Error", description: "Failed to dismiss drafts.", variant: "destructive" });
+      return;
+    }
+    setJobs((prev) => prev.map((j) => (ids.includes(j.id) ? { ...j, status: "rejected" } : j)));
+    setSelectedPendingIds(new Set());
+    toast({ title: `${ids.length} draft(s) dismissed` });
+  };
+
+  const [pendingMergeOpen, setPendingMergeOpen] = useState(false);
+  const [pendingMergeTargetId, setPendingMergeTargetId] = useState<string>("");
+
+  const openMergeDialog = () => {
+    if (selectedPendingIds.size < 2) {
+      toast({ title: "Pick at least 2 drafts", description: "Select two or more pending drafts to merge.", variant: "destructive" });
+      return;
+    }
+    setPendingMergeTargetId("");
+    setPendingMergeOpen(true);
+  };
+
+  const handleMergePending = async () => {
+    const ids = Array.from(selectedPendingIds);
+    if (!pendingMergeTargetId || !ids.includes(pendingMergeTargetId)) {
+      toast({ title: "Pick a target draft", variant: "destructive" });
+      return;
+    }
+    const sourceIds = ids.filter((id) => id !== pendingMergeTargetId);
+    // Move documents onto the target, then dismiss the sources.
+    const { error: docErr } = await supabase
+      .from("job_documents" as any)
+      .update({ job_id: pendingMergeTargetId } as any)
+      .in("job_id", sourceIds);
+    if (docErr) {
+      toast({ title: "Merge failed", description: docErr.message, variant: "destructive" });
+      return;
+    }
+    // Best-effort: move any thread notes / messages too.
+    await supabase.from("job_messages" as any).update({ job_id: pendingMergeTargetId } as any).in("job_id", sourceIds);
+    // Add a note on the target listing what was merged.
+    const sourceRefs = jobs.filter((j) => sourceIds.includes(j.id)).map((j) => j.reference_number).filter(Boolean).join(", ");
+    await supabase.from("job_messages" as any).insert({
+      job_id: pendingMergeTargetId,
+      message: `Merged ${sourceIds.length} duplicate draft(s) into this one: ${sourceRefs}. Their attachments and notes have been consolidated here.`,
+      author_role: "system",
+    } as any);
+    // Dismiss the source drafts.
+    const { error: rejErr } = await supabase
+      .from("jobs")
+      .update({ status: "rejected", rejection_reason: `Merged into ${jobs.find((j) => j.id === pendingMergeTargetId)?.reference_number ?? "another draft"}` } as any)
+      .in("id", sourceIds);
+    if (rejErr) {
+      toast({ title: "Sources not dismissed", description: rejErr.message, variant: "destructive" });
+      return;
+    }
+    setJobs((prev) => prev.map((j) => (sourceIds.includes(j.id) ? { ...j, status: "rejected" } : j)));
+    setSelectedPendingIds(new Set());
+    setPendingMergeOpen(false);
+    toast({ title: `Merged ${sourceIds.length} draft(s)`, description: `Consolidated into ${jobs.find((j) => j.id === pendingMergeTargetId)?.reference_number ?? "target draft"}.` });
+  };
+
+
+
 
   // Refresh blank-sheet counts whenever the pending list changes.
   const refreshPendingSheetCounts = useCallback(async (ids: string[]) => {
@@ -1935,6 +2008,24 @@ export default function Jobs() {
                         </Button>
                         <Button
                           size="sm"
+                          variant="outline"
+                          className="h-7 px-3"
+                          disabled={selectedPendingIds.size < 2}
+                          onClick={openMergeDialog}
+                          title={selectedPendingIds.size < 2 ? "Select 2+ drafts to merge" : "Merge selected drafts into one"}
+                        >
+                          Merge into…
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-7 px-3"
+                          onClick={() => handleBulkDismissPending(Array.from(selectedPendingIds))}
+                        >
+                          Dismiss selected
+                        </Button>
+                        <Button
+                          size="sm"
                           variant="ghost"
                           className="h-7 px-2 text-xs"
                           onClick={() => setSelectedPendingIds(new Set())}
@@ -2115,6 +2206,36 @@ export default function Jobs() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={pendingMergeOpen} onOpenChange={setPendingMergeOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Merge pending drafts</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Pick the draft to keep. The other {Math.max(0, selectedPendingIds.size - 1)} draft(s) will have their attachments and thread notes moved onto it, then be dismissed.
+            </p>
+            <div className="space-y-2">
+              <Label>Keep this draft</Label>
+              <Select value={pendingMergeTargetId} onValueChange={setPendingMergeTargetId}>
+                <SelectTrigger><SelectValue placeholder="Select target draft…" /></SelectTrigger>
+                <SelectContent>
+                  {jobs.filter((j) => selectedPendingIds.has(j.id)).map((j) => (
+                    <SelectItem key={j.id} value={j.id}>
+                      {j.reference_number} — {j.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setPendingMergeOpen(false)}>Cancel</Button>
+              <Button onClick={handleMergePending} disabled={!pendingMergeTargetId}>Merge</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
 
       <AlertDialog open={mergeDialogOpen} onOpenChange={setMergeDialogOpen}>
         <AlertDialogContent>
