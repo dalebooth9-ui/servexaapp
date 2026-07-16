@@ -295,7 +295,8 @@ serve(async (req) => {
       brief,
     };
     if (extracted.po_number) {
-      jobInsert.reference_number = extracted.po_number.trim();
+      // Customer PO goes in its own field; internal reference_number auto-generates.
+      jobInsert.customer_po = extracted.po_number.trim();
     }
 
     const { data: newJob, error: jobErr } = await admin
@@ -305,21 +306,6 @@ serve(async (req) => {
       .single();
 
     if (jobErr || !newJob) {
-      // Duplicate reference_number is the most likely failure — retry without it
-      // and let the DB generate a fresh one.
-      if (jobErr?.code === "23505" && jobInsert.reference_number) {
-        delete jobInsert.reference_number;
-        const retry = await admin
-          .from("jobs")
-          .insert(jobInsert as any)
-          .select("id, reference_number")
-          .single();
-        if (retry.error || !retry.data) {
-          console.error("Job insert retry failed:", retry.error);
-          return json(500, { error: "Could not create job" });
-        }
-        return await uploadAndRespond(retry.data, admin, file_base64, file_name, extracted, noteParts, orgId);
-      }
       console.error("Job insert failed:", jobErr);
       return json(500, { error: "Could not create job" });
     }
