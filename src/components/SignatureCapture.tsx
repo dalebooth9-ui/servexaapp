@@ -5,9 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PenLine, Trash2, RotateCcw, Check } from "lucide-react";
+import { PenLine, Trash2, RotateCcw, Check, ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import {
+  loadEngineerSignatureLibrary,
+  findEngineerSignatureByName,
+  signedUrlForEngineerSignature,
+  type EngineerSignatureRow,
+} from "@/lib/engineerSignatureLibrary";
 
 interface Signature {
   id: string;
