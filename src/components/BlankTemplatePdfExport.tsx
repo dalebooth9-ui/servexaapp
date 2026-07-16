@@ -753,7 +753,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
 
 
       const fileName = [
-        jobInfo?.reference_number || "blank",
+        jobInfo?.customer_po || jobInfo?.reference_number || "blank",
         template.name.replace(/\s+/g, "-").toLowerCase(),
         customerName.replace(/\s+/g, "-").toLowerCase() || null,
         systemQty > 1 ? `x${systemQty}` : null,
