@@ -207,6 +207,15 @@ export default function HelpArticlesAdmin() {
                     />
                   </div>
                 </div>
+                <div className="grid gap-2">
+                  <Label className="text-xs">Source paths (comma-separated route + component files this article documents)</Label>
+                  <Input
+                    placeholder="/jobs/:id, src/pages/JobDetail.tsx, src/components/jobs/JobEmailChain.tsx"
+                    value={(draft.source_paths || []).join(", ")}
+                    onChange={(e) => setDraft({ ...draft, source_paths: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
+                  />
+                  <p className="text-[11px] text-muted-foreground">Source of truth for this article. When any listed path changes, update this article in the same edit.</p>
+                </div>
                 <div className="flex justify-end">
                   <Button size="sm" onClick={save} disabled={saving}>
                     <Save className="h-3.5 w-3.5 mr-1.5" /> {saving ? "Saving…" : "Save changes"}
