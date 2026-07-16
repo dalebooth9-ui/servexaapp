@@ -216,6 +216,32 @@ async function fetchInboundFromResend(
     }
   }
 
+  // Capture RFC822-ish headers surfaced by Resend so we can dedup threads
+  // without always having to fetch and parse the raw .eml.
+  const webhookHeaders: Record<string, string> = {};
+  const rawHeaders: any = d?.headers ?? d?.headers_map ?? null;
+  if (rawHeaders && typeof rawHeaders === "object") {
+    if (Array.isArray(rawHeaders)) {
+      for (const h of rawHeaders) {
+        const n = String(h?.name ?? h?.key ?? "").trim().toLowerCase();
+        const v = String(h?.value ?? h?.val ?? "").trim();
+        if (n && v && !webhookHeaders[n]) webhookHeaders[n] = v;
+      }
+    } else {
+      for (const [k, v] of Object.entries(rawHeaders)) {
+        if (v == null) continue;
+        webhookHeaders[String(k).toLowerCase()] = String(v);
+      }
+    }
+  }
+  // Some Resend payloads surface these at the top level.
+  for (const k of ["message_id", "in_reply_to", "references"]) {
+    const v = (d as any)?.[k];
+    if (v && !webhookHeaders[k.replace("_", "-")]) {
+      webhookHeaders[k.replace("_", "-")] = String(v);
+    }
+  }
+
   return {
     from: String(from).trim(),
     to: normaliseRecipients(d),
@@ -224,6 +250,7 @@ async function fetchInboundFromResend(
     html: String(d?.html ?? ""),
     rawEmlBase64,
     attachments,
+    webhookHeaders,
   };
 }
 
