@@ -231,6 +231,46 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     }
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+    useSensor(KeyboardSensor),
+  );
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const currentIds = filtered.map((p) => p.id);
+    const oldIndex = currentIds.indexOf(String(active.id));
+    const newIndex = currentIds.indexOf(String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+    const reorderedFiltered = arrayMove(filtered, oldIndex, newIndex);
+
+    // Rebuild the full items list: put the reordered filtered view first
+    // (respecting the new order) then any items not in the current filter.
+    const filteredIds = new Set(currentIds);
+    const rest = items.filter((p) => !filteredIds.has(p.id));
+    const nextItems = [...reorderedFiltered, ...rest];
+    setItems(nextItems);
+
+    // Persist display_order for submission-backed items in the reordered
+    // view. Non-submission sources (defect / checklist / document) keep
+    // their created_at ordering — we can't write display_order there.
+    const updates = reorderedFiltered
+      .map((p, i) => ({ id: p.submissionId, display_order: (i + 1) * 10 }))
+      .filter((u) => !!u.id) as Array<{ id: string; display_order: number }>;
+    if (updates.length === 0) return;
+    try {
+      await Promise.all(
+        updates.map((u) =>
+          supabase.from("submissions").update({ display_order: u.display_order }).eq("id", u.id),
+        ),
+      );
+    } catch (e: any) {
+      toast({ title: "Reorder failed", description: e?.message, variant: "destructive" });
+    }
+  };
+
   const filters: Array<{ key: "all" | Source; label: string }> = [
     { key: "all", label: "All" },
     { key: "whatsapp", label: "WhatsApp" },
