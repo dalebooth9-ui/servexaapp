@@ -604,12 +604,18 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const labelW = maxWidth * 0.3;
       const valW = maxWidth * 0.7;
       detailRows.forEach(([label, value]) => {
-        checkPage(rowH);
+        // Wrap the value within the value column and grow the row height for
+        // long strings (e.g. long job names) so text never overflows the page.
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        const wrapped = doc.splitTextToSize(String(value ?? ""), valW - 4) as string[];
+        const dynH = Math.max(rowH, wrapped.length * 5 + 2);
+        checkPage(dynH);
         drawTableRow(doc, y, [
           { text: label, x: margin, width: labelW, bold: true },
-          { text: value.substring(0, 90), x: margin + labelW, width: valW },
-        ], rowH, margin, maxWidth);
-        y += rowH;
+          { text: wrapped.join("\n"), x: margin + labelW, width: valW },
+        ], dynH, margin, maxWidth);
+        y += dynH;
       });
       y += 6;
 
