@@ -84,6 +84,8 @@ const SupportTickets = lazy(() => import("@/pages/SupportTickets"));
 const ImportWizard = lazy(() => import("@/pages/ImportWizard"));
 const FleetVehicles = lazy(() => import("@/pages/FleetVehicles"));
 const PlatformOrganisations = lazy(() => import("@/pages/PlatformOrganisations"));
+const PlatformSupportInbox = lazy(() => import("@/pages/PlatformSupportInbox"));
+const MyTickets = lazy(() => import("@/pages/MyTickets"));
 // Hidden emergency route — no visible entry. Reach via direct URL.
 const StorageMigrationPanel = lazy(() => import("@/components/StorageMigrationPanel"));
 
