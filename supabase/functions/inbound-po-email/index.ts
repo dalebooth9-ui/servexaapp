@@ -182,6 +182,11 @@ async function fetchInboundFromResend(
         a?.content_type ?? a?.contentType ?? "application/octet-stream",
       );
       const url = a?.download_url ?? a?.url;
+      const contentDisposition = String(
+        a?.content_disposition ?? a?.contentDisposition ?? a?.disposition ?? "",
+      ).toLowerCase().trim() || undefined;
+      const rawCid = String(a?.content_id ?? a?.contentId ?? a?.cid ?? "").trim();
+      const contentId = rawCid.replace(/^<|>$/g, "") || undefined;
       if (!url) {
         console.warn("attachment has no download_url", { filename });
         continue;
@@ -197,7 +202,7 @@ async function fetchInboundFromResend(
           console.warn("skipping oversized attachment", filename, buf.byteLength);
           continue;
         }
-        attachments.push({ filename, contentType, bytes: buf });
+        attachments.push({ filename, contentType, bytes: buf, contentDisposition, contentId });
       } catch (e) {
         console.error("attachment fetch error", filename, e);
       }
