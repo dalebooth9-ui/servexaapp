@@ -7,8 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck, FileImage, Upload, Plus, GripVertical } from "lucide-react";
 import PhotoLightbox from "@/components/PhotoLightbox";
-import { extractStoragePath, isImageFile } from "@/lib/fileUtils";
-import { resolveManyToSignedUrls } from "@/lib/durableStorageRef";
+import { createSubmissionPhotoSignedUrl, fetchJobPhotoMeta } from "@/lib/jobPhotos";
 import {
   DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter,
   useSensor, useSensors, DragEndEvent,
@@ -35,8 +34,6 @@ type PhotoItem = {
   submissionId?: string;
 };
 
-const BUCKET = "submissions";
-
 function sourceMeta(s: Source) {
   switch (s) {
     case "whatsapp": return { label: "WhatsApp", icon: MessageCircle, className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" };
@@ -48,8 +45,7 @@ function sourceMeta(s: Source) {
 }
 
 function toStoragePath(fileUrl?: string | null): string | null {
-  if (!fileUrl) return null;
-  return extractStoragePath(fileUrl);
+  return fileUrl || null;
 }
 
 function SortablePhotoTile({
@@ -163,95 +159,33 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [subs, defects, checklists, docs] = await Promise.all([
-      supabase.from("submissions")
-        .select("id, engineer_id, type, file_url, file_name, content, source, created_at, display_order")
-        .eq("job_id", jobId)
-        .order("display_order", { ascending: true, nullsFirst: false })
-        .order("created_at", { ascending: false }),
-      supabase.from("defects")
-        .select("id, reported_by, title, photo_url, photos, created_at")
-        .eq("job_id", jobId),
-      supabase.from("job_photo_checklist_responses")
-        .select("id, captured_by, photo_url, before_photo_url, after_photo_url, notes, captured_at")
-        .eq("job_id", jobId),
-      supabase.from("job_documents")
-        .select("id, created_by, file_url, file_name, label, created_at")
-        .eq("job_id", jobId),
-    ]);
-
-    const out: PhotoItem[] = [];
-
-    for (const s of (subs.data || []) as any[]) {
-      const isPhoto = s.type === "photo" || (s.type === "document" && s.file_name && isImageFile(s.file_name));
-      if (!isPhoto || !s.file_url) continue;
-      const isWa = (s.source || "").toLowerCase().includes("whatsapp") || /whatsapp/i.test(s.file_name || "");
-      out.push({
-        id: `sub:${s.id}`,
-        submissionId: s.id,
-        source: isWa ? "whatsapp" : "app",
-        storagePath: toStoragePath(s.file_url),
-        fallbackUrl: s.file_url,
-        fileName: s.file_name,
-        caption: s.content,
-        engineerId: s.engineer_id,
-        engineerName: engineerName(s.engineer_id),
-        timestamp: s.created_at,
-        displayOrder: s.display_order ?? null,
-      });
-    }
-
-    for (const d of (defects.data || []) as any[]) {
-      const urls: string[] = [];
-      if (d.photo_url) urls.push(d.photo_url);
-      if (Array.isArray(d.photos)) urls.push(...(d.photos as string[]).filter(Boolean));
-      urls.forEach((u, i) => out.push({
-        id: `def:${d.id}:${i}`,
-        source: "defect",
-        storagePath: toStoragePath(u),
-        fallbackUrl: u,
-        caption: d.title,
-        engineerId: d.reported_by,
-        engineerName: engineerName(d.reported_by),
-        timestamp: d.created_at,
-      }));
-    }
-
-    for (const c of (checklists.data || []) as any[]) {
-      const entries: Array<[string | null, string]> = [
-        [c.photo_url, c.notes || "Checklist photo"],
-        [c.before_photo_url, "Before"],
-        [c.after_photo_url, "After"],
-      ];
-      entries.forEach(([u, cap], i) => {
-        if (!u) return;
-        out.push({
-          id: `chk:${c.id}:${i}`,
-          source: "checklist",
-          storagePath: toStoragePath(u),
-          fallbackUrl: u,
-          caption: cap,
-          engineerId: c.captured_by,
-          engineerName: engineerName(c.captured_by),
-          timestamp: c.captured_at,
-        });
-      });
-    }
-
-    for (const d of (docs.data || []) as any[]) {
-      if (!d.file_name || !isImageFile(d.file_name)) continue;
-      out.push({
-        id: `doc:${d.id}`,
-        source: "document",
-        storagePath: toStoragePath(d.file_url),
-        fallbackUrl: d.file_url,
-        fileName: d.file_name,
-        caption: d.label,
-        engineerId: d.created_by,
-        engineerName: engineerName(d.created_by),
-        timestamp: d.created_at,
-      });
-    }
+    const meta = await fetchJobPhotoMeta(jobId);
+    const out: PhotoItem[] = meta.map((p) => {
+      const isWa = /whatsapp/i.test(p.fileName || "");
+      const source: Source = p.source === "defect"
+        ? "defect"
+        : p.source === "checklist"
+          ? "checklist"
+          : p.source === "document"
+            ? "document"
+            : isWa
+              ? "whatsapp"
+              : "app";
+      const submissionMatch = p.id.match(/^sub:(.+)$/);
+      return {
+        id: p.id,
+        submissionId: submissionMatch ? submissionMatch[1] : undefined,
+        source,
+        storagePath: toStoragePath(p.storagePath),
+        fallbackUrl: p.fallbackUrl,
+        fileName: p.fileName,
+        caption: p.caption,
+        engineerId: p.engineerId || undefined,
+        engineerName: p.engineerName || engineerName(p.engineerId || undefined),
+        timestamp: p.createdAt,
+        displayOrder: p.displayOrder ?? null,
+      };
+    });
 
     out.sort((a, b) => {
       const ao = a.displayOrder ?? null;
@@ -262,15 +196,13 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
       return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
     });
 
-    // Batch-sign. Most sources live in "submissions", but job_documents
-    // may point at other buckets (e.g. "po-intake" for email attachments).
-    // resolveManyToSignedUrls groups by bucket automatically.
-    const rawRefs = out.map((p) => p.fallbackUrl || p.storagePath || null);
-    const signedUrls = await resolveManyToSignedUrls(rawRefs, BUCKET, 3600);
+    const signedUrls = await Promise.all(
+      out.map((p) => createSubmissionPhotoSignedUrl(p.storagePath || p.fallbackUrl || "", jobId, 3600)),
+    );
 
     setItems(out.map((p, i) => ({
       ...p,
-      signedUrl: signedUrls[i] || undefined,
+      signedUrl: signedUrls[i]?.signedUrl || undefined,
     })));
     setLoading(false);
   }, [jobId, engineerName]);
@@ -332,13 +264,37 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     const updates = reorderedFiltered
       .map((p, i) => ({ id: p.submissionId, display_order: (i + 1) * 10 }))
       .filter((u) => !!u.id) as Array<{ id: string; display_order: number }>;
-    if (updates.length === 0) return;
+    const siteResponseGroups = new Map<string, PhotoItem[]>();
+    reorderedFiltered.forEach((p) => {
+      const match = p.id.match(/^site:([^:]+):\d+$/);
+      if (!match) return;
+      const group = siteResponseGroups.get(match[1]) || [];
+      group.push(p);
+      siteResponseGroups.set(match[1], group);
+    });
+    if (updates.length === 0 && siteResponseGroups.size === 0) return;
     try {
-      await Promise.all(
-        updates.map((u) =>
+      await Promise.all([
+        ...updates.map((u) =>
           supabase.from("submissions").update({ display_order: u.display_order }).eq("id", u.id),
         ),
-      );
+        ...Array.from(siteResponseGroups.entries()).map(async ([responseId, photos]) => {
+          const { data } = await supabase
+            .from("job_sheet_responses")
+            .select("responses")
+            .eq("id", responseId)
+            .maybeSingle();
+          const existing = ((data as any)?.responses || {}) as Record<string, any>;
+          return supabase.from("job_sheet_responses").update({
+            responses: {
+              ...existing,
+              _site_photo_urls: photos.map((p) => p.fallbackUrl || ""),
+              _site_photo_paths: photos.map((p) => p.storagePath || ""),
+              _site_photo_captions: photos.map((p) => p.caption || ""),
+            } as any,
+          } as any).eq("id", responseId);
+        }),
+      ]);
     } catch (e: any) {
       toast({ title: "Reorder failed", description: e?.message, variant: "destructive" });
     }
