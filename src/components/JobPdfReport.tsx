@@ -1046,11 +1046,11 @@ export default function JobPdfReport({ jobId, job }: Props) {
             ? `${sig.signer_name}${sig.signer_position ? ", " + sig.signer_position : ""} (${sig.signer_role})`
             : `Not recorded (${sig.signer_role})`;
           const ts = new Date(sig.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-          drawTableRow(doc, y, [
+          const sigHeader = drawTableRow(doc, y, [
             { text: signerLabel, x: margin, width: maxWidth * 0.6, bold: true },
             { text: ts, x: 0, width: maxWidth * 0.4, align: "right" },
           ], 6, margin, maxWidth, [245, 248, 255]);
-          y += 7;
+          y += sigHeader + 1;
           try {
             const { data: urlData } = await supabase.storage.from("signatures").createSignedUrl(sig.file_path, 60);
             if (urlData?.signedUrl) {
