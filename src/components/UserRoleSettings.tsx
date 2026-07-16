@@ -52,6 +52,7 @@ export default function UserRoleSettings() {
 
     const roleMap: Record<string, ("admin" | "engineer")[]> = {};
     (rolesRes.data ?? []).forEach((r) => {
+      if (r.role !== "admin" && r.role !== "engineer") return;
       if (!roleMap[r.user_id]) roleMap[r.user_id] = [];
       roleMap[r.user_id].push(r.role);
     });
