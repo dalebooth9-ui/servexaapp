@@ -849,17 +849,20 @@ serve(async (req) => {
 
 
   // ── Thread-aware dedup ─────────────────────────────────────────────────
-  // Reply/forward chains and re-forwards used to spawn a fresh draft for
-  // every email. Now we resolve the conversation the email belongs to:
-  //   (a) In-Reply-To / References ancestry against any job we've filed, or
-  //   (b) legacy PO+sender match (kept as a safety net for pre-header jobs),
-  //   (c) normalised-subject + sender-domain match on a pending draft from
-  //       the last 14 days.
-  // If any hit, attach to that draft instead of creating a new one.
+  // Match order (first hit wins):
+  //   (a) In-Reply-To / References ancestry against ANY non-cancelled job
+  //   (b) extracted PO number(s) against customer_po of ANY non-cancelled job
+  //   (c) normalised-subject + sender-domain against pending drafts (14d)
+  // If matched to a LIVE job we attach as an email-chain entry rather than
+  // creating a new draft. If matched by thread but the email carries a
+  // DIFFERENT PO than the matched job, we treat it as new work (safety valve)
+  // and cross-link both.
   let jobId: string;
   let createdJobRef: string;
   let idempotentReuse = false;
-  let dedupMatchedBy: "headers" | "subject_sender" | "po_sender" | null = null;
+  let attachToLiveJob: null | { id: string; reference_number: string | null; status: string | null } = null;
+  let crossLinkedJobRef: string | null = null;
+  let dedupMatchedBy: "headers" | "po_number" | "subject_sender" | "po_sender" | null = null;
 
   const rawEmlText = email.rawEmlBase64
     ? (() => { try { return new TextDecoder().decode(b64ToBytes(email.rawEmlBase64!)); } catch { return null; } })()
@@ -872,19 +875,24 @@ serve(async (req) => {
   });
   const messageIdsForJob = threadHeaders.messageId ? [threadHeaders.messageId] : [];
 
-  // (a) + (c) unified lookup.
-  const threadHit = await findExistingThreadJob(admin, orgId, threadHeaders);
-  let existing: { id: string; reference_number: string | null; brief: string | null; name: string | null } | null = threadHit;
+  const threadHit = await findExistingThreadJob(
+    admin,
+    orgId,
+    threadHeaders,
+    poNum ? [poNum] : [],
+  );
+  let existing:
+    | { id: string; reference_number: string | null; brief: string | null; name: string | null; status?: string | null; customer_po?: string | null; intake_message_ids?: string[] | null }
+    | null = threadHit;
   if (threadHit) dedupMatchedBy = threadHit.matchedBy;
 
-  // (b) Legacy PO + forwarder match — protects drafts created before we
-  // recorded thread headers.
+  // Legacy PO + forwarder match (pre-thread-header drafts).
   const senderKey = (email.from || "").toLowerCase().trim();
   if (!existing && poNum && senderKey) {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const { data: dupCandidates } = await admin
       .from("jobs")
-      .select("id, reference_number, brief, name, created_at")
+      .select("id, reference_number, brief, name, status, customer_po, intake_message_ids, created_at")
       .eq("org_id", orgId)
       .eq("source", "email_po")
       .eq("status", "pending_review")
@@ -903,8 +911,67 @@ serve(async (req) => {
     if (existing) dedupMatchedBy = "po_sender";
   }
 
+  // ── Safety valve: header-matched an existing job, but the email carries
+  // a DIFFERENT PO than that job. Treat as potential NEW work — create a
+  // fresh draft and cross-link, rather than burying a new order.
+  if (
+    existing &&
+    dedupMatchedBy === "headers" &&
+    poNum &&
+    existing.customer_po &&
+    existing.customer_po.trim().toUpperCase() !== poNum.trim().toUpperCase()
+  ) {
+    crossLinkedJobRef = existing.reference_number;
+    console.log("Thread hit but different PO — creating new draft, cross-linking", {
+      threadJob: existing.reference_number, threadPo: existing.customer_po, emailPo: poNum,
+    });
+    briefParts.push("");
+    briefParts.push(`⚠️ Related thread to job ${existing.reference_number} (PO ${existing.customer_po}) — different PO number in this email, treated as new work.`);
+    existing = null;
+  }
+
+  // Decide: reuse pending draft, or attach to a live (non-pending) job.
   if (existing) {
-    idempotentReuse = true;
+    const status = (existing.status || "pending_review").toLowerCase();
+    if (status !== "pending_review") {
+      attachToLiveJob = { id: existing.id, reference_number: existing.reference_number, status };
+    } else {
+      idempotentReuse = true;
+    }
+  }
+
+  if (attachToLiveJob) {
+    // Do NOT create a new draft — attach to the live job's email chain.
+    jobId = attachToLiveJob.id;
+    createdJobRef = attachToLiveJob.reference_number ?? "";
+    console.log("Thread-dedup — attaching email to LIVE job", {
+      jobId, ref: createdJobRef, status: attachToLiveJob.status, matchedBy: dedupMatchedBy,
+    });
+
+    const isCompleted = ["completed", "invoiced", "archived", "closed"].includes(
+      (attachToLiveJob.status || "").toLowerCase(),
+    );
+    try {
+      const merged = Array.from(new Set([
+        ...(existing?.intake_message_ids || []),
+        ...messageIdsForJob,
+      ]));
+      await admin.from("jobs").update({
+        intake_message_ids: merged,
+        intake_last_email_at: new Date().toISOString(),
+        has_unread_email: true,
+        ...(isCompleted ? { email_review_flag: true } : {}),
+      } as any).eq("id", jobId);
+    } catch (e) { console.warn("live-job thread merge failed", e); }
+
+    try {
+      await admin.from("job_activity_log").insert({
+        job_id: jobId,
+        action: "email_received",
+        details: `New email received from ${email.from}: ${email.subject}${isCompleted ? " (on completed job — needs review)" : ""}`,
+      } as any);
+    } catch (e) { console.warn("activity log insert failed", e); }
+  } else if (idempotentReuse && existing) {
     jobId = existing.id;
     createdJobRef = existing.reference_number ?? "";
     console.log("Thread-dedup PO intake — attaching to existing draft", {
@@ -923,8 +990,7 @@ serve(async (req) => {
       } as any);
     } catch (e) { console.warn("thread note insert failed", e); }
 
-    // If the earlier draft had no PO number and this email carries one,
-    // upgrade the draft in-place so office review isn't stuck at "no PO".
+    // Upgrade a "no PO" draft in-place if this email carries a PO.
     if (poNum) {
       const existingName = (existing.name || "").toLowerCase();
       const existingBrief = (existing.brief || "").toLowerCase();
@@ -945,15 +1011,17 @@ serve(async (req) => {
     // Merge new message-id + refresh last_email_at on the existing draft.
     try {
       const merged = Array.from(new Set([
-        ...(existing as any).intake_message_ids || [],
+        ...((existing as any).intake_message_ids || []),
         ...messageIdsForJob,
       ]));
       await admin.from("jobs").update({
         intake_message_ids: merged,
         intake_last_email_at: new Date().toISOString(),
+        has_unread_email: true,
       } as any).eq("id", jobId);
     } catch (e) { console.warn("thread headers merge failed", e); }
   }
+
 
   if (!idempotentReuse) {
     // Persist thread headers on the new draft so future replies match.
