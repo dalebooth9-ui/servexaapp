@@ -534,7 +534,7 @@ async function buildPdf(payload: WorkerPayload) {
     // rendered on a clean background so nothing behind the writing lines
     // can reduce legibility for the engineer or the scanner classifier.
     const fileName = [
-      jobInfo?.reference_number || "blank",
+      jobInfo?.customer_po || jobInfo?.reference_number || "blank",
       template.name.replace(/\s+/g, "-").toLowerCase(),
       customerName.replace(/\s+/g, "-").toLowerCase() || null,
       systemQty > 1 ? `x${systemQty}` : null,
