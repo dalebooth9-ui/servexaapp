@@ -853,7 +853,7 @@ serve(async (req) => {
         const appendBrief = `${existing.brief ? existing.brief + "\n\n" : ""}--- PO number found in follow-up email ---\nPO number: ${poNum}`;
         try {
           await admin.from("jobs")
-            .update({ name: newName.slice(0, 200), brief: appendBrief } as any)
+            .update({ name: newName.slice(0, 200), brief: appendBrief, customer_po: poNum } as any)
             .eq("id", jobId);
         } catch (e) { console.warn("po-upgrade failed", e); }
       }
