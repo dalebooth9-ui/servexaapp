@@ -270,6 +270,8 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   const extraItems = DEFAULT_NAV_ITEMS.filter((i) => !navOrder.includes(i.to));
   const allOrderedItems = [...orderedItems, ...extraItems];
   const visibleNavItems = allOrderedItems.filter((item) => {
+    // Platform-only entries: gated by platform_admin, not visible to tenants.
+    if ((item as any).platformOnly) return orgStatus.is_platform_admin;
     // Dashboard ("/") is always visible to authenticated users.
     if (item.to === "/") return true;
     if (userRole === "admin") return true;
