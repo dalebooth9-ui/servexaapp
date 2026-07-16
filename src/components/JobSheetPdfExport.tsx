@@ -985,7 +985,8 @@ export async function generateJobSheetPdf(
   });
 
   const safeSite = siteDisplay.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
-  const fileName = [jobInfo?.reference_number || "job-sheet", safeSite || null, template.name.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
+  const filenameRef = (jobInfo as any)?.customer_po || jobInfo?.reference_number || "job-sheet";
+  const fileName = [filenameRef, safeSite || null, template.name.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
   const base64 = doc.output("datauristring").split(",")[1];
 
   return { base64, fileName };
