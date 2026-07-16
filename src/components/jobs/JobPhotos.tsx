@@ -434,9 +434,12 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
       {loading ? (
         <div className="py-16 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
       ) : filtered.length === 0 ? (
-        <p className="py-16 text-center text-sm text-muted-foreground border border-dashed rounded-md">
-          {items.length === 0 ? "No photos on this job yet." : "No photos match this filter."}
-        </p>
+        <div className="py-16 text-center text-sm text-muted-foreground border border-dashed rounded-md">
+          <p>{items.length === 0 ? "No photos on this job yet." : "No photos match this filter."}</p>
+          {canUpload && items.length === 0 && (
+            <p className="mt-1 text-xs text-muted-foreground/80">Drag & drop images here, or use the buttons above.</p>
+          )}
+        </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={filtered.map((p) => p.id)} strategy={rectSortingStrategy}>
