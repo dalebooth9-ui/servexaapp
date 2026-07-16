@@ -43,7 +43,7 @@ export function useOrgStatus() {
           ? {
               org_id: r.org_id,
               org_name: r.org_name,
-              status: r.status,
+              status: (r.status as OrgStatus["status"]) ?? null,
               suspension_message: r.suspension_message,
               suspension_reason: r.suspension_reason,
               suspended_at: r.suspended_at,
