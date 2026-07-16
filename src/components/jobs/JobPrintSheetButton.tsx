@@ -116,6 +116,7 @@ export default function JobPrintSheetButton({ job }: Props) {
         customer_email: j.customers?.email || null,
         customer_phone: j.customers?.phone || null,
         reference_number: j.reference_number,
+        customer_po: j.customer_po ?? null,
         category: j.category,
         status: j.status,
         priority: j.priority,
