@@ -157,8 +157,19 @@ export function addWatermarkToAllPages(
       ? Math.max(0, Math.min(1, options.opacity))
       : useTint ? WATERMARK_OPACITY : WATERMARK_OPACITY_UNTINTED;
 
+  // Draw the watermark as a BACKGROUND layer on every page. jsPDF renders
+  // content operators in the order they were pushed onto the page's content
+  // stream, so if we simply appended here the watermark would sit ON TOP of
+  // any photos/text already drawn — that's why photos looked "washed out".
+  // Instead we snapshot each page's current operator stream, empty it, draw
+  // the watermark (which pushes fresh operators), then re-append the saved
+  // operators. Net result: watermark first, then everything else on top.
+  const pages: string[][] = (doc as any).internal.pages;
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
+    const page = pages[i];
+    if (!Array.isArray(page)) continue;
+    const saved = page.splice(0, page.length);
     const gState = (doc as any).GState({ opacity });
     doc.saveGraphicsState();
     (doc as any).setGState(gState);
@@ -170,6 +181,8 @@ export function addWatermarkToAllPages(
       doc.addImage(watermark, "PNG", x, yPos, wmW, wmH);
     }
     doc.restoreGraphicsState();
+    for (const op of saved) page.push(op);
   }
 }
+
 

@@ -968,13 +968,30 @@ export default function JobPdfReport({ jobId, job }: Props) {
       // Compact block (~32mm ≈ 120px per signature) so it flows onto the
       // bottom of the previous page when there is room. Only break to a new
       // page if less than ~32mm remains.
-      if (signatures.length > 0) {
+      // Dedupe: multiple test sign-offs by the same person (same name+role)
+      // should collapse to the LATEST one. Also drop rows that have no
+      // file_path at all — those are placeholder rows with no signature image
+      // and would print as an empty row.
+      const dedupedSignatures = (() => {
+        const byKey = new Map<string, any>();
+        for (const s of signatures) {
+          if (!s.file_path) continue;
+          const key = `${(s.signer_name || "").trim().toLowerCase()}|${s.signer_role || ""}`;
+          const existing = byKey.get(key);
+          if (!existing || new Date(s.created_at).getTime() > new Date(existing.created_at).getTime()) {
+            byKey.set(key, s);
+          }
+        }
+        return Array.from(byKey.values());
+      })();
+      if (dedupedSignatures.length > 0) {
         const PAGE_BOTTOM = 275;
         const SIG_BLOCK_H = 32; // mm — title(7) + name row(6) + image(16) + gap(3)
         // Section title — only force a new page when the whole block won't fit.
         if (y + SIG_BLOCK_H > PAGE_BOTTOM) addPage();
         y = sectionTitle(doc, "Sign-Off Signatures", y, margin, maxWidth);
-        for (const sig of signatures) {
+        for (const sig of dedupedSignatures) {
+
           // Per-signature: only break if this one signature won't fit.
           if (y + 22 > PAGE_BOTTOM) addPage();
           const signerLabel = sig.signer_name

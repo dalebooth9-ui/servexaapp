@@ -217,15 +217,24 @@ export default function SignatureCapture({
   };
 
   const handleDelete = async (sig: Signature) => {
+    if (!window.confirm(`Delete signature by ${sig.signer_name || "Unknown"}? This cannot be undone.`)) return;
     await supabase.storage.from("signatures").remove([sig.file_path]);
     const { error } = await supabase.from("job_signatures" as any).delete().eq("id", sig.id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      // Log to job activity so admins can audit signature removals.
+      await supabase.from("job_activity_log" as any).insert({
+        job_id: jobId,
+        user_id: user?.id ?? null,
+        action: "signature_removed",
+        details: `Signature removed for ${sig.signer_name || "Unknown"} (${sig.signer_role})`,
+      } as any).then(() => {}, () => {});
       setSignatures((prev) => prev.filter((s) => s.id !== sig.id));
       toast({ title: "Signature removed" });
     }
   };
+
 
   /**
    * Copy the signer's stored library signature into this job as a fresh
@@ -304,10 +313,11 @@ export default function SignatureCapture({
                     </p>
                   </div>
                   {(userRole === "admin" || sig.signer_id === user?.id) && (
-                    <button onClick={() => handleDelete(sig)} className="text-muted-foreground hover:text-destructive">
+                    <button onClick={() => handleDelete(sig)} className="text-muted-foreground hover:text-destructive" title="Delete signature">
                       <Trash2 className="h-4 w-4" />
                     </button>
                   )}
+
                 </div>
               </CardContent>
             </Card>
