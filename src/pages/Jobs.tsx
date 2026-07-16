@@ -1168,7 +1168,7 @@ export default function Jobs() {
       if (!targetFolder || targetFolder === wasFolder || targetFolder === "__new_customer__") return;
       setMergeSource(wasFolder);
       setMergeTarget(targetFolder);
-      setPendingMergeOpen(true);
+      setMergeDialogOpen(true);
       return;
     }
 
@@ -1285,7 +1285,7 @@ export default function Jobs() {
 
   const handleMergeConfirm = async () => {
     if (!mergeSource || !mergeTarget) return;
-    setPendingMergeOpen(false);
+    setMergeDialogOpen(false);
 
     const targetCust = customers.find((c) => c.name === mergeTarget);
     const targetId = targetCust?.id || null;
