@@ -308,11 +308,12 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">PO / Reference</Label>
+                  <Label className="text-xs">Customer PO / Reference</Label>
                   <Input
                     value={overrides.refNumber}
                     onChange={(e) => setOverrides((p) => ({ ...p, refNumber: e.target.value }))}
                     className="h-8 text-sm"
+                    placeholder="Customer's PO number"
                   />
                 </div>
                 <div className="space-y-1">
