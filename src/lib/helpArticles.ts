@@ -40,13 +40,14 @@ const RULES: SlugRule[] = [
   { test: (p) => p === "/settings/import", slug: "settings.import" },
   { test: (p) => p === "/settings", slug: "settings" },
   { test: (p) => p === "/fleet", slug: "fleet" },
-  { test: (p) => p === "/my-profile", slug: "my-profile" },
+  { test: (p) => p === "/my-profile", slug: "vehicle-checks" },
   { test: (p) => p === "/my-timesheet", slug: "my-timesheet" },
   { test: (p) => p === "/sync-status", slug: "sync-status" },
   { test: (p) => p === "/setup", slug: "setup" },
   { test: (p) => p === "/install", slug: "install" },
   { test: (p) => p.startsWith("/fire-log/"), slug: "fire-log" },
   { test: (p) => p === "/sign-off", slug: "sign-off" },
+  { test: (p) => p === "/admin/support-tickets", slug: "support-tickets" },
 ];
 
 export function resolveHelpSlug(pathname: string): string | null {

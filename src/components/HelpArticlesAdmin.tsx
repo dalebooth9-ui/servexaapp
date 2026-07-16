@@ -19,6 +19,7 @@ type Article = {
   common_problems: { problem: string; fix: string }[];
   related_slugs: string[];
   keywords: string[];
+  source_paths: string[];
   last_updated: string;
 };
 
@@ -64,6 +65,7 @@ export default function HelpArticlesAdmin() {
         common_problems: draft.common_problems as any,
         related_slugs: draft.related_slugs,
         keywords: draft.keywords,
+        source_paths: draft.source_paths,
       })
       .eq("id", draft.id);
     setSaving(false);
@@ -96,7 +98,7 @@ export default function HelpArticlesAdmin() {
           <CardTitle className="text-lg">Help Articles</CardTitle>
         </div>
         <CardDescription>
-          Knowledge base powering the in-app AI Help Assistant. One entry per page/feature. When you ship a UI change, edit the matching article here so the assistant stays accurate.
+          Knowledge base powering the in-app AI Help Assistant. One entry per page/feature. <strong>Working rule:</strong> any change to a route/screen must update its help article <em>in the same edit</em> — a UI change with a stale article is an incomplete change. Use the Source paths field to record every route + component file the article documents.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -204,6 +206,15 @@ export default function HelpArticlesAdmin() {
                       onChange={(e) => setDraft({ ...draft, keywords: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
                     />
                   </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label className="text-xs">Source paths (comma-separated route + component files this article documents)</Label>
+                  <Input
+                    placeholder="/jobs/:id, src/pages/JobDetail.tsx, src/components/jobs/JobEmailChain.tsx"
+                    value={(draft.source_paths || []).join(", ")}
+                    onChange={(e) => setDraft({ ...draft, source_paths: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
+                  />
+                  <p className="text-[11px] text-muted-foreground">Source of truth for this article. When any listed path changes, update this article in the same edit.</p>
                 </div>
                 <div className="flex justify-end">
                   <Button size="sm" onClick={save} disabled={saving}>

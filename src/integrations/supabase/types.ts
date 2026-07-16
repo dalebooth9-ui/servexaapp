@@ -2809,6 +2809,7 @@ export type Database = {
           related_slugs: string[]
           route_pattern: string | null
           slug: string
+          source_paths: string[]
           steps: Json
           title: string
           updated_by: string | null
@@ -2823,6 +2824,7 @@ export type Database = {
           related_slugs?: string[]
           route_pattern?: string | null
           slug: string
+          source_paths?: string[]
           steps?: Json
           title: string
           updated_by?: string | null
@@ -2837,6 +2839,7 @@ export type Database = {
           related_slugs?: string[]
           route_pattern?: string | null
           slug?: string
+          source_paths?: string[]
           steps?: Json
           title?: string
           updated_by?: string | null
