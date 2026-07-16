@@ -57,7 +57,8 @@ function buildFriendlyFileName(doc: JobDoc, jobInfo: any | null, ext?: string): 
 
   const parts: string[] = [];
   if (doc.label) parts.push(doc.label);
-  const jobRef = jobInfo?.reference_number;
+  // Customer paperwork leads with the customer's PO; internal ref only when no PO.
+  const jobRef = jobInfo?.customer_po || jobInfo?.reference_number;
   const jobName = jobInfo?.name;
   if (jobRef) parts.push(jobRef);
   else if (jobName) parts.push(jobName);
