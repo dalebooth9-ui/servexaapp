@@ -295,7 +295,9 @@ export function renderPaperFormPage(
     } catch { return String(iso); }
   })();
   doc.text(dateStr, rightX + 2, detailsTop + 6.2);
-  const poVal = jobInfo?.reference_number || "";
+  // PO NUMBER cell prefers the CUSTOMER PO; falls back to our VFP- ref only
+  // when the job has no customer PO on file.
+  const poVal = (jobInfo?.customer_po || jobInfo?.reference_number || "").toString();
   doc.text(doc.splitTextToSize(poVal, rightW * 0.58 - 4).slice(0, 1)[0] || "", rightSplitX + 2, detailsTop + 6.2);
 
   // RIGHT row 2: RISER LOCATION
