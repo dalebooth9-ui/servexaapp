@@ -1082,7 +1082,7 @@ export default function JobDetail() {
 
       {activeTab === "emails" && id && (
         <Suspense fallback={<LazyFallback />}>
-          <JobEmailChain jobId={id} isAdmin={userRole === "admin" || userRole === "office"} />
+          <JobEmailChain jobId={id} isAdmin={userRole === "admin"} />
         </Suspense>
       )}
 
