@@ -92,8 +92,9 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     setLoading(true);
     const [subs, defects, checklists, docs] = await Promise.all([
       supabase.from("submissions")
-        .select("id, engineer_id, type, file_url, file_name, content, source, created_at")
+        .select("id, engineer_id, type, file_url, file_name, content, source, created_at, display_order")
         .eq("job_id", jobId)
+        .order("display_order", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: false }),
       supabase.from("defects")
         .select("id, reported_by, title, photo_url, photos, created_at")
@@ -114,6 +115,7 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
       const isWa = (s.source || "").toLowerCase().includes("whatsapp") || /whatsapp/i.test(s.file_name || "");
       out.push({
         id: `sub:${s.id}`,
+        submissionId: s.id,
         source: isWa ? "whatsapp" : "app",
         storagePath: toStoragePath(s.file_url),
         fallbackUrl: s.file_url,
@@ -122,6 +124,7 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
         engineerId: s.engineer_id,
         engineerName: engineerName(s.engineer_id),
         timestamp: s.created_at,
+        displayOrder: s.display_order ?? null,
       });
     }
 
