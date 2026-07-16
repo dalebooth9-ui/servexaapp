@@ -374,9 +374,17 @@ export default function SignatureCapture({
           </div>
         </div>
       ) : (
-        <Button variant="outline" size="sm" onClick={() => setDrawing(true)}>
-          <PenLine className="mr-1.5 h-4 w-4" /> {signerRole === "customer" ? "Add Customer Signature" : "Add Signature"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => setDrawing(true)}>
+            <PenLine className="mr-1.5 h-4 w-4" /> {signerRole === "customer" ? "Add Customer Signature" : "Draw Signature"}
+          </Button>
+          {signerRole !== "customer" && savedSig && (
+            <Button variant="secondary" size="sm" onClick={handleUseSaved} disabled={saving}>
+              <ImageIcon className="mr-1.5 h-4 w-4" />
+              {saving ? "Applying..." : "Use saved signature"}
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
