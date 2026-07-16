@@ -427,6 +427,79 @@ export default function Jobs() {
     }
   };
 
+  const handleBulkDismissPending = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const ok = window.confirm(
+      `Dismiss ${ids.length} pending draft(s)? They'll be marked rejected and removed from the review queue. This can't be undone from here.`
+    );
+    if (!ok) return;
+    const { error } = await supabase
+      .from("jobs")
+      .update({ status: "rejected", rejection_reason: "Bulk-dismissed from Pending Review as duplicate/junk" } as any)
+      .in("id", ids);
+    if (error) {
+      toast({ title: "Error", description: "Failed to dismiss drafts.", variant: "destructive" });
+      return;
+    }
+    setJobs((prev) => prev.map((j) => (ids.includes(j.id) ? { ...j, status: "rejected" } : j)));
+    setSelectedPendingIds(new Set());
+    toast({ title: `${ids.length} draft(s) dismissed` });
+  };
+
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  const [mergeTargetId, setMergeTargetId] = useState<string>("");
+
+  const openMergeDialog = () => {
+    if (selectedPendingIds.size < 2) {
+      toast({ title: "Pick at least 2 drafts", description: "Select two or more pending drafts to merge.", variant: "destructive" });
+      return;
+    }
+    setMergeTargetId("");
+    setMergeDialogOpen(true);
+  };
+
+  const handleMergePending = async () => {
+    const ids = Array.from(selectedPendingIds);
+    if (!mergeTargetId || !ids.includes(mergeTargetId)) {
+      toast({ title: "Pick a target draft", variant: "destructive" });
+      return;
+    }
+    const sourceIds = ids.filter((id) => id !== mergeTargetId);
+    // Move documents onto the target, then dismiss the sources.
+    const { error: docErr } = await supabase
+      .from("job_documents" as any)
+      .update({ job_id: mergeTargetId } as any)
+      .in("job_id", sourceIds);
+    if (docErr) {
+      toast({ title: "Merge failed", description: docErr.message, variant: "destructive" });
+      return;
+    }
+    // Best-effort: move any thread notes / messages too.
+    await supabase.from("job_messages" as any).update({ job_id: mergeTargetId } as any).in("job_id", sourceIds);
+    // Add a note on the target listing what was merged.
+    const sourceRefs = jobs.filter((j) => sourceIds.includes(j.id)).map((j) => j.reference_number).filter(Boolean).join(", ");
+    await supabase.from("job_messages" as any).insert({
+      job_id: mergeTargetId,
+      message: `Merged ${sourceIds.length} duplicate draft(s) into this one: ${sourceRefs}. Their attachments and notes have been consolidated here.`,
+      author_role: "system",
+    } as any);
+    // Dismiss the source drafts.
+    const { error: rejErr } = await supabase
+      .from("jobs")
+      .update({ status: "rejected", rejection_reason: `Merged into ${jobs.find((j) => j.id === mergeTargetId)?.reference_number ?? "another draft"}` } as any)
+      .in("id", sourceIds);
+    if (rejErr) {
+      toast({ title: "Sources not dismissed", description: rejErr.message, variant: "destructive" });
+      return;
+    }
+    setJobs((prev) => prev.map((j) => (sourceIds.includes(j.id) ? { ...j, status: "rejected" } : j)));
+    setSelectedPendingIds(new Set());
+    setMergeDialogOpen(false);
+    toast({ title: `Merged ${sourceIds.length} draft(s)`, description: `Consolidated into ${jobs.find((j) => j.id === mergeTargetId)?.reference_number ?? "target draft"}.` });
+  };
+
+
+
 
   // Refresh blank-sheet counts whenever the pending list changes.
   const refreshPendingSheetCounts = useCallback(async (ids: string[]) => {
