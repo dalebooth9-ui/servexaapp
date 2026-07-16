@@ -168,7 +168,8 @@ function SortableFieldRow({
             <select
               value={field.type}
               onChange={(e) => onFieldChange(idx, "type", e.target.value)}
-              className="h-7 text-xs border rounded px-1.5 bg-background shrink-0 max-w-[110px]"
+              className="h-7 text-xs border rounded px-1.5 bg-background shrink-0 w-[150px]"
+              title="Answer type"
             >
               {Object.entries(FIELD_TYPE_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>
