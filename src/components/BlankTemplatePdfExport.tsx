@@ -1,6 +1,14 @@
 import { useState, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Eye, Loader2, Printer, PenLine } from "lucide-react";
+import { Download, Eye, Loader2, Printer, PenLine, MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import { useToast } from "@/hooks/use-toast";
 import { loadWatermarkSettings } from "@/hooks/useWatermarkSettings";
@@ -832,26 +840,37 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
   return (
     <>
       <div className="flex items-center gap-0.5">
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("preview")} disabled={generating} title="Preview blank template" aria-label={`Preview ${template.name}`}>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("preview")} disabled={generating} title="Preview PDF (opens in viewer)" aria-label={`Preview ${template.name}`}>
           {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Eye className="h-3.5 w-3.5" aria-hidden />}
         </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("download")} disabled={generating} title="Download blank template PDF" aria-label={`Download ${template.name} as PDF`}>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("download")} disabled={generating} title="Download PDF" aria-label={`Download ${template.name} as PDF`}>
           <Download className="h-3.5 w-3.5" aria-hidden />
         </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("preview", true)} disabled={generating} title="Preview printable handfill version (exactly what prints)" aria-label={`Preview ${template.name} printable handfill version`}>
-          <span className="relative inline-flex">
-            <Eye className="h-3.5 w-3.5" aria-hidden />
-            <PenLine className="h-2 w-2 absolute -bottom-0.5 -right-0.5" aria-hidden />
-          </span>
-        </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("download", true)} disabled={generating} title="Download printable handfill PDF" aria-label={`Download ${template.name} as printable handfill PDF`}>
-          <PenLine className="h-3.5 w-3.5" aria-hidden />
-        </Button>
-        {showPrint && (
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("print")} disabled={generating} title="Print blank template" aria-label={`Print ${template.name}`}>
-            <Printer className="h-3.5 w-3.5" aria-hidden />
-          </Button>
-        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={generating} title="More PDF options" aria-label={`More PDF options for ${template.name}`}>
+              <MoreHorizontal className="h-3.5 w-3.5" aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Printable handfill</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => generate("preview", true)}>
+              <Eye className="mr-2 h-3.5 w-3.5" /> Preview handfill version
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => generate("download", true)}>
+              <PenLine className="mr-2 h-3.5 w-3.5" /> Download handfill PDF
+            </DropdownMenuItem>
+            {showPrint && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => generate("print")}>
+                  <Printer className="mr-2 h-3.5 w-3.5" /> Print
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
       </div>
       <PdfPreviewDialog
         open={previewOpen}
