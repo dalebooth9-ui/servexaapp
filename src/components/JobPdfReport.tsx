@@ -686,12 +686,13 @@ export default function JobPdfReport({ jobId, job }: Props) {
           ["Email", site?.contact_email || "—"],
         ].filter(([, v]) => v !== "—") as [string, string][];
         siteRows.forEach(([label, value]) => {
-          checkPage(rowH);
-          drawTableRow(doc, y, [
+          const cols: TableCol[] = [
             { text: label, x: margin, width: labelW, bold: true },
             { text: value, x: margin + labelW, width: valW },
-          ], rowH, margin, maxWidth);
-          y += rowH;
+          ];
+          const h = measureTableRowHeight(doc, cols, rowH);
+          checkPage(h);
+          y += drawTableRow(doc, y, cols, rowH, margin, maxWidth);
         });
         y += 6;
       }
