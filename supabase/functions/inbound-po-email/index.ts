@@ -88,6 +88,70 @@ function timingSafeEqual(a: string, b: string): boolean {
 // ────────────────────────────────────────────────────────────────────────────
 // Webhook payload parsing
 // ────────────────────────────────────────────────────────────────────────────
+
+// Signature furniture heuristics — Outlook/Word style embedded images that
+// arrive in every reply/forward of an email thread (logos, accreditation
+// strips, socialite icons). These pollute job Photos as fake evidence.
+const EMBEDDED_IMAGE_NAME_RE = /^(image|oledata|clip_image)[0-9]{2,4}\.(png|jpe?g|gif|bmp|webp)$/i;
+const SMALL_LOGO_BYTES = 60 * 1024; // 60KB — real site photos are almost always bigger
+
+function isImageMime(mime: string): boolean {
+  return /^image\//i.test(mime || "");
+}
+
+/**
+ * Classifies attachments to filter out inline email-signature imagery
+ * while preserving genuine attachments (PDFs, Office docs, real photos).
+ *
+ * Marks each Attachment with:
+ *  - isInlineSignature=true  → drop entirely (signature furniture)
+ *  - reviewFlag=true         → keep, but tag as "email attachment — review"
+ */
+function classifyAttachments(attachments: Attachment[], htmlBody: string): void {
+  // Collect cid: references present in the HTML body — inline images that the
+  // body actually renders are almost always signature/decorative art.
+  const cidRefs = new Set<string>();
+  if (htmlBody) {
+    const re = /cid:([^"'\s>)]+)/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(htmlBody)) !== null) {
+      cidRefs.add(m[1].trim().toLowerCase());
+    }
+  }
+
+  for (const a of attachments) {
+    if (!isImageMime(a.contentType)) continue; // never filter non-images
+    const fn = a.filename || "";
+    const disposition = (a.contentDisposition || "").toLowerCase();
+    const cid = (a.contentId || "").toLowerCase();
+    const size = a.bytes.byteLength;
+    const nameLooksEmbedded = EMBEDDED_IMAGE_NAME_RE.test(fn);
+    const referencedInBody = cid && cidRefs.has(cid);
+    const explicitlyInline = disposition === "inline" || Boolean(cid);
+    const smallLogoSized = size < SMALL_LOGO_BYTES;
+
+    // Hard-drop: classic signature furniture.
+    //  - Explicitly inline / referenced via cid AND either has embedded-style
+    //    filename OR is small.
+    //  - OR: filename matches imageNNN.ext AND is small (covers cases where
+    //    disposition metadata is missing but the pattern is unambiguous).
+    if (
+      (explicitlyInline && (nameLooksEmbedded || smallLogoSized || referencedInBody)) ||
+      (nameLooksEmbedded && smallLogoSized)
+    ) {
+      a.isInlineSignature = true;
+      continue;
+    }
+
+    // Ambiguous: inline flag present but the image is large, OR
+    // filename looks embedded but size is real-photo-sized. Keep, but flag
+    // so the office can review before treating as job evidence.
+    if (explicitlyInline || nameLooksEmbedded) {
+      a.reviewFlag = true;
+    }
+  }
+}
+
 interface Attachment {
   filename: string;
   contentType: string;
