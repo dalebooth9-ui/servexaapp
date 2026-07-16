@@ -454,7 +454,7 @@ export default function Jobs() {
       toast({ title: "Pick at least 2 drafts", description: "Select two or more pending drafts to merge.", variant: "destructive" });
       return;
     }
-    setMergeTargetId("");
+    setPendingMergeTargetId("");
     setPendingMergeOpen(true);
   };
 
