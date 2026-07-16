@@ -546,7 +546,7 @@ export default function JobWordReport({ jobId, job }: Props) {
 
       const doc = new Document({
         creator: "Servexa",
-        title: `Job Report ${job.reference_number || ""}`.trim(),
+        title: `Job Report ${job.customer_po || job.reference_number || ""}`.trim(),
         styles: { default: { document: { run: { font: "Calibri", size: 22 } } } },
         sections: [{
           properties: {
