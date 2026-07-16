@@ -199,8 +199,8 @@ ${knowledge}`;
     }
 
     return new Response(JSON.stringify({
-      message: textContent || "I don't have that in my help notes yet — please raise a ticket in the sidebar → Support tickets (admin) and we'll add it.",
-      quick_actions: [],
+      message: textContent || "I don't have that in my help notes yet — raise a ticket and the Servexa team will add it.",
+      quick_actions: textContent ? [] : [{ label: "Raise a support ticket", url: "#raise-support", description: "Open the support & feedback form pre-filled with your question." }],
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (e) {
