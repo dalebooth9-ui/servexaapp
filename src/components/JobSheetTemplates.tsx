@@ -1900,12 +1900,14 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                             <img src={photo.preview} alt={`Site ${i + 1}`} className="rounded border object-cover w-full aspect-[4/3]" />
                             <button
                               type="button"
-                              className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full h-5 w-5 flex items-center justify-center text-[11px]"
+                              className="absolute top-1 right-1 rounded-full h-6 w-6 flex items-center justify-center text-sm leading-none bg-black/60 text-white hover:bg-destructive shadow-sm backdrop-blur-sm transition"
+                              aria-label="Remove photo"
                               onClick={() => {
                                 URL.revokeObjectURL(photo.preview);
                                 setSitePhotos(prev => prev.filter((_, idx) => idx !== i));
                               }}
                             >×</button>
+
                           </div>
                           <input
                             type="text"
