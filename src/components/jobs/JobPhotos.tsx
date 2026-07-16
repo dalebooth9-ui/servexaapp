@@ -143,13 +143,58 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const { uploading, uploadFilesAsSubmissions } = useFileUpload({ onComplete: () => load() });
 
-  const handleFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0 || !user) return;
-    const arr = Array.from(files);
-    const uploaded = await uploadFilesAsSubmissions(arr, jobId, user.id);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragDepth = useRef(0);
+
+  const handleFiles = async (files: FileList | File[] | null, { imagesOnly = false }: { imagesOnly?: boolean } = {}) => {
+    if (!files || !user) return;
+    const arr = Array.from(files as ArrayLike<File>);
+    if (arr.length === 0) return;
+    let toUpload = arr;
+    if (imagesOnly) {
+      const images = arr.filter((f) => f.type.startsWith("image/"));
+      const rejected = arr.length - images.length;
+      if (rejected > 0) {
+        toast({
+          title: `Skipped ${rejected} non-image file${rejected === 1 ? "" : "s"}`,
+          description: "Only image files can be dropped here.",
+          variant: "destructive",
+        });
+      }
+      if (images.length === 0) return;
+      toUpload = images;
+    }
+    const uploaded = await uploadFilesAsSubmissions(toUpload, jobId, user.id);
     if (uploaded > 0) {
       toast({ title: `Uploaded ${uploaded} photo${uploaded === 1 ? "" : "s"}` });
     }
+  };
+
+  const dtHasFiles = (dt: DataTransfer | null) =>
+    !!dt && Array.from(dt.types || []).includes("Files");
+
+  const onDragEnter = (e: React.DragEvent) => {
+    if (!canUpload || !dtHasFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    dragDepth.current += 1;
+    setIsDragOver(true);
+  };
+  const onDragOver = (e: React.DragEvent) => {
+    if (!canUpload || !dtHasFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+  const onDragLeave = (e: React.DragEvent) => {
+    if (!canUpload) return;
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setIsDragOver(false);
+  };
+  const onDrop = (e: React.DragEvent) => {
+    if (!canUpload) return;
+    e.preventDefault();
+    dragDepth.current = 0;
+    setIsDragOver(false);
+    handleFiles(e.dataTransfer?.files ?? null, { imagesOnly: true });
   };
 
   const engineerName = useCallback((uid?: string) => {
