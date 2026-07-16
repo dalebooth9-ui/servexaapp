@@ -440,7 +440,13 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         jobInfo?.site?.address || jobInfo?.address || "",
         jobInfo?.site?.postcode || "",
       ].filter(Boolean).join(", ");
-      const refNumber = jobInfo?.reference_number || "";
+      // Customer paperwork leads with the customer PO; internal VFP-ref is fallback.
+      // Where both exist and differ, show both labelled — header grid has room.
+      const customerPoRaw = (jobInfo?.customer_po || "").trim();
+      const internalRefRaw = (jobInfo?.reference_number || "").trim();
+      const refNumber = customerPoRaw && internalRefRaw && customerPoRaw !== internalRefRaw
+        ? `PO: ${customerPoRaw}  /  Our ref: ${internalRefRaw}`
+        : customerPoRaw || internalRefRaw;
       const dateVal = ""; // blank — no auto-filled date on blank templates
       const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
       const riserLocValue = jobInfo?.site?.riser_location || (riserField ? (autoVals[riserField.id] || "") : "");
