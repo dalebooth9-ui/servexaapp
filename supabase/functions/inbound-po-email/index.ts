@@ -1023,7 +1023,10 @@ serve(async (req) => {
   }
 
 
-  if (!idempotentReuse) {
+  if (!idempotentReuse && !attachToLiveJob) {
+    // Refresh brief in case the safety-valve appended a cross-link note.
+    (jobInsert as any).brief = briefParts.join("\n").trim() || null;
+
     // Persist thread headers on the new draft so future replies match.
     (jobInsert as any).intake_message_ids = messageIdsForJob;
     (jobInsert as any).intake_normalized_subject = threadHeaders.normalizedSubject || null;
