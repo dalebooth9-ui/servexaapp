@@ -232,10 +232,12 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         doc.setFontSize(11);
         doc.setFont("helvetica", "normal");
         visits.forEach((v: any) => {
-          y = checkPage(7, y);
           const statusIcon = v.status === "completed" ? "✓" : v.status === "cancelled" ? "✗" : "○";
-          doc.text(`${statusIcon}  ${v.scheduled_date} — ${v.status}${v.notes ? ` — ${v.notes}` : ""}`, margin, y);
-          y += 6;
+          const line = `${statusIcon}  ${v.scheduled_date} — ${v.status}${v.notes ? ` — ${v.notes}` : ""}`;
+          const wrapped = doc.splitTextToSize(line, maxWidth) as string[];
+          y = checkPage(wrapped.length * 5 + 2, y);
+          wrapped.forEach((ln) => { doc.text(ln, margin, y); y += 5; });
+          y += 1;
         });
         y += 5;
       }
