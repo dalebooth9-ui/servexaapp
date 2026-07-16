@@ -264,13 +264,30 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     const updates = reorderedFiltered
       .map((p, i) => ({ id: p.submissionId, display_order: (i + 1) * 10 }))
       .filter((u) => !!u.id) as Array<{ id: string; display_order: number }>;
-    if (updates.length === 0) return;
+    const siteResponseGroups = new Map<string, PhotoItem[]>();
+    reorderedFiltered.forEach((p) => {
+      const match = p.id.match(/^site:([^:]+):\d+$/);
+      if (!match) return;
+      const group = siteResponseGroups.get(match[1]) || [];
+      group.push(p);
+      siteResponseGroups.set(match[1], group);
+    });
+    if (updates.length === 0 && siteResponseGroups.size === 0) return;
     try {
-      await Promise.all(
-        updates.map((u) =>
+      await Promise.all([
+        ...updates.map((u) =>
           supabase.from("submissions").update({ display_order: u.display_order }).eq("id", u.id),
         ),
-      );
+        ...Array.from(siteResponseGroups.entries()).map(([responseId, photos]) =>
+          supabase.from("job_sheet_responses").update({
+            responses: {
+              _site_photo_urls: photos.map((p) => p.fallbackUrl || ""),
+              _site_photo_paths: photos.map((p) => p.storagePath || ""),
+              _site_photo_captions: photos.map((p) => p.caption || ""),
+            } as any,
+          } as any).eq("id", responseId),
+        ),
+      ]);
     } catch (e: any) {
       toast({ title: "Reorder failed", description: e?.message, variant: "destructive" });
     }
