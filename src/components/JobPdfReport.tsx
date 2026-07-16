@@ -731,20 +731,20 @@ export default function JobPdfReport({ jobId, job }: Props) {
         const qtyW = maxWidth * 0.1;
         const noteW = maxWidth * 0.35;
 
-        drawTableRow(doc, y, [
+        y += drawTableRow(doc, y, [
           { text: "Part Name", x: margin, width: nameW, bold: true },
           { text: "Qty", x: 0, width: qtyW, bold: true, align: "center" },
           { text: "Notes", x: 0, width: noteW, bold: true },
         ], rowH, margin, maxWidth, [235, 240, 248]);
-        y += rowH;
         parts.forEach((p: any) => {
-          checkPage(rowH);
-          drawTableRow(doc, y, [
-            { text: (p.name || "—").substring(0, 40), x: margin, width: nameW },
+          const cols: TableCol[] = [
+            { text: p.name || "—", x: margin, width: nameW },
             { text: String(p.quantity), x: 0, width: qtyW, align: "center" },
-            { text: (p.notes || "").substring(0, 30), x: 0, width: noteW },
-          ], rowH, margin, maxWidth);
-          y += rowH;
+            { text: p.notes || "", x: 0, width: noteW },
+          ];
+          const h = measureTableRowHeight(doc, cols, rowH);
+          checkPage(h);
+          y += drawTableRow(doc, y, cols, rowH, margin, maxWidth);
         });
         y += 6;
       }
@@ -758,29 +758,28 @@ export default function JobPdfReport({ jobId, job }: Props) {
         const certEngW = maxWidth * 0.25;
         const certDateW = maxWidth * 0.2;
 
-        drawTableRow(doc, y, [
+        y += drawTableRow(doc, y, [
           { text: "Certificate / Document", x: margin, width: certNameW, bold: true },
           { text: "Engineer", x: 0, width: certEngW, bold: true },
           { text: "Attached", x: 0, width: certDateW, bold: true, align: "center" },
         ], rowH, margin, maxWidth, [235, 240, 248]);
-        y += rowH;
 
-        let certRowIdx = 0;
         certs.forEach((c: any) => {
-          checkPage(rowH);
           const withoutPrefix = (c.file_name || "").replace(/^\[Cert\]\s*/, "");
           const sepIdx = withoutPrefix.lastIndexOf(" — ");
           const certTitle = sepIdx > -1 ? withoutPrefix.slice(0, sepIdx) : withoutPrefix;
           const engName = engineerProfileMap[c.engineer_id] || "Unknown";
           const dateStr = new Date(c.created_at).toLocaleDateString("en-GB");
-          const rowBg: [number, number, number] | undefined = certRowIdx % 2 === 0 ? [248, 249, 252] : undefined;
-          drawTableRow(doc, y, [
-            { text: certTitle.substring(0, 50), x: margin, width: certNameW },
-            { text: engName.substring(0, 30), x: 0, width: certEngW },
+          // Zebra body stripes intentionally removed — they blank the
+          // watermark inconsistently. Only header rows carry solid fills.
+          const cols: TableCol[] = [
+            { text: certTitle, x: margin, width: certNameW },
+            { text: engName, x: 0, width: certEngW },
             { text: dateStr, x: 0, width: certDateW, align: "center" },
-          ], rowH, margin, maxWidth, rowBg);
-          y += rowH;
-          certRowIdx++;
+          ];
+          const h = measureTableRowHeight(doc, cols, rowH);
+          checkPage(h);
+          y += drawTableRow(doc, y, cols, rowH, margin, maxWidth);
         });
         y += 6;
       }
