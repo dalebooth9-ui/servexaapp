@@ -20,6 +20,7 @@ installGlobalErrorHandlers();
 // Eagerly loaded — used immediately on auth/landing
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
+const OAuthConsent = lazy(() => import("@/pages/OAuthConsent"));
 
 // Lazily loaded — heavier pages loaded on demand
 const Jobs = lazy(() => import("@/pages/Jobs"));
@@ -132,7 +133,14 @@ function AccessRoute({ children, pageSlug }: { children: ReactNode; pageSlug: st
 function AuthRoute() {
   const { user, loading } = useAuth();
   if (loading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
-  if (user) return <Navigate to="/" replace />;
+  if (user) {
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next");
+    if (next && next.startsWith("/") && !next.startsWith("//")) {
+      return <Navigate to={next} replace />;
+    }
+    return <Navigate to="/" replace />;
+  }
   return <Auth />;
 }
 
@@ -146,6 +154,7 @@ const App = () => (
           <AuthProvider>
             <Routes>
               <Route path="/auth" element={<AuthRoute />} />
+              <Route path="/.lovable/oauth/consent" element={<Suspense fallback={<PageFallback />}><OAuthConsent /></Suspense>} />
               <Route path="/offline" element={<Suspense fallback={<PageFallback />}><Offline /></Suspense>} />
               <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
