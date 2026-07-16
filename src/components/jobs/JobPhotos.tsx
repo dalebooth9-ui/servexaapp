@@ -407,8 +407,63 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
 
   // ---------- Deletion ----------
 
-  const removePhotoStorage = async (p: PhotoItem) => {
+  /**
+   * Return true if any photo record OTHER than the ones in `excludeIds`
+   * still references the given storage path. If so, we must keep the
+   * storage object — deleting it would break the sibling record's tile
+   * (the "Unavailable" bug we saw on the ABCA job).
+   */
+  const otherReferencesExist = async (storagePath: string, excludeIds: Set<string>): Promise<boolean> => {
+    const raw = storagePath.replace(/^\/+/, "");
+    // Match either the raw or org-prefixed form of the path.
+    const tail = raw.split("/").slice(-3).join("/");
+    const like = `%${tail}%`;
+    const excludedSubIds = [...excludeIds]
+      .filter((id) => id.startsWith("sub:"))
+      .map((id) => id.slice(4));
+    const excludedDocIds = [...excludeIds]
+      .filter((id) => id.startsWith("doc:"))
+      .map((id) => id.slice(4));
+    try {
+      const [subs, docs] = await Promise.all([
+        supabase
+          .from("submissions")
+          .select("id", { count: "exact", head: true })
+          .ilike("file_url", like)
+          .not("id", "in", `(${excludedSubIds.length ? excludedSubIds.map((i) => `"${i}"`).join(",") : '""'})`),
+        supabase
+          .from("job_documents")
+          .select("id", { count: "exact", head: true })
+          .ilike("file_url", like)
+          .not("id", "in", `(${excludedDocIds.length ? excludedDocIds.map((i) => `"${i}"`).join(",") : '""'})`),
+      ]);
+      if ((subs.count ?? 0) > 0) return true;
+      if ((docs.count ?? 0) > 0) return true;
+    } catch {
+      // On error, err on the side of safety and treat as "other reference exists".
+      return true;
+    }
+    // Also check job_sheet_responses (site photo paths live inside JSON).
+    try {
+      const { data: sheetRows } = await supabase
+        .from("job_sheet_responses")
+        .select("id, responses")
+        .eq("job_id", jobId);
+      for (const r of (sheetRows || []) as any[]) {
+        const paths = Array.isArray(r?.responses?._site_photo_paths) ? r.responses._site_photo_paths : [];
+        const urls = Array.isArray(r?.responses?._site_photo_urls) ? r.responses._site_photo_urls : [];
+        const any = [...paths, ...urls].some((v: string) => typeof v === "string" && v.includes(tail));
+        if (any) return true;
+      }
+    } catch {
+      return true;
+    }
+    return false;
+  };
+
+  const removePhotoStorageIfOrphan = async (p: PhotoItem, excludeIds: Set<string>) => {
     if (!p.storagePath) return;
+    if (await otherReferencesExist(p.storagePath, excludeIds)) return; // shared — keep object
     const paths = new Set<string>([p.storagePath.replace(/^\/+/, "")]);
     if (orgId && !p.storagePath.startsWith(`${orgId}/`)) {
       paths.add(`${orgId}/${p.storagePath.replace(/^\/+/, "")}`);
