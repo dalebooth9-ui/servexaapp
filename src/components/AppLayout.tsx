@@ -184,6 +184,11 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   const { user, userRole, profile, signOut } = useAuth();
   useEngineerLocation();
   const { hasAccess } = useEngineerPageAccess();
+  const orgStatus = useOrgStatus();
+  const isPlatformRoute = typeof window !== "undefined" && window.location.pathname.startsWith("/platform");
+  if (!orgStatus.loading && orgStatus.status && orgStatus.status !== "active" && !orgStatus.is_platform_admin && !isPlatformRoute) {
+    return <AccountPaused orgStatus={orgStatus} />;
+  }
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopExpanded, setDesktopExpanded] = useReactState(true);
