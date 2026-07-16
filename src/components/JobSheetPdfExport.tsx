@@ -849,10 +849,13 @@ export async function generateJobSheetPdf(
       const captionBlock = 10;
       const cellH = photoH + captionBlock + 1;
 
+      // Reduced reserve: exclude signature space (checked separately later).
+      const PHOTO_FOOTER_RESERVE = 32;
+      const contentBottom = pageHeight - PHOTO_FOOTER_RESERVE;
       for (let i = 0; i < sitePhotoUrls.length; i++) {
         const col = i % cols;
         if (col === 0 && i > 0) y += cellH;
-        if (y + cellH > pageHeight - footerSpace) {
+        if (col === 0 && y + cellH > contentBottom) {
           doc.addPage();
           y = margin;
         }
