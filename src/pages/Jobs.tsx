@@ -2023,6 +2023,7 @@ export default function Jobs() {
                           onClick={() => handleBulkDismissPending(Array.from(selectedPendingIds))}
                         >
                           Dismiss selected
+                        </Button>
                         <Button
                           size="sm"
                           variant="ghost"
