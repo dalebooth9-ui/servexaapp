@@ -38,6 +38,7 @@ import AiRamsAutoFill from "./AiRamsAutoFill";
 import RepeatingTableField from "./job-sheets/RepeatingTableField";
 import RepeatingTableReadOnly from "./job-sheets/RepeatingTableReadOnly";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import SortablePhotoGrid from "./SortablePhotoGrid";
 
 type TemplateField = {
   id: string;
