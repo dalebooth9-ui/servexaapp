@@ -281,6 +281,9 @@ export async function fetchJobPhotoMeta(jobId: string): Promise<JobPhoto[]> {
     if (!key) continue;
     const existing = deduped.get(key);
     if (!existing) deduped.set(key, p);
+    else if (existing.source === "submission" && p.source === "site_response" && existing.displayOrder == null) {
+      deduped.set(key, { ...existing, caption: existing.caption || p.caption, displayOrder: p.displayOrder });
+    }
     else if (!existing.caption && p.caption) deduped.set(key, { ...p, displayOrder: existing.displayOrder ?? p.displayOrder });
   }
 
