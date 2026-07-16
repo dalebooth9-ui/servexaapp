@@ -65,6 +65,7 @@ export default function HelpArticlesAdmin() {
         common_problems: draft.common_problems as any,
         related_slugs: draft.related_slugs,
         keywords: draft.keywords,
+        source_paths: draft.source_paths,
       })
       .eq("id", draft.id);
     setSaving(false);
