@@ -57,6 +57,7 @@ export default function SignatureCapture({
   const [customerName, setCustomerName] = useState(defaultSignerName);
   const [customerPosition, setCustomerPosition] = useState("");
   const [engineerName, setEngineerName] = useState("");
+  const [savedSig, setSavedSig] = useState<EngineerSignatureRow | null>(null);
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -65,6 +66,19 @@ export default function SignatureCapture({
         .then(({ data }) => setEngineerName(data?.full_name || ""));
     }
   }, [user, signerRole]);
+
+  // Look up a stored signature for this signer (engineer sign-off only).
+  useEffect(() => {
+    if (signerRole === "customer" || !user) { setSavedSig(null); return; }
+    (async () => {
+      try {
+        const lib = await loadEngineerSignatureLibrary();
+        // Prefer exact user_id match, else fall back to name match.
+        const byId = lib.find((r) => r.user_id && r.user_id === user.id);
+        setSavedSig(byId || findEngineerSignatureByName(lib, engineerName));
+      } catch { setSavedSig(null); }
+    })();
+  }, [user, signerRole, engineerName]);
 
   const fetchSignatures = async () => {
     let query = supabase
