@@ -5,10 +5,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck, FileImage, Upload, Plus } from "lucide-react";
+import { Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck, FileImage, Upload, Plus, GripVertical } from "lucide-react";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import { extractStoragePath, isImageFile } from "@/lib/fileUtils";
 import { resolveManyToSignedUrls } from "@/lib/durableStorageRef";
+import {
+  DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter,
+  useSensor, useSensors, DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 type Source = "whatsapp" | "app" | "defect" | "checklist" | "document";
 
