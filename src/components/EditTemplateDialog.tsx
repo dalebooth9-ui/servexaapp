@@ -79,18 +79,29 @@ type Props = {
   onSaved: (updatedTemplate?: Template) => void;
 };
 
+// Ordered plain-English labels grouped by "how a non-technical user thinks".
+// Keys are the stored `field.type` — do NOT change the keys, only the labels.
 const FIELD_TYPE_LABELS: Record<string, string> = {
-  text: "Short Text",
+  text: "Text",
+  textarea: "Long text",
   number: "Number",
   date: "Date",
-  checkbox: "Checkbox",
-  pass_fail: "Pass/Fail",
-  select: "Dropdown",
-  textarea: "Long Text",
+  checkbox: "Yes / No",
+  select: "Multiple choice",
+  pass_fail: "Pass / Fail",
   photo: "Photo",
   signature: "Signature",
-  repeating_table: "Repeating Table",
+  repeating_table: "Table",
 };
+
+// One-click option presets for "Multiple choice" fields. Order matters — the
+// first entry is the most common (matches how inspectors mark paper sheets).
+const OPTION_PRESETS: Array<{ label: string; options: string[] }> = [
+  { label: "Yes / No", options: ["Yes", "No"] },
+  { label: "Yes / No / N/A", options: ["Yes", "No", "N/A"] },
+  { label: "Satisfactory / Unsatisfactory / N/A", options: ["Satisfactory", "Unsatisfactory", "N/A"] },
+  { label: "Pass / Fail / N/A", options: ["Pass", "Fail", "N/A"] },
+];
 
 function SortableFieldRow({
   field,
