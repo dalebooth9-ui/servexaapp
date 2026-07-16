@@ -92,6 +92,10 @@ interface Attachment {
   filename: string;
   contentType: string;
   bytes: Uint8Array;
+  contentDisposition?: string; // "inline" | "attachment"
+  contentId?: string;          // RFC2392 cid (no angle brackets)
+  isInlineSignature?: boolean; // set by classifyAttachments()
+  reviewFlag?: boolean;        // ambiguous image → label "email attachment — review"
 }
 interface InboundEmail {
   from: string;
