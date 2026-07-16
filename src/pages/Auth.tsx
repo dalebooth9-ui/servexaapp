@@ -29,6 +29,9 @@ type Mode = "login" | "signup-invite" | "signup-create-org" | "forgot";
 export default function Auth() {
   const [searchParams] = useSearchParams();
   const initialInvite = searchParams.get("invite") || "";
+  const nextRaw = searchParams.get("next") || "";
+  // Only allow same-origin relative paths as post-login redirects.
+  const nextPath = nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : "";
   const [mode, setMode] = useState<Mode>(initialInvite ? "signup-invite" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
