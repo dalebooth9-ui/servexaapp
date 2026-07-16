@@ -27,6 +27,7 @@ export type PaperFormJobInfo = {
   customers?: { name: string } | null;
   customer?: string | null;
   reference_number?: string;
+  customer_po?: string | null;
   engineers?: string[];
   due_date?: string | null;
   address?: string | null;
