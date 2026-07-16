@@ -88,6 +88,7 @@ type JobInfo = {
   customer: string | null;
   customers?: { name: string; logo_url?: string | null } | null;
   reference_number: string;
+  customer_po?: string | null;
   category?: string | null;
   pressure_test_qty?: number;
   visual_qty?: number;
@@ -328,7 +329,14 @@ export async function generateJobSheetPdf(
   const siteName = jobInfo?.site?.name || "";
   // Also try to pull site from the job address if no site linked
   const siteDisplay = siteFormVal || siteName || siteAddress || jobInfo?.address || "";
-  const refNumber = findFormVal("po number", "reference", "ref no", "job ref", "order number") || jobInfo?.reference_number || "";
+  // Customer paperwork leads with the customer's PO; internal VFP-ref is the fallback.
+  const customerPoRaw = (jobInfo as any)?.customer_po ? String((jobInfo as any).customer_po).trim() : "";
+  const internalRefRaw = jobInfo?.reference_number ? String(jobInfo.reference_number).trim() : "";
+  const formOverrideRef = findFormVal("po number", "reference", "ref no", "job ref", "order number");
+  const refNumber = formOverrideRef
+    || (customerPoRaw && internalRefRaw && customerPoRaw !== internalRefRaw
+      ? `PO: ${customerPoRaw}  /  Our ref: ${internalRefRaw}`
+      : customerPoRaw || internalRefRaw);
   const dateVal = resolvedFormData["date"] || resolvedFormData["inspection_date"] || findFormVal("date", "inspection date", "service date", "visit date") || new Date().toLocaleDateString("en-GB");
   const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
   const riserLocValue = riserField && hasValue(resolvedFormData[riserField.id])
@@ -977,7 +985,8 @@ export async function generateJobSheetPdf(
   });
 
   const safeSite = siteDisplay.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
-  const fileName = [jobInfo?.reference_number || "job-sheet", safeSite || null, template.name.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
+  const filenameRef = (jobInfo as any)?.customer_po || jobInfo?.reference_number || "job-sheet";
+  const fileName = [filenameRef, safeSite || null, template.name.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
   const base64 = doc.output("datauristring").split(",")[1];
 
   return { base64, fileName };

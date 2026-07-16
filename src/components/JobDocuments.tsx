@@ -57,7 +57,8 @@ function buildFriendlyFileName(doc: JobDoc, jobInfo: any | null, ext?: string): 
 
   const parts: string[] = [];
   if (doc.label) parts.push(doc.label);
-  const jobRef = jobInfo?.reference_number;
+  // Customer paperwork leads with the customer's PO; internal ref only when no PO.
+  const jobRef = jobInfo?.customer_po || jobInfo?.reference_number;
   const jobName = jobInfo?.name;
   if (jobRef) parts.push(jobRef);
   else if (jobName) parts.push(jobName);
@@ -109,7 +110,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const fetchJobInfo = async () => {
     const { data: jd } = await supabase
       .from("jobs")
-      .select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone, logo_url), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)")
+      .select("name, address, customer, reference_number, customer_po, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone, logo_url), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)")
       .eq("id", jobId)
       .single();
     if (!jd) return;
@@ -128,6 +129,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       customer_email: j.customers?.email || null,
       customer_phone: j.customers?.phone || null,
       reference_number: j.reference_number,
+      customer_po: j.customer_po ?? null,
       category: j.category,
       status: j.status,
       priority: j.priority,

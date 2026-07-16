@@ -49,10 +49,18 @@ serve(async (req) => {
     // Fetch job details with customer info
     const { data: job, error: jobErr } = await supabase
       .from("jobs")
-      .select("id, name, reference_number, customer, address, status, org_id")
+      .select("id, name, reference_number, customer_po, customer, address, status, org_id")
       .eq("id", job_id)
       .single();
     if (jobErr || !job) throw new Error("Job not found");
+
+    // Customer paperwork leads with the customer's PO; VFP- is the fallback.
+    const _custPo = ((job as any).customer_po || "").trim();
+    const _intRef = (job.reference_number || "").trim();
+    const primaryRef = _custPo || _intRef;
+    const refBody = _custPo && _intRef && _custPo !== _intRef
+      ? `${_custPo} (our ref: ${_intRef})`
+      : primaryRef;
 
     // Find customer email from customers table
     let customerEmail: string | null = null;
@@ -74,37 +82,37 @@ serve(async (req) => {
     // Build email content based on notification type
     const templates: Record<string, { subject: string; body: string; preview: string }> = {
       job_booked: {
-        subject: `Job booked — ${job.reference_number}`,
+        subject: `Job booked — ${primaryRef}`,
         preview: `We've booked in ${job.name}`,
         body: `<p>Hi,</p>
-          <p>We've booked in a new job for you: <strong>${job.reference_number}</strong> — ${job.name}.</p>
+          <p>We've booked in a new job for you: <strong>${refBody}</strong> — ${job.name}.</p>
           ${job.address ? `<p><strong>Location:</strong> ${job.address}</p>` : ""}
           <p>We'll keep you updated as it progresses. If you need to reach us about it, just reply to this email.</p>
           `,
       },
       engineer_dispatched: {
-        subject: `Engineer dispatched — ${job.reference_number}`,
-        preview: `An engineer is on the way for ${job.reference_number}`,
+        subject: `Engineer dispatched — ${primaryRef}`,
+        preview: `An engineer is on the way for ${primaryRef}`,
         body: `<p>Hi,</p>
-          <p>An engineer has been dispatched for job <strong>${job.reference_number}</strong> — ${job.name}.</p>
+          <p>An engineer has been dispatched for job <strong>${refBody}</strong> — ${job.name}.</p>
           ${job.address ? `<p><strong>Location:</strong> ${job.address}</p>` : ""}
           <p>We'll notify you once the work is completed.</p>
           `,
       },
       job_completed: {
-        subject: `Job completed — ${job.reference_number}`,
-        preview: `${job.reference_number} has been completed`,
+        subject: `Job completed — ${primaryRef}`,
+        preview: `${primaryRef} has been completed`,
         body: `<p>Hi,</p>
-          <p>We're pleased to confirm that job <strong>${job.reference_number}</strong> — ${job.name} has been completed.</p>
+          <p>We're pleased to confirm that job <strong>${refBody}</strong> — ${job.name} has been completed.</p>
           ${job.address ? `<p><strong>Location:</strong> ${job.address}</p>` : ""}
           <p>Any questions, just reply to this email or give us a call.</p>
           `,
       },
       certificate_issued: {
-        subject: `Certificate issued — ${job.reference_number}`,
+        subject: `Certificate issued — ${primaryRef}`,
         preview: `Your compliance certificate is ready`,
         body: `<p>Hi,</p>
-          <p>A compliance certificate has been issued for job <strong>${job.reference_number}</strong> — ${job.name}.</p>
+          <p>A compliance certificate has been issued for job <strong>${refBody}</strong> — ${job.name}.</p>
           <p>Please contact us if you require a copy of the documentation.</p>
           `,
       },

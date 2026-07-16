@@ -399,6 +399,12 @@ export default function JobDetail() {
         <div>
           <h1 className="text-2xl font-bold">{job.name}</h1>
           <p className="text-sm text-muted-foreground">
+            {(job as any).customer_po && (
+              <>
+                <span className="font-medium text-foreground">PO {(job as any).customer_po}</span>
+                {" · "}
+              </>
+            )}
             <span className="font-mono">{job.reference_number}</span>
             {custName && <> · <span className="font-medium text-foreground">{custName}</span></>}
             {job.sites?.name && <> · <span className="font-medium text-foreground">{job.sites.name}</span></>}

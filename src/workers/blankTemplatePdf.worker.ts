@@ -101,6 +101,7 @@ type JobInfo = {
   customer: string | null;
   customers?: { name: string; logo_url?: string | null } | null;
   reference_number: string;
+  customer_po?: string | null;
   category?: string | null;
   name?: string | null;
   priority?: string | null;
@@ -450,7 +451,12 @@ async function buildPdf(payload: WorkerPayload) {
   const customerName = jobInfo?.customers?.name || jobInfo?.customer || "";
   const siteName = jobInfo?.site?.name || "";
   const siteAddress = [jobInfo?.site?.address || jobInfo?.address || "", jobInfo?.site?.postcode || ""].filter(Boolean).join(", ");
-  const refNumber = jobInfo?.reference_number || "";
+  // Customer paperwork leads with the customer's PO; internal VFP-ref is fallback.
+  const _custPo = (jobInfo?.customer_po || "").trim();
+  const _intRef = (jobInfo?.reference_number || "").trim();
+  const refNumber = _custPo && _intRef && _custPo !== _intRef
+    ? `PO: ${_custPo}  /  Our ref: ${_intRef}`
+    : _custPo || _intRef;
   const dateVal = (() => {
     const iso = jobInfo?.due_date;
     if (!iso) return "";
@@ -528,7 +534,7 @@ async function buildPdf(payload: WorkerPayload) {
     // rendered on a clean background so nothing behind the writing lines
     // can reduce legibility for the engineer or the scanner classifier.
     const fileName = [
-      jobInfo?.reference_number || "blank",
+      jobInfo?.customer_po || jobInfo?.reference_number || "blank",
       template.name.replace(/\s+/g, "-").toLowerCase(),
       customerName.replace(/\s+/g, "-").toLowerCase() || null,
       systemQty > 1 ? `x${systemQty}` : null,
@@ -771,7 +777,7 @@ async function buildPdf(payload: WorkerPayload) {
 
 
   const fileName = [
-    jobInfo?.reference_number || "blank",
+    jobInfo?.customer_po || jobInfo?.reference_number || "blank",
     template.name.replace(/\s+/g, "-").toLowerCase(),
     customerName.replace(/\s+/g, "-").toLowerCase() || null,
     systemQty > 1 ? `x${systemQty}` : null,

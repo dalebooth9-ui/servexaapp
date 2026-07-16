@@ -61,6 +61,7 @@ type JobInfo = {
   customer: string | null;
   customers?: { name: string; logo_url?: string | null } | null;
   reference_number: string;
+  customer_po?: string | null;
   category?: string | null;
   name?: string | null;
   priority?: string | null;
@@ -279,7 +280,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
   ): Promise<Blob | null | void> => {
     setGenerating(true);
     const pendingName = [
-      jobInfo?.reference_number || "blank",
+      jobInfo?.customer_po || jobInfo?.reference_number || "blank",
       template.name.replace(/\s+/g, "-").toLowerCase(),
       handfill ? "handfill" : null,
     ].filter(Boolean).join("-") + ".pdf";
@@ -439,7 +440,13 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         jobInfo?.site?.address || jobInfo?.address || "",
         jobInfo?.site?.postcode || "",
       ].filter(Boolean).join(", ");
-      const refNumber = jobInfo?.reference_number || "";
+      // Customer paperwork leads with the customer PO; internal VFP-ref is fallback.
+      // Where both exist and differ, show both labelled — header grid has room.
+      const customerPoRaw = (jobInfo?.customer_po || "").trim();
+      const internalRefRaw = (jobInfo?.reference_number || "").trim();
+      const refNumber = customerPoRaw && internalRefRaw && customerPoRaw !== internalRefRaw
+        ? `PO: ${customerPoRaw}  /  Our ref: ${internalRefRaw}`
+        : customerPoRaw || internalRefRaw;
       const dateVal = ""; // blank — no auto-filled date on blank templates
       const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
       const riserLocValue = jobInfo?.site?.riser_location || (riserField ? (autoVals[riserField.id] || "") : "");
@@ -746,7 +753,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
 
 
       const fileName = [
-        jobInfo?.reference_number || "blank",
+        jobInfo?.customer_po || jobInfo?.reference_number || "blank",
         template.name.replace(/\s+/g, "-").toLowerCase(),
         customerName.replace(/\s+/g, "-").toLowerCase() || null,
         systemQty > 1 ? `x${systemQty}` : null,

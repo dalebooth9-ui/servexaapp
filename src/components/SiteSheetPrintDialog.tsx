@@ -107,7 +107,7 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
         const { data: job, error } = await supabase
           .from("jobs")
           .select(
-            "id, reference_number, name, address, category, priority, due_date, visual_qty, pressure_test_qty, other_qty, other_service_type, customer, customer_id, site_id, customers(id, name, logo_url), sites(id, name, address, postcode, riser_location)"
+            "id, reference_number, customer_po, name, address, category, priority, due_date, visual_qty, pressure_test_qty, other_qty, other_service_type, customer, customer_id, site_id, customers(id, name, logo_url), sites(id, name, address, postcode, riser_location)"
           )
           .eq("id", jobId)
           .maybeSingle();
@@ -164,7 +164,7 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
           siteAddress: (site?.address || jobAny.address || "").toString(),
           sitePostcode: (site?.postcode || "").toString(),
           riserLocation: (site?.riser_location || "").toString(),
-          refNumber: (jobAny.reference_number || "").toString(),
+          refNumber: ((jobAny.customer_po as string | null) || jobAny.reference_number || "").toString(),
           dueDate: (jobAny.due_date ? String(jobAny.due_date).slice(0, 10) : ""),
           engineers: engineerNames.join(", "),
           notes: "",
@@ -308,11 +308,12 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">PO / Reference</Label>
+                  <Label className="text-xs">Customer PO / Reference</Label>
                   <Input
                     value={overrides.refNumber}
                     onChange={(e) => setOverrides((p) => ({ ...p, refNumber: e.target.value }))}
                     className="h-8 text-sm"
+                    placeholder="Customer's PO number"
                   />
                 </div>
                 <div className="space-y-1">

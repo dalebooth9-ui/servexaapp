@@ -4542,6 +4542,7 @@ export type Database = {
           created_by: string | null
           customer: string | null
           customer_id: string | null
+          customer_po: string | null
           due_date: string | null
           fault_code_id: string | null
           id: string
@@ -4585,6 +4586,7 @@ export type Database = {
           created_by?: string | null
           customer?: string | null
           customer_id?: string | null
+          customer_po?: string | null
           due_date?: string | null
           fault_code_id?: string | null
           id?: string
@@ -4628,6 +4630,7 @@ export type Database = {
           created_by?: string | null
           customer?: string | null
           customer_id?: string | null
+          customer_po?: string | null
           due_date?: string | null
           fault_code_id?: string | null
           id?: string

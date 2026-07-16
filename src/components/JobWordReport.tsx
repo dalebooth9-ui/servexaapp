@@ -310,10 +310,16 @@ export default function JobWordReport({ jobId, job }: Props) {
         heading: HeadingLevel.HEADING_1,
         children: [new TextRun({ text: "JOB REPORT", bold: true, color: NAVY_HEX, size: 40 })],
       }));
+      // Customer paperwork leads with the customer's PO; internal ref only when missing.
+      const _wCustPo = (job.customer_po || "").toString().trim();
+      const _wIntRef = (job.reference_number || "").toString().trim();
+      const _wRefLine = _wCustPo && _wIntRef && _wCustPo !== _wIntRef
+        ? `PO: ${_wCustPo}    Our ref: ${_wIntRef}`
+        : `Ref: ${_wCustPo || _wIntRef || "—"}`;
       children.push(new Paragraph({
         spacing: { after: 240 },
         children: [new TextRun({
-          text: `Ref: ${job.reference_number || "—"}    Date: ${new Date().toLocaleDateString("en-GB")}`,
+          text: `${_wRefLine}    Date: ${new Date().toLocaleDateString("en-GB")}`,
           size: 20, color: "555555",
         })],
       }));
@@ -540,7 +546,7 @@ export default function JobWordReport({ jobId, job }: Props) {
 
       const doc = new Document({
         creator: "Servexa",
-        title: `Job Report ${job.reference_number || ""}`.trim(),
+        title: `Job Report ${job.customer_po || job.reference_number || ""}`.trim(),
         styles: { default: { document: { run: { font: "Calibri", size: 22 } } } },
         sections: [{
           properties: {
@@ -560,7 +566,7 @@ export default function JobWordReport({ jobId, job }: Props) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `job-report-${job.reference_number || jobId}.docx`;
+      a.download = `job-report-${job.customer_po || job.reference_number || jobId}.docx`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 30_000);
       toast({ title: "Word report ready", description: "Downloaded — edit and send from Word." });
