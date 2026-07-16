@@ -761,6 +761,7 @@ serve(async (req) => {
     status: "pending_review",
     source: "email_po",
     brief: briefParts.join("\n").trim() || null,
+    customer_po: poNum || null,
   };
 
 
