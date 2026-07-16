@@ -66,9 +66,11 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/audit-log", label: "Audit Log", icon: History, section: "admin", adminOnly: true },
 { to: "/engineers", label: "Engineers", icon: Users, section: "admin", adminOnly: true },
 { to: "/setup", label: "Setup guide", icon: Rocket, section: "admin", adminOnly: true },
-{ to: "/admin/support-tickets", label: "Support tickets", icon: LifeBuoy, section: "admin", adminOnly: true },
+{ to: "/support/my-tickets", label: "My tickets", icon: LifeBuoy, section: "more" },
+{ to: "/admin/support-tickets", label: "Org support tickets", icon: LifeBuoy, section: "admin", adminOnly: true },
 { to: "/admin/error-log", label: "Error log", icon: Bug, section: "admin", adminOnly: true },
 { to: "/platform/organisations", label: "Platform Orgs", icon: Building2, section: "admin", adminOnly: true, platformOnly: true },
+{ to: "/platform/support", label: "Platform Support", icon: LifeBuoy, section: "admin", adminOnly: true, platformOnly: true, badgeKey: "platform_support_open" as const },
 { to: "/settings", label: "Settings", icon: Settings, section: "admin", adminOnly: true }];
 
 
@@ -221,6 +223,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
 
   const [openDefectCount, setOpenDefectCount] = useReactState<number>(0);
   const [pendingReviewCount, setPendingReviewCount] = useReactState<number>(0);
+  const [platformSupportOpen, setPlatformSupportOpen] = useReactState<number>(0);
 
   useEffect(() => {
     supabase.from("app_settings").select("value").eq("key", "business_whatsapp_number").single()
@@ -264,6 +267,25 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
       .subscribe();
     return () => { mounted = false; supabase.removeChannel(channel); };
   }, []);
+
+  useEffect(() => {
+    if (!orgStatus.is_platform_admin) return;
+    let mounted = true;
+    const fetchOpen = async () => {
+      const { count } = await supabase
+        .from("support_tickets")
+        .select("id", { count: "exact", head: true })
+        .neq("status", "resolved");
+      if (mounted) setPlatformSupportOpen(count || 0);
+    };
+    fetchOpen();
+    const channel = supabase
+      .channel("platform-support-count-sidebar")
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_tickets" }, fetchOpen)
+      .subscribe();
+    return () => { mounted = false; supabase.removeChannel(channel); };
+  }, [orgStatus.is_platform_admin]);
+
 
 
   const orderedItems = navOrder.map((to) => DEFAULT_NAV_ITEMS.find((i) => i.to === to)).filter(Boolean) as typeof DEFAULT_NAV_ITEMS;
@@ -426,7 +448,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                                   inOps={false}
                                   collapsed={sidebarCollapsed}
                                   onTogglePin={() => handleTogglePin(item.to, "more")}
-                                  badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : undefined} />
+                                  badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : item.to === "/platform/support" ? platformSupportOpen : undefined} />
 
                               );
                             })}
@@ -446,7 +468,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                               inOps={isOpsSection}
                               collapsed={sidebarCollapsed}
                               onTogglePin={() => handleTogglePin(item.to, isOpsSection ? "operations" : section as "operations" | "more")}
-                              badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : undefined} />
+                              badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : item.to === "/platform/support" ? platformSupportOpen : undefined} />
 
                           );
                         })}

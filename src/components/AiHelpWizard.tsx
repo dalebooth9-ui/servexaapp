@@ -375,6 +375,20 @@ export default function AiHelpWizard() {
   };
 
   const handleAction = (action: QuickAction) => {
+    if (action.url === "#raise-support") {
+      // Find the most recent user question to pre-fill the ticket.
+      const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+      const question = lastUserMsg?.content || "";
+      window.dispatchEvent(new CustomEvent("open-support-feedback", {
+        detail: {
+          type: "question",
+          subject: question.slice(0, 100),
+          description: `Asked the in-app help assistant:\n\n${question}\n\n(No article covered this — please add.)`,
+        },
+      }));
+      setMinimised(true);
+      return;
+    }
     navigate(action.url);
     setMinimised(true);
   };

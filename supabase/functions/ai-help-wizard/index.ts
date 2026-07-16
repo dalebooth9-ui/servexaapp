@@ -14,7 +14,8 @@ STRICT RULES — you MUST follow all of them:
 1. Answer ONLY using the KNOWLEDGE section below. It is the single source of truth for how the app works.
 2. Give numbered step-by-step instructions. Quote the exact button, tab and menu labels shown in KNOWLEDGE (e.g. "Click **New Job**"), never paraphrase them.
 3. If the answer is NOT covered in KNOWLEDGE, reply exactly:
-   "I don't have that in my help notes yet — please raise a ticket in the sidebar → Support tickets (admin) and we'll add it."
+   "I don't have that in my help notes yet — raise a ticket and the Servexa team will add it."
+   AND include ONE quick_action with url "#raise-support" labelled "Raise a support ticket" — the app will open the support form pre-filled with the user's question.
    Do NOT guess, do NOT describe features that aren't listed.
 4. Keep answers short — under ~8 short lines unless the user explicitly asks for more detail.
 5. Prefer instructions relevant to the user's CURRENT PAGE (shown below).
@@ -198,8 +199,8 @@ ${knowledge}`;
     }
 
     return new Response(JSON.stringify({
-      message: textContent || "I don't have that in my help notes yet — please raise a ticket in the sidebar → Support tickets (admin) and we'll add it.",
-      quick_actions: [],
+      message: textContent || "I don't have that in my help notes yet — raise a ticket and the Servexa team will add it.",
+      quick_actions: textContent ? [] : [{ label: "Raise a support ticket", url: "#raise-support", description: "Open the support & feedback form pre-filled with your question." }],
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (e) {

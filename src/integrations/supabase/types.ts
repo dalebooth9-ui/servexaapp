@@ -6800,14 +6800,65 @@ export type Database = {
           },
         ]
       }
+      support_ticket_replies: {
+        Row: {
+          author_email: string | null
+          author_kind: string
+          author_name: string | null
+          author_user_id: string | null
+          body: string
+          created_at: string
+          id: string
+          is_internal_note: boolean
+          ticket_id: string
+        }
+        Insert: {
+          author_email?: string | null
+          author_kind: string
+          author_name?: string | null
+          author_user_id?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          is_internal_note?: boolean
+          ticket_id: string
+        }
+        Update: {
+          author_email?: string | null
+          author_kind?: string
+          author_name?: string | null
+          author_user_id?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          is_internal_note?: boolean
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_replies_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_tickets: {
         Row: {
+          app_version: string | null
+          assigned_to_platform: string | null
+          attachment_path: string | null
           context: Json
           created_at: string
           description: string
           id: string
+          internal_notes_count: number
+          last_reply_at: string | null
+          last_reply_by_kind: string | null
           org_id: string | null
           page_url: string | null
+          priority: string
           reporter_email: string | null
           reporter_name: string | null
           resolution_note: string | null
@@ -6815,17 +6866,26 @@ export type Database = {
           resolved_by: string | null
           route: string | null
           status: string
+          subject: string | null
+          ticket_type: string
           updated_at: string
           user_agent: string | null
           user_id: string | null
         }
         Insert: {
+          app_version?: string | null
+          assigned_to_platform?: string | null
+          attachment_path?: string | null
           context?: Json
           created_at?: string
           description: string
           id?: string
+          internal_notes_count?: number
+          last_reply_at?: string | null
+          last_reply_by_kind?: string | null
           org_id?: string | null
           page_url?: string | null
+          priority?: string
           reporter_email?: string | null
           reporter_name?: string | null
           resolution_note?: string | null
@@ -6833,17 +6893,26 @@ export type Database = {
           resolved_by?: string | null
           route?: string | null
           status?: string
+          subject?: string | null
+          ticket_type?: string
           updated_at?: string
           user_agent?: string | null
           user_id?: string | null
         }
         Update: {
+          app_version?: string | null
+          assigned_to_platform?: string | null
+          attachment_path?: string | null
           context?: Json
           created_at?: string
           description?: string
           id?: string
+          internal_notes_count?: number
+          last_reply_at?: string | null
+          last_reply_by_kind?: string | null
           org_id?: string | null
           page_url?: string | null
+          priority?: string
           reporter_email?: string | null
           reporter_name?: string | null
           resolution_note?: string | null
@@ -6851,6 +6920,8 @@ export type Database = {
           resolved_by?: string | null
           route?: string | null
           status?: string
+          subject?: string | null
+          ticket_type?: string
           updated_at?: string
           user_agent?: string | null
           user_id?: string | null
