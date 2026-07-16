@@ -66,9 +66,11 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/audit-log", label: "Audit Log", icon: History, section: "admin", adminOnly: true },
 { to: "/engineers", label: "Engineers", icon: Users, section: "admin", adminOnly: true },
 { to: "/setup", label: "Setup guide", icon: Rocket, section: "admin", adminOnly: true },
-{ to: "/admin/support-tickets", label: "Support tickets", icon: LifeBuoy, section: "admin", adminOnly: true },
+{ to: "/support/my-tickets", label: "My tickets", icon: LifeBuoy, section: "more" },
+{ to: "/admin/support-tickets", label: "Org support tickets", icon: LifeBuoy, section: "admin", adminOnly: true },
 { to: "/admin/error-log", label: "Error log", icon: Bug, section: "admin", adminOnly: true },
 { to: "/platform/organisations", label: "Platform Orgs", icon: Building2, section: "admin", adminOnly: true, platformOnly: true },
+{ to: "/platform/support", label: "Platform Support", icon: LifeBuoy, section: "admin", adminOnly: true, platformOnly: true, badgeKey: "platform_support_open" as const },
 { to: "/settings", label: "Settings", icon: Settings, section: "admin", adminOnly: true }];
 
 
