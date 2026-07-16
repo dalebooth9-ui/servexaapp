@@ -310,10 +310,16 @@ export default function JobWordReport({ jobId, job }: Props) {
         heading: HeadingLevel.HEADING_1,
         children: [new TextRun({ text: "JOB REPORT", bold: true, color: NAVY_HEX, size: 40 })],
       }));
+      // Customer paperwork leads with the customer's PO; internal ref only when missing.
+      const _wCustPo = (job.customer_po || "").toString().trim();
+      const _wIntRef = (job.reference_number || "").toString().trim();
+      const _wRefLine = _wCustPo && _wIntRef && _wCustPo !== _wIntRef
+        ? `PO: ${_wCustPo}    Our ref: ${_wIntRef}`
+        : `Ref: ${_wCustPo || _wIntRef || "—"}`;
       children.push(new Paragraph({
         spacing: { after: 240 },
         children: [new TextRun({
-          text: `Ref: ${job.reference_number || "—"}    Date: ${new Date().toLocaleDateString("en-GB")}`,
+          text: `${_wRefLine}    Date: ${new Date().toLocaleDateString("en-GB")}`,
           size: 20, color: "555555",
         })],
       }));
