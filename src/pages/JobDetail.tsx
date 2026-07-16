@@ -79,6 +79,7 @@ const SiteSurveyCard = lazy(() => import("@/components/SiteSurveyCard"));
 const JobDefects = lazy(() => import("@/components/jobs/JobDefects"));
 const JobPartsUsed = lazy(() => import("@/components/jobs/JobPartsUsed"));
 const JobPhotos = lazy(() => import("@/components/jobs/JobPhotos"));
+const JobEmailChain = lazy(() => import("@/components/jobs/JobEmailChain"));
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
@@ -86,11 +87,13 @@ const JOB_TABS = [
   { value: "overview", label: "Overview" },
   { value: "photos", label: "Photos" },
   { value: "documents", label: "Documents" },
+  { value: "emails", label: "Emails" },
   { value: "parts", label: "Parts" },
   { value: "survey", label: "Survey & Snags" },
   { value: "signoff", label: "Sign-off" },
   { value: "activity", label: "Activity" },
 ] as const;
+
 type JobTab = (typeof JOB_TABS)[number]["value"];
 
 // Helper to get customer name from job with joined customers
@@ -568,6 +571,15 @@ export default function JobDetail() {
                 {photoCount}
               </span>
             )}
+            {tab.value === "emails" && (job?.has_unread_email || job?.email_review_flag) && (
+              <span
+                className={`ml-1.5 inline-flex h-2 w-2 rounded-full ${
+                  job?.email_review_flag ? "bg-destructive" : "bg-primary"
+                }`}
+                aria-label={job?.email_review_flag ? "Email received on completed job" : "New email"}
+              />
+            )}
+
           </button>
         ))}
       </div>
@@ -1067,6 +1079,13 @@ export default function JobDetail() {
           />
         </div>
       )}
+
+      {activeTab === "emails" && id && (
+        <Suspense fallback={<LazyFallback />}>
+          <JobEmailChain jobId={id} isAdmin={userRole === "admin"} />
+        </Suspense>
+      )}
+
 
       {activeTab === "parts" && (
         <Collapsible defaultOpen className="mb-6">

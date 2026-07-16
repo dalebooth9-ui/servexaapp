@@ -122,21 +122,39 @@ export function buildThreadHeaders(input: {
 
 /**
  * Look for an existing job whose thread this email belongs to.
- * Order: (1) header ancestry match against ANY job's stored message IDs,
- * (2) fallback normalised-subject + sender-domain match against pending
- * drafts from the last 14 days.
+ * Match order (first match wins):
+ *   (a) header ancestry (In-Reply-To/References) against ANY non-cancelled
+ *       job — regardless of status.
+ *   (b) extracted PO number(s) against `customer_po` of ANY non-cancelled
+ *       job — no time window (PO refs are long-lived).
+ *   (c) normalised subject + sender-domain against pending drafts in the
+ *       last 14 days (legacy subject/sender heuristic).
  */
 export async function findExistingThreadJob(
   admin: any,
   orgId: string,
   th: EmailThreadHeaders,
-): Promise<{ id: string; reference_number: string | null; brief: string | null; name: string | null; matchedBy: "headers" | "subject_sender" } | null> {
+  poNumbers: string[] = [],
+): Promise<
+  | {
+      id: string;
+      reference_number: string | null;
+      brief: string | null;
+      name: string | null;
+      status: string | null;
+      customer_po: string | null;
+      intake_message_ids: string[] | null;
+      matchedBy: "headers" | "po_number" | "subject_sender";
+    }
+  | null
+> {
   const ancestorIds = [th.inReplyTo, ...th.references].filter(Boolean) as string[];
   if (ancestorIds.length) {
     const { data: hit } = await admin
       .from("jobs")
-      .select("id, reference_number, brief, name, intake_message_ids")
+      .select("id, reference_number, brief, name, status, customer_po, intake_message_ids")
       .eq("org_id", orgId)
+      .neq("status", "cancelled")
       .overlaps("intake_message_ids", ancestorIds)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -144,11 +162,31 @@ export async function findExistingThreadJob(
     if (hit) return { ...hit, matchedBy: "headers" };
   }
 
+  const cleanPoNumbers = Array.from(
+    new Set(
+      (poNumbers || [])
+        .map((p) => (p || "").trim())
+        .filter((p) => p.length >= 3),
+    ),
+  );
+  if (cleanPoNumbers.length) {
+    const { data: hit } = await admin
+      .from("jobs")
+      .select("id, reference_number, brief, name, status, customer_po, intake_message_ids")
+      .eq("org_id", orgId)
+      .neq("status", "cancelled")
+      .in("customer_po", cleanPoNumbers)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (hit) return { ...hit, matchedBy: "po_number" };
+  }
+
   if (th.normalizedSubject && th.senderDomain) {
     const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
     const { data: hit } = await admin
       .from("jobs")
-      .select("id, reference_number, brief, name")
+      .select("id, reference_number, brief, name, status, customer_po, intake_message_ids")
       .eq("org_id", orgId)
       .eq("status", "pending_review")
       .eq("intake_normalized_subject", th.normalizedSubject)
@@ -162,3 +200,4 @@ export async function findExistingThreadJob(
 
   return null;
 }
+

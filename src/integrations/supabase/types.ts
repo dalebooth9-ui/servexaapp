@@ -3596,6 +3596,71 @@ export type Database = {
           },
         ]
       }
+      job_emails: {
+        Row: {
+          attachment_count: number
+          body_html: string | null
+          body_text: string | null
+          created_at: string
+          direction: string
+          eml_path: string | null
+          from_email: string | null
+          id: string
+          in_reply_to: string | null
+          job_id: string
+          message_id: string | null
+          org_id: string
+          received_at: string
+          snippet: string | null
+          subject: string | null
+          to_emails: string[] | null
+        }
+        Insert: {
+          attachment_count?: number
+          body_html?: string | null
+          body_text?: string | null
+          created_at?: string
+          direction?: string
+          eml_path?: string | null
+          from_email?: string | null
+          id?: string
+          in_reply_to?: string | null
+          job_id: string
+          message_id?: string | null
+          org_id: string
+          received_at?: string
+          snippet?: string | null
+          subject?: string | null
+          to_emails?: string[] | null
+        }
+        Update: {
+          attachment_count?: number
+          body_html?: string | null
+          body_text?: string | null
+          created_at?: string
+          direction?: string
+          eml_path?: string | null
+          from_email?: string | null
+          id?: string
+          in_reply_to?: string | null
+          job_id?: string
+          message_id?: string | null
+          org_id?: string
+          received_at?: string
+          snippet?: string | null
+          subject?: string | null
+          to_emails?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_emails_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_messages: {
         Row: {
           content: string
@@ -4544,7 +4609,9 @@ export type Database = {
           customer_id: string | null
           customer_po: string | null
           due_date: string | null
+          email_review_flag: boolean
           fault_code_id: string | null
+          has_unread_email: boolean
           id: string
           intake_last_email_at: string | null
           intake_message_ids: string[]
@@ -4589,7 +4656,9 @@ export type Database = {
           customer_id?: string | null
           customer_po?: string | null
           due_date?: string | null
+          email_review_flag?: boolean
           fault_code_id?: string | null
+          has_unread_email?: boolean
           id?: string
           intake_last_email_at?: string | null
           intake_message_ids?: string[]
@@ -4634,7 +4703,9 @@ export type Database = {
           customer_id?: string | null
           customer_po?: string | null
           due_date?: string | null
+          email_review_flag?: boolean
           fault_code_id?: string | null
+          has_unread_email?: boolean
           id?: string
           intake_last_email_at?: string | null
           intake_message_ids?: string[]
