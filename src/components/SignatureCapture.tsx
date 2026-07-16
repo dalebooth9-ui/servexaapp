@@ -227,6 +227,52 @@ export default function SignatureCapture({
     }
   };
 
+  /**
+   * Copy the signer's stored library signature into this job as a fresh
+   * signature record. We copy (not reference) so per-job deletion doesn't
+   * delete the library file.
+   */
+  const handleUseSaved = async () => {
+    if (!user || !savedSig) return;
+    setSaving(true);
+    try {
+      const signed = await signedUrlForEngineerSignature(savedSig.file_path);
+      if (!signed) throw new Error("Could not access saved signature");
+      const resp = await fetch(signed);
+      if (!resp.ok) throw new Error("Could not download saved signature");
+      const blob = await resp.blob();
+
+      const relPath = `${user.id}/${jobId}-${signerRole}-${Date.now()}.png`;
+      const storagePath = await buildOrgPathAsync(relPath);
+      const { error: uploadErr } = await supabase.storage
+        .from("signatures")
+        .upload(storagePath, blob, { contentType: "image/png" });
+      if (uploadErr) throw uploadErr;
+
+      const { error: insertErr } = await supabase.from("job_signatures" as any).insert({
+        job_id: jobId,
+        signer_id: user.id,
+        signer_name: engineerName || savedSig.name || "Unknown",
+        signer_role: userRole || "engineer",
+        signer_position: null,
+        file_path: storagePath,
+      } as any);
+      if (insertErr) {
+        await supabase.storage.from("signatures").remove([storagePath]).catch(() => {});
+        throw insertErr;
+      }
+
+      toast({ title: "Saved signature applied" });
+      setDrawing(false);
+      clearCanvas();
+      fetchSignatures();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) return <p className="text-sm text-muted-foreground py-4">Loading signatures...</p>;
 
   return (
