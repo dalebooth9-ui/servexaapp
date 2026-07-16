@@ -1080,6 +1080,13 @@ export default function JobDetail() {
         </div>
       )}
 
+      {activeTab === "emails" && id && (
+        <Suspense fallback={<LazyFallback />}>
+          <JobEmailChain jobId={id} isAdmin={userRole === "admin" || userRole === "office"} />
+        </Suspense>
+      )}
+
+
       {activeTab === "parts" && (
         <Collapsible defaultOpen className="mb-6">
           <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
