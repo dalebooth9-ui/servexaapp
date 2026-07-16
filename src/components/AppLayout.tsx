@@ -68,6 +68,7 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/setup", label: "Setup guide", icon: Rocket, section: "admin", adminOnly: true },
 { to: "/admin/support-tickets", label: "Support tickets", icon: LifeBuoy, section: "admin", adminOnly: true },
 { to: "/admin/error-log", label: "Error log", icon: Bug, section: "admin", adminOnly: true },
+{ to: "/platform/organisations", label: "Platform Orgs", icon: Building2, section: "admin", adminOnly: true, platformOnly: true },
 { to: "/settings", label: "Settings", icon: Settings, section: "admin", adminOnly: true }];
 
 
