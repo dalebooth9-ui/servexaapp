@@ -1065,9 +1065,10 @@ serve(async (req) => {
       continue;
     }
     const safe = a.filename.replace(/[^\w.\-]/g, "_").slice(0, 120) || "attachment.bin";
+    const label = a.reviewFlag ? `${a.filename} — email attachment, review` : a.filename;
     uploads.push({
       path: `${orgId}/${jobId}/${Date.now()}-${safe}`,
-      label: a.filename,
+      label,
       contentType: a.contentType || "application/octet-stream",
       bytes: a.bytes,
     });
