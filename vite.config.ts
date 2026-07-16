@@ -54,6 +54,7 @@ export default defineConfig(({ mode }) => ({
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [
           /^\/~oauth/,
+          /^\/\.lovable\/oauth/,
           /^\/api/,
           /^\/auth\/callback/,
         ],
