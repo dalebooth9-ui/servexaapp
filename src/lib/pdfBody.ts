@@ -720,7 +720,7 @@ export function renderFilledFieldRow(
       doc.text("—", margin + colSplit + 1, y + 3);
     }
   } else {
-    const raw = hasRenderableValue(value) ? String(value).substring(0, 50) : "—";
+    const raw = hasRenderableValue(value) ? String(value) : "—";
     doc.text(raw, margin + colSplit + 1, y + 3);
   }
 
