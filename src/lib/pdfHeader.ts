@@ -248,6 +248,27 @@ export async function renderPdfHeader(
   // single-line title + optional standard + optional subtitle line.
   let y = style.titleStartY ?? logoBottomY;
 
+  // Helper: shrink font size until each line of `text` fits within `boxW`,
+  // then wrap. Never returns > `maxLines` lines.
+  const fitAndWrap = (
+    text: string,
+    boxW: number,
+    initialSize: number,
+    fontStyle: "bold" | "normal" | "italic" | "bolditalic",
+    { minSize = 8, maxLines = 3 }: { minSize?: number; maxLines?: number } = {},
+  ): { lines: string[]; size: number } => {
+    doc.setFont("helvetica", fontStyle);
+    let size = initialSize;
+    let lines: string[] = [];
+    for (; size >= minSize; size -= 0.5) {
+      doc.setFontSize(size);
+      lines = doc.splitTextToSize(text, boxW) as string[];
+      if (lines.length <= maxLines) break;
+    }
+    if (lines.length > maxLines) lines = lines.slice(0, maxLines);
+    return { lines, size };
+  };
+
   if (style.titleBands && style.titleBands.length > 0) {
     for (const band of style.titleBands) {
       const bandH = band.height ?? 9;
@@ -257,15 +278,22 @@ export async function renderPdfHeader(
       const fontStyle = band.fontStyle ?? "bold";
       const align = band.align ?? "center";
       const gapBelow = band.gapBelow ?? 2;
+      // Wrap/shrink the band text so long titles never overflow the printable width.
+      const boxW = maxWidth - 4;
+      const fitted = fitAndWrap(band.text, boxW, fontSize, fontStyle as any, { maxLines: 2, minSize: 8 });
+      const lineH = fitted.size * 0.42; // approx line height in mm
+      const drawH = Math.max(bandH, fitted.lines.length * lineH + 2);
       doc.setFillColor(...fill);
-      doc.rect(margin, y, maxWidth, bandH, "F");
-      doc.setFontSize(fontSize);
+      doc.rect(margin, y, maxWidth, drawH, "F");
+      doc.setFontSize(fitted.size);
       doc.setFont("helvetica", fontStyle);
       doc.setTextColor(...textColor);
       const tx = align === "left" ? margin + 2 : pageWidth / 2;
-      // Vertical centre: roughly bandH * 0.7 from the top works for helvetica
-      doc.text(band.text, tx, y + bandH * 0.69, align === "center" ? { align: "center" } : {});
-      y += bandH + gapBelow;
+      fitted.lines.forEach((ln, i) => {
+        doc.text(ln, tx, y + drawH * 0.69 - (fitted.lines.length - 1 - i) * lineH,
+          align === "center" ? { align: "center" } : {});
+      });
+      y += drawH + gapBelow;
     }
   }
 
@@ -273,17 +301,22 @@ export async function renderPdfHeader(
     const titleFontSize = titleStyle.fontSize ?? 15;
     const titleFontStyle = titleStyle.fontStyle ?? "bold";
     const titleUpper = titleStyle.uppercase !== false;
-    doc.setFont("helvetica", titleFontStyle);
-    doc.setFontSize(titleFontSize);
     doc.setTextColor(...accent);
     const titleY = compact ? y + 2 : y;
-    doc.text(
-      titleUpper ? templateName.toUpperCase() : templateName,
-      pageWidth / 2,
-      titleY,
-      { align: "center" }
-    );
-    y = titleY + 4;
+    const titleText = titleUpper ? templateName.toUpperCase() : templateName;
+    // Wrap + shrink-to-fit within the printable width so long job/report titles
+    // never run off the right edge of the page.
+    const fitted = fitAndWrap(titleText, maxWidth - 4, titleFontSize, titleFontStyle as any, {
+      maxLines: 3,
+      minSize: 10,
+    });
+    doc.setFont("helvetica", titleFontStyle);
+    doc.setFontSize(fitted.size);
+    const lineH = fitted.size * 0.42;
+    fitted.lines.forEach((ln, i) => {
+      doc.text(ln, pageWidth / 2, titleY + i * lineH, { align: "center" });
+    });
+    y = titleY + fitted.lines.length * lineH + 2;
   }
 
   // Optional BS standard subtitle (existing behaviour).

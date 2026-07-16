@@ -604,12 +604,25 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const labelW = maxWidth * 0.3;
       const valW = maxWidth * 0.7;
       detailRows.forEach(([label, value]) => {
-        checkPage(rowH);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        const wrapped = doc.splitTextToSize(String(value ?? ""), valW - 4) as string[];
+        const lineH = 5;
+        const dynH = Math.max(rowH, wrapped.length * lineH + 3);
+        checkPage(dynH);
+        // Row background/borders via drawTableRow with a single-line placeholder
+        // so we keep the shared cell chrome, then over-draw the wrapped value.
         drawTableRow(doc, y, [
           { text: label, x: margin, width: labelW, bold: true },
-          { text: value.substring(0, 90), x: margin + labelW, width: valW },
-        ], rowH, margin, maxWidth);
-        y += rowH;
+          { text: "", x: margin + labelW, width: valW },
+        ], dynH, margin, maxWidth);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(30, 30, 30);
+        wrapped.forEach((ln, i) => {
+          doc.text(ln, margin + labelW + 2, y + 4.5 + i * lineH);
+        });
+        y += dynH;
       });
       y += 6;
 

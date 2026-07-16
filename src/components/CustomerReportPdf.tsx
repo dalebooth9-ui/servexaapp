@@ -168,26 +168,32 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
 
       // === JOB DETAILS BOX ===
       y += 2;
-      doc.setFillColor(...PDF_PALETTE.zebra);
-      doc.roundedRect(margin, y, maxWidth, 24, 2, 2, "F");
       doc.setFontSize(9);
       const col1 = margin + 4;
       const col2 = margin + maxWidth / 2;
+      // Wrap job.name within the left column so long titles don't overflow the box/page.
+      const jobNameMaxW = (col2 - col1) - 15;
+      const jobNameLines = doc.splitTextToSize(job.name || "", jobNameMaxW) as string[];
+      const jobNameExtra = Math.max(0, jobNameLines.length - 1) * 4;
+      const boxH = 24 + jobNameExtra;
+
+      doc.setFillColor(...PDF_PALETTE.zebra);
+      doc.roundedRect(margin, y, maxWidth, boxH, 2, 2, "F");
 
       doc.setFont("helvetica", "bold");
       doc.text("Job:", col1, y + 7);
       doc.text("Status:", col2, y + 7);
-      doc.text("Priority:", col1, y + 14);
-      doc.text("Engineers:", col2, y + 14);
-      doc.text("Created:", col1, y + 21);
+      doc.text("Priority:", col1, y + 14 + jobNameExtra);
+      doc.text("Engineers:", col2, y + 14 + jobNameExtra);
+      doc.text("Created:", col1, y + 21 + jobNameExtra);
 
       doc.setFont("helvetica", "normal");
-      doc.text(job.name || "", col1 + 13, y + 7);
+      jobNameLines.forEach((ln, i) => doc.text(ln, col1 + 13, y + 7 + i * 4));
       doc.text(job.status || "", col2 + 18, y + 7);
-      doc.text(job.priority || "medium", col1 + 20, y + 14);
-      doc.text(engineerNames.join(", ") || "Unassigned", col2 + 26, y + 14);
-      doc.text(new Date(job.created_at).toLocaleDateString("en-GB"), col1 + 20, y + 21);
-      y += 28;
+      doc.text(job.priority || "medium", col1 + 20, y + 14 + jobNameExtra);
+      doc.text(engineerNames.join(", ") || "Unassigned", col2 + 26, y + 14 + jobNameExtra);
+      doc.text(new Date(job.created_at).toLocaleDateString("en-GB"), col1 + 20, y + 21 + jobNameExtra);
+      y += boxH + 4;
 
       // === EXECUTIVE SUMMARY (from Servexa reports) ===
       if (reports.length > 0) {
