@@ -705,20 +705,20 @@ export default function JobPdfReport({ jobId, job }: Props) {
         const statusW = maxWidth * 0.2;
         const notesW = maxWidth * 0.55;
         // Header
-        drawTableRow(doc, y, [
+        y += drawTableRow(doc, y, [
           { text: "Date", x: margin, width: dateW, bold: true },
           { text: "Status", x: margin + dateW, width: statusW, bold: true },
           { text: "Notes", x: margin + dateW + statusW, width: notesW, bold: true },
         ], rowH, margin, maxWidth, [235, 240, 248]);
-        y += rowH;
         visits.forEach((v: any) => {
-          checkPage(rowH);
-          drawTableRow(doc, y, [
+          const cols: TableCol[] = [
             { text: v.scheduled_date || "—", x: margin, width: dateW },
             { text: (v.status || "—").toUpperCase(), x: margin + dateW, width: statusW },
-            { text: (v.notes || "—").substring(0, 60), x: margin + dateW + statusW, width: notesW },
-          ], rowH, margin, maxWidth);
-          y += rowH;
+            { text: v.notes || "—", x: margin + dateW + statusW, width: notesW },
+          ];
+          const h = measureTableRowHeight(doc, cols, rowH);
+          checkPage(h);
+          y += drawTableRow(doc, y, cols, rowH, margin, maxWidth);
         });
         y += 6;
       }
