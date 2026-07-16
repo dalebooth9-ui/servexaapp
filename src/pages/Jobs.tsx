@@ -2207,6 +2207,36 @@ export default function Jobs() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={pendingMergeOpen} onOpenChange={setPendingMergeOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Merge pending drafts</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Pick the draft to keep. The other {Math.max(0, selectedPendingIds.size - 1)} draft(s) will have their attachments and thread notes moved onto it, then be dismissed.
+            </p>
+            <div className="space-y-2">
+              <Label>Keep this draft</Label>
+              <Select value={pendingMergeTargetId} onValueChange={setPendingMergeTargetId}>
+                <SelectTrigger><SelectValue placeholder="Select target draft…" /></SelectTrigger>
+                <SelectContent>
+                  {jobs.filter((j) => selectedPendingIds.has(j.id)).map((j) => (
+                    <SelectItem key={j.id} value={j.id}>
+                      {j.reference_number} — {j.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setPendingMergeOpen(false)}>Cancel</Button>
+              <Button onClick={handleMergePending} disabled={!pendingMergeTargetId}>Merge</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
+
       <AlertDialog open={mergeDialogOpen} onOpenChange={setMergeDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
