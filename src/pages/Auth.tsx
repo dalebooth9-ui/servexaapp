@@ -72,6 +72,7 @@ export default function Auth() {
       }
       const { error } = await supabase.auth.signInWithPassword({ email: parsed.data.email, password: parsed.data.password });
       if (error) toast({ title: "Login failed", description: "Invalid email or password.", variant: "destructive" });
+      else if (nextPath) window.location.href = nextPath;
       else navigate("/");
       setLoading(false);
       return;
