@@ -17,7 +17,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { inferJobScope } from "../_shared/inferJobScope.ts";
-import { buildThreadHeaders, findExistingThreadJob } from "../_shared/threadDedup.ts";
+import { buildThreadHeaders, findExistingThreadJob, extractSenderEmail } from "../_shared/threadDedup.ts";
 
 
 const MAX_BODY_BYTES = 25 * 1024 * 1024;
