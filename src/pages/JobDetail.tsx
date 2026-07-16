@@ -571,6 +571,15 @@ export default function JobDetail() {
                 {photoCount}
               </span>
             )}
+            {tab.value === "emails" && (job?.has_unread_email || job?.email_review_flag) && (
+              <span
+                className={`ml-1.5 inline-flex h-2 w-2 rounded-full ${
+                  job?.email_review_flag ? "bg-destructive" : "bg-primary"
+                }`}
+                aria-label={job?.email_review_flag ? "Email received on completed job" : "New email"}
+              />
+            )}
+
           </button>
         ))}
       </div>
