@@ -329,7 +329,14 @@ export async function generateJobSheetPdf(
   const siteName = jobInfo?.site?.name || "";
   // Also try to pull site from the job address if no site linked
   const siteDisplay = siteFormVal || siteName || siteAddress || jobInfo?.address || "";
-  const refNumber = findFormVal("po number", "reference", "ref no", "job ref", "order number") || jobInfo?.reference_number || "";
+  // Customer paperwork leads with the customer's PO; internal VFP-ref is the fallback.
+  const customerPoRaw = (jobInfo as any)?.customer_po ? String((jobInfo as any).customer_po).trim() : "";
+  const internalRefRaw = jobInfo?.reference_number ? String(jobInfo.reference_number).trim() : "";
+  const formOverrideRef = findFormVal("po number", "reference", "ref no", "job ref", "order number");
+  const refNumber = formOverrideRef
+    || (customerPoRaw && internalRefRaw && customerPoRaw !== internalRefRaw
+      ? `PO: ${customerPoRaw}  /  Our ref: ${internalRefRaw}`
+      : customerPoRaw || internalRefRaw);
   const dateVal = resolvedFormData["date"] || resolvedFormData["inspection_date"] || findFormVal("date", "inspection date", "service date", "visit date") || new Date().toLocaleDateString("en-GB");
   const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
   const riserLocValue = riserField && hasValue(resolvedFormData[riserField.id])
