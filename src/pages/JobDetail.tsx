@@ -79,6 +79,7 @@ const SiteSurveyCard = lazy(() => import("@/components/SiteSurveyCard"));
 const JobDefects = lazy(() => import("@/components/jobs/JobDefects"));
 const JobPartsUsed = lazy(() => import("@/components/jobs/JobPartsUsed"));
 const JobPhotos = lazy(() => import("@/components/jobs/JobPhotos"));
+const JobEmailChain = lazy(() => import("@/components/jobs/JobEmailChain"));
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
@@ -86,11 +87,13 @@ const JOB_TABS = [
   { value: "overview", label: "Overview" },
   { value: "photos", label: "Photos" },
   { value: "documents", label: "Documents" },
+  { value: "emails", label: "Emails" },
   { value: "parts", label: "Parts" },
   { value: "survey", label: "Survey & Snags" },
   { value: "signoff", label: "Sign-off" },
   { value: "activity", label: "Activity" },
 ] as const;
+
 type JobTab = (typeof JOB_TABS)[number]["value"];
 
 // Helper to get customer name from job with joined customers
