@@ -816,17 +816,17 @@ export default function JobPdfReport({ jobId, job }: Props) {
 
             checkPage(12);
             // Sub-section header
-            drawTableRow(doc, y, [
+            y += drawTableRow(doc, y, [
               { text: section.toUpperCase(), x: margin, width: maxWidth, bold: true },
             ], rowH, margin, maxWidth, [220, 225, 235]);
-            y += rowH;
 
-            let fieldRowIdx = 0;
             for (const field of sectionFields) {
-              checkPage(rowH + 4);
               const val = responses[field.id];
               let displayVal = "—";
               let valColor: [number, number, number] | undefined;
+              // For long descriptive values, don't force centre alignment —
+              // wrapped multi-line text reads better left-aligned.
+              let valAlign: "left" | "center" | "right" = "center";
 
               if (field.type === "pass_fail") {
                 const normalizedVal = typeof val === "string" ? val.toLowerCase().trim() : "";
@@ -849,30 +849,38 @@ export default function JobPdfReport({ jobId, job }: Props) {
               } else if (field.type === "photo") {
                 displayVal = val ? "✓ Captured" : "—";
               } else if (val !== undefined && val !== null && val !== "") {
-                const raw = String(val).substring(0, 60);
+                const raw = String(val);
                 displayVal = raw.charAt(0).toUpperCase() + raw.slice(1);
+                // Long descriptive answers wrap and read best left-aligned.
+                if (raw.length > 24) valAlign = "left";
               }
 
-              const labelText = doc.splitTextToSize(field.label, fieldLabelW - 4).slice(0, 1)[0];
-              const rowBg: [number, number, number] | undefined = fieldRowIdx % 2 === 0 ? [248, 249, 252] : undefined;
-              drawTableRow(doc, y, [
-                { text: labelText, x: margin, width: fieldLabelW },
-                { text: displayVal, x: 0, width: fieldValW, bold: !!valColor, color: valColor, align: "center" },
-              ], rowH, margin, maxWidth, rowBg);
-              fieldRowIdx++;
-              y += rowH;
+              // Zebra body stripes intentionally removed — they blank the
+              // watermark inconsistently. Header rows above keep their fill.
+              const cols: TableCol[] = [
+                { text: field.label, x: margin, width: fieldLabelW },
+                { text: displayVal, x: 0, width: fieldValW, bold: !!valColor, color: valColor, align: valAlign },
+              ];
+              const rowNeeded = measureTableRowHeight(doc, cols, rowH);
+              checkPage(rowNeeded + 4);
+              y += drawTableRow(doc, y, cols, rowH, margin, maxWidth);
 
-              // Inline note
+              // Inline note — wraps within page width
               const noteVal = responses[`${field.id}_notes`];
               if (noteVal) {
                 doc.setFontSize(9);
                 doc.setFont("helvetica", "italic");
                 doc.setTextColor(100, 100, 100);
-                doc.text(`Note: ${noteVal}`.substring(0, 100), margin + 4, y + 3);
+                const noteLines = doc.splitTextToSize(`Note: ${noteVal}`, maxWidth - 8);
+                noteLines.forEach((ln: string) => {
+                  checkPage(4);
+                  doc.text(ln, margin + 4, y + 3);
+                  y += 4;
+                });
                 doc.setTextColor(30, 30, 30);
                 doc.setFontSize(11);
                 doc.setFont("helvetica", "normal");
-                y += 5;
+                y += 1;
               }
             }
           }
