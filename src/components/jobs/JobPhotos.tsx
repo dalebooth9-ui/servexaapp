@@ -343,53 +343,21 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
           {items.length === 0 ? "No photos on this job yet." : "No photos match this filter."}
         </p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
-          {filtered.map((p, idx) => {
-            const meta = sourceMeta(p.source);
-            const Icon = meta.icon;
-            return (
-              <div key={p.id} className="group relative rounded-lg overflow-hidden border bg-muted">
-                <button
-                  type="button"
-                  onClick={() => setLightboxIdx(idx)}
-                  className="block w-full aspect-square"
-                  aria-label={p.caption || p.fileName || "Photo"}
-                >
-                  {p.signedUrl ? (
-                    <img
-                      src={p.signedUrl}
-                      alt={p.caption || p.fileName || "Job photo"}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs">Unavailable</div>
-                  )}
-                </button>
-                <div className="absolute top-1.5 left-1.5">
-                  <Badge className={`gap-1 border-0 ${meta.className}`}>
-                    <Icon className="h-3 w-3" />
-                    <span className="text-[10px] font-medium">{meta.label}</span>
-                  </Badge>
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); download(p); }}
-                  className="absolute top-1.5 right-1.5 rounded bg-background/90 p-1.5 opacity-0 group-hover:opacity-100 focus:opacity-100 transition"
-                  aria-label="Download photo"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                </button>
-                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-2 text-white">
-                  <p className="text-[10px] truncate">
-                    {p.engineerName || "Unknown"} · {new Date(p.timestamp).toLocaleDateString("en-GB")}
-                  </p>
-                  {p.caption && <p className="text-[10px] text-white/70 truncate">{p.caption}</p>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={filtered.map((p) => p.id)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
+              {filtered.map((p, idx) => (
+                <SortablePhotoTile
+                  key={p.id}
+                  photo={p}
+                  index={idx}
+                  onOpen={() => setLightboxIdx(idx)}
+                  onDownload={() => download(p)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       <PhotoLightbox
