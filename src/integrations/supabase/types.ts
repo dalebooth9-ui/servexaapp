@@ -4904,6 +4904,57 @@ export type Database = {
           },
         ]
       }
+      org_status_log: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          id: string
+          message: string | null
+          new_status: string
+          old_status: string | null
+          org_id: string
+          reason: string | null
+          source: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          message?: string | null
+          new_status: string
+          old_status?: string | null
+          org_id: string
+          reason?: string | null
+          source?: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          message?: string | null
+          new_status?: string
+          old_status?: string | null
+          org_id?: string
+          reason?: string | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_status_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_status_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organisation_billing: {
         Row: {
           created_at: string
@@ -5049,6 +5100,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          grace_period_ends_at: string | null
           id: string
           intake_email: string | null
           logo_url: string | null
@@ -5056,13 +5108,20 @@ export type Database = {
           plan: string
           plan_status: string
           primary_color: string | null
+          reactivated_at: string | null
           slug: string
+          status: string
+          suspended_at: string | null
+          suspended_by: string | null
+          suspension_message: string | null
+          suspension_reason: string | null
           trial_ends_at: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           created_by?: string | null
+          grace_period_ends_at?: string | null
           id?: string
           intake_email?: string | null
           logo_url?: string | null
@@ -5070,13 +5129,20 @@ export type Database = {
           plan?: string
           plan_status?: string
           primary_color?: string | null
+          reactivated_at?: string | null
           slug: string
+          status?: string
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspension_message?: string | null
+          suspension_reason?: string | null
           trial_ends_at?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          grace_period_ends_at?: string | null
           id?: string
           intake_email?: string | null
           logo_url?: string | null
@@ -5084,7 +5150,13 @@ export type Database = {
           plan?: string
           plan_status?: string
           primary_color?: string | null
+          reactivated_at?: string | null
           slug?: string
+          status?: string
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspension_message?: string | null
+          suspension_reason?: string | null
           trial_ends_at?: string | null
           updated_at?: string
         }
@@ -7291,6 +7363,10 @@ export type Database = {
           skipped: number
         }[]
       }
+      cancel_organisation: {
+        Args: { _org_id: string; _reason: string; _source?: string }
+        Returns: undefined
+      }
       count_seed_test_jobs: {
         Args: never
         Returns: {
@@ -7309,6 +7385,18 @@ export type Database = {
       create_org_intake_secret: {
         Args: { _label: string; _org_id: string; _secret: string }
         Returns: string
+      }
+      current_user_org_status: {
+        Args: never
+        Returns: {
+          is_platform_admin: boolean
+          org_id: string
+          org_name: string
+          status: string
+          suspended_at: string
+          suspension_message: string
+          suspension_reason: string
+        }[]
       }
       customer_logo_path_belongs_to_caller: {
         Args: { _name: string }
@@ -7413,7 +7501,9 @@ export type Database = {
         Returns: boolean
       }
       is_admin_direct: { Args: { _user_id: string }; Returns: boolean }
+      is_org_active: { Args: { _org_id: string }; Returns: boolean }
       is_org_admin: { Args: { _org_id: string }; Returns: boolean }
+      is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       mark_job_message_read: {
         Args: { _message_id: string }
         Returns: undefined
@@ -7428,6 +7518,23 @@ export type Database = {
         Returns: number
       }
       nextval_ppm_seq: { Args: never; Returns: number }
+      platform_list_organisations: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          job_count: number
+          last_activity: string
+          name: string
+          plan: string
+          slug: string
+          status: string
+          suspended_at: string
+          suspension_message: string
+          suspension_reason: string
+          user_count: number
+        }[]
+      }
       preview_invitation_token: {
         Args: { _token: string }
         Returns: {
@@ -7446,6 +7553,10 @@ export type Database = {
           deleted_objects: number
         }[]
       }
+      reactivate_organisation: {
+        Args: { _org_id: string; _reason?: string; _source?: string }
+        Returns: undefined
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -7459,6 +7570,7 @@ export type Database = {
         Returns: {
           allowed: boolean
           org_id: string
+          status: string
         }[]
       }
       seed_org_reference_data: {
@@ -7482,6 +7594,15 @@ export type Database = {
         Returns: boolean
       }
       storage_object_org_id: { Args: { _name: string }; Returns: string }
+      suspend_organisation: {
+        Args: {
+          _message?: string
+          _org_id: string
+          _reason: string
+          _source?: string
+        }
+        Returns: undefined
+      }
       sync_asset_from_job_sheet: {
         Args: { _response_id: string }
         Returns: undefined
@@ -7497,7 +7618,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "engineer"
+      app_role: "admin" | "engineer" | "platform_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -7625,7 +7746,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "engineer"],
+      app_role: ["admin", "engineer", "platform_admin"],
     },
   },
 } as const

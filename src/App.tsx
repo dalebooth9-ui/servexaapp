@@ -83,6 +83,7 @@ const ErrorLog = lazy(() => import("@/pages/ErrorLog"));
 const SupportTickets = lazy(() => import("@/pages/SupportTickets"));
 const ImportWizard = lazy(() => import("@/pages/ImportWizard"));
 const FleetVehicles = lazy(() => import("@/pages/FleetVehicles"));
+const PlatformOrganisations = lazy(() => import("@/pages/PlatformOrganisations"));
 // Hidden emergency route — no visible entry. Reach via direct URL.
 const StorageMigrationPanel = lazy(() => import("@/components/StorageMigrationPanel"));
 
@@ -164,6 +165,8 @@ const App = () => (
               <Route path="/admin/error-log" element={<AdminRoute><ErrorLog /></AdminRoute>} />
               <Route path="/admin/support-tickets" element={<AdminRoute><SupportTickets /></AdminRoute>} />
               <Route path="/fleet" element={<AdminRoute><FleetVehicles /></AdminRoute>} />
+              <Route path="/platform/organisations" element={<AdminRoute><PlatformOrganisations /></AdminRoute>} />
+
               <Route path="/paper-scan-queue" element={<AdminRoute><Suspense fallback={<PageFallback />}><PaperScanQueue /></Suspense></AdminRoute>} />
               <Route path="/jobs" element={<AccessRoute pageSlug="jobs"><Jobs /></AccessRoute>} />
               <Route path="/jobs/:id" element={<AccessRoute pageSlug="jobs"><JobDetail /></AccessRoute>} />

@@ -634,8 +634,17 @@ serve(async (req) => {
   const row = Array.isArray(rows) ? rows[0] : rows;
   const orgId: string | null = row?.org_id ?? null;
   const allowed: boolean = row?.allowed === true;
+  const orgStatus: string | null = row?.status ?? null;
 
   if (!orgId) { console.log("Unknown intake address", intakeAddr); return okSilently(); }
+  if (orgStatus && orgStatus !== "active") {
+    console.warn("Rejecting intake for suspended org", { orgId, orgStatus, intakeAddr });
+    return json(200, {
+      status: "rejected",
+      reason: "org_suspended",
+      message: "This account is currently suspended. Please contact billing to restore service.",
+    });
+  }
   if (!allowed) { console.warn("Rate limited", intakeAddr); return okSilently(); }
 
   // Look up our own org name so we can (a) tell the model what NOT to pick

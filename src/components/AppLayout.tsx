@@ -4,6 +4,8 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEngineerLocation } from "@/hooks/useEngineerLocation";
 import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
+import { useOrgStatus } from "@/hooks/useOrgStatus";
+import AccountPaused from "@/components/AccountPaused";
 import { ROUTE_TO_SLUG } from "@/lib/engineerPages";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History, Truck, CloudUpload, Rocket, LifeBuoy, Bug } from "lucide-react";
@@ -66,6 +68,7 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/setup", label: "Setup guide", icon: Rocket, section: "admin", adminOnly: true },
 { to: "/admin/support-tickets", label: "Support tickets", icon: LifeBuoy, section: "admin", adminOnly: true },
 { to: "/admin/error-log", label: "Error log", icon: Bug, section: "admin", adminOnly: true },
+{ to: "/platform/organisations", label: "Platform Orgs", icon: Building2, section: "admin", adminOnly: true, platformOnly: true },
 { to: "/settings", label: "Settings", icon: Settings, section: "admin", adminOnly: true }];
 
 
@@ -184,6 +187,11 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   const { user, userRole, profile, signOut } = useAuth();
   useEngineerLocation();
   const { hasAccess } = useEngineerPageAccess();
+  const orgStatus = useOrgStatus();
+  const isPlatformRoute = typeof window !== "undefined" && window.location.pathname.startsWith("/platform");
+  if (!orgStatus.loading && orgStatus.status && orgStatus.status !== "active" && !orgStatus.is_platform_admin && !isPlatformRoute) {
+    return <AccountPaused orgStatus={orgStatus} />;
+  }
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopExpanded, setDesktopExpanded] = useReactState(true);
@@ -262,6 +270,8 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   const extraItems = DEFAULT_NAV_ITEMS.filter((i) => !navOrder.includes(i.to));
   const allOrderedItems = [...orderedItems, ...extraItems];
   const visibleNavItems = allOrderedItems.filter((item) => {
+    // Platform-only entries: gated by platform_admin, not visible to tenants.
+    if ((item as any).platformOnly) return orgStatus.is_platform_admin;
     // Dashboard ("/") is always visible to authenticated users.
     if (item.to === "/") return true;
     if (userRole === "admin") return true;
