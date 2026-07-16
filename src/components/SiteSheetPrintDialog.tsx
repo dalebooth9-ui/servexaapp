@@ -107,7 +107,7 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
         const { data: job, error } = await supabase
           .from("jobs")
           .select(
-            "id, reference_number, name, address, category, priority, due_date, visual_qty, pressure_test_qty, other_qty, other_service_type, customer, customer_id, site_id, customers(id, name, logo_url), sites(id, name, address, postcode, riser_location)"
+            "id, reference_number, customer_po, name, address, category, priority, due_date, visual_qty, pressure_test_qty, other_qty, other_service_type, customer, customer_id, site_id, customers(id, name, logo_url), sites(id, name, address, postcode, riser_location)"
           )
           .eq("id", jobId)
           .maybeSingle();
