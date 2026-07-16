@@ -180,7 +180,14 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
       });
     }
 
-    out.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    out.sort((a, b) => {
+      const ao = a.displayOrder ?? null;
+      const bo = b.displayOrder ?? null;
+      if (ao !== null && bo !== null) return ao - bo;
+      if (ao !== null) return -1;
+      if (bo !== null) return 1;
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
 
     // Batch-sign. Most sources live in "submissions", but job_documents
     // may point at other buckets (e.g. "po-intake" for email attachments).
