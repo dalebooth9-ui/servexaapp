@@ -19,6 +19,7 @@ type Article = {
   common_problems: { problem: string; fix: string }[];
   related_slugs: string[];
   keywords: string[];
+  source_paths: string[];
   last_updated: string;
 };
 
