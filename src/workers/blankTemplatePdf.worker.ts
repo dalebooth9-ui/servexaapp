@@ -451,7 +451,12 @@ async function buildPdf(payload: WorkerPayload) {
   const customerName = jobInfo?.customers?.name || jobInfo?.customer || "";
   const siteName = jobInfo?.site?.name || "";
   const siteAddress = [jobInfo?.site?.address || jobInfo?.address || "", jobInfo?.site?.postcode || ""].filter(Boolean).join(", ");
-  const refNumber = jobInfo?.reference_number || "";
+  // Customer paperwork leads with the customer's PO; internal VFP-ref is fallback.
+  const _custPo = (jobInfo?.customer_po || "").trim();
+  const _intRef = (jobInfo?.reference_number || "").trim();
+  const refNumber = _custPo && _intRef && _custPo !== _intRef
+    ? `PO: ${_custPo}  /  Our ref: ${_intRef}`
+    : _custPo || _intRef;
   const dateVal = (() => {
     const iso = jobInfo?.due_date;
     if (!iso) return "";
