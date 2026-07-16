@@ -5,9 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PenLine, Trash2, RotateCcw, Check } from "lucide-react";
+import { PenLine, Trash2, RotateCcw, Check, ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import {
+  loadEngineerSignatureLibrary,
+  findEngineerSignatureByName,
+  signedUrlForEngineerSignature,
+  type EngineerSignatureRow,
+} from "@/lib/engineerSignatureLibrary";
 
 interface Signature {
   id: string;
@@ -51,6 +57,7 @@ export default function SignatureCapture({
   const [customerName, setCustomerName] = useState(defaultSignerName);
   const [customerPosition, setCustomerPosition] = useState("");
   const [engineerName, setEngineerName] = useState("");
+  const [savedSig, setSavedSig] = useState<EngineerSignatureRow | null>(null);
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -59,6 +66,19 @@ export default function SignatureCapture({
         .then(({ data }) => setEngineerName(data?.full_name || ""));
     }
   }, [user, signerRole]);
+
+  // Look up a stored signature for this signer (engineer sign-off only).
+  useEffect(() => {
+    if (signerRole === "customer" || !user) { setSavedSig(null); return; }
+    (async () => {
+      try {
+        const lib = await loadEngineerSignatureLibrary();
+        // Prefer exact user_id match, else fall back to name match.
+        const byId = lib.find((r) => r.user_id && r.user_id === user.id);
+        setSavedSig(byId || findEngineerSignatureByName(lib, engineerName));
+      } catch { setSavedSig(null); }
+    })();
+  }, [user, signerRole, engineerName]);
 
   const fetchSignatures = async () => {
     let query = supabase
@@ -160,10 +180,14 @@ export default function SignatureCapture({
         canvas.toBlob((b) => resolve(b!), "image/png");
       });
 
-      const filePath = `${user.id}/${jobId}-${signerRole}-${Date.now()}.png`;
+      // IMPORTANT: the DB row's file_path MUST equal the actual storage
+      // object path (org-prefixed) or signed-URL lookups will silently 404 —
+      // that's why previous exports had signature rows but no image drawn.
+      const relPath = `${user.id}/${jobId}-${signerRole}-${Date.now()}.png`;
+      const storagePath = await buildOrgPathAsync(relPath);
       const { error: uploadErr } = await supabase.storage
         .from("signatures")
-        .upload(await buildOrgPathAsync(filePath), blob, { contentType: "image/png" });
+        .upload(storagePath, blob, { contentType: "image/png" });
       if (uploadErr) throw uploadErr;
 
       const { error: insertErr } = await supabase.from("job_signatures" as any).insert({
@@ -172,9 +196,13 @@ export default function SignatureCapture({
         signer_name: resolvedName,
         signer_role: signerRole === "customer" ? "customer" : (userRole || "engineer"),
         signer_position: resolvedPosition,
-        file_path: filePath,
+        file_path: storagePath,
       } as any);
-      if (insertErr) throw insertErr;
+      if (insertErr) {
+        // Clean up the orphan storage object so we don't accumulate dead files.
+        await supabase.storage.from("signatures").remove([storagePath]).catch(() => {});
+        throw insertErr;
+      }
 
       toast({ title: "Signature saved" });
       clearCanvas();
@@ -196,6 +224,52 @@ export default function SignatureCapture({
     } else {
       setSignatures((prev) => prev.filter((s) => s.id !== sig.id));
       toast({ title: "Signature removed" });
+    }
+  };
+
+  /**
+   * Copy the signer's stored library signature into this job as a fresh
+   * signature record. We copy (not reference) so per-job deletion doesn't
+   * delete the library file.
+   */
+  const handleUseSaved = async () => {
+    if (!user || !savedSig) return;
+    setSaving(true);
+    try {
+      const signed = await signedUrlForEngineerSignature(savedSig.file_path);
+      if (!signed) throw new Error("Could not access saved signature");
+      const resp = await fetch(signed);
+      if (!resp.ok) throw new Error("Could not download saved signature");
+      const blob = await resp.blob();
+
+      const relPath = `${user.id}/${jobId}-${signerRole}-${Date.now()}.png`;
+      const storagePath = await buildOrgPathAsync(relPath);
+      const { error: uploadErr } = await supabase.storage
+        .from("signatures")
+        .upload(storagePath, blob, { contentType: "image/png" });
+      if (uploadErr) throw uploadErr;
+
+      const { error: insertErr } = await supabase.from("job_signatures" as any).insert({
+        job_id: jobId,
+        signer_id: user.id,
+        signer_name: engineerName || savedSig.name || "Unknown",
+        signer_role: userRole || "engineer",
+        signer_position: null,
+        file_path: storagePath,
+      } as any);
+      if (insertErr) {
+        await supabase.storage.from("signatures").remove([storagePath]).catch(() => {});
+        throw insertErr;
+      }
+
+      toast({ title: "Saved signature applied" });
+      setDrawing(false);
+      clearCanvas();
+      fetchSignatures();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -300,9 +374,17 @@ export default function SignatureCapture({
           </div>
         </div>
       ) : (
-        <Button variant="outline" size="sm" onClick={() => setDrawing(true)}>
-          <PenLine className="mr-1.5 h-4 w-4" /> {signerRole === "customer" ? "Add Customer Signature" : "Add Signature"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => setDrawing(true)}>
+            <PenLine className="mr-1.5 h-4 w-4" /> {signerRole === "customer" ? "Add Customer Signature" : "Draw Signature"}
+          </Button>
+          {signerRole !== "customer" && savedSig && (
+            <Button variant="secondary" size="sm" onClick={handleUseSaved} disabled={saving}>
+              <ImageIcon className="mr-1.5 h-4 w-4" />
+              {saving ? "Applying..." : "Use saved signature"}
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
