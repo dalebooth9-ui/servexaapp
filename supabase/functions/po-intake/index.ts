@@ -205,17 +205,14 @@ serve(async (req) => {
     org_id: orgId,
     is_remedial: inferred.isRemedial,
   };
-  if (po_number?.trim()) jobInsert.reference_number = po_number.trim();
-
+  // Store the customer's PO in its own field; let reference_number auto-generate
+  // to our VFP- sequence so internal ref and customer PO stay independent.
+  if (po_number?.trim()) jobInsert.customer_po = po_number.trim();
 
   const attempt = async (payload: Record<string, unknown>) =>
-    admin.from("jobs").insert(payload as any).select("id, reference_number").single();
+    admin.from("jobs").insert(payload as any).select("id, reference_number, customer_po").single();
 
   let { data: job, error } = await attempt(jobInsert);
-  if (error?.code === "23505" && jobInsert.reference_number) {
-    delete jobInsert.reference_number;
-    ({ data: job, error } = await attempt(jobInsert));
-  }
   if (error || !job) {
     console.error("Job insert failed:", error);
     return json(500, { error: "Could not create job", detail: error?.message });
