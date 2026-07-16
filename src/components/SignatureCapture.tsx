@@ -312,11 +312,12 @@ export default function SignatureCapture({
                       {sig.signer_role} • {new Date(sig.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>
-                  {(userRole === "admin" || sig.signer_id === user?.id) && (
-                    <button onClick={() => handleDelete(sig)} className="text-muted-foreground hover:text-destructive">
+                  {(userRole === "admin" || userRole === "office" || sig.signer_id === user?.id) && (
+                    <button onClick={() => handleDelete(sig)} className="text-muted-foreground hover:text-destructive" title="Delete signature">
                       <Trash2 className="h-4 w-4" />
                     </button>
                   )}
+
                 </div>
               </CardContent>
             </Card>
