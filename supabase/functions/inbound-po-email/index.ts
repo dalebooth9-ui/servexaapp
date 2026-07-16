@@ -1171,7 +1171,29 @@ serve(async (req) => {
     else uploadedCount++;
   }
 
-  console.log("[inbound-po-email] outcome", {
+  // ── Record inbound email into the per-job Emails timeline ──────────────
+  try {
+    const bodyText = (email.text || stripHtml(email.html) || "").slice(0, 100000);
+    const snippet = bodyText.replace(/\s+/g, " ").trim().slice(0, 240);
+    await admin.from("job_emails").insert({
+      job_id: jobId,
+      org_id: orgId,
+      direction: "inbound",
+      from_email: email.from || null,
+      to_emails: email.to && email.to.length ? email.to : null,
+      subject: email.subject || null,
+      snippet: snippet || null,
+      body_text: bodyText || null,
+      body_html: email.html ? email.html.slice(0, 200000) : null,
+      message_id: threadHeaders.messageId || null,
+      in_reply_to: threadHeaders.inReplyTo || null,
+      eml_path: `storage://po-intake/${orgId}/${jobId}/original.eml`,
+      attachment_count: email.attachments.length,
+      received_at: new Date().toISOString(),
+    } as any);
+  } catch (e) { console.warn("job_emails insert failed", e); }
+
+
     from: email.from,
     subject: email.subject,
     attachment_count: email.attachments.length,
