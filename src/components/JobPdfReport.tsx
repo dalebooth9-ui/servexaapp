@@ -23,38 +23,88 @@ interface Props {
 
 // ── Table drawing helpers ──────────────────────────────────────────
 
+type TableCol = {
+  text: string;
+  x: number;
+  width: number;
+  bold?: boolean;
+  color?: [number, number, number];
+  align?: "left" | "center" | "right";
+};
+
+const CELL_LINE_H = 4;
+const CELL_PAD_X = 2;
+const CELL_PAD_Y = 3;
+
+/**
+ * Compute the height a row will need so that all its cell text wraps within
+ * cell width without clipping. Callers use this BEFORE checkPage so we never
+ * paginate mid-row and never clip long dynamic strings.
+ */
+function measureTableRowHeight(
+  doc: jsPDF,
+  cols: TableCol[],
+  minRowHeight: number
+): number {
+  let maxLines = 1;
+  for (const col of cols) {
+    const usable = Math.max(4, col.width - CELL_PAD_X * 2);
+    const lines = doc.splitTextToSize(String(col.text ?? ""), usable) as string[];
+    if (lines.length > maxLines) maxLines = lines.length;
+  }
+  return Math.max(minRowHeight, maxLines * CELL_LINE_H + CELL_PAD_Y);
+}
+
+/**
+ * Draw a table row with automatic text wrapping in every cell.
+ * Body rows (no `bg` passed) have TRANSPARENT interiors so the page watermark
+ * shows through evenly. Solid fills are ONLY drawn for header rows the caller
+ * explicitly asks for by passing `bg` (navy section headers / grey column
+ * headers). Zebra body stripes are intentionally not supported — they blank
+ * the watermark inconsistently.
+ * Returns the actual height drawn.
+ */
 function drawTableRow(
   doc: jsPDF,
   y: number,
-  cols: { text: string; x: number; width: number; bold?: boolean; color?: [number, number, number]; align?: "left" | "center" | "right" }[],
+  cols: TableCol[],
   rowHeight: number,
   margin: number,
   totalWidth: number,
   bg?: [number, number, number]
-) {
+): number {
+  const dynH = measureTableRowHeight(doc, cols, rowHeight);
   if (bg) {
     doc.setFillColor(...bg);
-    doc.rect(margin, y, totalWidth, rowHeight, "F");
+    doc.rect(margin, y, totalWidth, dynH, "F");
   }
   doc.setDrawColor(200, 200, 200);
-  doc.rect(margin, y, totalWidth, rowHeight, "S");
+  // Outer + per-cell borders drawn as strokes only (transparent interiors).
+  doc.rect(margin, y, totalWidth, dynH, "S");
   let xOffset = margin;
   cols.forEach((col) => {
-    doc.rect(xOffset, y, col.width, rowHeight, "S");
+    doc.rect(xOffset, y, col.width, dynH, "S");
     doc.setFont("helvetica", col.bold ? "bold" : "normal");
     if (col.color) doc.setTextColor(...col.color);
     else doc.setTextColor(30, 30, 30);
-    const textY = y + rowHeight / 2 + 1.5;
-    if (col.align === "right") {
-      doc.text(col.text, xOffset + col.width - 2, textY, { align: "right" });
-    } else if (col.align === "center") {
-      doc.text(col.text, xOffset + col.width / 2, textY, { align: "center" });
-    } else {
-      doc.text(col.text, xOffset + 2, textY);
-    }
+    const usable = Math.max(4, col.width - CELL_PAD_X * 2);
+    const lines = doc.splitTextToSize(String(col.text ?? ""), usable) as string[];
+    const singleLine = lines.length <= 1;
+    const startY = singleLine ? y + dynH / 2 + 1.5 : y + CELL_PAD_Y + 1;
+    lines.forEach((ln, i) => {
+      const ty = startY + i * CELL_LINE_H;
+      if (col.align === "right") {
+        doc.text(ln, xOffset + col.width - CELL_PAD_X, ty, { align: "right" });
+      } else if (col.align === "center") {
+        doc.text(ln, xOffset + col.width / 2, ty, { align: "center" });
+      } else {
+        doc.text(ln, xOffset + CELL_PAD_X, ty);
+      }
+    });
     doc.setTextColor(30, 30, 30);
     xOffset += col.width;
   });
+  return dynH;
 }
 
 function sectionTitle(doc: jsPDF, title: string, y: number, margin: number, maxWidth: number): number {
