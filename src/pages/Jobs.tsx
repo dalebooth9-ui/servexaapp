@@ -455,38 +455,38 @@ export default function Jobs() {
       return;
     }
     setMergeTargetId("");
-    setMergeDialogOpen(true);
+    setPendingMergeOpen(true);
   };
 
   const handleMergePending = async () => {
     const ids = Array.from(selectedPendingIds);
-    if (!mergeTargetId || !ids.includes(mergeTargetId)) {
+    if (!pendingMergeTargetId || !ids.includes(pendingMergeTargetId)) {
       toast({ title: "Pick a target draft", variant: "destructive" });
       return;
     }
-    const sourceIds = ids.filter((id) => id !== mergeTargetId);
+    const sourceIds = ids.filter((id) => id !== pendingMergeTargetId);
     // Move documents onto the target, then dismiss the sources.
     const { error: docErr } = await supabase
       .from("job_documents" as any)
-      .update({ job_id: mergeTargetId } as any)
+      .update({ job_id: pendingMergeTargetId } as any)
       .in("job_id", sourceIds);
     if (docErr) {
       toast({ title: "Merge failed", description: docErr.message, variant: "destructive" });
       return;
     }
     // Best-effort: move any thread notes / messages too.
-    await supabase.from("job_messages" as any).update({ job_id: mergeTargetId } as any).in("job_id", sourceIds);
+    await supabase.from("job_messages" as any).update({ job_id: pendingMergeTargetId } as any).in("job_id", sourceIds);
     // Add a note on the target listing what was merged.
     const sourceRefs = jobs.filter((j) => sourceIds.includes(j.id)).map((j) => j.reference_number).filter(Boolean).join(", ");
     await supabase.from("job_messages" as any).insert({
-      job_id: mergeTargetId,
+      job_id: pendingMergeTargetId,
       message: `Merged ${sourceIds.length} duplicate draft(s) into this one: ${sourceRefs}. Their attachments and notes have been consolidated here.`,
       author_role: "system",
     } as any);
     // Dismiss the source drafts.
     const { error: rejErr } = await supabase
       .from("jobs")
-      .update({ status: "rejected", rejection_reason: `Merged into ${jobs.find((j) => j.id === mergeTargetId)?.reference_number ?? "another draft"}` } as any)
+      .update({ status: "rejected", rejection_reason: `Merged into ${jobs.find((j) => j.id === pendingMergeTargetId)?.reference_number ?? "another draft"}` } as any)
       .in("id", sourceIds);
     if (rejErr) {
       toast({ title: "Sources not dismissed", description: rejErr.message, variant: "destructive" });
@@ -494,8 +494,8 @@ export default function Jobs() {
     }
     setJobs((prev) => prev.map((j) => (sourceIds.includes(j.id) ? { ...j, status: "rejected" } : j)));
     setSelectedPendingIds(new Set());
-    setMergeDialogOpen(false);
-    toast({ title: `Merged ${sourceIds.length} draft(s)`, description: `Consolidated into ${jobs.find((j) => j.id === mergeTargetId)?.reference_number ?? "target draft"}.` });
+    setPendingMergeOpen(false);
+    toast({ title: `Merged ${sourceIds.length} draft(s)`, description: `Consolidated into ${jobs.find((j) => j.id === pendingMergeTargetId)?.reference_number ?? "target draft"}.` });
   };
 
 
@@ -1168,7 +1168,7 @@ export default function Jobs() {
       if (!targetFolder || targetFolder === wasFolder || targetFolder === "__new_customer__") return;
       setMergeSource(wasFolder);
       setMergeTarget(targetFolder);
-      setMergeDialogOpen(true);
+      setPendingMergeOpen(true);
       return;
     }
 
@@ -1285,7 +1285,7 @@ export default function Jobs() {
 
   const handleMergeConfirm = async () => {
     if (!mergeSource || !mergeTarget) return;
-    setMergeDialogOpen(false);
+    setPendingMergeOpen(false);
 
     const targetCust = customers.find((c) => c.name === mergeTarget);
     const targetId = targetCust?.id || null;
