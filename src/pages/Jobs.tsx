@@ -2008,6 +2008,23 @@ export default function Jobs() {
                         </Button>
                         <Button
                           size="sm"
+                          variant="outline"
+                          className="h-7 px-3"
+                          disabled={selectedPendingIds.size < 2}
+                          onClick={openMergeDialog}
+                          title={selectedPendingIds.size < 2 ? "Select 2+ drafts to merge" : "Merge selected drafts into one"}
+                        >
+                          Merge into…
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-7 px-3"
+                          onClick={() => handleBulkDismissPending(Array.from(selectedPendingIds))}
+                        >
+                          Dismiss selected
+                        <Button
+                          size="sm"
                           variant="ghost"
                           className="h-7 px-2 text-xs"
                           onClick={() => setSelectedPendingIds(new Set())}
