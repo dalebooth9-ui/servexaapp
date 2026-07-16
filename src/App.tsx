@@ -133,7 +133,14 @@ function AccessRoute({ children, pageSlug }: { children: ReactNode; pageSlug: st
 function AuthRoute() {
   const { user, loading } = useAuth();
   if (loading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
-  if (user) return <Navigate to="/" replace />;
+  if (user) {
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next");
+    if (next && next.startsWith("/") && !next.startsWith("//")) {
+      return <Navigate to={next} replace />;
+    }
+    return <Navigate to="/" replace />;
+  }
   return <Auth />;
 }
 
