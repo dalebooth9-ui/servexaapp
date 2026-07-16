@@ -566,7 +566,7 @@ export default function JobWordReport({ jobId, job }: Props) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `job-report-${job.reference_number || jobId}.docx`;
+      a.download = `job-report-${job.customer_po || job.reference_number || jobId}.docx`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 30_000);
       toast({ title: "Word report ready", description: "Downloaded — edit and send from Word." });
