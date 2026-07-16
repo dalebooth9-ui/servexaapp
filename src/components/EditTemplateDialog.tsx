@@ -79,18 +79,29 @@ type Props = {
   onSaved: (updatedTemplate?: Template) => void;
 };
 
+// Ordered plain-English labels grouped by "how a non-technical user thinks".
+// Keys are the stored `field.type` — do NOT change the keys, only the labels.
 const FIELD_TYPE_LABELS: Record<string, string> = {
-  text: "Short Text",
+  text: "Text",
+  textarea: "Long text",
   number: "Number",
   date: "Date",
-  checkbox: "Checkbox",
-  pass_fail: "Pass/Fail",
-  select: "Dropdown",
-  textarea: "Long Text",
+  checkbox: "Yes / No",
+  select: "Multiple choice",
+  pass_fail: "Pass / Fail",
   photo: "Photo",
   signature: "Signature",
-  repeating_table: "Repeating Table",
+  repeating_table: "Table",
 };
+
+// One-click option presets for "Multiple choice" fields. Order matters — the
+// first entry is the most common (matches how inspectors mark paper sheets).
+const OPTION_PRESETS: Array<{ label: string; options: string[] }> = [
+  { label: "Yes / No", options: ["Yes", "No"] },
+  { label: "Yes / No / N/A", options: ["Yes", "No", "N/A"] },
+  { label: "Satisfactory / Unsatisfactory / N/A", options: ["Satisfactory", "Unsatisfactory", "N/A"] },
+  { label: "Pass / Fail / N/A", options: ["Pass", "Fail", "N/A"] },
+];
 
 function SortableFieldRow({
   field,
@@ -157,7 +168,8 @@ function SortableFieldRow({
             <select
               value={field.type}
               onChange={(e) => onFieldChange(idx, "type", e.target.value)}
-              className="h-7 text-xs border rounded px-1.5 bg-background shrink-0 max-w-[110px]"
+              className="h-7 text-xs border rounded px-1.5 bg-background shrink-0 w-[150px]"
+              title="Answer type"
             >
               {Object.entries(FIELD_TYPE_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>
@@ -267,40 +279,72 @@ function SortableFieldRow({
       </div>
 
       {isDropdown && showOptions && (
-        <div className="mx-3 mb-2 p-2 border rounded bg-muted/30 space-y-1.5">
-          {options.length === 0 && <p className="text-[10px] text-muted-foreground">No options yet. Add some below.</p>}
-          <div className="flex flex-wrap gap-1.5">
-            {options.map((opt, optIdx) => (
-              <Badge key={optIdx} variant="secondary" className="text-[10px] gap-1">
-                {opt}
-                <button type="button" onClick={() => removeOption(optIdx)} className="hover:text-destructive">
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              </Badge>
-            ))}
+        <div className="mx-3 mb-2 p-2 border rounded bg-muted/30 space-y-2">
+          {/* One-click presets — most templates only need one of these */}
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Quick presets</p>
+            <div className="flex flex-wrap gap-1">
+              {OPTION_PRESETS.map((p) => {
+                const active =
+                  options.length === p.options.length &&
+                  options.every((o, i) => o === p.options[i]);
+                return (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => onFieldChange(idx, "options", p.options)}
+                    className={`text-[10px] rounded px-1.5 py-0.5 border transition-colors ${
+                      active
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background hover:bg-muted border-border"
+                    }`}
+                    title={`Set options to: ${p.options.join(", ")}`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 mt-1">
-            <Input
-              value={newOption}
-              onChange={(e) => setNewOption(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addOption();
-                }
-              }}
-              placeholder="Add option..."
-              className="h-6 text-xs flex-1"
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-6 text-xs px-2"
-              onClick={addOption}
-              disabled={!newOption.trim()}
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
+
+          <div className="border-t pt-2 space-y-1.5">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Current options {options.length > 0 ? `(${options.length})` : ""}
+            </p>
+            {options.length === 0 && <p className="text-[10px] text-muted-foreground">No options yet. Pick a preset above or add your own below.</p>}
+            <div className="flex flex-wrap gap-1.5">
+              {options.map((opt, optIdx) => (
+                <Badge key={optIdx} variant="secondary" className="text-[10px] gap-1">
+                  {opt}
+                  <button type="button" onClick={() => removeOption(optIdx)} className="hover:text-destructive">
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5 mt-1">
+              <Input
+                value={newOption}
+                onChange={(e) => setNewOption(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addOption();
+                  }
+                }}
+                placeholder="Add custom option…"
+                className="h-6 text-xs flex-1"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-xs px-2"
+                onClick={addOption}
+                disabled={!newOption.trim()}
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
         </div>
       )}
