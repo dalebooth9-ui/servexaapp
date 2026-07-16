@@ -34,8 +34,6 @@ type PhotoItem = {
   submissionId?: string;
 };
 
-const BUCKET = "submissions";
-
 function sourceMeta(s: Source) {
   switch (s) {
     case "whatsapp": return { label: "WhatsApp", icon: MessageCircle, className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" };
@@ -199,7 +197,7 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     });
 
     const signedUrls = await Promise.all(
-      meta.map((p) => createSubmissionPhotoSignedUrl(`storage://${p.bucket}/${p.storagePath}`, jobId, 3600)),
+      out.map((p) => createSubmissionPhotoSignedUrl(p.storagePath || p.fallbackUrl || "", jobId, 3600)),
     );
 
     setItems(out.map((p, i) => ({
