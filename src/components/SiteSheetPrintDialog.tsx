@@ -164,7 +164,7 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
           siteAddress: (site?.address || jobAny.address || "").toString(),
           sitePostcode: (site?.postcode || "").toString(),
           riserLocation: (site?.riser_location || "").toString(),
-          refNumber: (jobAny.reference_number || "").toString(),
+          refNumber: ((jobAny.customer_po as string | null) || jobAny.reference_number || "").toString(),
           dueDate: (jobAny.due_date ? String(jobAny.due_date).slice(0, 10) : ""),
           engineers: engineerNames.join(", "),
           notes: "",
