@@ -268,6 +268,25 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
     return () => { mounted = false; supabase.removeChannel(channel); };
   }, []);
 
+  useEffect(() => {
+    if (!orgStatus.is_platform_admin) return;
+    let mounted = true;
+    const fetchOpen = async () => {
+      const { count } = await supabase
+        .from("support_tickets")
+        .select("id", { count: "exact", head: true })
+        .neq("status", "resolved");
+      if (mounted) setPlatformSupportOpen(count || 0);
+    };
+    fetchOpen();
+    const channel = supabase
+      .channel("platform-support-count-sidebar")
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_tickets" }, fetchOpen)
+      .subscribe();
+    return () => { mounted = false; supabase.removeChannel(channel); };
+  }, [orgStatus.is_platform_admin]);
+
+
 
   const orderedItems = navOrder.map((to) => DEFAULT_NAV_ITEMS.find((i) => i.to === to)).filter(Boolean) as typeof DEFAULT_NAV_ITEMS;
   const extraItems = DEFAULT_NAV_ITEMS.filter((i) => !navOrder.includes(i.to));
