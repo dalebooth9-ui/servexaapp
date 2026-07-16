@@ -180,10 +180,14 @@ export default function SignatureCapture({
         canvas.toBlob((b) => resolve(b!), "image/png");
       });
 
-      const filePath = `${user.id}/${jobId}-${signerRole}-${Date.now()}.png`;
+      // IMPORTANT: the DB row's file_path MUST equal the actual storage
+      // object path (org-prefixed) or signed-URL lookups will silently 404 —
+      // that's why previous exports had signature rows but no image drawn.
+      const relPath = `${user.id}/${jobId}-${signerRole}-${Date.now()}.png`;
+      const storagePath = await buildOrgPathAsync(relPath);
       const { error: uploadErr } = await supabase.storage
         .from("signatures")
-        .upload(await buildOrgPathAsync(filePath), blob, { contentType: "image/png" });
+        .upload(storagePath, blob, { contentType: "image/png" });
       if (uploadErr) throw uploadErr;
 
       const { error: insertErr } = await supabase.from("job_signatures" as any).insert({
@@ -192,9 +196,13 @@ export default function SignatureCapture({
         signer_name: resolvedName,
         signer_role: signerRole === "customer" ? "customer" : (userRole || "engineer"),
         signer_position: resolvedPosition,
-        file_path: filePath,
+        file_path: storagePath,
       } as any);
-      if (insertErr) throw insertErr;
+      if (insertErr) {
+        // Clean up the orphan storage object so we don't accumulate dead files.
+        await supabase.storage.from("signatures").remove([storagePath]).catch(() => {});
+        throw insertErr;
+      }
 
       toast({ title: "Signature saved" });
       clearCanvas();
