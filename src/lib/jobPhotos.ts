@@ -54,9 +54,10 @@ type LoadOpts = {
 export async function fetchJobPhotoMeta(jobId: string): Promise<JobPhoto[]> {
   const { data: subs } = await supabase
     .from("submissions")
-    .select("id, file_url, file_name, content, created_at, engineer_id")
+    .select("id, file_url, file_name, content, created_at, engineer_id, display_order")
     .eq("job_id", jobId)
     .eq("type", "photo")
+    .order("display_order", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true });
 
   const rows = (subs || []).filter((s: any) => !!s.file_url) as any[];
