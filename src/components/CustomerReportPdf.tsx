@@ -232,10 +232,12 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         doc.setFontSize(11);
         doc.setFont("helvetica", "normal");
         visits.forEach((v: any) => {
-          y = checkPage(7, y);
           const statusIcon = v.status === "completed" ? "✓" : v.status === "cancelled" ? "✗" : "○";
-          doc.text(`${statusIcon}  ${v.scheduled_date} — ${v.status}${v.notes ? ` — ${v.notes}` : ""}`, margin, y);
-          y += 6;
+          const line = `${statusIcon}  ${v.scheduled_date} — ${v.status}${v.notes ? ` — ${v.notes}` : ""}`;
+          const wrapped = doc.splitTextToSize(line, maxWidth) as string[];
+          y = checkPage(wrapped.length * 5 + 2, y);
+          wrapped.forEach((ln) => { doc.text(ln, margin, y); y += 5; });
+          y += 1;
         });
         y += 5;
       }
@@ -262,12 +264,15 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         doc.setFontSize(11);
         doc.setFont("helvetica", "normal");
         parts.forEach((p: any) => {
-          y = checkPage(7, y);
-          doc.text(p.name, margin + 2, y);
+          const nameW = 100 - margin - 2 - 2; // space between margin+2 and margin+100
+          const nameLines = doc.splitTextToSize(String(p.name || ""), nameW) as string[];
+          const rowH = Math.max(6, nameLines.length * 5 + 1);
+          y = checkPage(rowH, y);
+          nameLines.forEach((ln, i) => doc.text(ln, margin + 2, y + i * 5));
           doc.text(String(p.quantity), margin + 100, y);
           doc.text(`£${Number(p.unit_cost).toFixed(2)}`, margin + 115, y);
           doc.text(`£${Number(p.total_cost).toFixed(2)}`, margin + 145, y);
-          y += 6;
+          y += rowH;
         });
         const totalParts = parts.reduce((s: number, p: any) => s + Number(p.total_cost || 0), 0);
         doc.setFont("helvetica", "bold");

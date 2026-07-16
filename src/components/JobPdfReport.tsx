@@ -23,38 +23,88 @@ interface Props {
 
 // ── Table drawing helpers ──────────────────────────────────────────
 
+type TableCol = {
+  text: string;
+  x: number;
+  width: number;
+  bold?: boolean;
+  color?: [number, number, number];
+  align?: "left" | "center" | "right";
+};
+
+const CELL_LINE_H = 4;
+const CELL_PAD_X = 2;
+const CELL_PAD_Y = 3;
+
+/**
+ * Compute the height a row will need so that all its cell text wraps within
+ * cell width without clipping. Callers use this BEFORE checkPage so we never
+ * paginate mid-row and never clip long dynamic strings.
+ */
+function measureTableRowHeight(
+  doc: jsPDF,
+  cols: TableCol[],
+  minRowHeight: number
+): number {
+  let maxLines = 1;
+  for (const col of cols) {
+    const usable = Math.max(4, col.width - CELL_PAD_X * 2);
+    const lines = doc.splitTextToSize(String(col.text ?? ""), usable) as string[];
+    if (lines.length > maxLines) maxLines = lines.length;
+  }
+  return Math.max(minRowHeight, maxLines * CELL_LINE_H + CELL_PAD_Y);
+}
+
+/**
+ * Draw a table row with automatic text wrapping in every cell.
+ * Body rows (no `bg` passed) have TRANSPARENT interiors so the page watermark
+ * shows through evenly. Solid fills are ONLY drawn for header rows the caller
+ * explicitly asks for by passing `bg` (navy section headers / grey column
+ * headers). Zebra body stripes are intentionally not supported — they blank
+ * the watermark inconsistently.
+ * Returns the actual height drawn.
+ */
 function drawTableRow(
   doc: jsPDF,
   y: number,
-  cols: { text: string; x: number; width: number; bold?: boolean; color?: [number, number, number]; align?: "left" | "center" | "right" }[],
+  cols: TableCol[],
   rowHeight: number,
   margin: number,
   totalWidth: number,
   bg?: [number, number, number]
-) {
+): number {
+  const dynH = measureTableRowHeight(doc, cols, rowHeight);
   if (bg) {
     doc.setFillColor(...bg);
-    doc.rect(margin, y, totalWidth, rowHeight, "F");
+    doc.rect(margin, y, totalWidth, dynH, "F");
   }
   doc.setDrawColor(200, 200, 200);
-  doc.rect(margin, y, totalWidth, rowHeight, "S");
+  // Outer + per-cell borders drawn as strokes only (transparent interiors).
+  doc.rect(margin, y, totalWidth, dynH, "S");
   let xOffset = margin;
   cols.forEach((col) => {
-    doc.rect(xOffset, y, col.width, rowHeight, "S");
+    doc.rect(xOffset, y, col.width, dynH, "S");
     doc.setFont("helvetica", col.bold ? "bold" : "normal");
     if (col.color) doc.setTextColor(...col.color);
     else doc.setTextColor(30, 30, 30);
-    const textY = y + rowHeight / 2 + 1.5;
-    if (col.align === "right") {
-      doc.text(col.text, xOffset + col.width - 2, textY, { align: "right" });
-    } else if (col.align === "center") {
-      doc.text(col.text, xOffset + col.width / 2, textY, { align: "center" });
-    } else {
-      doc.text(col.text, xOffset + 2, textY);
-    }
+    const usable = Math.max(4, col.width - CELL_PAD_X * 2);
+    const lines = doc.splitTextToSize(String(col.text ?? ""), usable) as string[];
+    const singleLine = lines.length <= 1;
+    const startY = singleLine ? y + dynH / 2 + 1.5 : y + CELL_PAD_Y + 1;
+    lines.forEach((ln, i) => {
+      const ty = startY + i * CELL_LINE_H;
+      if (col.align === "right") {
+        doc.text(ln, xOffset + col.width - CELL_PAD_X, ty, { align: "right" });
+      } else if (col.align === "center") {
+        doc.text(ln, xOffset + col.width / 2, ty, { align: "center" });
+      } else {
+        doc.text(ln, xOffset + CELL_PAD_X, ty);
+      }
+    });
     doc.setTextColor(30, 30, 30);
     xOffset += col.width;
   });
+  return dynH;
 }
 
 function sectionTitle(doc: jsPDF, title: string, y: number, margin: number, maxWidth: number): number {
@@ -606,23 +656,14 @@ export default function JobPdfReport({ jobId, job }: Props) {
       detailRows.forEach(([label, value]) => {
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        const wrapped = doc.splitTextToSize(String(value ?? ""), valW - 4) as string[];
-        const lineH = 5;
-        const dynH = Math.max(rowH, wrapped.length * lineH + 3);
-        checkPage(dynH);
-        // Row background/borders via drawTableRow with a single-line placeholder
-        // so we keep the shared cell chrome, then over-draw the wrapped value.
-        drawTableRow(doc, y, [
+        const cols: TableCol[] = [
           { text: label, x: margin, width: labelW, bold: true },
-          { text: "", x: margin + labelW, width: valW },
-        ], dynH, margin, maxWidth);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10);
-        doc.setTextColor(30, 30, 30);
-        wrapped.forEach((ln, i) => {
-          doc.text(ln, margin + labelW + 2, y + 4.5 + i * lineH);
-        });
-        y += dynH;
+          { text: String(value ?? ""), x: margin + labelW, width: valW },
+        ];
+        const h = measureTableRowHeight(doc, cols, rowH);
+        checkPage(h);
+        const drawn = drawTableRow(doc, y, cols, rowH, margin, maxWidth);
+        y += drawn;
       });
       y += 6;
 
@@ -645,12 +686,13 @@ export default function JobPdfReport({ jobId, job }: Props) {
           ["Email", site?.contact_email || "—"],
         ].filter(([, v]) => v !== "—") as [string, string][];
         siteRows.forEach(([label, value]) => {
-          checkPage(rowH);
-          drawTableRow(doc, y, [
+          const cols: TableCol[] = [
             { text: label, x: margin, width: labelW, bold: true },
             { text: value, x: margin + labelW, width: valW },
-          ], rowH, margin, maxWidth);
-          y += rowH;
+          ];
+          const h = measureTableRowHeight(doc, cols, rowH);
+          checkPage(h);
+          y += drawTableRow(doc, y, cols, rowH, margin, maxWidth);
         });
         y += 6;
       }
@@ -663,20 +705,20 @@ export default function JobPdfReport({ jobId, job }: Props) {
         const statusW = maxWidth * 0.2;
         const notesW = maxWidth * 0.55;
         // Header
-        drawTableRow(doc, y, [
+        y += drawTableRow(doc, y, [
           { text: "Date", x: margin, width: dateW, bold: true },
           { text: "Status", x: margin + dateW, width: statusW, bold: true },
           { text: "Notes", x: margin + dateW + statusW, width: notesW, bold: true },
         ], rowH, margin, maxWidth, [235, 240, 248]);
-        y += rowH;
         visits.forEach((v: any) => {
-          checkPage(rowH);
-          drawTableRow(doc, y, [
+          const cols: TableCol[] = [
             { text: v.scheduled_date || "—", x: margin, width: dateW },
             { text: (v.status || "—").toUpperCase(), x: margin + dateW, width: statusW },
-            { text: (v.notes || "—").substring(0, 60), x: margin + dateW + statusW, width: notesW },
-          ], rowH, margin, maxWidth);
-          y += rowH;
+            { text: v.notes || "—", x: margin + dateW + statusW, width: notesW },
+          ];
+          const h = measureTableRowHeight(doc, cols, rowH);
+          checkPage(h);
+          y += drawTableRow(doc, y, cols, rowH, margin, maxWidth);
         });
         y += 6;
       }
@@ -689,20 +731,20 @@ export default function JobPdfReport({ jobId, job }: Props) {
         const qtyW = maxWidth * 0.1;
         const noteW = maxWidth * 0.35;
 
-        drawTableRow(doc, y, [
+        y += drawTableRow(doc, y, [
           { text: "Part Name", x: margin, width: nameW, bold: true },
           { text: "Qty", x: 0, width: qtyW, bold: true, align: "center" },
           { text: "Notes", x: 0, width: noteW, bold: true },
         ], rowH, margin, maxWidth, [235, 240, 248]);
-        y += rowH;
         parts.forEach((p: any) => {
-          checkPage(rowH);
-          drawTableRow(doc, y, [
-            { text: (p.name || "—").substring(0, 40), x: margin, width: nameW },
+          const cols: TableCol[] = [
+            { text: p.name || "—", x: margin, width: nameW },
             { text: String(p.quantity), x: 0, width: qtyW, align: "center" },
-            { text: (p.notes || "").substring(0, 30), x: 0, width: noteW },
-          ], rowH, margin, maxWidth);
-          y += rowH;
+            { text: p.notes || "", x: 0, width: noteW },
+          ];
+          const h = measureTableRowHeight(doc, cols, rowH);
+          checkPage(h);
+          y += drawTableRow(doc, y, cols, rowH, margin, maxWidth);
         });
         y += 6;
       }
@@ -716,29 +758,28 @@ export default function JobPdfReport({ jobId, job }: Props) {
         const certEngW = maxWidth * 0.25;
         const certDateW = maxWidth * 0.2;
 
-        drawTableRow(doc, y, [
+        y += drawTableRow(doc, y, [
           { text: "Certificate / Document", x: margin, width: certNameW, bold: true },
           { text: "Engineer", x: 0, width: certEngW, bold: true },
           { text: "Attached", x: 0, width: certDateW, bold: true, align: "center" },
         ], rowH, margin, maxWidth, [235, 240, 248]);
-        y += rowH;
 
-        let certRowIdx = 0;
         certs.forEach((c: any) => {
-          checkPage(rowH);
           const withoutPrefix = (c.file_name || "").replace(/^\[Cert\]\s*/, "");
           const sepIdx = withoutPrefix.lastIndexOf(" — ");
           const certTitle = sepIdx > -1 ? withoutPrefix.slice(0, sepIdx) : withoutPrefix;
           const engName = engineerProfileMap[c.engineer_id] || "Unknown";
           const dateStr = new Date(c.created_at).toLocaleDateString("en-GB");
-          const rowBg: [number, number, number] | undefined = certRowIdx % 2 === 0 ? [248, 249, 252] : undefined;
-          drawTableRow(doc, y, [
-            { text: certTitle.substring(0, 50), x: margin, width: certNameW },
-            { text: engName.substring(0, 30), x: 0, width: certEngW },
+          // Zebra body stripes intentionally removed — they blank the
+          // watermark inconsistently. Only header rows carry solid fills.
+          const cols: TableCol[] = [
+            { text: certTitle, x: margin, width: certNameW },
+            { text: engName, x: 0, width: certEngW },
             { text: dateStr, x: 0, width: certDateW, align: "center" },
-          ], rowH, margin, maxWidth, rowBg);
-          y += rowH;
-          certRowIdx++;
+          ];
+          const h = measureTableRowHeight(doc, cols, rowH);
+          checkPage(h);
+          y += drawTableRow(doc, y, cols, rowH, margin, maxWidth);
         });
         y += 6;
       }
@@ -775,17 +816,17 @@ export default function JobPdfReport({ jobId, job }: Props) {
 
             checkPage(12);
             // Sub-section header
-            drawTableRow(doc, y, [
+            y += drawTableRow(doc, y, [
               { text: section.toUpperCase(), x: margin, width: maxWidth, bold: true },
             ], rowH, margin, maxWidth, [220, 225, 235]);
-            y += rowH;
 
-            let fieldRowIdx = 0;
             for (const field of sectionFields) {
-              checkPage(rowH + 4);
               const val = responses[field.id];
               let displayVal = "—";
               let valColor: [number, number, number] | undefined;
+              // For long descriptive values, don't force centre alignment —
+              // wrapped multi-line text reads better left-aligned.
+              let valAlign: "left" | "center" | "right" = "center";
 
               if (field.type === "pass_fail") {
                 const normalizedVal = typeof val === "string" ? val.toLowerCase().trim() : "";
@@ -808,30 +849,38 @@ export default function JobPdfReport({ jobId, job }: Props) {
               } else if (field.type === "photo") {
                 displayVal = val ? "✓ Captured" : "—";
               } else if (val !== undefined && val !== null && val !== "") {
-                const raw = String(val).substring(0, 60);
+                const raw = String(val);
                 displayVal = raw.charAt(0).toUpperCase() + raw.slice(1);
+                // Long descriptive answers wrap and read best left-aligned.
+                if (raw.length > 24) valAlign = "left";
               }
 
-              const labelText = doc.splitTextToSize(field.label, fieldLabelW - 4).slice(0, 1)[0];
-              const rowBg: [number, number, number] | undefined = fieldRowIdx % 2 === 0 ? [248, 249, 252] : undefined;
-              drawTableRow(doc, y, [
-                { text: labelText, x: margin, width: fieldLabelW },
-                { text: displayVal, x: 0, width: fieldValW, bold: !!valColor, color: valColor, align: "center" },
-              ], rowH, margin, maxWidth, rowBg);
-              fieldRowIdx++;
-              y += rowH;
+              // Zebra body stripes intentionally removed — they blank the
+              // watermark inconsistently. Header rows above keep their fill.
+              const cols: TableCol[] = [
+                { text: field.label, x: margin, width: fieldLabelW },
+                { text: displayVal, x: 0, width: fieldValW, bold: !!valColor, color: valColor, align: valAlign },
+              ];
+              const rowNeeded = measureTableRowHeight(doc, cols, rowH);
+              checkPage(rowNeeded + 4);
+              y += drawTableRow(doc, y, cols, rowH, margin, maxWidth);
 
-              // Inline note
+              // Inline note — wraps within page width
               const noteVal = responses[`${field.id}_notes`];
               if (noteVal) {
                 doc.setFontSize(9);
                 doc.setFont("helvetica", "italic");
                 doc.setTextColor(100, 100, 100);
-                doc.text(`Note: ${noteVal}`.substring(0, 100), margin + 4, y + 3);
+                const noteLines = doc.splitTextToSize(`Note: ${noteVal}`, maxWidth - 8);
+                noteLines.forEach((ln: string) => {
+                  checkPage(4);
+                  doc.text(ln, margin + 4, y + 3);
+                  y += 4;
+                });
                 doc.setTextColor(30, 30, 30);
                 doc.setFontSize(11);
                 doc.setFont("helvetica", "normal");
-                y += 5;
+                y += 1;
               }
             }
           }
@@ -851,10 +900,9 @@ export default function JobPdfReport({ jobId, job }: Props) {
         y = sectionTitle(doc, "Servexa Reports", y, margin, maxWidth);
         reports.forEach((r: any) => {
           checkPage(15);
-          drawTableRow(doc, y, [
+          y += drawTableRow(doc, y, [
             { text: r.title || "Untitled Report", x: margin, width: maxWidth, bold: true },
           ], rowH, margin, maxWidth, [245, 248, 255]);
-          y += rowH;
           if (r.summary) {
             const lines = doc.splitTextToSize(r.summary, maxWidth - 4);
             lines.forEach((line: string) => {
@@ -877,18 +925,18 @@ export default function JobPdfReport({ jobId, job }: Props) {
         y = sectionTitle(doc, "Engineer Notes", y, margin, maxWidth);
         const noteDateW = maxWidth * 0.2;
         const noteTextW = maxWidth * 0.8;
-        drawTableRow(doc, y, [
+        y += drawTableRow(doc, y, [
           { text: "Date", x: margin, width: noteDateW, bold: true },
           { text: "Note", x: 0, width: noteTextW, bold: true },
         ], rowH, margin, maxWidth, [235, 240, 248]);
-        y += rowH;
         notes.forEach((n: any) => {
-          checkPage(rowH);
-          drawTableRow(doc, y, [
+          const cols: TableCol[] = [
             { text: new Date(n.created_at).toLocaleDateString("en-GB"), x: margin, width: noteDateW },
-            { text: (n.content || "").substring(0, 80), x: 0, width: noteTextW },
-          ], rowH, margin, maxWidth);
-          y += rowH;
+            { text: n.content || "", x: 0, width: noteTextW },
+          ];
+          const h = measureTableRowHeight(doc, cols, rowH);
+          checkPage(h);
+          y += drawTableRow(doc, y, cols, rowH, margin, maxWidth);
         });
         y += 6;
       }
@@ -998,11 +1046,11 @@ export default function JobPdfReport({ jobId, job }: Props) {
             ? `${sig.signer_name}${sig.signer_position ? ", " + sig.signer_position : ""} (${sig.signer_role})`
             : `Not recorded (${sig.signer_role})`;
           const ts = new Date(sig.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-          drawTableRow(doc, y, [
+          const sigHeader = drawTableRow(doc, y, [
             { text: signerLabel, x: margin, width: maxWidth * 0.6, bold: true },
             { text: ts, x: 0, width: maxWidth * 0.4, align: "right" },
           ], 6, margin, maxWidth, [245, 248, 255]);
-          y += 7;
+          y += sigHeader + 1;
           try {
             const { data: urlData } = await supabase.storage.from("signatures").createSignedUrl(sig.file_path, 60);
             if (urlData?.signedUrl) {

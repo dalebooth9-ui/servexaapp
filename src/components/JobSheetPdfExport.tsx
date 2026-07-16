@@ -692,11 +692,10 @@ export async function generateJobSheetPdf(
         doc.setFontSize(9);
       }
 
-      // Alternate row shading
-      if (i % 2 === 1) {
-        doc.setFillColor(...ROW_ALT);
-        doc.rect(margin, y, maxWidth, rowH, "F");
-      }
+      // Zebra body stripes intentionally removed — opaque fills on body rows
+      // blank the page watermark inconsistently. Transparent interiors keep the
+      // flame watermark showing evenly through every row.
+
       doc.setDrawColor(...BORDER);
       doc.setLineWidth(0.1);
       doc.rect(margin, y, maxWidth, rowH);
