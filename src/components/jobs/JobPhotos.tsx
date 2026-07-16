@@ -29,6 +29,10 @@ type PhotoItem = {
   engineerName?: string;
   timestamp: string;
   signedUrl?: string;
+  /** Manual ordering (submissions only). Lower = earlier. */
+  displayOrder?: number | null;
+  /** Row id in `submissions` if source is submission-backed. */
+  submissionId?: string;
 };
 
 const BUCKET = "submissions";
