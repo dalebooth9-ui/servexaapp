@@ -138,11 +138,11 @@ function SortablePhotoTile({
       </div>
 
       {!selectMode && (
-        <div className="absolute top-1.5 right-1.5 flex gap-1">
+        <div className="absolute top-1.5 right-1.5 flex gap-1 rounded-md bg-black/55 backdrop-blur-sm p-0.5 shadow-sm group-hover:bg-black/70 transition">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onDownload(); }}
-            className="rounded bg-background/90 p-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition"
+            className="rounded p-1 text-white hover:bg-white/15 transition"
             aria-label="Download photo"
           >
             <Download className="h-3.5 w-3.5" />
@@ -151,7 +151,7 @@ function SortablePhotoTile({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              className="rounded bg-background/90 p-1.5 text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition"
+              className="rounded p-1 text-red-300 hover:text-red-200 hover:bg-white/15 transition"
               aria-label="Delete photo"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -159,6 +159,7 @@ function SortablePhotoTile({
           )}
         </div>
       )}
+
 
       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-2 text-white">
         <p className="text-[10px] truncate">
