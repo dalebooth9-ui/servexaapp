@@ -146,6 +146,7 @@ const App = () => (
           <AuthProvider>
             <Routes>
               <Route path="/auth" element={<AuthRoute />} />
+              <Route path="/.lovable/oauth/consent" element={<Suspense fallback={<PageFallback />}><OAuthConsent /></Suspense>} />
               <Route path="/offline" element={<Suspense fallback={<PageFallback />}><Offline /></Suspense>} />
               <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
