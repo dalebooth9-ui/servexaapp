@@ -98,7 +98,7 @@ export default function HelpArticlesAdmin() {
           <CardTitle className="text-lg">Help Articles</CardTitle>
         </div>
         <CardDescription>
-          Knowledge base powering the in-app AI Help Assistant. One entry per page/feature. When you ship a UI change, edit the matching article here so the assistant stays accurate.
+          Knowledge base powering the in-app AI Help Assistant. One entry per page/feature. <strong>Working rule:</strong> any change to a route/screen must update its help article <em>in the same edit</em> — a UI change with a stale article is an incomplete change. Use the Source paths field to record every route + component file the article documents.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
