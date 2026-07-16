@@ -849,10 +849,13 @@ export async function generateJobSheetPdf(
       const captionBlock = 10;
       const cellH = photoH + captionBlock + 1;
 
+      // Reduced reserve: exclude signature space (checked separately later).
+      const PHOTO_FOOTER_RESERVE = 32;
+      const contentBottom = pageHeight - PHOTO_FOOTER_RESERVE;
       for (let i = 0; i < sitePhotoUrls.length; i++) {
         const col = i % cols;
         if (col === 0 && i > 0) y += cellH;
-        if (y + cellH > pageHeight - footerSpace) {
+        if (col === 0 && y + cellH > contentBottom) {
           doc.addPage();
           y = margin;
         }
@@ -932,18 +935,34 @@ export async function generateJobSheetPdf(
         doc.setTextColor(0, 0, 0);
         y += headerH + 2;
 
-        // 2 per row so photos are large enough to read on print.
-        const cols = 2;
-        const gap = 4;
+        // Density-first grid: auto-pick cols so small photo sets stay on one page.
+        // Reserve only the accreditation strip + footer band here (~30mm) —
+        // signatures flow after and check their own remaining space (42mm).
+        const PHOTO_FOOTER_RESERVE = 32;
+        const contentBottom = pageHeight - PHOTO_FOOTER_RESERVE;
+        const N = jobPhotos.length;
+
+        // Choose columns by count: ≤6 → 3-per-row; 7-12 → 3-per-row; >12 → 2.
+        const cols = N <= 12 ? 3 : 2;
+        const gap = cols === 3 ? 3 : 4;
         const photoW = (maxWidth - gap * (cols - 1)) / cols;
-        const photoH = 60;
+        // Smaller cells for 3-col so 6 photos + table + sigs fit one page.
+        const photoH = cols === 3 ? 46 : 60;
         const captionBlock = 10;
         const cellH = photoH + captionBlock + 2;
 
-        for (let i = 0; i < jobPhotos.length; i++) {
+        const rowsTotal = Math.ceil(N / cols);
+        const gridH = rowsTotal * cellH;
+        // If the entire grid fits on the current page, don't break at all.
+        const gridFits = y + gridH <= contentBottom;
+
+        for (let i = 0; i < N; i++) {
           const col = i % cols;
           if (col === 0 && i > 0) y += cellH;
-          if (y + cellH > pageHeight - footerSpace) { doc.addPage(); y = margin; }
+          if (!gridFits && col === 0 && y + cellH > contentBottom) {
+            doc.addPage();
+            y = margin;
+          }
           const x = margin + col * (photoW + gap);
           const p = jobPhotos[i];
 
@@ -963,10 +982,10 @@ export async function generateJobSheetPdf(
 
           const caption = (p.caption || "").trim();
           doc.setFont("helvetica", "normal");
-          doc.setFontSize(7.5);
+          doc.setFontSize(cols === 3 ? 7 : 7.5);
           doc.setTextColor(50, 55, 65);
           const bits = [caption, p.engineerName, new Date(p.createdAt).toLocaleDateString("en-GB")].filter(Boolean);
-          const capLines = doc.splitTextToSize(bits.join(" · "), photoW).slice(0, 3);
+          const capLines = doc.splitTextToSize(bits.join(" · "), photoW).slice(0, cols === 3 ? 2 : 3);
           doc.text(capLines, x, y + photoH + 3);
           doc.setTextColor(0, 0, 0);
         }
