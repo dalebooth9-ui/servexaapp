@@ -100,6 +100,7 @@ interface InboundEmail {
   html: string;
   rawEmlBase64: string | null;
   attachments: Attachment[];
+  webhookHeaders: Record<string, string>;
 }
 
 function normaliseRecipients(d: any): string[] {
