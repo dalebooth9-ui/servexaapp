@@ -355,7 +355,28 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
   ];
 
   return (
-    <div className="space-y-4">
+    <div
+      className={`relative space-y-4 rounded-lg transition-colors ${
+        isDragOver ? "outline outline-2 outline-primary/60 outline-offset-4" : ""
+      }`}
+      onDragEnter={onDragEnter}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
+      {isDragOver && canUpload && (
+        <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-primary/10 backdrop-blur-[1px]">
+          <Upload className="h-8 w-8 text-primary" />
+          <p className="text-sm font-medium text-primary">Drop photos to add to this job</p>
+          <p className="text-xs text-primary/70">Images only · multi-file supported</p>
+        </div>
+      )}
+      {uploading && (
+        <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Uploading photos…</span>
+        </div>
+      )}
       {canUpload && (
         <div className="flex flex-wrap gap-2 rounded-lg border border-dashed bg-muted/30 p-3">
           <input
