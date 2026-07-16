@@ -446,8 +446,8 @@ export default function Jobs() {
     toast({ title: `${ids.length} draft(s) dismissed` });
   };
 
-  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
-  const [mergeTargetId, setMergeTargetId] = useState<string>("");
+  const [pendingMergeOpen, setPendingMergeOpen] = useState(false);
+  const [pendingMergeTargetId, setPendingMergeTargetId] = useState<string>("");
 
   const openMergeDialog = () => {
     if (selectedPendingIds.size < 2) {
