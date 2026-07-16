@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { isImageFile, isVideoFile, isAllowedFile, extractStoragePath } from "@/lib/fileUtils";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { buildDurableRef } from "@/lib/durableStorageRef";
 
 interface UseFileUploadOptions {
   bucket?: string;
@@ -32,9 +33,10 @@ export function useFileUpload({ bucket = "submissions", onComplete }: UseFileUpl
       }
 
       const filePath = `${jobId}/${Date.now()}-${file.name}`;
+      const storagePath = await buildOrgPathAsync(filePath);
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(filePath, file);
+        .upload(storagePath, file);
 
       if (uploadError) {
         toast({
@@ -45,12 +47,11 @@ export function useFileUpload({ bucket = "submissions", onComplete }: UseFileUpl
         continue;
       }
 
-      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
       const { error: insertError } = await supabase.from("submissions").insert({
         job_id: jobId,
         engineer_id: userId,
         type: isVideoFile(file.name) ? "video" : isImageFile(file.name) ? "photo" : "document",
-        file_url: urlData.publicUrl,
+        file_url: buildDurableRef(bucket, storagePath),
         file_name: file.name,
       });
 

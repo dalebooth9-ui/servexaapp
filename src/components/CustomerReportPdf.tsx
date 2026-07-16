@@ -61,7 +61,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       // Load and compress job photos through the shared loader so the
       // Photos tab and every PDF variant agree on what a job's photos are.
       // Excludes photos already embedded inside submitted job-sheet responses.
-      const embeddedPaths = collectEmbeddedPhotoPaths((sheetsRes.data || []) as any[]);
+      const embeddedPaths = collectEmbeddedPhotoPaths((sheetsRes.data || []) as any[], jobId);
       const loaded = await loadJobPhotosForPdf({ jobId, excludePaths: embeddedPaths });
       type PhotoEntry = {
         dataUrl: string;

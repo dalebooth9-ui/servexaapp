@@ -495,7 +495,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       // Excludes any photo already embedded inside a submitted job-sheet
       // response (photo_gallery columns, photo fields) so the job-level
       // Photos section never duplicates images shown inline elsewhere.
-      const embeddedPaths = collectEmbeddedPhotoPaths(sheetResponses);
+      const embeddedPaths = collectEmbeddedPhotoPaths(sheetResponses, jobId);
       const jobPhotos: JobPhotoForPdf[] = includePhotos
         ? await loadJobPhotosForPdf({ jobId, excludePaths: embeddedPaths })
         : [];

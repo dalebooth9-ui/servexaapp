@@ -15,6 +15,7 @@ import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
+import { collectEmbeddedPhotoPaths, createSubmissionPhotoSignedUrl, normalisePhotoPathForDedupe } from "@/lib/jobPhotos";
 import {
   PdfTemplateField,
   buildSkipIds,
@@ -489,6 +490,7 @@ export async function generateJobSheetPdf(
     Array.isArray((f as any).columns) &&
     (f as any).columns.some((c: any) => c?.type === "photo_gallery")
   );
+  const renderedJobPhotoPaths = new Set<string>();
 
   const NAVY: [number, number, number] = [26, 46, 74];        // #1a2e4a
   const GREEN_TXT: [number, number, number] = [6, 95, 70];    // #065f46
@@ -803,13 +805,14 @@ export async function generateJobSheetPdf(
       const fresh: string[] = [];
       for (const p of sitePhotoPaths) {
         try {
-          const { data } = await supabase.storage.from("submissions").createSignedUrl(p, 60 * 60);
-          if (data?.signedUrl) fresh.push(data.signedUrl);
+          const signed = await createSubmissionPhotoSignedUrl(p, jobId, 60 * 60);
+          fresh.push(signed?.signedUrl || "");
         } catch (err) {
           console.warn("[JobSheetPdfExport] site photo sign failed", p, err);
+          fresh.push("");
         }
       }
-      if (fresh.length > 0) sitePhotoUrls = fresh;
+      if (fresh.some(Boolean)) sitePhotoUrls = fresh.map((url, i) => url || sitePhotoUrls[i] || "");
     }
 
     const orientedSitePhotos = await Promise.all(
@@ -825,6 +828,10 @@ export async function generateJobSheetPdf(
     });
 
     if (sitePhotoUrls.length > 0) {
+      [...sitePhotoPaths, ...sitePhotoUrls].forEach((p) => {
+        const key = normalisePhotoPathForDedupe(p, jobId);
+        if (key) renderedJobPhotoPaths.add(key);
+      });
       if (y + headerH + 5 > pageHeight - footerSpace) { doc.addPage(); y = margin; }
       doc.setFillColor(...NAVY);
       doc.rect(margin, y, maxWidth, headerH, "F");
@@ -901,13 +908,15 @@ export async function generateJobSheetPdf(
   }
 
 
-  // === JOB PHOTOS / EVIDENCE (always run for sheets without a dwelling gallery) ===
-  // Ensures remedial-completion sheets and any other sheet that doesn't have a
-  // photo_gallery column still include the job's attached photos as evidence.
-  if (galleryFields.length === 0 && isValidUuid) {
+  // === JOB PHOTOS / EVIDENCE ===
+  // Always append job-level/site evidence, even when the template contains a
+  // gallery field. Inline/gallery photos are deduped by storage path.
+  if (isValidUuid) {
     try {
       const { loadJobPhotosForPdf } = await import("@/lib/jobPhotos");
-      const jobPhotos = await loadJobPhotosForPdf({ jobId });
+      const excludePaths = collectEmbeddedPhotoPaths([{ responses: resolvedFormData }], jobId);
+      renderedJobPhotoPaths.forEach((p) => excludePaths.add(p));
+      const jobPhotos = await loadJobPhotosForPdf({ jobId, excludePaths });
       if (jobPhotos.length > 0) {
         const headerH = 8;
         const NAVY: [number, number, number] = [26, 46, 74];

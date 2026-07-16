@@ -38,6 +38,8 @@ import AiRamsAutoFill from "./AiRamsAutoFill";
 import RepeatingTableField from "./job-sheets/RepeatingTableField";
 import RepeatingTableReadOnly from "./job-sheets/RepeatingTableReadOnly";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { buildDurableRef } from "@/lib/durableStorageRef";
+import { createSubmissionPhotoSignedUrl } from "@/lib/jobPhotos";
 import SortablePhotoGrid from "./SortablePhotoGrid";
 
 type TemplateField = {
@@ -556,9 +558,10 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const fetchBackfilledSitePhotos = async (existingResponse?: Response) => {
     const { data: subs } = await supabase
       .from("submissions")
-      .select("file_url, file_name, content, engineer_id, created_at")
+      .select("file_url, file_name, content, engineer_id, created_at, display_order")
       .eq("job_id", jobId)
       .eq("type", "photo")
+      .order("display_order", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true });
     if (!subs || subs.length === 0) return { urls: [] as string[], paths: [] as string[], captions: [] as string[] };
     const ownPhotos = existingResponse ? (subs as any[]).filter((s) => s.engineer_id === existingResponse.submitted_by) : [];
@@ -568,8 +571,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const captions: string[] = [];
     for (const s of pool) {
       if (!s.file_url) continue;
-      urls.push(s.file_url as string);
-      paths.push("");
+      const signed = await createSubmissionPhotoSignedUrl(s.file_url as string, jobId, 60 * 60);
+      urls.push(signed?.signedUrl || (s.file_url as string));
+      const signedPath = signed?.path || "";
+      const jobPathIndex = signedPath.indexOf(`${jobId}/`);
+      paths.push(jobPathIndex >= 0 ? signedPath.slice(jobPathIndex) : signedPath || `${jobId}/${s.file_name || ""}`);
       captions.push((s.content as string) || "");
     }
     return { urls, paths, captions };
@@ -1051,9 +1057,10 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           const ext = photo.file.name.split(".").pop() || "jpg";
           const fileName = `site-photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
           const filePath = `${jobId}/${fileName}`;
+          const storagePath = await buildOrgPathAsync(filePath);
           const { error: upErr } = await supabase.storage
             .from("submissions")
-            .upload(await buildOrgPathAsync(filePath), photo.file, { contentType: photo.file.type });
+            .upload(storagePath, photo.file, { contentType: photo.file.type });
           if (upErr) {
             console.error("Site photo upload failed", upErr);
             toast({ title: "Photo upload failed", description: upErr.message, variant: "destructive" });
@@ -1062,23 +1069,18 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           // Always record the path — signed URLs can be regenerated at render time
           photoPaths.push(filePath);
           photoCaptions.push((photo.caption || "").trim());
-          const { data: signedData, error: signErr } = await supabase.storage
-            .from("submissions")
-            .createSignedUrl(filePath, 60 * 60 * 24 * 365 * 5);
-          if (signErr) console.error("Signed URL failed", signErr);
-          if (signedData?.signedUrl) {
-            photoUrls.push(signedData.signedUrl);
-            // Register as a job submission so it appears in the job folder/Documents
-            const { error: subErr } = await supabase.from("submissions").insert({
-              job_id: jobId,
-              engineer_id: user.id,
-              type: "photo",
-              file_url: signedData.signedUrl,
-              file_name: fileName,
-              content: (photo.caption || "").trim() || null,
-            } as any);
-            if (subErr) console.error("Submission insert failed", subErr);
-          }
+          const signed = await createSubmissionPhotoSignedUrl(filePath, jobId, 60 * 60);
+          if (signed?.signedUrl) photoUrls.push(signed.signedUrl);
+          // Register as a job submission so it appears in the job folder/Documents
+          const { error: subErr } = await supabase.from("submissions").insert({
+            job_id: jobId,
+            engineer_id: user.id,
+            type: "photo",
+            file_url: buildDurableRef("submissions", storagePath),
+            file_name: fileName,
+            content: (photo.caption || "").trim() || null,
+          } as any);
+          if (subErr) console.error("Submission insert failed", subErr);
         }
       }
       const baseFormData = await withPreservedSitePhotos(formData);
@@ -2424,26 +2426,22 @@ function PhotoField({ value, onChange, fieldId, jobId, userId }: { value: any; o
     const ext = file.name.split(".").pop() || "jpg";
     const fileName = `${fieldId}-${Date.now()}.${ext}`;
     const path = jobId ? `${jobId}/template-photos/${fileName}` : `template-photos/${fileName}`;
-    const { error } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(path), file, { upsert: true, contentType: file.type });
+    const storagePath = await buildOrgPathAsync(path);
+    const { error } = await supabase.storage.from("submissions").upload(storagePath, file, { upsert: true, contentType: file.type });
     if (error) {
       console.error("Upload error:", error);
     } else {
       onChange(path);
       // Register as a job submission so it appears in the job folder/Documents
       if (jobId && userId) {
-        const { data: signedData } = await supabase.storage
-          .from("submissions")
-          .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
-        if (signedData?.signedUrl) {
-          const { error: subErr } = await supabase.from("submissions").insert({
-            job_id: jobId,
-            engineer_id: userId,
-            type: "photo",
-            file_url: signedData.signedUrl,
-            file_name: fileName,
-          } as any);
-          if (subErr) console.error("Submission insert failed", subErr);
-        }
+        const { error: subErr } = await supabase.from("submissions").insert({
+          job_id: jobId,
+          engineer_id: userId,
+          type: "photo",
+          file_url: buildDurableRef("submissions", storagePath),
+          file_name: fileName,
+        } as any);
+        if (subErr) console.error("Submission insert failed", subErr);
       }
     }
     setUploading(false);
@@ -2496,8 +2494,8 @@ function PhotoPreview({ path, className }: { path: string; className?: string })
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.storage.from("submissions").createSignedUrl(path, 3600).then(({ data }) => {
-      if (data?.signedUrl) setUrl(data.signedUrl);
+    createSubmissionPhotoSignedUrl(path, undefined, 3600).then((signed) => {
+      if (signed?.signedUrl) setUrl(signed.signedUrl);
     });
   }, [path]);
 
