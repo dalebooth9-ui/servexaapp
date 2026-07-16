@@ -901,16 +901,82 @@ export async function generateJobSheetPdf(
   }
 
 
+  // === JOB PHOTOS / EVIDENCE (always run for sheets without a dwelling gallery) ===
+  // Ensures remedial-completion sheets and any other sheet that doesn't have a
+  // photo_gallery column still include the job's attached photos as evidence.
+  if (galleryFields.length === 0 && isValidUuid) {
+    try {
+      const { loadJobPhotosForPdf } = await import("@/lib/jobPhotos");
+      const jobPhotos = await loadJobPhotosForPdf({ jobId });
+      if (jobPhotos.length > 0) {
+        const headerH = 8;
+        const NAVY: [number, number, number] = [26, 46, 74];
+        const BORDER: [number, number, number] = [210, 214, 220];
+
+        if (y + headerH + 5 > pageHeight - footerSpace) { doc.addPage(); y = margin; }
+        doc.setFillColor(...NAVY);
+        doc.rect(margin, y, maxWidth, headerH, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text(`PHOTOS / EVIDENCE (${jobPhotos.length})`, margin + 3, y + 5.4);
+        doc.setTextColor(0, 0, 0);
+        y += headerH + 2;
+
+        // 2 per row so photos are large enough to read on print.
+        const cols = 2;
+        const gap = 4;
+        const photoW = (maxWidth - gap * (cols - 1)) / cols;
+        const photoH = 60;
+        const captionBlock = 10;
+        const cellH = photoH + captionBlock + 2;
+
+        for (let i = 0; i < jobPhotos.length; i++) {
+          const col = i % cols;
+          if (col === 0 && i > 0) y += cellH;
+          if (y + cellH > pageHeight - footerSpace) { doc.addPage(); y = margin; }
+          const x = margin + col * (photoW + gap);
+          const p = jobPhotos[i];
+
+          doc.setFillColor(235, 238, 242);
+          doc.rect(x, y, photoW, photoH, "F");
+          try {
+            const scale = Math.min(photoW / p.natW, photoH / p.natH);
+            const dw = Math.max(8, p.natW * scale);
+            const dh = Math.max(8, p.natH * scale);
+            const dx = x + (photoW - dw) / 2;
+            const dy = y + (photoH - dh) / 2;
+            doc.addImage(p.dataUrl, "JPEG", dx, dy, dw, dh, undefined, "FAST");
+          } catch { /* skip broken image */ }
+          doc.setDrawColor(...BORDER);
+          doc.setLineWidth(0.2);
+          doc.rect(x, y, photoW, photoH);
+
+          const caption = (p.caption || "").trim();
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7.5);
+          doc.setTextColor(50, 55, 65);
+          const bits = [caption, p.engineerName, new Date(p.createdAt).toLocaleDateString("en-GB")].filter(Boolean);
+          const capLines = doc.splitTextToSize(bits.join(" · "), photoW).slice(0, 3);
+          doc.text(capLines, x, y + photoH + 3);
+          doc.setTextColor(0, 0, 0);
+        }
+        y += cellH + 2;
+      }
+    } catch (err) {
+      console.warn("[JobSheetPdfExport] job photos section failed", err);
+    }
+  }
+
 
   // Signature section flows naturally after content; only force a new page if
   // remaining vertical space is less than ~120 px (42 mm).
-  if (galleryFields.length > 0) {
-    const remainingSpace = pageHeight - y - footerSpace;
-    if (remainingSpace < 42) {
-      doc.addPage();
-      y = margin;
-    }
+  const remainingSpaceForSig = pageHeight - y - footerSpace;
+  if (remainingSpaceForSig < 42) {
+    doc.addPage();
+    y = margin;
   }
+
 
 
 

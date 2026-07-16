@@ -606,19 +606,13 @@ export function renderFilledFieldRow(
   const margin = opts.margin ?? 10;
   const maxWidth = opts.maxWidth ?? (doc.internal.pageSize.getWidth() - margin * 2);
   const colSplit = opts.colSplit ?? maxWidth * 0.68;
-  // Signature fields get double-height rows so the image renders clearly
-  const rowH = field.type === "signature" ? Math.max(opts.rowH * 2, 10) : opts.rowH;
+  const baseRowH = field.type === "signature" ? Math.max(opts.rowH * 2, 10) : opts.rowH;
+  const resultCellWidth = maxWidth - colSplit - 2;
 
-  doc.setDrawColor(180);
-  doc.rect(margin, y, colSplit, rowH);
-  doc.rect(margin + colSplit, y, maxWidth - colSplit, rowH);
-
-  // Label
   doc.setFont("helvetica", "normal");
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(9.5);
-  const label = doc.splitTextToSize(field.label, colSplit - 3).slice(0, 1)[0];
-  doc.text(label, margin + 1, y + 3);
+  const labelLines = doc.splitTextToSize(field.label, colSplit - 3);
 
   // ── Descriptive-text early exit ──
   // If the value is a multi-word string (contains a space or dash beyond simple tokens
@@ -630,11 +624,43 @@ export function renderFilledFieldRow(
     rawTextForCheck.length > 0 &&
     !SIMPLE_TOKENS.has(rawTextForCheck.toLowerCase());
 
+  // Pre-compute wrapped value lines for descriptive text so we can grow the
+  // row height to fit — nothing must ever clip past the right edge of the cell.
+  let descriptiveLines: string[] | null = null;
   if (isDescriptiveText) {
-    const truncated = rawTextForCheck.substring(0, 60);
-    doc.text(truncated, margin + colSplit + 1, y + 3);
+    descriptiveLines = doc.splitTextToSize(rawTextForCheck, resultCellWidth);
+  } else if (
+    field.type !== "pass_fail" &&
+    field.type !== "checkbox" &&
+    field.type !== "yes_no" &&
+    field.type !== "photo" &&
+    field.type !== "signature" &&
+    !(field.options && field.options.length <= 3 && field.options.some((o) => o.toLowerCase() === "yes")) &&
+    hasRenderableValue(value)
+  ) {
+    // Long plain text values also wrap in the RESULT cell.
+    descriptiveLines = doc.splitTextToSize(String(value), resultCellWidth);
   }
-  // Value
+
+  const lineH = 3.5;
+  const contentLines = Math.max(labelLines.length, descriptiveLines?.length || 1);
+  const rowH = Math.max(baseRowH, contentLines * lineH + 2);
+
+  doc.setDrawColor(180);
+  doc.rect(margin, y, colSplit, rowH);
+  doc.rect(margin + colSplit, y, maxWidth - colSplit, rowH);
+
+  // Label (wrap onto multiple lines when needed)
+  labelLines.forEach((ln: string, i: number) => {
+    doc.text(ln, margin + 1, y + 3 + i * lineH);
+  });
+
+  if (descriptiveLines) {
+    descriptiveLines.forEach((ln, i) => {
+      doc.text(ln, margin + colSplit + 1, y + 3 + i * lineH);
+    });
+  }
+  // Value (typed fields)
   else if (field.type === "pass_fail") {
     const rawValue = getRawFieldText(value);
     const resultKind = getSimpleResultKind(value);
@@ -694,7 +720,7 @@ export function renderFilledFieldRow(
       doc.text("—", margin + colSplit + 1, y + 3);
     }
   } else {
-    const raw = hasRenderableValue(value) ? String(value).substring(0, 50) : "—";
+    const raw = hasRenderableValue(value) ? String(value) : "—";
     doc.text(raw, margin + colSplit + 1, y + 3);
   }
 

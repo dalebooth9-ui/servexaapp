@@ -490,7 +490,71 @@ export default function JobWordReport({ jobId, job }: Props) {
         }
       }
 
-      // Signatures
+      // Photos / evidence — attached job photos (Photos tab & per-item)
+      try {
+        const { loadJobPhotosForPdf } = await import("@/lib/jobPhotos");
+        const jobPhotos = await loadJobPhotosForPdf({ jobId });
+        if (jobPhotos.length > 0) {
+          children.push(sectionHeading(`Photos / Evidence (${jobPhotos.length})`));
+          // 2-column table of images with captions.
+          const cellW = 4680;
+          const rowsOut: TableRow[] = [];
+          for (let i = 0; i < jobPhotos.length; i += 2) {
+            const pair = [jobPhotos[i], jobPhotos[i + 1]].filter(Boolean);
+            rowsOut.push(new TableRow({
+              children: pair.map((p) => {
+                // Convert base64 dataUrl → Uint8Array for docx ImageRun
+                const b64 = (p.dataUrl.split(",")[1] || "");
+                const bin = atob(b64);
+                const bytes = new Uint8Array(bin.length);
+                for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+                const ratio = p.natW / p.natH || 1;
+                const imgW = 260;
+                const imgH = Math.round(imgW / ratio);
+                const captionBits = [p.caption, p.engineerName, fmtDate(p.createdAt)].filter(Boolean).join(" · ");
+                return new TableCell({
+                  width: { size: cellW, type: WidthType.DXA },
+                  borders: cellBorders,
+                  margins: { top: 60, bottom: 60, left: 80, right: 80 },
+                  verticalAlign: VerticalAlign.TOP,
+                  children: [
+                    new Paragraph({
+                      alignment: AlignmentType.CENTER,
+                      children: [new ImageRun({
+                        type: "jpg",
+                        data: bytes.buffer,
+                        transformation: { width: imgW, height: Math.max(60, imgH) },
+                        altText: { title: "Photo", description: captionBits || "Job photo", name: "photo" },
+                      })],
+                    }),
+                    new Paragraph({
+                      spacing: { before: 60 },
+                      children: [new TextRun({ text: captionBits || "—", size: 16, color: "555555" })],
+                    }),
+                  ],
+                });
+              }).concat(
+                pair.length === 1
+                  ? [new TableCell({
+                      width: { size: cellW, type: WidthType.DXA },
+                      borders: cellBorders,
+                      children: [new Paragraph({ children: [new TextRun({ text: "" })] })],
+                    })]
+                  : [],
+              ),
+            }));
+          }
+          children.push(new Table({
+            width: { size: 9360, type: WidthType.DXA },
+            columnWidths: [cellW, cellW],
+            rows: rowsOut,
+          }));
+        }
+      } catch (err) {
+        console.warn("[JobWordReport] photos section failed", err);
+      }
+
+
       if (sigEntries.length) {
         children.push(sectionHeading("Signatures"));
         for (const s of sigEntries) {
