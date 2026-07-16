@@ -278,15 +278,22 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
         ...updates.map((u) =>
           supabase.from("submissions").update({ display_order: u.display_order }).eq("id", u.id),
         ),
-        ...Array.from(siteResponseGroups.entries()).map(([responseId, photos]) =>
-          supabase.from("job_sheet_responses").update({
+        ...Array.from(siteResponseGroups.entries()).map(async ([responseId, photos]) => {
+          const { data } = await supabase
+            .from("job_sheet_responses")
+            .select("responses")
+            .eq("id", responseId)
+            .maybeSingle();
+          const existing = ((data as any)?.responses || {}) as Record<string, any>;
+          return supabase.from("job_sheet_responses").update({
             responses: {
+              ...existing,
               _site_photo_urls: photos.map((p) => p.fallbackUrl || ""),
               _site_photo_paths: photos.map((p) => p.storagePath || ""),
               _site_photo_captions: photos.map((p) => p.caption || ""),
             } as any,
-          } as any).eq("id", responseId),
-        ),
+          } as any).eq("id", responseId);
+        }),
       ]);
     } catch (e: any) {
       toast({ title: "Reorder failed", description: e?.message, variant: "destructive" });
