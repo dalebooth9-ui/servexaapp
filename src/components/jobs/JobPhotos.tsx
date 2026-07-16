@@ -566,18 +566,32 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     setItems((prev) => prev.filter((p) => !targetIds.has(p.id)));
     let ok = 0;
     let fail = 0;
+    const deletedPaths: PhotoItem[] = [];
+    // Step 1: delete records first so the reference check can see the new state.
     for (const p of targets) {
       if (!canDeletePhoto(p)) { fail++; continue; }
       try {
-        await removePhotoStorage(p);
         await deletePhotoRecord(p);
         await logDeletion(p);
+        deletedPaths.push(p);
         ok++;
       } catch (e: any) {
         fail++;
         // eslint-disable-next-line no-console
-        console.error("Photo delete failed", p.id, e);
+        console.error("Photo record delete failed", p.id, e);
       }
+    }
+    // Step 2: for each unique storage path we deleted, only remove the object
+    // if no other photo record still references it. This is the fix for the
+    // "Unavailable" bug — a shared storage object must survive deletion of
+    // one of its referencing records.
+    const seenPaths = new Set<string>();
+    for (const p of deletedPaths) {
+      if (!p.storagePath) continue;
+      const key = p.storagePath.replace(/^\/+/, "").toLowerCase();
+      if (seenPaths.has(key)) continue;
+      seenPaths.add(key);
+      await removePhotoStorageIfOrphan(p, new Set());
     }
     setDeleting(false);
     setPendingDelete(null);
