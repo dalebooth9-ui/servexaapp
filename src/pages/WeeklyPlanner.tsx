@@ -298,6 +298,33 @@ export default function WeeklyPlanner() {
         setEngineers([]);
       }
       const fetchedJobs = ((jobsRes.data as any[]) || []).map((j: any) => ({ ...j, site: j.sites || null }));
+
+      // Enrich jobs with any existing engineer assignments so the pool card
+      // can show "already assigned to X" — jobs assigned on the job page but
+      // never dropped onto a date would otherwise be invisible here.
+      const _jobIds = fetchedJobs.map((j: any) => j.id);
+      if (_jobIds.length > 0) {
+        const { data: assignRows } = await supabase
+          .from("job_assignments")
+          .select("job_id, engineer_id, profiles:engineer_id(full_name)")
+          .in("job_id", _jobIds);
+        const byJob = new Map<string, { id: string; name: string }>();
+        for (const r of ((assignRows as any[]) || [])) {
+          if (!byJob.has(r.job_id)) {
+            byJob.set(r.job_id, {
+              id: r.engineer_id,
+              name: r.profiles?.full_name || "Engineer",
+            });
+          }
+        }
+        for (const j of fetchedJobs) {
+          const a = byJob.get(j.id);
+          if (a) {
+            (j as any).preassigned_engineer_id = a.id;
+            (j as any).preassigned_engineer_name = a.name;
+          }
+        }
+      }
       setJobs(fetchedJobs);
       setSites(sitesRes.data || []);
       const fetchedSchedule = (schedRes.data as ScheduleEntry[]) || [];
