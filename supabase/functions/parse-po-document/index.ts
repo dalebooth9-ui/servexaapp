@@ -35,9 +35,15 @@ serve(async (req) => {
       });
     }
 
-    const { file_base64, file_name } = await req.json();
-    if (!file_base64 || !file_name) {
-      return new Response(JSON.stringify({ error: "file_base64 and file_name are required" }), {
+    const body = await req.json();
+    // Accept either a single file (legacy) or an array of files (multi-page PO
+    // spread across separate PDFs / photos of the same order).
+    type InFile = { file_base64: string; file_name: string };
+    const files: InFile[] = Array.isArray(body.files) && body.files.length > 0
+      ? body.files
+      : (body.file_base64 && body.file_name ? [{ file_base64: body.file_base64, file_name: body.file_name }] : []);
+    if (files.length === 0) {
+      return new Response(JSON.stringify({ error: "files (or file_base64 + file_name) required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -51,51 +57,63 @@ serve(async (req) => {
       });
     }
 
-    const ext = file_name.slice(file_name.lastIndexOf(".")).toLowerCase();
-    let userContent: any[];
+    const mimeForImage = (ext: string): string => {
+      switch (ext) {
+        case ".jpg":
+        case ".jpeg": return "image/jpeg";
+        case ".png": return "image/png";
+        case ".webp": return "image/webp";
+        case ".heic": return "image/heic";
+        case ".heif": return "image/heif";
+        default: return "application/octet-stream";
+      }
+    };
 
-    if (ext === ".pdf") {
-      userContent = [
-        {
-          type: "text",
-          text: `Extract purchase order / job details from this document (${file_name}). Return as a single JSON object with these exact fields.`,
-        },
-        { type: "image_url", image_url: { url: `data:application/pdf;base64,${file_base64}` } },
-      ];
-    } else {
-      // docx / doc: extract text from the ZIP
-      let extractedText = "";
-      try {
-        const fileBytes = Uint8Array.from(atob(file_base64), (c) => c.charCodeAt(0));
-        const { ZipReader, BlobReader, TextWriter } = await import("https://deno.land/x/zipjs@v2.7.34/index.js");
-        const reader = new ZipReader(new BlobReader(new Blob([fileBytes])));
-        const entries = await reader.getEntries();
-        for (const entry of entries) {
-          if (entry.filename === "word/document.xml") {
-            extractedText = await entry.getData!(new TextWriter());
-            break;
+    const userContent: any[] = [
+      {
+        type: "text",
+        text: files.length === 1
+          ? `Extract purchase order / job details from this document (${files[0].file_name}). Return as a single JSON object with these exact fields, aggregating everything you can see.`
+          : `The following ${files.length} files (in order) are pages / photos of ONE purchase order for a SINGLE job. Combine information across ALL of them and return ONE JSON object. Sum quantities across pages, gather line items, and reconcile the PO number, customer, and site address from wherever they appear.`,
+      },
+    ];
+
+    for (const f of files) {
+      const ext = f.file_name.slice(f.file_name.lastIndexOf(".")).toLowerCase();
+      if (ext === ".pdf") {
+        userContent.push({ type: "text", text: `--- File: ${f.file_name} (PDF) ---` });
+        userContent.push({ type: "image_url", image_url: { url: `data:application/pdf;base64,${f.file_base64}` } });
+      } else if ([".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"].includes(ext)) {
+        // Photographed paperwork — pass straight to the vision model. Gemini
+        // 2.5 Pro handles skew / lighting well enough for typed POs.
+        userContent.push({ type: "text", text: `--- File: ${f.file_name} (photo) ---` });
+        userContent.push({ type: "image_url", image_url: { url: `data:${mimeForImage(ext)};base64,${f.file_base64}` } });
+      } else if (ext === ".docx" || ext === ".doc") {
+        let extractedText = "";
+        try {
+          const fileBytes = Uint8Array.from(atob(f.file_base64), (c) => c.charCodeAt(0));
+          const { ZipReader, BlobReader, TextWriter } = await import("https://deno.land/x/zipjs@v2.7.34/index.js");
+          const reader = new ZipReader(new BlobReader(new Blob([fileBytes])));
+          const entries = await reader.getEntries();
+          for (const entry of entries) {
+            if (entry.filename === "word/document.xml") {
+              extractedText = await entry.getData!(new TextWriter());
+              break;
+            }
           }
+          await reader.close();
+          extractedText = extractedText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        } catch (e) {
+          console.error("Failed to extract docx text:", e);
+          extractedText = `[Could not extract text from ${f.file_name}]`;
         }
-        await reader.close();
-        extractedText = extractedText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-      } catch (e) {
-        console.error("Failed to extract docx text:", e);
-        extractedText = `[Could not extract text from ${file_name}]`;
-      }
-
-      if (!extractedText || extractedText.length < 10) {
-        return new Response(JSON.stringify({ error: "Could not extract readable text from document" }), {
-          status: 422,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      userContent = [
-        {
+        userContent.push({
           type: "text",
-          text: `Extract purchase order / job details from this document (${file_name}). Document text:\n\n${extractedText}\n\nReturn as a single JSON object with these exact fields.`,
-        },
-      ];
+          text: `--- File: ${f.file_name} (Word) ---\n${extractedText || "[empty]"}`,
+        });
+      } else {
+        userContent.push({ type: "text", text: `--- File: ${f.file_name} (unsupported type — skipped) ---` });
+      }
     }
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
