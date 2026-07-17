@@ -1002,7 +1002,7 @@ export default function WeeklyPlanner() {
         <TabsContent value="list" className="mt-4">
           <ListView
             schedule={filteredSchedule}
-            engineers={engineers}
+            engineers={visibleEngineers}
             jobs={jobs}
             isAdmin={isAdmin}
             onRemove={handleRemove}
