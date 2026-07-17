@@ -899,6 +899,11 @@ export default function WeeklyPlanner() {
               </Button>
             </>
           )}
+          <EngineerVisibilityFilter
+            engineers={sortedEngineers}
+            hidden={hiddenEngineers}
+            onChange={updateHiddenEngineers}
+          />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
