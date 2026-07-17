@@ -76,7 +76,7 @@ export default function Jobs() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm, clearJobFormDraft] = useAutoSave("job-create-form", { name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
+  const [form, setForm, clearJobFormDraft] = useAutoSave("job-create-form", { name: "", reference_number: "", customer_po: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
   const [loading, setLoading] = useState(false);
   const [costingSheetFile, setCostingSheetFile] = useState<File | null>(null);
   const [costingSheetProcessing, setCostingSheetProcessing] = useState(false);
