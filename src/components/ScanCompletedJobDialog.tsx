@@ -187,7 +187,20 @@ export default function ScanCompletedJobDialog({
 
   const [jobName, setJobName] = useState("");
   const [completionDate, setCompletionDate] = useState<string>("");
+  const [dateUnknown, setDateUnknown] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Optional: file against an existing pre-scheduled job for this customer/site
+  // instead of creating a brand-new historic job.
+  type MatchableJob = {
+    id: string;
+    reference_number: string;
+    name: string | null;
+    status: string;
+    scheduled_date: string | null;
+  };
+  const [existingJobs, setExistingJobs] = useState<MatchableJob[]>([]);
+  const [matchExistingJobId, setMatchExistingJobId] = useState<string>("");
 
   // Cropped signatures (auto or manual) — uploaded on confirm
   type SigCapture = { blob: Blob; previewUrl: string; name: string; pageIdx: number };
