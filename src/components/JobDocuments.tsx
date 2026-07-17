@@ -871,6 +871,19 @@ ${sections}
           {printingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
           Print all
         </Button>
+        {docs.some((d) => !!d.file_url && isImageDoc(d) && d.source === "email_po") && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleAddAllImagesToPhotos}
+            disabled={addingAllPhotos}
+            title="Copy every image received by email into the Photos tab"
+          >
+            {addingAllPhotos ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+            Add all images to Photos
+          </Button>
+        )}
         {userRole === "admin" && (
           <>
             <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={handleManualUpload} />
