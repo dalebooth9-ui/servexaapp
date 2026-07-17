@@ -430,23 +430,55 @@ export default function WeeklyPlanner() {
     }
   }, [user]);
 
+  // Per-user planner view filter: engineer IDs to hide from the grid. Persists
+  // in localStorage keyed by user so each planner keeps their own working set.
+  const hiddenEngineersKey = user?.id ? `planner_hidden_engineers_${user.id}` : "";
+  const [hiddenEngineers, setHiddenEngineers] = useState<Set<string>>(() => {
+    if (typeof window === "undefined" || !hiddenEngineersKey) return new Set();
+    try {
+      const raw = localStorage.getItem(hiddenEngineersKey);
+      return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch { return new Set(); }
+  });
+  // Re-hydrate when user resolves after initial mount.
+  useEffect(() => {
+    if (!hiddenEngineersKey) return;
+    try {
+      const raw = localStorage.getItem(hiddenEngineersKey);
+      setHiddenEngineers(new Set(raw ? (JSON.parse(raw) as string[]) : []));
+    } catch { /* noop */ }
+  }, [hiddenEngineersKey]);
+  const updateHiddenEngineers = useCallback((next: Set<string>) => {
+    setHiddenEngineers(next);
+    if (hiddenEngineersKey) {
+      try { localStorage.setItem(hiddenEngineersKey, JSON.stringify([...next])); } catch { /* noop */ }
+    }
+  }, [hiddenEngineersKey]);
+
+  const visibleEngineers = useMemo(
+    () => sortedEngineers.filter((e) => !hiddenEngineers.has(e.user_id)),
+    [sortedEngineers, hiddenEngineers],
+  );
+
   // Unallocated: active jobs with no schedule entry this period
   const unallocatedJobs = useMemo(() => {
     const scheduledJobIds = new Set(schedule.map((s) => s.job_id));
     return jobs.filter((j) => !scheduledJobIds.has(j.id));
   }, [jobs, schedule]);
 
-  // Filter schedule for non-admin
+  // Filter schedule for non-admin AND drop rows for hidden engineers.
   const filteredSchedule = useMemo(() => {
-    if (isAdmin) return schedule;
-    return schedule.filter((s) => s.engineer_id === user?.id);
-  }, [schedule, isAdmin, user]);
+    const base = isAdmin ? schedule : schedule.filter((s) => s.engineer_id === user?.id);
+    if (hiddenEngineers.size === 0) return base;
+    return base.filter((s) => !hiddenEngineers.has(s.engineer_id));
+  }, [schedule, isAdmin, user, hiddenEngineers]);
 
-  // Filter adhoc entries for non-admin
+  // Filter adhoc entries for non-admin AND drop rows for hidden engineers.
   const filteredAdhoc = useMemo(() => {
-    if (isAdmin) return adhocEntries;
-    return adhocEntries.filter((a) => a.engineer_id === user?.id);
-  }, [adhocEntries, isAdmin, user]);
+    const base = isAdmin ? adhocEntries : adhocEntries.filter((a) => a.engineer_id === user?.id);
+    if (hiddenEngineers.size === 0) return base;
+    return base.filter((a) => !a.engineer_id || !hiddenEngineers.has(a.engineer_id));
+  }, [adhocEntries, isAdmin, user, hiddenEngineers]);
 
   // Add adhoc entry handler
   const handleAddAdhoc = async () => {
