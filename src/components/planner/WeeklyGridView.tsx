@@ -177,6 +177,14 @@ function DraggableUnallocatedJob({
           </div>
         )}
         <div className="flex flex-wrap gap-1 mt-0.5">
+          {(job as any).preassigned_engineer_name && (
+            <span
+              className="inline-flex items-center rounded bg-primary/15 border border-primary/30 text-primary px-1 py-0.5 text-[9px] font-semibold"
+              title="Already assigned to this engineer — drag onto a date to schedule"
+            >
+              👤 {(job as any).preassigned_engineer_name}
+            </span>
+          )}
           {job.category === "installation" && (
             <span className="inline-flex items-center rounded bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 px-1 py-0.5 text-[9px] font-bold">DRI</span>
           )}
