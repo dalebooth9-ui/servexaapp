@@ -543,6 +543,67 @@ export default function UserRoleSettings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit user details dialog */}
+      <Dialog open={!!editUserOpen} onOpenChange={(open) => { if (!open) setEditUserOpen(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User — {editUserOpen?.name}</DialogTitle>
+          </DialogHeader>
+          {editUserLoading ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>
+          ) : (
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-user-name">Full name</Label>
+                <Input
+                  id="edit-user-name"
+                  value={editUserForm.full_name}
+                  onChange={(e) => setEditUserForm((f) => ({ ...f, full_name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-user-email">Login email</Label>
+                <Input
+                  id="edit-user-email"
+                  type="email"
+                  value={editUserForm.email}
+                  onChange={(e) => setEditUserForm((f) => ({ ...f, email: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Changing this updates their login immediately — they'll use the new address next time they sign in.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-user-phone">Phone / WhatsApp number</Label>
+                <Input
+                  id="edit-user-phone"
+                  value={editUserForm.whatsapp_number}
+                  onChange={(e) => setEditUserForm((f) => ({ ...f, whatsapp_number: e.target.value }))}
+                  placeholder="+44…"
+                />
+              </div>
+              <div className="pt-2 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={editUserResetSending}
+                  onClick={sendResetFromDialog}
+                >
+                  <KeyRound className="mr-2 h-3 w-3" />
+                  {editUserResetSending ? "Sending…" : "Send password reset email"}
+                </Button>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditUserOpen(null)}>Cancel</Button>
+            <Button onClick={saveEditUser} disabled={editUserSaving || editUserLoading}>
+              {editUserSaving ? "Saving…" : "Save changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
