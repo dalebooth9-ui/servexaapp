@@ -5109,6 +5109,7 @@ export type Database = {
           plan_status: string
           primary_color: string | null
           reactivated_at: string | null
+          scan_intake_email: string | null
           slug: string
           status: string
           suspended_at: string | null
@@ -5130,6 +5131,7 @@ export type Database = {
           plan_status?: string
           primary_color?: string | null
           reactivated_at?: string | null
+          scan_intake_email?: string | null
           slug: string
           status?: string
           suspended_at?: string | null
@@ -5151,6 +5153,7 @@ export type Database = {
           plan_status?: string
           primary_color?: string | null
           reactivated_at?: string | null
+          scan_intake_email?: string | null
           slug?: string
           status?: string
           suspended_at?: string | null
@@ -7500,6 +7503,7 @@ export type Database = {
       }
       generate_contract_reference: { Args: never; Returns: string }
       generate_intake_email: { Args: { _slug: string }; Returns: string }
+      generate_scan_intake_email: { Args: { _slug: string }; Returns: string }
       generate_vfp_reference: { Args: never; Returns: string }
       get_email_automation_status: {
         Args: never
@@ -7640,6 +7644,7 @@ export type Database = {
         Args: { _email: string }
         Returns: {
           allowed: boolean
+          kind: string
           org_id: string
           status: string
         }[]
