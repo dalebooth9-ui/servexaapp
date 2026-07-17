@@ -1,87 +1,127 @@
-## Org account suspension — implementation plan
 
-Adds a full lifecycle (`active` / `suspended` / `cancelled`) to organisations with server-side enforcement, an audit trail, a platform-owner-only management console, and hooks a future Stripe webhook can call.
+## Goal
 
-### 1. Database
+Stop the "General → Remedial Works Completion" fallback from being attached to regulated jobs (e.g. gas suppression RITs). Detect a wider set of work types up front, warn when attached paperwork doesn't match, and let the office AI-draft a missing template into the builder as an unpublished draft.
 
-Migration `add_org_lifecycle`:
+---
 
-- `organisations`
-  - `status text NOT NULL DEFAULT 'active'` — CHECK IN `('active','suspended','cancelled')`
-  - `suspension_reason text`
-  - `suspension_message text` (shown on the paused screen, admin-configurable)
-  - `suspended_at timestamptz`, `suspended_by uuid`
-  - `reactivated_at timestamptz`
-  - `grace_period_ends_at timestamptz` (for future billing hooks — nullable)
-- New enum value on `app_role`: `platform_admin` (distinct from tenant `admin`).
-- Backfill: all existing orgs → `active`. Seed `platform_admin` role for every existing `admin` user in org `11111111-1111-1111-1111-111111111111`.
-- New table `org_status_log` (`org_id`, `old_status`, `new_status`, `reason`, `changed_by`, `changed_at`, `source` — `manual|billing|system`). GRANTs + RLS: platform admins select; service_role all.
-- Security-definer helpers:
-  - `public.is_org_active(_org_id uuid) returns boolean` — true when status = active.
-  - `public.current_user_org_status() returns text` — status of caller's org (used by client to show paused screen without a round trip per query).
-  - `public.is_platform_admin(_user_id uuid) returns boolean` — `has_role_in_org(_user_id, PLATFORM_ORG, 'platform_admin')`.
-  - `public.suspend_organisation(_org_id, _reason, _message, _source)` and `public.reactivate_organisation(_org_id, _source)` — SECURITY DEFINER, callable by platform admins OR service_role (so the future Stripe webhook edge function can invoke them). Both write to `org_status_log`. `suspend_organisation` refuses to touch the platform org.
-  - `public.cancel_organisation(_org_id, _reason)` — same authorisation, sets status to `cancelled`.
-- Trigger `organisations_prevent_platform_suspend` — raises if anyone tries to UPDATE the platform org's status away from `active`.
+## 1. Expand work-type detection
 
-### 2. Server-side enforcement (RLS deny-by-status)
+Rewrite `supabase/functions/_shared/inferJobScope.ts` to recognise, in addition to today's list:
 
-Rather than rewriting every existing policy, add a single RESTRICTIVE policy per user-facing table that blocks writes when the caller's org is not active:
+| Work type slug | Detection keywords |
+| --- | --- |
+| `gas_suppression` | RIT, room integrity test, IG-55, IG-541, IG55, IG541, FM-200/FM200, Novec, Novec 1230, HFC-227, clean agent, suppression discharge / retention |
+| `kitchen_suppression` | Ansul, R-102, kitchen suppression, kitchen fire suppression |
+| `fire_alarm` | fire alarm, L1/L2/L3/L4/L5, BS 5839, alarm panel, detector head, call point |
+| `emergency_lighting` | emergency lighting, EM lighting, BS 5266, 3-hour test, monthly EM test |
+| `hose_reel` | hose reel |
+| `water_mist` | water mist, watermist |
+| `smoke_vent` | smoke vent, AOV, natural smoke vent, mechanical smoke vent, BS 7346 |
+| `fire_door` | fire door, FD30, FD60, fire door inspection |
+| `wet_riser` | (already partial) — wet riser, wet-riser |
+| `extinguisher` | (already partial) — promote from ambiguous to definite |
 
-```sql
-CREATE POLICY "block_when_org_suspended"
-ON public.<table>
-AS RESTRICTIVE
-FOR ALL TO authenticated
-USING (public.is_org_active(get_user_org_id()))
-WITH CHECK (public.is_org_active(get_user_org_id()));
-```
-
-Applied to the operational tables: `jobs`, `job_assignments`, `job_documents`, `job_emails`, `job_signatures`, `job_visits`, `job_sheet_responses`, `customers`, `sites`, `assets`, `invoices`, `quote_approval_tokens`, `submissions`, `defects`, `rams_documents`, `vehicle_checks`, `time_clock`, `notifications`, `job_messages`. Reads to `organisations`, `profiles`, `user_roles`, `organisation_members`, `app_settings`, `email_branding`, `org_status_log` remain allowed so the paused screen and the platform console keep working.
-
-Client-side: `AuthProvider` fetches `current_user_org_status()` on session hydrate and subscribes to `organisations` row changes. When status ≠ `active`, `App.tsx` short-circuits routing to `<AccountPaused />` (full screen: org name, admin-configured message, support email link). Platform admins bypass this — they still see the console.
-
-### 3. PO intake bounce
-
-`supabase/functions/inbound-po-email/index.ts`: after `resolve_org_by_intake_email`, check status via new `resolve_org_by_intake_email_with_status` (extend the existing function to return status too). If `suspended`/`cancelled`, respond 200 with `{ status: 'rejected', reason: 'org_suspended' }` and skip job creation. Log to `po_intake_rate_limit` for observability (or a lightweight `intake_rejections` note in `job_activity_log` scoped to the org). Return a friendly bounce body so upstream mailbox forwarders can NDR if desired.
-
-### 4. Platform admin console
-
-New route `/platform/organisations` (added to `App.tsx`, gated by `is_platform_admin`; hidden from tenant admin sidebars). Component `src/pages/PlatformOrganisations.tsx`:
-
-- Table: name, status badge, plan, created, active users (`organisation_members` count), jobs count, last activity (`greatest(max(jobs.updated_at), max(job_activity_log.created_at))`).
-- Row actions:
-  - **Suspend** — dialog with reason (required) + optional customer-facing message → calls `suspend_organisation`.
-  - **Reactivate** — confirm → `reactivate_organisation`.
-  - **View history** — reads `org_status_log`.
-- Platform org row: actions disabled with "Platform owner — protected".
-
-Data fetched through a new SECURITY DEFINER function `platform_list_organisations()` that returns the aggregated stats in one call and refuses non-platform-admins.
-
-Sidebar: add "Platform" section shown only when `is_platform_admin` — single link "Organisations". No visibility change for tenant admins.
-
-### 5. Billing hooks (structure only)
-
-`suspend_organisation` / `reactivate_organisation` accept `_source` (`manual|billing|system`) so a future `stripe-webhook` edge function can call:
+Output shape changes to:
 
 ```ts
-await supabase.rpc('suspend_organisation', {
-  _org_id, _reason: 'payment_failed', _message: 'Payment failed — update billing to restore access.', _source: 'billing'
-})
+{
+  categorySlug: string | null,
+  detectedWorkTypes: Array<{ slug: string; label: string; canonicalTemplateNames: string[]; qty?: number }>,
+  templateNames: string[],           // legacy: names to attempt-attach
+  reasons: string[],
+  isRemedial: boolean,
+  remedialItems: string[],
+}
 ```
 
-No Stripe code shipped now — just the callable surface + `grace_period_ends_at` column for a later cron to enforce.
+Key rule: **if any specific work type is detected, `isRemedial` may be true only when wording is literally "remedial/snag/rectify/retest of <that work>" — never as a fallback**. Remove the current "unknown scope → default remedial attach".
 
-### Files
+Extract a rough quantity for each work type (`\b(\d+)\s*(?:x|×|off|no\.?)\s*RIT\b` etc.) so quantity mismatches can be surfaced.
 
-- `supabase/migrations/<ts>_org_lifecycle.sql` — schema, RLS restrictive policies, functions, backfill.
-- `src/hooks/useOrgStatus.ts` — subscribes to caller's org status.
-- `src/components/AccountPaused.tsx` — full-screen paused UI.
-- `src/pages/PlatformOrganisations.tsx` + `src/components/platform/OrgSuspendDialog.tsx`, `OrgStatusHistory.tsx`.
-- Edits: `src/App.tsx` (guard + route), `src/components/AppSidebar.tsx` (platform section), `src/contexts/AuthProvider.tsx` (hydrate status + platform-admin flag), `supabase/functions/inbound-po-email/index.ts` (suspended bounce), `supabase/functions/_shared/threadDedup.ts` if it touches status resolution.
+## 2. Stop attaching remedial default when a specific type is detected
 
-### Assumptions to confirm
+In `supabase/functions/inbound-po-email/index.ts`:
 
-- `platform_admin` role is bootstrapped for every current admin of the platform org. If you'd rather nominate specific users, say who and I'll seed only those.
-- Reads are NOT blocked during suspension (only writes) so an admin can still export/see their data before reactivation. Say the word and I'll extend the restrictive policy to `FOR SELECT` too.
-- "Cancelled" is treated the same as "suspended" for enforcement — the difference is intent (won't be reactivated). No data deletion.
+- After `inferJobScope`, load the org's `job_sheet_templates` (published + draft) and, for each `detectedWorkTypes[i]`, resolve any template whose `job_category`/`category` matches (or whose name matches one of `canonicalTemplateNames`).
+- Only attach templates that resolve. Never attach `Remedial Works Completion` unless the detected work type IS remedial closure.
+- Persist onto the job:
+  - `detected_work_types text[]` — slugs
+  - `template_mismatch_reason text` — human string (e.g. `"Work type: Gas suppression (RIT) — no matching job sheet template exists in your library. Build one or AI-draft."`) — set when a work type is detected but nothing resolves.
+- Clear `template_mismatch_reason` when a matching template is later attached (trigger on `job_documents` insert of type `blank_job_sheet`).
+
+## 3. UI — mismatch banner
+
+New component `src/components/JobTemplateMismatchBanner.tsx`:
+
+- Reads `jobs.detected_work_types`, `jobs.template_mismatch_reason`, and current attached templates.
+- Two states:
+  1. **Missing template** — "Work type: <label> — no matching job sheet template exists." Buttons: `Build template` (→ Industry Templates page prefilled) / `AI-draft template` (calls new edge fn — see §4).
+  2. **Wrong template** — detected work type X, but attached sheets are only Y/Z. Amber warning: `"Scope mentions <X>; attached sheets: <Y, Z>."` Includes an `Approve anyway (mismatch)` control that requires a typed reason and writes to `job_activity_log`.
+
+Mount points:
+- `src/pages/JobDetail.tsx` — top of the Overview tab.
+- `src/components/jobs/JobsToApproveCard.tsx` (or the current pending-review card — will locate) — inline badge with tooltip.
+
+Approval flow (`Approve` on the pending-review card) checks `template_mismatch_reason`/quantity mismatch; if present, the button relabels to `Approve anyway…` and opens a confirm dialog capturing the reason.
+
+## 4. AI-draft template edge function
+
+New `supabase/functions/draft-job-sheet-template/index.ts`:
+
+- Input: `{ work_type_slug, work_type_label, source_job_id? }`
+- Uses Lovable AI (`google/gemini-2.5-pro`) with a strict JSON schema output covering the same structure the Template Builder uses (sections → items with `field_type`, `options`, `required`).
+- Inserts into `public.job_sheet_templates` with:
+  - `status = 'draft'` (never published)
+  - `name` = e.g. `"Gas Suppression — Room Integrity Test — AI DRAFT, review before use"`
+  - `category`/`job_category` set from work type
+  - `created_by` = caller, `org_id` = caller's org
+- Returns the new template id so the UI can deep-link straight into `EditTemplateDialog`.
+- No auto-attach to the source job — office must publish first.
+
+## 5. Migration
+
+```sql
+ALTER TABLE public.jobs
+  ADD COLUMN IF NOT EXISTS detected_work_types text[] DEFAULT '{}'::text[],
+  ADD COLUMN IF NOT EXISTS template_mismatch_reason text,
+  ADD COLUMN IF NOT EXISTS mismatch_approved_reason text,
+  ADD COLUMN IF NOT EXISTS mismatch_approved_by uuid,
+  ADD COLUMN IF NOT EXISTS mismatch_approved_at timestamptz;
+```
+
+No RLS changes — existing `jobs` policies cover it.
+
+## 6. Audit of current live jobs (Viva org)
+
+From the DB right now, non-completed jobs that mention a work type the current fallback would mis-file:
+
+| Ref | Category | Status | Detected work type | Attached sheets |
+| --- | --- | --- | --- | --- |
+| VFP-00219 | general | pending_review | Gas suppression (RIT, IG-55) | Remedial Works Completion ⚠️ |
+| VFP-00192 | general | pending_review | Gas suppression (RIT, IG-55) — same PO 3048 as 00219 | none |
+| VFP-00198 | general | pending_review | Gas suppression (server room) | (to verify) |
+| 11609 | general | active | Kitchen suppression (Ansul R-102) | (to verify) |
+
+Reported in the reply, not auto-changed.
+
+## 7. VFP-00192 / VFP-00219 duplicate
+
+Both jobs are the same PFS PO 3048, one line "1 × RIT for IG-55 in Comms room".
+
+- **Keep VFP-00192** — it's the first-created reference (lower number, canonical).
+- Fold **VFP-00219** into it via the existing job-merge tool; VFP-00219 is the one that has `customer_po = 3048` set, so before merging, copy `customer_po` from 00219 → 00192, then merge & delete 00219.
+
+Merge tool behaviour I'll confirm: the existing job-merge path already reassigns `job_documents`, `job_emails`, `job_activity_log`, `job_assignments`, `job_sheet_responses`, and `job_visits` from the loser to the winner. I'll verify that path handles the two new columns (`detected_work_types`, `template_mismatch_reason`) — plan is to prefer the winner's value, fall back to loser's when winner is null.
+
+## Out of scope for this change
+
+- Fixing the Ansul template gap for job 11609 — audit only; the office decides.
+- Extending Word/PDF renderers for gas suppression — not needed until a template exists.
+- Notifications / email alerts for mismatched jobs — the banner is sufficient for now.
+
+## Technical notes
+
+- New columns are additive with defaults, so no data backfill needed.
+- Detection stays in a shared TS file (`_shared/inferJobScope.ts`) so both the email intake and the future manual-paste PO flow use it.
+- The AI-drafter runs at admin-only via edge function JWT check; nothing user-facing exposes `LOVABLE_API_KEY`.
