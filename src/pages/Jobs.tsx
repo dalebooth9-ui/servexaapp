@@ -397,11 +397,23 @@ export default function Jobs() {
   };
 
   const handleApproveJob = async (jobId: string) => {
+    const job = jobs.find((j) => j.id === jobId) as any;
     if ((pendingSheetCounts[jobId] ?? 0) === 0) {
       const ok = window.confirm(
         "This job has no job sheets attached. The engineer will arrive on site with nothing to fill in.\n\nApprove anyway?"
       );
       if (!ok) return;
+    }
+    if (job?.template_mismatch_reason) {
+      const ok = window.confirm(
+        `⚠️ Work-type mismatch:\n\n${job.template_mismatch_reason}\n\nApprove anyway?`
+      );
+      if (!ok) return;
+      await supabase.from("jobs").update({
+        approved_with_mismatch: true,
+        approved_with_mismatch_by: user?.id,
+        approved_with_mismatch_at: new Date().toISOString(),
+      } as any).eq("id", jobId);
     }
     const { error } = await supabase.from("jobs").update({ status: "active" } as any).eq("id", jobId);
     if (error) {
@@ -420,6 +432,18 @@ export default function Jobs() {
         `${emptyCount} of the ${ids.length} selected job(s) have no job sheets attached. Engineers will arrive with nothing to fill in.\n\nApprove all anyway?`
       );
       if (!ok) return;
+    }
+    const mismatched = jobs.filter((j) => ids.includes(j.id) && (j as any).template_mismatch_reason);
+    if (mismatched.length > 0) {
+      const ok = window.confirm(
+        `⚠️ ${mismatched.length} of the selected job(s) have a work-type / template mismatch. Approve all anyway?`
+      );
+      if (!ok) return;
+      await supabase.from("jobs").update({
+        approved_with_mismatch: true,
+        approved_with_mismatch_by: user?.id,
+        approved_with_mismatch_at: new Date().toISOString(),
+      } as any).in("id", mismatched.map((j) => j.id));
     }
     const { error } = await supabase.from("jobs").update({ status: "active" } as any).in("id", ids);
     if (error) {
