@@ -245,8 +245,18 @@ export default function ScanCompletedJobDialog({
       setCustomerSig(null);
       setManualCrop(null);
       setAckMismatch(false);
+      setPoMisdrop(null);
     }
   }, [open]);
+
+  // Handoff from PO import: preload the file
+  useEffect(() => {
+    if (!open || !initialFile) return;
+    const url = URL.createObjectURL(initialFile);
+    setImages([{ file: initialFile, url }]);
+    setMode("single");
+    setPoMisdrop(null);
+  }, [open, initialFile]);
 
   // Load open/scheduled jobs for the selected customer+site so the reviewer
   // can file the scan against an existing job instead of creating a new one.
