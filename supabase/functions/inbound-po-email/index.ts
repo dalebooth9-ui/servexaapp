@@ -1131,20 +1131,33 @@ serve(async (req) => {
     // We NEVER attach "Remedial Works Completion" as a fallback when the
     // scope contains a specific work type (e.g. a Room Integrity Test) —
     // wrong paperwork on a regulated test is worse than no paperwork.
-    const detected = inferred.detectedWorkTypes;
+    const detected = [...inferred.detectedWorkTypes];
+    // Safety net: if free-text detection missed everything but the AI
+    // parser set a specific job category (typical for image-only POs
+    // where the description text doesn't contain the keyword), synthesise
+    // a DetectedWorkType from the category so we can still resolve a
+    // published template instead of falling through to remedial.
+    if (detected.length === 0) {
+      const mod = await import("../_shared/inferJobScope.ts");
+      const synth = mod.detectorForCategorySlug(
+        inferred.categorySlug || (jobInsert.category as string | null),
+      );
+      if (synth) detected.push(synth);
+    }
     const detectedSlugs = detected.map((d) => d.slug);
     let mismatchReason: string | null = null;
 
     try {
       const { data: orgTemplates } = await admin
         .from("job_sheet_templates")
-        .select("id, name, category, job_category, status")
+        .select("id, name, category, job_category, status, updated_at")
         .eq("org_id", orgId);
 
       const { matched, unmatchedWorkTypes } = resolveTemplatesForWorkTypes(
         detected,
         (orgTemplates || []) as any[],
       );
+
 
       if (matched.length) {
         const rows = matched.map((t: any) => ({
