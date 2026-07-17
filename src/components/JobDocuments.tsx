@@ -456,6 +456,25 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     setDeletingId(null);
   };
 
+  // Toggle a document's Reference tag. Reference docs stay internal
+  // (excluded from customer-facing PDF/Word exports and Send-to-Customer).
+  const handleToggleReference = async (doc: JobDoc) => {
+    const newType = doc.document_type === "reference" ? "uploaded_file" : "reference";
+    const { error } = await supabase
+      .from("job_documents" as any)
+      .update({ document_type: newType } as any)
+      .eq("id", doc.id);
+    if (error) {
+      toast({ title: "Could not update tag", description: error.message, variant: "destructive" });
+      return;
+    }
+    setDocs((prev) => prev.map((d) => (d.id === doc.id ? { ...d, document_type: newType } : d)));
+    toast({
+      title: newType === "reference" ? "Tagged as Reference" : "Reference tag removed",
+      description: newType === "reference" ? "Internal only — excluded from customer exports." : undefined,
+    });
+  };
+
   const handleDownload = async (doc: JobDoc) => {
     if (!doc.file_url) return;
     // Always resolve to a FRESH signed URL — legacy rows may hold expired
