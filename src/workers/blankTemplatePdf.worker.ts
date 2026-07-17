@@ -530,9 +530,11 @@ async function buildPdf(payload: WorkerPayload) {
         handfill,
       });
     }
-    // No watermark on paper-form sheets — the paper form has always been
-    // rendered on a clean background so nothing behind the writing lines
-    // can reduce legibility for the engineer or the scanner classifier.
+    // Faint Viva flame watermark — matches the branded report set and the
+    // recent z-order/transparent-cells rules (body cells are drawn without
+    // opaque white fills so the watermark shows through uniformly).
+    const wmPaper = resolveWatermark(payload.watermarkSettings, payload.watermarkOverride);
+    addWatermark(doc, watermark, accentColor, wmPaper.mode, wmPaper.opacity);
     const fileName = [
       jobInfo?.customer_po || jobInfo?.reference_number || "blank",
       template.name.replace(/\s+/g, "-").toLowerCase(),
