@@ -243,6 +243,7 @@ export default function WeeklyPlanner() {
   const [shuntDays, setShuntDays] = useState("1");
   const [shuntDirection, setShuntDirection] = useState<"forward" | "backward">("forward");
   const [shuntFromDate, setShuntFromDate] = useState("");
+  const [shuntSkipWeekends, setShuntSkipWeekends] = useState(false);
 
   // AI Scheduler
   const [aiSchedulerOpen, setAiSchedulerOpen] = useState(false);
