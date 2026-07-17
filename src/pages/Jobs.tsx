@@ -1044,6 +1044,13 @@ export default function Jobs() {
         });
       }
 
+      if (createdJob && capturedPoFiles.length > 0 && user?.id) {
+        // Attach every dropped PO page/photo to the newly-created job so the
+        // full paper trail lives on the job record.
+        uploadFilesAsSubmissions(capturedPoFiles, createdJob.id, user.id).catch((err) => {
+          console.error("PO file attach failed", err);
+        });
+
       if (createdJob && capturedCostingSheet) {
         // Upload costing sheet and process it asynchronously
         const processCosting = async () => {
