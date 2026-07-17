@@ -809,66 +809,15 @@ export default function ScanCompletedJobDialog({
         ? "paper backfill"
         : "paper backfill (date unknown)";
 
-      let jobId: string;
-      let jobRef: string;
       const matchedExisting = Boolean(matchExistingJobId);
 
-      if (matchedExisting) {
-        // File this scan against an existing pre-scheduled job — mark it
-        // completed on the handwritten date, don't create a new job.
-        const { data: updated, error: updErr } = await supabase
-          .from("jobs")
-          .update({
-            status: "completed",
-            completed_by: user.id,
-            completed_at: completedAt,
-            historic_backfill: true,
-            source: backfillSource,
-          } as any)
-          .eq("id", matchExistingJobId)
-          .select("id, reference_number")
-          .single();
-        if (updErr) throw updErr;
-        jobId = (updated as any).id;
-        jobRef = (updated as any).reference_number;
-      } else {
-        // Insert brand-new historic job.
-        const { data: job, error: jobErr } = await supabase
-          .from("jobs")
-          .insert({
-            name: jobName || `${template.name} — backfilled`,
-            customer: selectedCustomer?.name || null,
-            customer_id: customerId,
-            site_id: siteId,
-            address: jobAddress || null,
-            status: "completed",
-            priority: "medium",
-            category,
-            source: backfillSource,
-            historic_backfill: true,
-            created_by: user.id,
-            completed_by: user.id,
-            completed_at: completedAt,
-            pressure_test_qty: category === "pressure_test" ? 1 : 0,
-            visual_qty: category === "visual" ? 1 : 0,
-            other_qty: category !== "pressure_test" && category !== "visual" ? 1 : 0,
-          } as any)
-          .select("id, reference_number")
-          .single();
-        if (jobErr) throw jobErr;
-        jobId = (job as any).id;
-        jobRef = (job as any).reference_number;
-      }
-
-
-      // Insert job_sheet_responses — strip blank/undefined so the payload
-      // only contains real answers (paper backfill: all template fields optional).
+      // Build the response payload — strip blank/undefined so it only
+      // contains real answers (paper backfill: all template fields optional).
       const fullResponses: Record<string, any> = {};
       for (const [k, v] of Object.entries(responses)) {
         if (v === undefined || v === null || v === "") continue;
         fullResponses[k] = v;
       }
-      // Ensure header sub-fields land in response if template has matching IDs
       if (header.customer && !fullResponses["customer_name"] && template.fields.some(f => f.id === "customer_name")) {
         fullResponses.customer_name = header.customer;
       }
@@ -882,17 +831,37 @@ export default function ScanCompletedJobDialog({
         fullResponses.technician_name = header.engineer;
       }
 
-      const { error: respErr } = await supabase
-        .from("job_sheet_responses")
-        .insert({
-          job_id: jobId,
-          template_id: template.id,
-          submitted_by: user.id,
-          status: "submitted",
-          submitted_at: new Date().toISOString(),
-          responses: fullResponses,
-        } as any);
-      if (respErr) throw respErr;
+      // ATOMIC: create/update the job AND file the response in one
+      // transaction on the server. Prevents shell-jobs when a mid-flight
+      // failure previously left the job without its response.
+      // Naming rules are enforced server-side:
+      //   name = "<Template name> — <Site/address>" (never raw scope text)
+      //   reference_number = normal VFP sequence (never a PO scraped from paper)
+      //   customer_po = any PO/reference handwritten on the sheet
+      const poFromPaper =
+        (header.po_ref ? String(header.po_ref) : "") ||
+        (header.job_ref ? String(header.job_ref) : "");
+      const { data: confirmRes, error: confirmErr } = await supabase.rpc(
+        "confirm_paper_scan_job" as any,
+        {
+          _template_id: template.id,
+          _customer_id: customerId,
+          _site_id: siteId,
+          _completed_at: completedAt,
+          _date_known: dateKnown,
+          _category: category,
+          _responses: fullResponses,
+          _customer_po: poFromPaper || null,
+          _existing_job_id: matchedExisting ? matchExistingJobId : null,
+          _batch_item_id: queueItem?.itemId || null,
+          _override_name: jobName || null,
+        },
+      );
+      if (confirmErr) throw confirmErr;
+      const row = Array.isArray(confirmRes) ? confirmRes[0] : confirmRes;
+      if (!row?.job_id) throw new Error("Confirm did not return a job id");
+      const jobId: string = row.job_id;
+      const jobRef: string = row.reference_number;
 
       // Attach photos — from File objects (single flow) or copy from storage (queue flow)
       if (queueItem && queueItem.imagePaths.length > 0) {
