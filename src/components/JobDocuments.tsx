@@ -803,6 +803,7 @@ ${sections}
                 deleting={deletingId === doc.id}
                 onDelete={handleDelete}
                 onDownload={handleDownload}
+                onDirectDownload={handleDirectDownload}
                 onGenerateRams={handleGenerateRams}
                 generatingRams={generatingRams}
                 jobId={jobId}
@@ -810,6 +811,10 @@ ${sections}
                 jobInfo={jobInfo}
                 blankTemplates={blankTemplates}
                 isCustomerPaperwork
+                onAddToPhotos={handleAddToPhotos}
+                addingToPhotos={addingToPhotosId === doc.id}
+                onClearReviewFlag={handleClearReviewFlag}
+                clearingReview={clearingReviewId === doc.id}
               />
             ))}
           </div>
