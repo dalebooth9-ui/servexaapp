@@ -635,10 +635,11 @@ serve(async (req) => {
   const orgId: string | null = row?.org_id ?? null;
   const allowed: boolean = row?.allowed === true;
   const orgStatus: string | null = row?.status ?? null;
+  const intakeKind: string = row?.kind ?? "po";
 
   if (!orgId) { console.log("Unknown intake address", intakeAddr); return okSilently(); }
   if (orgStatus && orgStatus !== "active") {
-    console.warn("Rejecting intake for suspended org", { orgId, orgStatus, intakeAddr });
+    console.warn("Rejecting intake for suspended org", { orgId, orgStatus, intakeAddr, intakeKind });
     return json(200, {
       status: "rejected",
       reason: "org_suspended",
@@ -646,6 +647,72 @@ serve(async (req) => {
     });
   }
   if (!allowed) { console.warn("Rate limited", intakeAddr); return okSilently(); }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Branch: scan intake creates a paper_scan_batches row instead of a job.
+  // All attachments become batch items and land in the Paper Scan Queue for
+  // an admin to process. Splitting multi-sheet PDFs is deferred — each
+  // attachment becomes one item; office scanners typically produce one PDF
+  // per sheet anyway.
+  // ────────────────────────────────────────────────────────────────────────
+  if (intakeKind === "scan") {
+    try {
+      const scannable = email.attachments.filter((a) => {
+        const mt = (a.contentType || "").toLowerCase();
+        return mt.startsWith("image/") || mt === "application/pdf";
+      });
+      if (scannable.length === 0) {
+        console.warn("[inbound-scan] no scannable attachments", { intakeAddr, from: email.from });
+        return json(200, { status: "rejected", reason: "no_scannable_attachments" });
+      }
+
+      const { data: batchRow, error: batchErr } = await admin
+        .from("paper_scan_batches")
+        .insert({
+          org_id: orgId,
+          created_by: null,
+          status: "processing",
+          total_items: scannable.length,
+          processed_items: 0,
+          note: `Email from ${email.from} — subject: ${email.subject || "(no subject)"}`,
+        })
+        .select("id")
+        .single();
+      if (batchErr || !batchRow) throw new Error(`batch insert failed: ${batchErr?.message}`);
+      const batchId = (batchRow as any).id as string;
+
+      let idx = 0;
+      for (const att of scannable) {
+        idx++;
+        const safeName = (att.filename || `page-${idx}`).replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80);
+        const path = `${orgId}/paper-scan-batches/${batchId}/${idx}-${safeName}`;
+        const { error: upErr } = await admin.storage
+          .from("submissions")
+          .upload(path, att.bytes, {
+            contentType: att.contentType || "application/octet-stream",
+            upsert: false,
+          });
+        if (upErr) {
+          console.error("[inbound-scan] upload failed", path, upErr.message);
+          continue;
+        }
+        await admin.from("paper_scan_batch_items").insert({
+          batch_id: batchId,
+          org_id: orgId,
+          image_paths: [path],
+          status: "pending",
+        });
+      }
+
+      console.log("[inbound-scan] batch created", {
+        batch_id: batchId, org_id: orgId, items: scannable.length, from: email.from,
+      });
+      return json(200, { status: "queued", batch_id: batchId, items: scannable.length });
+    } catch (e: any) {
+      console.error("[inbound-scan] failed", e?.message || e);
+      return json(500, { error: "Scan intake failed" });
+    }
+  }
 
   // Look up our own org name so we can (a) tell the model what NOT to pick
   // and (b) post-filter its output.
