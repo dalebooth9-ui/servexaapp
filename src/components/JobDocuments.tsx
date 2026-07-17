@@ -800,7 +800,7 @@ function DocRow({
   const isRams = doc.document_type === "rams_pdf";
   const isBlankSheet = doc.document_type === "blank_job_sheet";
   const isPreStart = doc.document_type === "pre_start_checklist";
-  const isUploadSlot = ["quote", "purchase_order", "site_drawing", "uploaded_file"].includes(doc.document_type);
+  const isUploadSlot = ["quote", "purchase_order", "site_drawing", "uploaded_file", "reference"].includes(doc.document_type);
   const hasFile = !!doc.file_url;
 
   const DOC_TYPE_BADGE: Record<string, string> = {
