@@ -72,34 +72,10 @@ serve(async (req) => {
         user_metadata: { ...(existing.user.user_metadata ?? {}), ...(full_name ? { full_name } : {}) },
       });
       if (updErr) return json({ error: `Failed to update email: ${updErr.message}` }, 400);
-
-      // Keep the identity_data.email on the 'email' provider identity in sync so
-      // sign-in and account linking use the new address consistently.
-      try {
-        const emailIdentity = (existing.user.identities ?? []).find((i: any) => i.provider === "email");
-        if (emailIdentity?.id) {
-          await supabaseAdmin.from("identities" as any) // no-op fallback; below is authoritative
-            .update({}).eq("id", emailIdentity.id);
-        }
-      } catch { /* best-effort */ }
-      // Authoritative sync of auth.identities identity_data.email via SQL
-      await supabaseAdmin.rpc("exec_sql" as any, {}).catch(() => {});
-      // Fallback: direct table update through PostgREST is blocked for auth schema,
-      // so run via a service-role query using the pg REST endpoint.
-      try {
-        const resp = await fetch(`${supabaseUrl}/rest/v1/rpc/sync_identity_email`, {
-          method: "POST",
-          headers: {
-            apikey: serviceRoleKey,
-            Authorization: `Bearer ${serviceRoleKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ _user_id: user_id, _new_email: newEmail }),
-        });
-        // If the helper RPC isn't installed, ignore — updateUserById already
-        // rewrote the primary email; identities will reconcile on next sign-in.
-        void resp;
-      } catch { /* best-effort */ }
+      // GoTrue's admin updateUserById with `email` + `email_confirm: true` rewrites
+      // the primary email AND syncs auth.identities.identity_data.email for the
+      // 'email' provider identity in one step, so the user can log in with the
+      // new address immediately with no dangling confirmation state.
 
       changes.push(`email:${oldEmail ?? ""}->${newEmail}`);
     }
