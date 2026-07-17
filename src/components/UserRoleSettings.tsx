@@ -323,7 +323,7 @@ export default function UserRoleSettings() {
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} className="py-6 text-center text-muted-foreground">No users found.</TableCell>
+                <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">No users found.</TableCell>
               </TableRow>
             ) : (
               users.map((u) => {
