@@ -20,6 +20,7 @@ import HelpArticlesAdmin from "@/components/HelpArticlesAdmin";
 import EmailFromSettings from "@/components/EmailFromSettings";
 import EmailBrandingSettings from "@/components/EmailBrandingSettings";
 import PoIntakeEmailCard from "@/components/PoIntakeEmailCard";
+import ScanIntakeEmailCard from "@/components/ScanIntakeEmailCard";
 import EmailAutomationSettings from "@/components/EmailAutomationSettings";
 import JobCategorySettings from "@/components/JobCategorySettings";
 import AssetCategorySettings from "@/components/AssetCategorySettings";
