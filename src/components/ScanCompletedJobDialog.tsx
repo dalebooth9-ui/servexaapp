@@ -431,12 +431,36 @@ export default function ScanCompletedJobDialog({
   };
 
   // ── File input ──
-  const addFiles = (fs: FileList | null) => {
+  const addFiles = async (fs: FileList | null) => {
     if (!fs || fs.length === 0) return;
-    const arr = Array.from(fs).filter((f) => f.type.startsWith("image/"));
+    const raw = Array.from(fs);
+    const hasPdf = raw.some(
+      (f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name),
+    );
+    let expanded: File[];
+    if (hasPdf) {
+      try {
+        setProcessingMsg("Rendering PDF pages…");
+        setStep("processing");
+        const { expandDropToPageFiles } = await import("@/lib/pdfToImages");
+        expanded = await expandDropToPageFiles(raw);
+        setStep("upload");
+      } catch (e: any) {
+        setStep("upload");
+        toast({
+          title: "Couldn't read PDF",
+          description: e?.message || "Try a different file.",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else {
+      expanded = raw.filter((f) => f.type.startsWith("image/"));
+    }
+    if (expanded.length === 0) return;
     setImages((prev) => [
       ...prev,
-      ...arr.map((f) => ({ file: f, url: URL.createObjectURL(f) })),
+      ...expanded.map((f) => ({ file: f, url: URL.createObjectURL(f) })),
     ]);
   };
 
@@ -1054,7 +1078,7 @@ export default function ScanCompletedJobDialog({
                 <input
                   ref={fileRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,application/pdf"
                   multiple
                   className="hidden"
                   onChange={(e) => addFiles(e.target.files)}
