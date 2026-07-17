@@ -7596,6 +7596,26 @@ export type Database = {
         Args: { _org_id: string; _reason: string; _source?: string }
         Returns: undefined
       }
+      confirm_paper_scan_job: {
+        Args: {
+          _batch_item_id?: string
+          _category: string
+          _completed_at: string
+          _customer_id: string
+          _customer_po?: string
+          _date_known: boolean
+          _existing_job_id?: string
+          _override_name?: string
+          _responses: Json
+          _site_id: string
+          _template_id: string
+        }
+        Returns: {
+          job_id: string
+          reference_number: string
+          was_new: boolean
+        }[]
+      }
       count_seed_test_jobs: {
         Args: never
         Returns: {
