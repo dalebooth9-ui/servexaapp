@@ -38,7 +38,7 @@ interface PoImportDialogProps {
   onRedirectToScan?: (file: File) => void;
 }
 
-export default function PoImportDialog({ open, onOpenChange, file, onJobCreated }: PoImportDialogProps) {
+export default function PoImportDialog({ open, onOpenChange, file, onJobCreated, onRedirectToScan }: PoImportDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
 
