@@ -23,6 +23,8 @@ import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import ScanCompletedJobDialog from "@/components/ScanCompletedJobDialog";
 import PaperScanQueueBadge from "@/components/paper-scan/PaperScanQueueBadge";
+import ReferenceFilesDropzone, { DeferredReferenceFilesList } from "@/components/ReferenceFilesDropzone";
+import { uploadReferenceFiles } from "@/lib/uploadReferenceFile";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Accordion } from "@/components/ui/accordion";
