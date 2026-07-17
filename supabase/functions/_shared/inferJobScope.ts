@@ -399,45 +399,102 @@ export function resolveTemplatesForWorkTypes<T extends {
   category?: string | null;
   job_category?: string | null;
   status?: string | null;
+  updated_at?: string | null;
 }>(
   detected: DetectedWorkType[],
   templates: T[],
 ): { matched: T[]; unmatchedWorkTypes: DetectedWorkType[] } {
+  // Selection is ALWAYS constrained to published templates. Draft rows
+  // (typically stale duplicates of a published canonical) must never be
+  // auto-attached.
   const published = templates.filter((t) => (t.status || "published") === "published");
   const matchedIds = new Set<string>();
   const matched: T[] = [];
   const unmatched: DetectedWorkType[] = [];
 
+  // Normalise dashes/whitespace/punctuation so "Fire Extinguisher – Annual
+  // Service" (en dash) collides with "Fire Extinguisher — Annual Service"
+  // (em dash) and both match "fire extinguisher - annual service".
+  const foldName = (s: string) =>
+    (s || "")
+      .toLowerCase()
+      .replace(/[\u2010-\u2015\u2212]/g, "-") // hyphen/en/em/minus → "-"
+      .replace(/\s+/g, " ")
+      .replace(/[^a-z0-9\- ]+/g, "")
+      .trim();
+
   for (const wt of detected) {
-    const nameSet = new Set(wt.canonicalTemplateNames.map((n) => n.toLowerCase()));
+    const nameSet = new Set(wt.canonicalTemplateNames.map(foldName));
     const catSet = wt.matchCategories.map((c) => c.toLowerCase());
-    const hits = published.filter((t) => {
-      const name = (t.name || "").toLowerCase();
-      if (nameSet.has(name)) return true;
-      const cat = (t.category || "").toLowerCase();
-      const jc = (t.job_category || "").toLowerCase();
-      return catSet.some((c) => cat.includes(c) || jc.includes(c));
-    }).filter((t) => {
-      // Never pick a remedial template as a positive match for a
-      // service/inspection work type.
-      const n = (t.name || "").toLowerCase();
-      const c = (t.category || "").toLowerCase();
-      const j = (t.job_category || "").toLowerCase();
-      return !/remedial|repair\s*works|snag/.test(n)
-        && !/remedial/.test(c)
-        && !/remedial/.test(j);
-    });
+    const hits = published
+      .filter((t) => {
+        const nm = foldName(t.name || "");
+        if (nameSet.has(nm)) return true;
+        const cat = (t.category || "").toLowerCase();
+        const jc = (t.job_category || "").toLowerCase();
+        return catSet.some((c) => (cat && cat.includes(c)) || (jc && jc.includes(c)));
+      })
+      .filter((t) => {
+        const n = (t.name || "").toLowerCase();
+        const c = (t.category || "").toLowerCase();
+        const j = (t.job_category || "").toLowerCase();
+        return (
+          !/remedial|repair\s*works|snag/.test(n) &&
+          !/remedial/.test(c) &&
+          !/remedial/.test(j)
+        );
+      });
+
     if (hits.length === 0) {
       unmatched.push(wt);
-    } else {
-      for (const h of hits) {
-        if (!matchedIds.has(h.id)) {
-          matchedIds.add(h.id);
-          matched.push(h);
-        }
-      }
+      continue;
+    }
+
+    // Rank candidates so, when multiple published templates match, we pick
+    // the strongest signal instead of attaching nothing (or all of them):
+    //   1. dash-folded exact name match beats category-only match
+    //   2. job_category match beats generic category match
+    //   3. most recently updated wins as final tie-break
+    const scored = hits.map((t) => {
+      const nm = foldName(t.name || "");
+      let score = 0;
+      if (nameSet.has(nm)) score += 1000;
+      const jc = (t.job_category || "").toLowerCase();
+      if (catSet.some((c) => jc && jc.includes(c))) score += 100;
+      const cat = (t.category || "").toLowerCase();
+      if (catSet.some((c) => cat && cat.includes(c))) score += 50;
+      const ts = t.updated_at ? Date.parse(t.updated_at) : 0;
+      return { t, score, ts: isNaN(ts) ? 0 : ts };
+    });
+    scored.sort((a, b) => b.score - a.score || b.ts - a.ts);
+    const best = scored[0].t;
+    if (!matchedIds.has(best.id)) {
+      matchedIds.add(best.id);
+      matched.push(best);
     }
   }
 
   return { matched, unmatchedWorkTypes: unmatched };
+}
+
+/**
+ * Build a synthetic DetectedWorkType from a stored `jobs.category` slug
+ * when the free-text detectors produced nothing. Useful when the PO
+ * arrived as a scanned image and the AI parser set the category but the
+ * plain-text description doesn't contain the keyword the regexes need.
+ */
+export function detectorForCategorySlug(slug: string | null | undefined): DetectedWorkType | null {
+  if (!slug) return null;
+  const s = slug.toLowerCase();
+  const det = DETECTORS.find((d) => {
+    if (CATEGORY_FROM_SLUG[d.slug] === s) return true;
+    return d.matchCategories.some((c) => s.includes(c));
+  });
+  if (!det) return null;
+  return {
+    slug: det.slug,
+    label: det.label,
+    canonicalTemplateNames: det.canonicalTemplateNames,
+    matchCategories: det.matchCategories,
+  };
 }
