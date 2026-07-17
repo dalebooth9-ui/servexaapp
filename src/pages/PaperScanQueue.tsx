@@ -378,6 +378,7 @@ export default function PaperScanQueue() {
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(i.created_at), {
                           addSuffix: true,
