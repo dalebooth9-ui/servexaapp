@@ -2187,6 +2187,12 @@ export default function Jobs() {
                         </Select>
                       </div>
                     )}
+                    {(j as any).template_mismatch_reason && (
+                      <div className="mt-2 flex items-start gap-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-500/10 border border-amber-500/40 rounded px-2 py-1.5">
+                        <span className="font-semibold shrink-0">⚠ Work-type mismatch:</span>
+                        <span className="whitespace-pre-wrap break-words">{(j as any).template_mismatch_reason}</span>
+                      </div>
+                    )}
                     {isAdmin && (
                       <div className="mt-2">
                         <ReferenceFilesDropzone
