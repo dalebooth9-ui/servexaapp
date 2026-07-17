@@ -311,7 +311,7 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated,
         )}
 
         {/* Editable form */}
-        {!parsing && (extracted || parseError) && (
+        {!parsing && !isMisdrop && (extracted || parseError) && (
           <div className="space-y-4 pt-1">
             <div className="space-y-2">
               <Label>Job Name <span className="text-destructive">*</span></Label>
