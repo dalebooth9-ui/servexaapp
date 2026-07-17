@@ -832,6 +832,7 @@ ${sections}
               deleting={deletingId === doc.id}
               onDelete={handleDelete}
               onDownload={handleDownload}
+              onDirectDownload={handleDirectDownload}
               onGenerateRams={handleGenerateRams}
               generatingRams={generatingRams}
               jobId={jobId}
@@ -840,8 +841,12 @@ ${sections}
               blankTemplates={blankTemplates}
               onUploadSlot={handleUploadSlot}
               uploadingSlotId={uploadingSlotId}
-                onFillOnline={handleFillOnline}
-                onToggleReference={handleToggleReference}
+              onFillOnline={handleFillOnline}
+              onToggleReference={handleToggleReference}
+              onAddToPhotos={handleAddToPhotos}
+              addingToPhotos={addingToPhotosId === doc.id}
+              onClearReviewFlag={handleClearReviewFlag}
+              clearingReview={clearingReviewId === doc.id}
             />
           ))}
         </div>
