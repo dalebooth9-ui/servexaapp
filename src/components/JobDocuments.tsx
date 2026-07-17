@@ -915,6 +915,7 @@ function DocRow({
   deleting,
   onDelete,
   onDownload,
+  onDirectDownload,
   onGenerateRams,
   generatingRams,
   jobId,
@@ -926,12 +927,17 @@ function DocRow({
   uploadingSlotId,
   onFillOnline,
   onToggleReference,
+  onAddToPhotos,
+  addingToPhotos,
+  onClearReviewFlag,
+  clearingReview,
 }: {
   doc: JobDoc;
   isAdmin: boolean;
   deleting: boolean;
   onDelete: (d: JobDoc) => void;
   onDownload: (d: JobDoc) => void;
+  onDirectDownload: (d: JobDoc) => void;
   onGenerateRams: () => void;
   generatingRams: boolean;
   jobId: string;
@@ -943,6 +949,10 @@ function DocRow({
   uploadingSlotId?: string | null;
   onFillOnline?: (templateId: string) => void;
   onToggleReference?: (doc: JobDoc) => void;
+  onAddToPhotos?: (doc: JobDoc) => void;
+  addingToPhotos?: boolean;
+  onClearReviewFlag?: (doc: JobDoc) => void;
+  clearingReview?: boolean;
 }) {
   const isRams = doc.document_type === "rams_pdf";
   const isBlankSheet = doc.document_type === "blank_job_sheet";
