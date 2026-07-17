@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Download, ExternalLink, Loader2, ChevronDown, FileText, Droplet } from "lucide-react";
+import { Download, ExternalLink, Loader2, ChevronDown, FileText, Droplet, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Popover,
   PopoverContent,
