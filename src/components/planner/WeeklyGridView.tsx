@@ -903,7 +903,7 @@ export default function WeeklyGridView({
       <div className="flex gap-4">
         {/* Unallocated sidebar */}
         {isAdmin && (
-          <div className="w-[220px] shrink-0">
+          <div className="shrink-0 relative" style={{ width: `${poolWidth}px` }}>
             <DroppableUnallocatedZone>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold">Job Pool</h3>
