@@ -36,6 +36,24 @@ type Props = {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
+const REVIEW_SUFFIX_RE = / — email attachment, review$/;
+const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|heic|heif|bmp)$/i;
+
+/** True when a job document is an image email attachment. */
+function isImageDoc(doc: { file_name: string | null; label: string | null }): boolean {
+  const n = doc.file_name || doc.label || "";
+  return IMAGE_EXT_RE.test(n);
+}
+
+/** Strip the "— email attachment, review" marker if present. */
+function stripReviewSuffix(s: string | null | undefined): string {
+  return (s || "").replace(REVIEW_SUFFIX_RE, "").trim();
+}
+
+function hasReviewFlag(doc: { label: string | null; file_name: string | null }): boolean {
+  return REVIEW_SUFFIX_RE.test(doc.label || "") || REVIEW_SUFFIX_RE.test(doc.file_name || "");
+}
+
 /**
  * Build a friendly file name like "Dry Riser Pressure test - VFP-00123 - Acme Ltd.pdf"
  * Falls back to existing file_name when it already looks meaningful.
