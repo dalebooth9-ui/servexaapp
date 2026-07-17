@@ -85,6 +85,10 @@ export default function PdfPreviewDialog({
   mimeType = "application/pdf",
   watermarkControls = false,
   onRebuildWithWatermark,
+  onPrev,
+  onNext,
+  hasPrev,
+  hasNext,
 }: PdfPreviewDialogProps) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const { settings: savedWatermark, loaded: watermarkLoaded } = useWatermarkSettings();
