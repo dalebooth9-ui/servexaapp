@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, CheckCircle2, Pencil, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import PreviousReportPanel from "@/components/PreviousReportPanel";
 
 type TemplateField = {
   id: string;
