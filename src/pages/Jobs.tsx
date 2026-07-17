@@ -161,7 +161,8 @@ export default function Jobs() {
   const [quickScheduleOpen, setQuickScheduleOpen] = useState(false);
   const [fileDragging, setFileDragging] = useState(false);
   const [dialogParsingFile, setDialogParsingFile] = useState(false);
-  const [dialogParsedFile, setDialogParsedFile] = useState<File | null>(null);
+  const [dialogParsedFiles, setDialogParsedFiles] = useState<File[]>([]);
+  const dialogFileInputRef = useRef<HTMLInputElement | null>(null);
   const [fileDropUploading, setFileDropUploading] = useState(false);
   const [fileDropDialogOpen, setFileDropDialogOpen] = useState(false);
   const [fileDropChoiceOpen, setFileDropChoiceOpen] = useState(false);
