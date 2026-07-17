@@ -1017,7 +1017,8 @@ export default function Jobs() {
       clearJobFormDraft();
       setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
       setDialogOpen(false);
-      setDialogParsedFile(null);
+      const capturedPoFiles = dialogParsedFiles;
+      setDialogParsedFiles([]);
       const capturedCostingSheet = costingSheetFile;
       setCostingSheetFile(null);
       const capturedReferenceFiles = newJobReferenceFiles;
