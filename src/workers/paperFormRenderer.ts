@@ -174,17 +174,54 @@ type Row = {
 };
 
 /** Options rendering for the answer cell. Prints options separated by " / "
- *  for the engineer to circle, following the paper-form convention. */
+ *  for the engineer to circle, following the paper-form convention. Handles
+ *  every option-carrying field type shape seen across org templates —
+ *  including custom types (radio/single_choice/multi_choice/dropdown) and
+ *  templates that store options under `choices`/`values` instead of
+ *  `options`. Returns "" for free-text/number/date fields — the renderer
+ *  draws a ruled writing line for those instead. */
 function answerCellText(field: PdfTemplateField): string {
-  if (field.type === "pass_fail") return "PASS / FAIL / N/A";
-  if (field.type === "yes_no") return field.allow_na ? "YES / NO / N/A" : "YES / NO";
-  if (field.type === "select" && field.options && field.options.length > 0) {
-    const upper = field.options.map((o) => o.toUpperCase());
-    const withNa = field.allow_na && !upper.some((o) => o === "N/A" || o === "NA") ? [...upper, "N/A"] : upper;
-    return withNa.join(" / ");
+  const type = (field.type || "").toLowerCase().replace(/[-\s]+/g, "_");
+  if (type === "pass_fail" || type === "passfail") return "PASS / FAIL / N/A";
+  if (type === "yes_no" || type === "yesno" || type === "boolean" || type === "toggle") {
+    return "YES / NO / N/A";
   }
-  if (field.type === "checkbox") return "YES / NO";
+  // Checkboxes on legacy templates are actually YES/NO questions.
+  if (type === "checkbox") return "YES / NO / N/A";
+  const anyF = field as any;
+  const rawOpts: unknown = anyF.options ?? anyF.choices ?? anyF.values ?? anyF.answer_options;
+  if (Array.isArray(rawOpts) && rawOpts.length > 0) {
+    const upper = rawOpts
+      .map((o) => (typeof o === "string" ? o : o?.label ?? o?.value ?? String(o ?? "")).toString().trim().toUpperCase())
+      .filter(Boolean);
+    if (upper.length > 0) {
+      const hasNa = upper.some((o) => o === "N/A" || o === "NA");
+      const withNa = field.allow_na && !hasNa ? [...upper, "N/A"] : upper;
+      return withNa.join(" / ");
+    }
+  }
   return "";
+}
+
+/** Free-text-style fields render as a ruled writing line in the answer cell
+ *  rather than option text — engineers write directly on the sheet. */
+function isWritingLineField(field: PdfTemplateField): boolean {
+  const t = (field.type || "").toLowerCase().replace(/[-\s]+/g, "_");
+  return [
+    "text",
+    "short_text",
+    "textarea",
+    "long_text",
+    "number",
+    "integer",
+    "decimal",
+    "date",
+    "date_picker",
+    "datetime",
+    "time",
+    "email",
+    "phone",
+  ].includes(t);
 }
 
 /**
@@ -447,6 +484,7 @@ export function renderPaperFormPage(
     yy: number,
     rowH: number,
     isSection: boolean,
+    field?: PdfTemplateField,
   ) => {
     if (isSection) {
       // Full-width bold shaded band.
@@ -459,6 +497,8 @@ export function renderPaperFormPage(
       doc.setTextColor(0, 0, 0);
       doc.text(label, margin + 2, yy + rowH * 0.7);
     } else {
+      // Body cells — transparent (no white fill) so the watermark shows
+      // through uniformly per the current z-order/transparent-cells rules.
       doc.setDrawColor(120);
       doc.rect(margin, yy, colSplit - margin, rowH);
       doc.rect(colSplit, yy, margin + maxWidth - colSplit, rowH);
@@ -471,14 +511,30 @@ export function renderPaperFormPage(
       const maxLines = Math.max(1, Math.floor((rowH - 1) / lineH));
       const lines = (doc.splitTextToSize(label, labelMaxW) as string[]).slice(0, maxLines);
       lines.forEach((ln, i) => doc.text(ln, margin + 2, yy + lineH * (i + 0.85)));
-      // Answer cell text
+      // Answer cell — options to circle, or a ruled writing line for
+      // free-text/number/date fields. Never leave the cell blank; an empty
+      // answer cell is unusable on site.
+      const ansX = colSplit + 2;
+      const ansMaxW = margin + maxWidth - colSplit - 4;
       if (ans) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(fit.font.ans);
-        doc.text(ans, colSplit + 2, yy + rowH * 0.7);
+        // Shrink options text if it would overflow the answer cell width.
+        let ansSize = fit.font.ans;
+        while (ansSize > 6 && doc.getTextWidth(ans) > ansMaxW) {
+          ansSize -= 0.5;
+          doc.setFontSize(ansSize);
+        }
+        doc.text(ans, ansX, yy + rowH * 0.7);
+      } else if (field && isWritingLineField(field)) {
+        // Ruled writing line for text/number/date fields.
+        doc.setDrawColor(160);
+        doc.setLineWidth(0.15);
+        doc.line(ansX, yy + rowH * 0.75, colSplit + (margin + maxWidth - colSplit) - 2, yy + rowH * 0.75);
       }
     }
   };
+
 
   for (const it of items) {
     if (it.kind === "section") {
@@ -501,7 +557,7 @@ export function renderPaperFormPage(
         const suffix = "   NO OF OUTLETS: ______";
         ans = ans ? ans + suffix : suffix.trimStart();
       }
-      drawCell(label, ans, y, fit.rowH, false);
+      drawCell(label, ans, y, fit.rowH, false, it.field);
       y += fit.rowH;
     }
   }
