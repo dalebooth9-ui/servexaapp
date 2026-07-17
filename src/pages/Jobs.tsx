@@ -2448,6 +2448,7 @@ export default function Jobs() {
         onOpenChange={setPoImportOpen}
         file={poImportFile}
         onJobCreated={fetchJobs}
+        onRedirectToScan={(f) => { setScanInitialFile(f); setScanPaperOpen(true); }}
       />
 
       {/* Reject Job Dialog */}
