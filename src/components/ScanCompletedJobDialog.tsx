@@ -809,16 +809,32 @@ export default function ScanCompletedJobDialog({
         dateKnown = false;
       }
 
-      const category =
-        template.category === "pressure_test"
-          ? "pressure_test"
-          : template.category === "visual"
-            ? "visual"
-            : template.category === "sprinkler" ||
-                template.category === "sprinkler_service" ||
-                template.category === "commercial_sprinkler_service"
-              ? "commercial_sprinkler_service"
-              : (template.category || template.job_category || "general");
+      // Job category is derived from the CLASSIFIED template — never left as
+      // "general" for a scan whose template clearly belongs to a service
+      // category. This also prevents the Remedial Works template auto-
+      // attaching on genuine service-sheet scans (that trigger fires on
+      // category=general jobs).
+      const deriveCategory = (): string => {
+        const cat = (template.category || "").toLowerCase();
+        const jc = (template.job_category || "").toLowerCase();
+        if (cat === "pressure_test" || jc.includes("pressure_test")) return "pressure_test";
+        if (cat === "visual" || jc.includes("visual")) return "visual";
+        if (
+          cat === "sprinkler" ||
+          cat === "sprinkler_service" ||
+          cat === "commercial_sprinkler_service" ||
+          jc.startsWith("sprinkler") ||
+          jc.includes("sprinkler")
+        ) return "commercial_sprinkler_service";
+        if (jc.startsWith("fire_hydrant") || jc.startsWith("hydrant") || cat.startsWith("hydrant"))
+          return "fire_hydrant";
+        if (jc.startsWith("wet_riser") || cat.startsWith("wet_riser")) return "wet_riser";
+        if (jc.startsWith("dry_riser") || cat.startsWith("dry_riser")) return "dry_riser";
+        if (jc.startsWith("fire_extinguisher") || cat.startsWith("fire_extinguisher") || jc.startsWith("extinguisher"))
+          return "fire_extinguisher";
+        return template.category || template.job_category || "general";
+      };
+      const category = deriveCategory();
 
       const backfillSource = dateKnown
         ? "paper backfill"
