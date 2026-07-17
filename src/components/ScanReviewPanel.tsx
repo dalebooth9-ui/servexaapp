@@ -63,6 +63,8 @@ export default function ScanReviewPanel({
   templateName,
   onConfirm,
   onRescan,
+  jobId,
+  templateId,
 }: Props) {
   const [fields, setFields] = useState<Record<string, any>>({ ...extractedFields });
   const [header, setHeader] = useState<Record<string, any>>({ ...extractedHeader });
