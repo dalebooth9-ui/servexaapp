@@ -1320,6 +1320,7 @@ serve(async (req) => {
   } catch (e) { console.warn("job_emails insert failed", e); }
 
 
+  console.log("inbound-po-email complete", {
     from: email.from,
     subject: email.subject,
     attachment_count: email.attachments.length,
