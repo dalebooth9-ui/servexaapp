@@ -137,6 +137,11 @@ serve(async (req) => {
     const systemPrompt = `You are helping an admin file a completed paper job sheet in a fire-safety servicing app.
 Look at the photo(s) of the paper form and pick which of the available templates it best matches.
 
+ALSO classify the document type so we can catch misdrops:
+- "job_sheet": a completed handwritten job/inspection/service report — printed section titles like "Visual Inspection", "Pressure Test", "Certificate of Inspection", tick boxes, handwritten answers, signature blocks.
+- "purchase_order": a purchase order issued BEFORE work — a PO number, ordering party, line items with quantities and prices, delivery instructions, no handwritten inspection answers.
+- "unknown": can't tell.
+
 CRITICAL matching rules:
 - You MUST return a template_id from the "Available templates" list below. Never invent or generate a template name that is not in the list — return the exact uuid.
 - Match on printed headings, section titles, question wording, and layout — NOT on handwritten answers.
@@ -146,7 +151,8 @@ CRITICAL matching rules:
 - "WET RISER" → wet riser template.
 - If more than one plausible template exists, return them ordered best first with honest confidences (do not return 0.9 unless the printed heading is unambiguous). If nothing is a reasonable match, return an empty candidates array.
 
-Return STRICT JSON only, no prose, no markdown: {"candidates":[{"template_id":"<uuid>","confidence":0-1,"reason":"short"}]}
+Return STRICT JSON only, no prose, no markdown:
+{"document_kind":"job_sheet|purchase_order|unknown","document_kind_reason":"short","candidates":[{"template_id":"<uuid>","confidence":0-1,"reason":"short"}]}
 Return up to 3 candidates, ordered best first.`;
 
     const userPrompt = `Available templates:\n${catalog}\n\nBased on the photo(s), which template matches?`;
