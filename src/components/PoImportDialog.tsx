@@ -244,7 +244,58 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated,
           </div>
         )}
 
-        {/* Extracted fields preview */}
+        {/* Misdrop warning: looks like a completed job sheet, not a PO */}
+        {isMisdrop && !parsing && (
+          <div className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-3 text-sm space-y-2">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">This looks like a completed job sheet, not a purchase order.</p>
+                {extracted?.document_kind_reason && (
+                  <p className="text-xs text-muted-foreground">{extracted.document_kind_reason}</p>
+                )}
+                <p className="text-xs text-muted-foreground">Send it to Scan Paper Reports instead — no re-upload needed.</p>
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                size="sm"
+                onClick={async () => {
+                  if (!file) return;
+                  await logIntakeMisdrop({
+                    source: "po_import",
+                    detected_kind: "job_sheet",
+                    action: "redirected",
+                    file_name: file.name,
+                    reason: extracted?.document_kind_reason,
+                  });
+                  onOpenChange(false);
+                  onRedirectToScan?.(file);
+                }}
+              >
+                <ScanLine className="mr-2 h-4 w-4" /> Send to Scan Paper Reports
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  await logIntakeMisdrop({
+                    source: "po_import",
+                    detected_kind: "job_sheet",
+                    action: "continued",
+                    file_name: file?.name,
+                    reason: extracted?.document_kind_reason,
+                  });
+                  setContinueAnyway(true);
+                }}
+              >
+                Continue as PO anyway
+              </Button>
+            </div>
+          </div>
+        )}
+
+
         {extracted && !parsing && (
           <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground space-y-1">
             <p className="font-semibold text-foreground text-sm mb-1">Extracted from document</p>
