@@ -51,6 +51,7 @@ import NewCustomerDropZone from "@/components/jobs/NewCustomerDropZone";
 import QuickScheduleDialog from "@/components/jobs/QuickScheduleDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import DroppedPoFilesReorder from "@/components/jobs/DroppedPoFilesReorder";
 
 const jobSchema = z.object({
   name: z.string().trim().min(1, "Job name is required").max(200, "Job name must be under 200 characters"),
