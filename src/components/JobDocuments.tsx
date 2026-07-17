@@ -811,7 +811,9 @@ function DocRow({
     purchase_order: "Purchase Order",
     site_drawing: "Site Drawing",
     pre_start_checklist: "Pre-start Checklist",
+    reference: "Reference (internal)",
   };
+  const isReference = doc.document_type === "reference";
 
   // Find matching template for blank job sheet — prefer same job_category and published,
   // then frequency keyword overlap (annual / 6 month / quarterly / etc.), then fuzzy name match.
