@@ -1338,23 +1338,84 @@ export default function ScanCompletedJobDialog({
 
 
 
+            {/* Historic backfill banner + optional match-to-existing-job */}
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 space-y-3">
+              <div className="flex items-start gap-2 text-xs">
+                <Badge variant="outline" className="border-amber-500/60 text-amber-700 bg-amber-500/10">
+                  Historic backfill
+                </Badge>
+                <span className="text-muted-foreground">
+                  Filed as a completed job dated to the paper form. Won't appear as active work,
+                  never enters the planner, and never notifies engineers.
+                </span>
+              </div>
+              {existingJobs.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Or file against an existing scheduled job at this site
+                  </Label>
+                  <Select
+                    value={matchExistingJobId || "none"}
+                    onValueChange={(v) => setMatchExistingJobId(v === "none" ? "" : v)}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        No — create a new historic job
+                      </SelectItem>
+                      {existingJobs.map((j) => (
+                        <SelectItem key={j.id} value={j.id}>
+                          {j.reference_number} — {j.name || "(no name)"} · {j.status}
+                          {j.scheduled_date ? ` · ${j.scheduled_date}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {matchExistingJobId && (
+                    <p className="text-[11px] text-muted-foreground">
+                      The existing job will be marked completed on the handwritten date. No new job created.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Job name</Label>
                 <Input
                   value={jobName}
                   onChange={(e) => setJobName(e.target.value)}
+                  disabled={!!matchExistingJobId}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Completion date (dd/mm/yyyy)</Label>
+                <Label>
+                  Date on paper form (dd/mm/yyyy) *
+                </Label>
                 <Input
                   value={completionDate}
                   placeholder="dd/mm/yyyy"
+                  disabled={dateUnknown}
                   onChange={(e) => setCompletionDate(e.target.value)}
                 />
+                <label className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
+                  <input
+                    type="checkbox"
+                    checked={dateUnknown}
+                    onChange={(e) => {
+                      setDateUnknown(e.target.checked);
+                      if (e.target.checked) setCompletionDate("");
+                    }}
+                  />
+                  Date unknown — file it anyway (job will be flagged
+                  "date unknown" instead of silently dated today)
+                </label>
               </div>
             </div>
+
 
             {missingFields.length > 0 && (
               <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
