@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, CheckCircle2, Pencil, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import PreviousReportPanel from "@/components/PreviousReportPanel";
 
 type TemplateField = {
   id: string;
@@ -27,6 +28,9 @@ interface Props {
   templateName: string;
   onConfirm: (fields: Record<string, any>, header: Record<string, any>, fieldNotes: Record<string, string>) => void;
   onRescan: () => void;
+  /** When known, enables the "Previous report" comparison panel. */
+  jobId?: string;
+  templateId?: string;
 }
 
 // Simple similarity score (Dice coefficient on bigrams)
@@ -59,6 +63,8 @@ export default function ScanReviewPanel({
   templateName,
   onConfirm,
   onRescan,
+  jobId,
+  templateId,
 }: Props) {
   const [fields, setFields] = useState<Record<string, any>>({ ...extractedFields });
   const [header, setHeader] = useState<Record<string, any>>({ ...extractedHeader });
@@ -331,6 +337,14 @@ export default function ScanReviewPanel({
         <div className="w-1/2">
           <ScrollArea className="h-full">
             <div className="p-4 space-y-5">
+              {jobId && templateId && (
+                <PreviousReportPanel
+                  currentJobId={jobId}
+                  templateId={templateId}
+                  templateFields={templateFields}
+                  currentResponses={fields}
+                />
+              )}
               {/* Header fields */}
               <div>
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Header Info</h3>

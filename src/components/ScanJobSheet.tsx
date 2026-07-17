@@ -770,6 +770,8 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
               extractedHeader={reviewData.header}
               templateFields={template.fields}
               templateName={template.name}
+              jobId={jobId}
+              templateId={template.id}
               onConfirm={handleConfirmReview}
               onRescan={handleRescan}
             />

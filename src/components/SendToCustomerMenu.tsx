@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Send, FileText, Receipt, ClipboardList, Loader2, Mail, ClipboardCheck, ShieldCheck, Award, ListChecks } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CustomerReportPdf from "./CustomerReportPdf";
+import PreviousReportsForJob from "./PreviousReportsForJob";
 import { generateJobSheetPdf } from "./JobSheetPdfExport";
 import { useJobCategories } from "@/hooks/useJobCategories";
 
@@ -486,27 +487,30 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
 
             {/* Report PDF generation */}
             {selectedDocs.has("report") && (
-              <div className="rounded-md border border-dashed p-3 flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Customer Report PDF</span>
-                {reportBase64 ? (
-                  <span className="text-xs font-medium text-primary">✓ PDF ready</span>
-                ) : (
-                  <CustomerReportPdf
-                    jobId={jobId}
-                    job={job}
-                    onPdfGenerated={(base64, fileName) => {
-                      setReportBase64(base64);
-                      setReportFileName(fileName);
-                      toast({ title: "Report ready", description: "PDF attached." });
-                    }}
-                    trigger={
-                      <Button type="button" size="sm" variant="outline" className="gap-1">
-                        <FileText className="h-3 w-3" /> Generate PDF
-                      </Button>
-                    }
-                  />
-                )}
-              </div>
+              <>
+                <PreviousReportsForJob jobId={jobId} />
+                <div className="rounded-md border border-dashed p-3 flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Customer Report PDF</span>
+                  {reportBase64 ? (
+                    <span className="text-xs font-medium text-primary">✓ PDF ready</span>
+                  ) : (
+                    <CustomerReportPdf
+                      jobId={jobId}
+                      job={job}
+                      onPdfGenerated={(base64, fileName) => {
+                        setReportBase64(base64);
+                        setReportFileName(fileName);
+                        toast({ title: "Report ready", description: "PDF attached." });
+                      }}
+                      trigger={
+                        <Button type="button" size="sm" variant="outline" className="gap-1">
+                          <FileText className="h-3 w-3" /> Generate PDF
+                        </Button>
+                      }
+                    />
+                  )}
+                </div>
+              </>
             )}
 
             {/* RAMS selection */}
