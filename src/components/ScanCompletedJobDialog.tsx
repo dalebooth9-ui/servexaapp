@@ -229,12 +229,35 @@ export default function ScanCompletedJobDialog({
       setNewSite({ name: "", address: "", postcode: "", riser_location: "" });
       setJobName("");
       setCompletionDate("");
+      setDateUnknown(false);
+      setMatchExistingJobId("");
+      setExistingJobs([]);
       setProcessingMsg("");
       setCustomerSig(null);
       setManualCrop(null);
       setAckMismatch(false);
     }
   }, [open]);
+
+  // Load open/scheduled jobs for the selected customer+site so the reviewer
+  // can file the scan against an existing job instead of creating a new one.
+  useEffect(() => {
+    if (!customerId || !siteId) {
+      setExistingJobs([]);
+      setMatchExistingJobId("");
+      return;
+    }
+    supabase
+      .from("jobs")
+      .select("id, reference_number, name, status, scheduled_date")
+      .eq("customer_id", customerId)
+      .eq("site_id", siteId)
+      .neq("status", "completed")
+      .neq("status", "cancelled")
+      .order("scheduled_date", { ascending: false, nullsFirst: false })
+      .limit(20)
+      .then(({ data }) => setExistingJobs((data as any) || []));
+  }, [customerId, siteId]);
 
   // Preload from queue item (bulk review flow)
   useEffect(() => {
