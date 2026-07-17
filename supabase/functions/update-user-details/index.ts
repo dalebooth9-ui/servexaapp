@@ -111,7 +111,13 @@ serve(async (req) => {
         email_confirm: true,
         user_metadata: { ...(existing.user.user_metadata ?? {}), ...(full_name ? { full_name } : {}) },
       });
-      if (updErr) return json({ error: `Failed to update email: ${updErr.message}` }, 400);
+      if (updErr) {
+        const msg = (updErr.message || "").toLowerCase();
+        const friendly = msg.includes("already") || msg.includes("registered") || msg.includes("exists") || msg.includes("duplicate")
+          ? "That email is already in use by another account."
+          : `Failed to update email: ${updErr.message}`;
+        return json({ error: friendly }, 400);
+      }
       // GoTrue's admin updateUserById with `email` + `email_confirm: true` rewrites
       // the primary email AND syncs auth.identities.identity_data.email for the
       // 'email' provider identity in one step, so the user can log in with the
