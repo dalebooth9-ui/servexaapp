@@ -240,8 +240,15 @@ Return up to 3 candidates, ordered best first.`;
       return { ...c, name: t.name, category: t.category };
     });
 
+    const documentKind = ["job_sheet", "purchase_order", "unknown"].includes(parsed?.document_kind)
+      ? parsed.document_kind
+      : "unknown";
+    const documentKindReason = typeof parsed?.document_kind_reason === "string"
+      ? parsed.document_kind_reason
+      : null;
+
     return new Response(
-      JSON.stringify({ candidates: enriched, considered: summaries.length }),
+      JSON.stringify({ candidates: enriched, considered: summaries.length, document_kind: documentKind, document_kind_reason: documentKindReason }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
