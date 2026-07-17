@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import BulkImportSitesDialog from "@/components/BulkImportSitesDialog";
 import FolderSiteImportDialog from "@/components/FolderSiteImportDialog";
+import HistoricReportsList from "@/components/HistoricReportsList";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useUndoAction } from "@/hooks/useUndoAction";
@@ -1824,6 +1825,11 @@ export default function Sites() {
               <label className="text-sm font-medium">Notes</label>
               <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
             </div>
+            {editing && (
+              <div className="pt-2 border-t">
+                <HistoricReportsList siteId={editing} canDelete />
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleSave}>{editing ? "Update" : "Create"}</Button>

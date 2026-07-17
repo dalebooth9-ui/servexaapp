@@ -310,6 +310,23 @@ export default function SettingsPage() {
           <RamsTemplateSettings />
           <EngineerSignatureSettings />
 
+          <Card className="cursor-pointer hover:border-primary transition" onClick={() => navigate("/settings/import-historic-reports")}>
+            <CardHeader>
+              <CardTitle className="text-lg">Import historic reports</CardTitle>
+              <CardDescription>
+                Bulk-upload years of legacy PDFs, Word docs and scans from your old shared folders.
+                AI extracts the customer, site, date and report type; you review the matches and confirm.
+                Imported reports appear on each Site page and power the "Previous report" comparison
+                when there's no in-Servexa history yet.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); navigate("/settings/import-historic-reports"); }}>
+                Open historic import
+              </Button>
+            </CardContent>
+          </Card>
+
           <Collapsible>
             <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border bg-card px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
               Advanced document settings
