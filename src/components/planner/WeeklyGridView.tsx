@@ -1069,6 +1069,17 @@ export default function WeeklyGridView({
                 />
               )}
             </DroppableUnallocatedZone>
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize job pool"
+              title="Drag to resize"
+              onMouseDown={startPoolResize}
+              onDoubleClick={() => { setPoolWidth(260); try { window.localStorage.setItem(POOL_WIDTH_KEY, "260"); } catch {} }}
+              className="absolute top-0 right-[-6px] h-full w-3 cursor-col-resize group flex items-center justify-center z-10"
+            >
+              <div className="h-16 w-1 rounded bg-border group-hover:bg-primary transition-colors" />
+            </div>
           </div>
         )}
 
