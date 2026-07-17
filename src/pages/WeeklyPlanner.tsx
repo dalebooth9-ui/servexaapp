@@ -243,6 +243,7 @@ export default function WeeklyPlanner() {
   const [shuntDays, setShuntDays] = useState("1");
   const [shuntDirection, setShuntDirection] = useState<"forward" | "backward">("forward");
   const [shuntFromDate, setShuntFromDate] = useState("");
+  const [shuntSkipWeekends, setShuntSkipWeekends] = useState(false);
 
   // AI Scheduler
   const [aiSchedulerOpen, setAiSchedulerOpen] = useState(false);
@@ -722,12 +723,20 @@ export default function WeeklyPlanner() {
 
     // Update each entry sequentially (reverse order to avoid conflicts)
     for (const entry of entries) {
-      const newDate = format(addDays(new Date(entry.schedule_date), offset), "yyyy-MM-dd");
+      let target = addDays(new Date(entry.schedule_date), offset);
+      if (shuntSkipWeekends) {
+        // Roll off weekends in the direction of travel (calendar days otherwise)
+        const step = offset >= 0 ? 1 : -1;
+        while (target.getDay() === 0 || target.getDay() === 6) {
+          target = addDays(target, step);
+        }
+      }
+      const newDate = format(target, "yyyy-MM-dd");
       markLocalEdit([entry.id]);
       await supabase.from("job_schedule").update({ schedule_date: newDate, ...editStamp() } as any).eq("id", entry.id);
     }
 
-    toast({ title: "Shunt complete", description: `${entries.length} entries shifted ${days} day(s) ${shuntDirection}.` });
+    toast({ title: "Shunt complete", description: `${entries.length} entries shifted ${days} day(s) ${shuntDirection}${shuntSkipWeekends ? " (weekends skipped)" : ""}.` });
     setShuntOpen(false);
     fetchData();
     setSaving(false);
@@ -891,7 +900,7 @@ export default function WeeklyPlanner() {
               <Button variant="outline" size="sm" onClick={() => { setBatchEngineerId(""); setBatchJobIds(new Set()); setBatchDate(format(weekDays[0], "yyyy-MM-dd")); setBatchOpen(true); }}>
                 <Users className="mr-1.5 h-4 w-4" /> Batch Deploy
               </Button>
-              <Button variant="outline" size="sm" onClick={() => { setShuntEngineerId(""); setShuntDays("1"); setShuntDirection("forward"); setShuntFromDate(format(new Date(), "yyyy-MM-dd")); setShuntOpen(true); }}>
+              <Button variant="outline" size="sm" onClick={() => { setShuntEngineerId(""); setShuntDays("1"); setShuntDirection("forward"); setShuntFromDate(format(new Date(), "yyyy-MM-dd")); setShuntSkipWeekends(false); setShuntOpen(true); }}>
                 <Zap className="mr-1.5 h-4 w-4" /> Shunt
               </Button>
               <Button variant="outline" size="sm" onClick={handleCopyToNextWeek} disabled={copying || schedule.length === 0}>
@@ -1272,6 +1281,18 @@ export default function WeeklyPlanner() {
                 <Input type="number" min="1" value={shuntDays} onChange={(e) => setShuntDays(e.target.value)} />
               </div>
             </div>
+            <label className="flex items-start gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+                checked={shuntSkipWeekends}
+                onChange={(e) => setShuntSkipWeekends(e.target.checked)}
+              />
+              <span>
+                <span className="font-medium">Skip weekends</span>
+                <span className="block text-xs text-muted-foreground">Off: shift by calendar days (Sat/Sun included). On: roll weekend landings to the next weekday.</span>
+              </span>
+            </label>
             <Button onClick={handleShunt} className="w-full" disabled={!shuntEngineerId || !shuntFromDate || saving}>
               {saving ? "Shunting..." : "Apply Shunt"}
             </Button>
