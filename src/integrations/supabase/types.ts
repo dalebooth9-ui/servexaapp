@@ -2846,6 +2846,104 @@ export type Database = {
         }
         Relationships: []
       }
+      historic_reports: {
+        Row: {
+          asset_id: string | null
+          created_at: string
+          customer_id: string | null
+          extracted_customer: string | null
+          extracted_notes: string | null
+          extracted_site: string | null
+          file_size: number | null
+          id: string
+          imported_by: string | null
+          match_confidence: string | null
+          mime_type: string | null
+          org_id: string
+          original_filename: string
+          report_date: string | null
+          report_type: string | null
+          report_type_label: string | null
+          site_id: string | null
+          storage_path: string
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          asset_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          extracted_customer?: string | null
+          extracted_notes?: string | null
+          extracted_site?: string | null
+          file_size?: number | null
+          id?: string
+          imported_by?: string | null
+          match_confidence?: string | null
+          mime_type?: string | null
+          org_id: string
+          original_filename: string
+          report_date?: string | null
+          report_type?: string | null
+          report_type_label?: string | null
+          site_id?: string | null
+          storage_path: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          extracted_customer?: string | null
+          extracted_notes?: string | null
+          extracted_site?: string | null
+          file_size?: number | null
+          id?: string
+          imported_by?: string | null
+          match_confidence?: string | null
+          mime_type?: string | null
+          org_id?: string
+          original_filename?: string
+          report_date?: string | null
+          report_type?: string | null
+          report_type_label?: string | null
+          site_id?: string | null
+          storage_path?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historic_reports_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historic_reports_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historic_reports_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historic_reports_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "job_sheet_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_batches: {
         Row: {
           created_at: string

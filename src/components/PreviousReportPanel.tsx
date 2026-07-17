@@ -16,11 +16,15 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { formatDateShort } from "@/lib/dateFormat";
 import {
   diffResponses,
   findPreviousResponse,
+  findPreviousHistoricReport,
   type FieldDiff,
+  type PreviousHistoricReport,
   type PreviousResponse,
   type TemplateFieldLite,
 } from "@/lib/previousReportLookup";
@@ -45,28 +49,71 @@ export default function PreviousReportPanel({
 }: Props) {
   const [loading, setLoading] = useState(true);
   const [prev, setPrev] = useState<PreviousResponse | null>(null);
+  const [historic, setHistoric] = useState<PreviousHistoricReport | null>(null);
   const [open, setOpen] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    findPreviousResponse({ currentJobId, templateId, currentResponseId })
-      .then((r) => {
-        if (!cancelled) setPrev(r);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    (async () => {
+      const inServexa = await findPreviousResponse({ currentJobId, templateId, currentResponseId });
+      if (cancelled) return;
+      if (inServexa) {
+        setPrev(inServexa);
+        setHistoric(null);
+      } else {
+        setPrev(null);
+        const hist = await findPreviousHistoricReport({ currentJobId, templateId });
+        if (!cancelled) setHistoric(hist);
+      }
+      if (!cancelled) setLoading(false);
+    })();
     return () => {
       cancelled = true;
     };
   }, [currentJobId, templateId, currentResponseId]);
+
+  const openHistoric = async () => {
+    if (!historic) return;
+    const { data, error } = await supabase.storage
+      .from("submissions")
+      .createSignedUrl(historic.storagePath, 60 * 5);
+    if (error || !data?.signedUrl) {
+      toast({ title: "Could not open file", description: error?.message, variant: "destructive" });
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noreferrer");
+  };
 
   if (loading) {
     return (
       <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
         Checking for a previous report…
+      </div>
+    );
+  }
+
+  if (!prev && historic) {
+    const dateLabel = formatDateShort(historic.reportDate) || "unknown date";
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <History className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs font-medium truncate">
+              Historic report (imported) · {dateLabel}
+            </p>
+            <p className="text-[11px] text-muted-foreground truncate">
+              {historic.reportTypeLabel ? `${historic.reportTypeLabel} · ` : ""}
+              {historic.originalFilename}
+            </p>
+          </div>
+        </div>
+        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1 shrink-0" onClick={openHistoric}>
+          Open PDF <ExternalLink className="h-3 w-3" />
+        </Button>
       </div>
     );
   }
