@@ -98,6 +98,10 @@ interface Props {
   queueItem?: QueueItemInput;
   /** Called after confirm/reject to refresh the queue. */
   onQueueItemResolved?: () => void;
+  /** Optional file handed in from another intake (e.g. PO import misdrop). */
+  initialFile?: File | null;
+  /** Called when the user chooses to redirect a misdropped PO to Create Job flow. */
+  onRedirectToPo?: (file: File) => void;
 }
 
 // ── Helpers ──
