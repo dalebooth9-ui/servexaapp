@@ -169,8 +169,8 @@ function DraggableUnallocatedJob({
             </span>
           ) : null}
         </div>
-        <div className="truncate text-foreground">{job.name}</div>
-        {((job as any).customers?.name || job.customer) && <div className="text-muted-foreground truncate">{(job as any).customers?.name || job.customer}</div>}
+        <div className="text-foreground break-words line-clamp-2">{job.name}</div>
+        {((job as any).customers?.name || job.customer) && <div className="text-muted-foreground break-words line-clamp-2">{(job as any).customers?.name || job.customer}</div>}
         {(job.site?.name || job.site?.postcode) && (
           <div className="text-muted-foreground truncate">
             {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
