@@ -828,9 +828,10 @@ export default function ScanCompletedJobDialog({
           .update({
             status: "confirmed",
             created_job_id: jobId,
+            matched_existing_job: matchedExisting,
             reviewed_by: user.id,
             reviewed_at: new Date().toISOString(),
-          })
+          } as any)
           .eq("id", queueItem.itemId);
         onQueueItemResolved?.();
       } else {
