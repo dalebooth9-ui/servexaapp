@@ -299,6 +299,10 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-6 mt-0">
+          <div className="grid gap-6 md:grid-cols-2">
+            <PoIntakeEmailCard />
+            <ScanIntakeEmailCard />
+          </div>
           <JobCategorySettings />
           <AssetCategorySettings />
           <JobTemplateSettings />
