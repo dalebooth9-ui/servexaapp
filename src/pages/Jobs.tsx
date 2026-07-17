@@ -1547,7 +1547,7 @@ export default function Jobs() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" }); setDialogParsedFile(null); setDialogParsingFile(false); setCostingSheetFile(null); setNewJobReferenceFiles([]); } }}>
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" }); setDialogParsedFiles([]); setDialogParsingFile(false); setCostingSheetFile(null); setNewJobReferenceFiles([]); } }}>
               <DialogTrigger asChild>
                 <Button size="sm" data-setup="add-job"><Plus className="mr-2 h-4 w-4" /> New Job</Button>
               </DialogTrigger>
