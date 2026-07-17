@@ -42,7 +42,7 @@ export async function findPreviousResponse(params: {
 
   for (const { level, col, val } of levels) {
     if (!val) continue;
-    let q = supabase
+    let q: any = (supabase as any)
       .from("job_sheet_responses")
       .select(
         "id, job_id, responses, submitted_at, submitted_by, status, jobs!inner(id, reference_number, site_id, asset_id, customer_id)"
@@ -50,7 +50,7 @@ export async function findPreviousResponse(params: {
       .eq("template_id", templateId)
       .eq("status", "submitted")
       .neq("job_id", currentJobId)
-      .eq(`jobs.${col}` as any, val)
+      .eq(`jobs.${col}`, val)
       .order("submitted_at", { ascending: false, nullsFirst: false })
       .limit(1);
     if (currentResponseId) q = q.neq("id", currentResponseId);
