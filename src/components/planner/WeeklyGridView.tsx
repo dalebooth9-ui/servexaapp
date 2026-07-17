@@ -634,6 +634,43 @@ export default function WeeklyGridView({
   const [selectMode, setSelectMode] = useState(false);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [dayPanel, setDayPanel] = useState<{ engineerId: string; engineerName: string; date: string } | null>(null);
+  const POOL_WIDTH_KEY = "planner:jobPoolWidth";
+  const POOL_MIN = 200;
+  const POOL_MAX = 560;
+  const [poolWidth, setPoolWidth] = useState<number>(() => {
+    if (typeof window === "undefined") return 260;
+    const v = Number(window.localStorage.getItem(POOL_WIDTH_KEY));
+    return Number.isFinite(v) && v >= POOL_MIN && v <= POOL_MAX ? v : 260;
+  });
+  const resizingRef = useRef<{ startX: number; startW: number } | null>(null);
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const delta = e.clientX - resizingRef.current.startX;
+      const next = Math.max(POOL_MIN, Math.min(POOL_MAX, resizingRef.current.startW + delta));
+      setPoolWidth(next);
+    };
+    const onUp = () => {
+      if (resizingRef.current) {
+        try { window.localStorage.setItem(POOL_WIDTH_KEY, String(Math.round(poolWidth))); } catch {}
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      }
+      resizingRef.current = null;
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [poolWidth]);
+  const startPoolResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    resizingRef.current = { startX: e.clientX, startW: poolWidth };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
 
   const toggleSelect = (jobId: string) => {
     setSelectedJobIds((prev) => {
