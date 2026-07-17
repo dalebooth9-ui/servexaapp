@@ -1662,6 +1662,20 @@ export default function Jobs() {
                     </p>
                   )}
                 </div>
+                {/* Reference files — internal companion docs, e.g. last year's report */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                    Reference files <span className="text-muted-foreground text-xs font-normal">(optional — attached for office reference, not sent to customer)</span>
+                  </Label>
+                  <ReferenceFilesDropzone
+                    mode="deferred"
+                    files={newJobReferenceFiles}
+                    onFilesChange={setNewJobReferenceFiles}
+                    label="Drop last year's report or other reference files"
+                  />
+                  <DeferredReferenceFilesList files={newJobReferenceFiles} onFilesChange={setNewJobReferenceFiles} />
+                </div>
                 <div className="flex gap-2">
                   <Button type="submit" className="flex-1" disabled={loading}>
                     {loading ? "Creating..." : "Create Job"}
