@@ -253,7 +253,7 @@ export default function Jobs() {
   );
 
   const fetchJobs = async () => {
-    const COLUMNS = "id, reference_number, name, customer, customer_id, site_id, address, status, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, submissions(id, type), customers(id, name, email), sites(id, name, address, postcode)";
+    const COLUMNS = "id, reference_number, name, customer, customer_id, site_id, address, status, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, template_mismatch_reason, detected_work_types, submissions(id, type), customers(id, name, email), sites(id, name, address, postcode)";
     let query = supabase.from("jobs").select(COLUMNS).order("created_at", { ascending: false });
     // When user is actively searching, fetch across ALL statuses so completed jobs
     // still surface regardless of the current tab. Otherwise, scope by tab.
@@ -397,11 +397,23 @@ export default function Jobs() {
   };
 
   const handleApproveJob = async (jobId: string) => {
+    const job = jobs.find((j) => j.id === jobId) as any;
     if ((pendingSheetCounts[jobId] ?? 0) === 0) {
       const ok = window.confirm(
         "This job has no job sheets attached. The engineer will arrive on site with nothing to fill in.\n\nApprove anyway?"
       );
       if (!ok) return;
+    }
+    if (job?.template_mismatch_reason) {
+      const ok = window.confirm(
+        `⚠️ Work-type mismatch:\n\n${job.template_mismatch_reason}\n\nApprove anyway?`
+      );
+      if (!ok) return;
+      await supabase.from("jobs").update({
+        approved_with_mismatch: true,
+        approved_with_mismatch_by: user?.id,
+        approved_with_mismatch_at: new Date().toISOString(),
+      } as any).eq("id", jobId);
     }
     const { error } = await supabase.from("jobs").update({ status: "active" } as any).eq("id", jobId);
     if (error) {
@@ -420,6 +432,18 @@ export default function Jobs() {
         `${emptyCount} of the ${ids.length} selected job(s) have no job sheets attached. Engineers will arrive with nothing to fill in.\n\nApprove all anyway?`
       );
       if (!ok) return;
+    }
+    const mismatched = jobs.filter((j) => ids.includes(j.id) && (j as any).template_mismatch_reason);
+    if (mismatched.length > 0) {
+      const ok = window.confirm(
+        `⚠️ ${mismatched.length} of the selected job(s) have a work-type / template mismatch. Approve all anyway?`
+      );
+      if (!ok) return;
+      await supabase.from("jobs").update({
+        approved_with_mismatch: true,
+        approved_with_mismatch_by: user?.id,
+        approved_with_mismatch_at: new Date().toISOString(),
+      } as any).in("id", mismatched.map((j) => j.id));
     }
     const { error } = await supabase.from("jobs").update({ status: "active" } as any).in("id", ids);
     if (error) {
@@ -2161,6 +2185,12 @@ export default function Jobs() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
+                    )}
+                    {(j as any).template_mismatch_reason && (
+                      <div className="mt-2 flex items-start gap-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-500/10 border border-amber-500/40 rounded px-2 py-1.5">
+                        <span className="font-semibold shrink-0">⚠ Work-type mismatch:</span>
+                        <span className="whitespace-pre-wrap break-words">{(j as any).template_mismatch_reason}</span>
                       </div>
                     )}
                     {isAdmin && (

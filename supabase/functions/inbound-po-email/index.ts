@@ -16,7 +16,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { inferJobScope } from "../_shared/inferJobScope.ts";
+import { inferJobScope, resolveTemplatesForWorkTypes } from "../_shared/inferJobScope.ts";
 import { buildThreadHeaders, findExistingThreadJob, extractSenderEmail } from "../_shared/threadDedup.ts";
 
 
@@ -1127,34 +1127,84 @@ serve(async (req) => {
     jobId = newJob.id;
     createdJobRef = newJob.reference_number;
 
-    // Pre-attach any inferred blank job sheets on new jobs only — duplicates
-    // reuse the existing draft which already has its own attachments.
-    const templateNames = [...inferred.templateNames];
-    if (inferred.isRemedial && templateNames.length === 0) {
-      templateNames.push("Remedial Works Completion");
-    }
-    if (templateNames.length) {
-      try {
-        const { data: matched } = await admin
-          .from("job_sheet_templates")
-          .select("name")
-          .eq("status", "published")
-          .in("name", templateNames);
-        const rows = (matched || []).map((t: any) => ({
+    // Resolve inferred work types against the org's real template library.
+    // We NEVER attach "Remedial Works Completion" as a fallback when the
+    // scope contains a specific work type (e.g. a Room Integrity Test) —
+    // wrong paperwork on a regulated test is worse than no paperwork.
+    const detected = inferred.detectedWorkTypes;
+    const detectedSlugs = detected.map((d) => d.slug);
+    let mismatchReason: string | null = null;
+
+    try {
+      const { data: orgTemplates } = await admin
+        .from("job_sheet_templates")
+        .select("id, name, category, job_category, status")
+        .eq("org_id", orgId);
+
+      const { matched, unmatchedWorkTypes } = resolveTemplatesForWorkTypes(
+        detected,
+        (orgTemplates || []) as any[],
+      );
+
+      if (matched.length) {
+        const rows = matched.map((t: any) => ({
           job_id: jobId,
           document_type: "blank_job_sheet",
           label: t.name,
           source: "auto",
           org_id: orgId,
         }));
-        if (rows.length) {
-          const { error: docErr } = await admin.from("job_documents").insert(rows as any);
-          if (docErr) console.error("inbound-po-email auto-attach failed", docErr);
+        const { error: docErr } = await admin.from("job_documents").insert(rows as any);
+        if (docErr) console.error("inbound-po-email auto-attach failed", docErr);
+      }
+
+      if (unmatchedWorkTypes.length) {
+        const labels = unmatchedWorkTypes.map((w) => w.label).join("; ");
+        mismatchReason =
+          `Work type: ${labels} — no matching job sheet template exists in your library. ` +
+          `Build one in Settings → Job sheet templates, or use "AI-draft template" to generate a starting draft for the office to review before publishing.`;
+      } else if (detected.length === 0 && !inferred.isRemedial) {
+        mismatchReason =
+          "Scope could not be classified — no work type detected. Review the PO and pick the right job sheet template before approving.";
+      }
+    } catch (e) {
+      console.error("inbound-po-email template resolve threw", e);
+    }
+
+    // Only attach remedial paperwork when the wording explicitly is a
+    // remedial close-out AND no specific regulated work type was detected.
+    if (inferred.isRemedial && detected.length === 0) {
+      try {
+        const { data: remedialTpl } = await admin
+          .from("job_sheet_templates")
+          .select("name")
+          .eq("org_id", orgId)
+          .eq("status", "published")
+          .ilike("name", "%remedial%")
+          .limit(1)
+          .maybeSingle();
+        if (remedialTpl?.name) {
+          const { error: docErr } = await admin.from("job_documents").insert({
+            job_id: jobId,
+            document_type: "blank_job_sheet",
+            label: remedialTpl.name,
+            source: "auto",
+            org_id: orgId,
+          } as any);
+          if (docErr) console.error("inbound-po-email remedial auto-attach failed", docErr);
         }
       } catch (e) {
-        console.error("inbound-po-email auto-attach threw", e);
+        console.error("inbound-po-email remedial auto-attach threw", e);
       }
     }
+
+    // Persist detected work types and any mismatch flag on the job.
+    try {
+      await admin.from("jobs").update({
+        detected_work_types: detectedSlugs,
+        template_mismatch_reason: mismatchReason,
+      } as any).eq("id", jobId);
+    } catch (e) { console.warn("detected_work_types update failed", e); }
 
     // Seed remedial items when the wording read like a list of works
     if (inferred.isRemedial && inferred.remedialItems.length) {
@@ -1270,6 +1320,7 @@ serve(async (req) => {
   } catch (e) { console.warn("job_emails insert failed", e); }
 
 
+  console.log("inbound-po-email complete", {
     from: email.from,
     subject: email.subject,
     attachment_count: email.attachments.length,
