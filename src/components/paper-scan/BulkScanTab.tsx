@@ -39,13 +39,92 @@ export default function BulkScanTab({ onClose }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const addFiles = (fs: FileList | null) => {
+  const [expanding, setExpanding] = useState(false);
+
+  const addFiles = async (fs: FileList | null) => {
     if (!fs) return;
-    const arr = Array.from(fs).filter((f) => f.type.startsWith("image/"));
-    const newGroups: FormGroup[] = arr.map((f) => ({
-      photos: [{ file: f, url: URL.createObjectURL(f) }],
-    }));
-    setGroups((prev) => [...prev, ...newGroups]);
+    const raw = Array.from(fs);
+    const pdfs = raw.filter(
+      (f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name),
+    );
+    const images = raw.filter((f) => f.type.startsWith("image/"));
+
+    // A PDF straight off the scanner is almost always a stack of completed
+    // sheets. Expand + auto-split via the same batch pipeline, one sheet per
+    // group. This guarantees no page is silently discarded.
+    if (pdfs.length > 0 && user) {
+      setExpanding(true);
+      try {
+        const { expandDropToPageFiles } = await import("@/lib/pdfToImages");
+        const pageFiles = await expandDropToPageFiles(pdfs);
+        if (pageFiles.length === 0) throw new Error("No pages could be rendered from the PDF.");
+
+        // Ask the splitter to segment pages into sheets.
+        const payloads = await Promise.all(
+          pageFiles.map(async (f) => {
+            const buf = await f.arrayBuffer();
+            const bytes = new Uint8Array(buf);
+            let bin = "";
+            for (let i = 0; i < bytes.length; i += 0x8000) {
+              bin += String.fromCharCode.apply(
+                null,
+                Array.from(bytes.subarray(i, i + 0x8000)) as any,
+              );
+            }
+            return { image_base64: btoa(bin), mime_type: f.type || "image/jpeg" };
+          }),
+        );
+
+        const { data: splitData, error: splitErr } = await supabase.functions.invoke(
+          "split-paper-scan-pdf",
+          { body: { pages: payloads } },
+        );
+        if (splitErr) throw new Error(splitErr.message);
+        const sheets = Array.isArray(splitData?.sheets) ? splitData.sheets : [];
+        if (sheets.length === 0) throw new Error("Couldn't detect any sheets.");
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("org_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        const orgId = (profile as any)?.org_id;
+        if (!orgId) throw new Error("Your account has no organisation.");
+
+        const { createScanBatchFromSheets } = await import(
+          "@/lib/createScanBatchFromSheets"
+        );
+        const batchId = await createScanBatchFromSheets({
+          orgId,
+          userId: user.id,
+          pageFiles,
+          sheets,
+          sourceLabel: "manual_bulk_pdf",
+        });
+        toast({
+          title: `${sheets.length} sheets detected`,
+          description: `Batch created with ${pageFiles.length} pages. Opening review queue…`,
+        });
+        onClose();
+        navigate(`/paper-scan-queue?batch=${batchId}`);
+        return;
+      } catch (e: any) {
+        toast({
+          title: "PDF split failed",
+          description: e?.message,
+          variant: "destructive",
+        });
+      } finally {
+        setExpanding(false);
+      }
+    }
+
+    if (images.length > 0) {
+      const newGroups: FormGroup[] = images.map((f) => ({
+        photos: [{ file: f, url: URL.createObjectURL(f) }],
+      }));
+      setGroups((prev) => [...prev, ...newGroups]);
+    }
   };
 
   // Subscribe to batch progress once created
@@ -209,12 +288,17 @@ export default function BulkScanTab({ onClose }: Props) {
               Upload a stack of paper forms — drag & drop, or click to select
             </p>
             <p className="text-xs text-muted-foreground">
-              Add 20–40 photos at once. Group front/back below.
+              Add photos to group manually — or drop a scanner PDF and we'll split each sheet automatically.
             </p>
+            {expanding && (
+              <p className="mt-2 text-xs text-primary flex items-center justify-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> Rendering & splitting PDF…
+              </p>
+            )}
             <input
               ref={fileRef}
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf"
               multiple
               className="hidden"
               onChange={(e) => addFiles(e.target.files)}
