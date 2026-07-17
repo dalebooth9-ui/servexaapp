@@ -1050,6 +1050,9 @@ export default function Jobs() {
         uploadFilesAsSubmissions(capturedPoFiles, createdJob.id, user.id).catch((err) => {
           console.error("PO file attach failed", err);
         });
+      }
+
+
 
       if (createdJob && capturedCostingSheet) {
         // Upload costing sheet and process it asynchronously
