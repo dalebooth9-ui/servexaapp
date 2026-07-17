@@ -551,6 +551,56 @@ export default function ScanCompletedJobDialog({
         })),
       );
 
+      // Multi-page uploads may actually contain several separate completed
+      // sheets (e.g. scanner spits out one PDF for the whole stack). Detect
+      // sheet boundaries first — if >1 sheet is found, hand off to the batch
+      // review queue so nothing is silently discarded.
+      if (imagePayloads.length > 1) {
+        setProcessingMsg(`Detecting sheets in ${imagePayloads.length} pages…`);
+        const { data: splitData, error: splitErr } = await supabase.functions.invoke(
+          "split-paper-scan-pdf",
+          { body: { pages: imagePayloads } },
+        );
+        if (splitErr) throw new Error(splitErr.message || "Sheet detection failed");
+
+        if (splitData?.document_kind === "purchase_order") {
+          setPoMisdrop({ reason: splitData?.document_kind_reason });
+          setStep("upload");
+          return;
+        }
+
+        const sheets: any[] = Array.isArray(splitData?.sheets) ? splitData.sheets : [];
+        if (sheets.length > 1) {
+          setProcessingMsg(`${sheets.length} sheets detected — creating batch…`);
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("org_id")
+            .eq("user_id", user!.id)
+            .maybeSingle();
+          const orgId = (profile as any)?.org_id;
+          if (!orgId) throw new Error("Your account has no organisation.");
+
+          const { createScanBatchFromSheets } = await import(
+            "@/lib/createScanBatchFromSheets"
+          );
+          const batchId = await createScanBatchFromSheets({
+            orgId,
+            userId: user!.id,
+            pageFiles: images.map((im) => im.file),
+            sheets,
+            sourceLabel: "manual_multi_sheet_upload",
+          });
+          toast({
+            title: `${sheets.length} sheets detected`,
+            description: `Batch created with ${images.length} pages. Opening review queue…`,
+          });
+          onOpenChange(false);
+          navigate(`/paper-scan-queue?batch=${batchId}`);
+          return;
+        }
+        // Single sheet found spanning multiple pages — continue with single flow.
+      }
+
       setProcessingMsg("Matching against templates…");
       const { data: clsData, error: clsErr } = await supabase.functions.invoke(
         "classify-job-sheet-template",
