@@ -58,12 +58,18 @@ export default function BulkAssignBar({
           className="w-full h-7 text-[11px]"
           disabled={!engineerId || !date || busy || count === 0}
           onClick={async () => {
+            if (count === 0) return;
             setBusy(true);
             try { await onAssign(engineerId, date); } finally { setBusy(false); }
           }}
         >
-          {busy ? "Assigning…" : `Assign ${count} to engineer`}
+          {busy ? "Assigning…" : count === 0 ? "Assign to engineer" : `Assign ${count} to engineer`}
         </Button>
+        {count === 0 && (
+          <p className="text-[10px] text-muted-foreground text-center leading-tight">
+            Tick jobs above to assign
+          </p>
+        )}
       </div>
     </div>
   );
