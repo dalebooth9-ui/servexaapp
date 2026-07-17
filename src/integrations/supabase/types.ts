@@ -4760,6 +4760,7 @@ export type Database = {
           customer: string | null
           customer_id: string | null
           customer_po: string | null
+          detected_work_types: string[]
           due_date: string | null
           email_review_flag: boolean
           fault_code_id: string | null
@@ -4774,6 +4775,9 @@ export type Database = {
           intake_sender_email: string | null
           is_remedial: boolean
           job_type: string
+          mismatch_approved_at: string | null
+          mismatch_approved_by: string | null
+          mismatch_approved_reason: string | null
           name: string
           org_id: string | null
           other_qty: number
@@ -4790,6 +4794,7 @@ export type Database = {
           site_id: string | null
           source: string | null
           status: string
+          template_mismatch_reason: string | null
           updated_at: string
           visual_qty: number
         }
@@ -4808,6 +4813,7 @@ export type Database = {
           customer?: string | null
           customer_id?: string | null
           customer_po?: string | null
+          detected_work_types?: string[]
           due_date?: string | null
           email_review_flag?: boolean
           fault_code_id?: string | null
@@ -4822,6 +4828,9 @@ export type Database = {
           intake_sender_email?: string | null
           is_remedial?: boolean
           job_type?: string
+          mismatch_approved_at?: string | null
+          mismatch_approved_by?: string | null
+          mismatch_approved_reason?: string | null
           name: string
           org_id?: string | null
           other_qty?: number
@@ -4838,6 +4847,7 @@ export type Database = {
           site_id?: string | null
           source?: string | null
           status?: string
+          template_mismatch_reason?: string | null
           updated_at?: string
           visual_qty?: number
         }
@@ -4856,6 +4866,7 @@ export type Database = {
           customer?: string | null
           customer_id?: string | null
           customer_po?: string | null
+          detected_work_types?: string[]
           due_date?: string | null
           email_review_flag?: boolean
           fault_code_id?: string | null
@@ -4870,6 +4881,9 @@ export type Database = {
           intake_sender_email?: string | null
           is_remedial?: boolean
           job_type?: string
+          mismatch_approved_at?: string | null
+          mismatch_approved_by?: string | null
+          mismatch_approved_reason?: string | null
           name?: string
           org_id?: string | null
           other_qty?: number
@@ -4886,6 +4900,7 @@ export type Database = {
           site_id?: string | null
           source?: string | null
           status?: string
+          template_mismatch_reason?: string | null
           updated_at?: string
           visual_qty?: number
         }
