@@ -24,6 +24,7 @@ type UserWithRoles = {
 export default function UserRoleSettings() {
   const { user } = useAuth();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
+  const [emailMap, setEmailMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<{ userId: string; name: string } | null>(null);
