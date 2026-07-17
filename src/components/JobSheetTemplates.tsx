@@ -2013,6 +2013,17 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             </div>
           </DialogHeader>
           <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
+            {viewingResponse && activeTemplate && (
+              <div className="px-3 pt-3">
+                <PreviousReportPanel
+                  currentJobId={jobId}
+                  templateId={activeTemplate.id}
+                  templateFields={activeTemplate.fields as any}
+                  currentResponses={formData}
+                  currentResponseId={viewingResponse.id}
+                />
+              </div>
+            )}
             {sections.filter((s) => !isSectionOmitted(s)).map((section) => (
               <div key={section}>
                 <div className="bg-muted px-3 py-1.5 border-b border-border">
