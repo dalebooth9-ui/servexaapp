@@ -939,12 +939,22 @@ export default function Jobs() {
         oQty = Number(ext2.quantity);
       }
       const totalSystems = ptQty + vQty + oQty;
-      const baseDesc = ext2.job_description || ext2.po_number || dialogParsedFiles[0].name.replace(/\.[^.]+$/, "");
-      const nameWithCount = totalSystems > 1 ? `${baseDesc} (${totalSystems} systems)` : baseDesc;
+      // Build a work-type based name: "<Worktype> — <Customer/Site>".
+      // Never use the raw scope prose (e.g. "SCOPE OF WORK: …") as the name.
+      const workTypeBits: string[] = [];
+      if (ptQty > 0) workTypeBits.push(ptQty > 1 ? `Pressure Test ×${ptQty}` : "Pressure Test");
+      if (vQty > 0) workTypeBits.push(vQty > 1 ? `Visual Inspection ×${vQty}` : "Visual Inspection");
+      if (oQty > 0 && ext2.other_service_type) workTypeBits.push(oQty > 1 ? `${ext2.other_service_type} ×${oQty}` : ext2.other_service_type);
+      const workType = workTypeBits.join(" + ") || "Job";
+      const siteBit = (ext2.customer_name || matchedCustomer?.name || ext2.address || "").trim();
+      const nameWithCount = siteBit ? `${workType} — ${siteBit}` : workType;
       setForm((prev) => ({
         ...prev,
-        name: nameWithCount,
-        reference_number: ext2.po_number || prev.reference_number,
+        name: nameWithCount.slice(0, 200),
+        // Do NOT put the paper PO number into reference_number — that field is
+        // reserved for our internal VFP sequence (auto-generated on insert).
+        // The customer's PO goes into customer_po.
+        customer_po: (ext2.po_number || prev.customer_po || "").trim(),
         customer_id: matchedCustomer?.id || prev.customer_id,
         address: ext2.address || prev.address,
         priority: ["high", "medium", "low"].includes(ext2.priority || "") ? ext2.priority : prev.priority,
