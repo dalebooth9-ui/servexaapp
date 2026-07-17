@@ -319,7 +319,7 @@ export default function UserRoleSettings() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={3} className="py-6 text-center text-muted-foreground">Loading…</TableCell>
+                <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">Loading…</TableCell>
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
