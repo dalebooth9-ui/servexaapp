@@ -337,6 +337,14 @@ export default function ScanReviewPanel({
         <div className="w-1/2">
           <ScrollArea className="h-full">
             <div className="p-4 space-y-5">
+              {jobId && templateId && (
+                <PreviousReportPanel
+                  currentJobId={jobId}
+                  templateId={templateId}
+                  templateFields={templateFields}
+                  currentResponses={fields}
+                />
+              )}
               {/* Header fields */}
               <div>
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Header Info</h3>
