@@ -75,6 +75,7 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated,
     if (!open || !file) return;
     setExtracted(null);
     setParseError(null);
+    setContinueAnyway(false);
     // Ensure customers are loaded before parsing so we can match them
     supabase.from("customers").select("id, name").order("name").then(({ data }) => {
       const loaded = data || [];
