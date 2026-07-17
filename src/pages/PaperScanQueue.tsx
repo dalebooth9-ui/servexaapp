@@ -301,6 +301,7 @@ export default function PaperScanQueue() {
                   <TableHead>Customer / Site (guessed)</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Outcome</TableHead>
                   <TableHead>Age</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
