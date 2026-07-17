@@ -61,6 +61,17 @@ serve(async (req) => {
     if (fetchErr || !existing?.user) return json({ error: fetchErr?.message ?? "User not found" }, 404);
     const oldEmail = existing.user.email ?? null;
 
+    if (mode === "read") {
+      const { data: prof } = await supabaseAdmin.from("profiles")
+        .select("full_name, whatsapp_number").eq("user_id", user_id).maybeSingle();
+      return json({
+        user_id,
+        email: oldEmail,
+        full_name: prof?.full_name ?? existing.user.user_metadata?.full_name ?? "",
+        whatsapp_number: prof?.whatsapp_number ?? "",
+      });
+    }
+
     const changes: string[] = [];
 
     // Email change via admin API — confirms immediately so user can log in with new address.
