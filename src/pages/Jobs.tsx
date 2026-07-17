@@ -83,6 +83,7 @@ export default function Jobs() {
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
   const [scanPaperOpen, setScanPaperOpen] = useState(false);
+  const [scanInitialFile, setScanInitialFile] = useState<File | null>(null);
   const [siteSheetJobId, setSiteSheetJobId] = useState<string | null>(null);
   const [activeJob, setActiveJob] = useState<any>(null);
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
