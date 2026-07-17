@@ -1120,10 +1120,10 @@ export default function ScanCompletedJobDialog({
               >
                 <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
                 <p className="mt-2 text-sm">
-                  Click to upload photo(s) of one paper form, or drag & drop
+                  Click to upload photo(s) or a PDF of the paper form(s), or drag & drop
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Add front and back / multiple pages if needed.
+                  Multi-sheet PDFs are split automatically into a batch.
                 </p>
                 <input
                   ref={fileRef}
