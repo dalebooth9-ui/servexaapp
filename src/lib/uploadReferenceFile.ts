@@ -59,9 +59,13 @@ export async function uploadReferenceFiles(params: {
   let failed = 0;
   for (let i = 0; i < files.length; i++) {
     const r = await uploadReferenceFile({ jobId, file: files[i], userId });
+    let errMsg: string | undefined;
     if (r.ok) succeeded++;
-    else failed++;
-    onProgress?.(i + 1, files.length, r.ok ? undefined : r.error);
+    else {
+      failed++;
+      errMsg = r.error;
+    }
+    onProgress?.(i + 1, files.length, errMsg);
   }
   return { succeeded, failed };
 }
