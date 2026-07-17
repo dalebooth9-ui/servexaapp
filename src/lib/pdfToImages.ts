@@ -8,7 +8,7 @@ async function loadPdfJs(): Promise<any> {
   if (!pdfjsPromise) {
     pdfjsPromise = (async () => {
       const lib: any = await import(
-        /* @vite-ignore */ "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/+esm"
+        /* @vite-ignore */ ("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/+esm" as any)
       );
       lib.GlobalWorkerOptions.workerSrc =
         "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
