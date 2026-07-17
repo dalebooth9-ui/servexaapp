@@ -1651,6 +1651,10 @@ export default function Jobs() {
                   <Input value={form.reference_number} onChange={(e) => setForm({ ...form, reference_number: e.target.value })} placeholder="Auto: VFP-00001" />
                 </div>
                 <div className="space-y-2">
+                  <Label>Customer PO <span className="text-muted-foreground text-xs font-normal">(from paperwork — printed on reports)</span></Label>
+                  <Input value={form.customer_po} onChange={(e) => setForm({ ...form, customer_po: e.target.value })} placeholder="e.g. 38896" />
+                </div>
+                <div className="space-y-2">
                   <Label>Customer</Label>
                   <CustomerCombobox
                     value={form.customer_id}
