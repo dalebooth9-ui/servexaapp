@@ -83,6 +83,81 @@ export async function findPreviousResponse(params: {
   return null;
 }
 
+/**
+ * Historic (pre-Servexa) report fallback — used when no in-Servexa prior
+ * response exists for a job's site+template. We try to match the template
+ * by name/slug against historic_reports.report_type_label / report_type
+ * for the same site.
+ */
+export type PreviousHistoricReport = {
+  id: string;
+  siteId: string;
+  reportDate: string | null;
+  reportTypeLabel: string | null;
+  originalFilename: string;
+  storagePath: string;
+};
+
+export async function findPreviousHistoricReport(params: {
+  currentJobId: string;
+  templateId: string;
+}): Promise<PreviousHistoricReport | null> {
+  const { currentJobId, templateId } = params;
+  const { data: cur } = await supabase
+    .from("jobs")
+    .select("site_id")
+    .eq("id", currentJobId)
+    .maybeSingle();
+  if (!cur?.site_id) return null;
+
+  const { data: tpl } = await supabase
+    .from("job_sheet_templates")
+    .select("name, job_category")
+    .eq("id", templateId)
+    .maybeSingle();
+
+  let q: any = (supabase as any)
+    .from("historic_reports")
+    .select(
+      "id, site_id, report_date, report_type, report_type_label, original_filename, storage_path",
+    )
+    .eq("site_id", cur.site_id)
+    .order("report_date", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  const { data } = await q;
+  const rows: any[] = data || [];
+  if (rows.length === 0) return null;
+
+  // Prefer rows whose report_type/label loosely matches template name/slug.
+  const tplName = ((tpl as any)?.name || "").toLowerCase();
+  const tplSlug = ((tpl as any)?.job_category || "").toLowerCase();
+  const scored = rows.map((r) => {
+    const hay =
+      `${r.report_type_label || ""} ${r.report_type || ""}`.toLowerCase();
+    let s = 0;
+    if (tplName && hay.includes(tplName)) s += 100;
+    if (tplSlug && hay.includes(tplSlug)) s += 60;
+    if (tplName) {
+      for (const w of tplName.split(/\s+/).filter((x: string) => x.length > 3)) {
+        if (hay.includes(w)) s += 10;
+      }
+    }
+    return { r, s };
+  });
+  scored.sort((a, b) => b.s - a.s);
+  const chosen = scored[0].s > 0 ? scored[0].r : rows[0];
+  return {
+    id: chosen.id,
+    siteId: chosen.site_id,
+    reportDate: chosen.report_date,
+    reportTypeLabel: chosen.report_type_label,
+    originalFilename: chosen.original_filename,
+    storagePath: chosen.storage_path,
+  };
+}
+
 // ---------- Diff logic ----------
 
 export type TemplateFieldLite = {
