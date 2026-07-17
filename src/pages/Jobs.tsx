@@ -1572,30 +1572,63 @@ export default function Jobs() {
                 </div>
               </DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
-                {/* Drag-drop AI extraction zone */}
-                <div
-                  onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDialogFileDrop(e); }}
-                  className="flex items-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-3 text-sm text-muted-foreground hover:border-primary/40 hover:bg-primary/5 transition-colors cursor-default"
-                >
-                  {dialogParsingFile ? (
-                    <>
-                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
-                      <span className="text-primary font-medium">Reading document…</span>
-                    </>
-                  ) : dialogParsedFile ? (
-                    <>
-                      <Sparkles className="h-4 w-4 shrink-0 text-primary" />
-                      <span className="truncate"><span className="font-medium text-foreground">{dialogParsedFile.name}</span> — form pre-filled. Drop another to replace.</span>
-                      <button type="button" className="ml-auto shrink-0 text-muted-foreground hover:text-destructive" onClick={() => setDialogParsedFile(null)}><X className="h-3.5 w-3.5" /></button>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4 shrink-0" />
-                      <span>Drop a PDF or Word doc to auto-fill from a purchase order</span>
-                    </>
+                {/* Drag-drop AI extraction zone — multi-file, one job */}
+                <div className="space-y-2">
+                  <div
+                    onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDialogFileDrop(e); }}
+                    className="flex flex-wrap items-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-3 text-sm text-muted-foreground hover:border-primary/40 hover:bg-primary/5 transition-colors cursor-default"
+                  >
+                    <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+                    <span className="flex-1 min-w-[200px]">
+                      {dialogParsedFiles.length === 0
+                        ? "Drop a PDF, Word doc, or photo(s) of a purchase order to auto-fill. Drop multiple files together to combine them into ONE job."
+                        : `${dialogParsedFiles.length} file(s) staged — drag thumbnails to reorder, then Extract.`}
+                    </span>
+                    <input
+                      ref={dialogFileInputRef}
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.heic,.heif"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files) addDialogFiles(Array.from(e.target.files));
+                        e.target.value = "";
+                      }}
+                    />
+                    <Button type="button" size="sm" variant="outline" onClick={() => dialogFileInputRef.current?.click()}>
+                      Choose files
+                    </Button>
+                    {dialogParsedFiles.length > 0 && (
+                      <>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={extractFromDialogFiles}
+                          disabled={dialogParsingFile}
+                        >
+                          {dialogParsingFile ? (
+                            <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Reading…</>
+                          ) : (
+                            <>Extract from {dialogParsedFiles.length} file(s)</>
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDialogParsedFiles([])}
+                          disabled={dialogParsingFile}
+                        >
+                          Clear
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                  {dialogParsedFiles.length > 0 && (
+                    <DroppedPoFilesReorder files={dialogParsedFiles} onChange={setDialogParsedFiles} />
                   )}
                 </div>
                 <div className="space-y-2">
