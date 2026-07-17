@@ -48,6 +48,7 @@ import { buildAttachPlan, insertDraftResponses, lockJobTemplate, type MatchSlot,
 import { useJobPhotoCount } from "@/hooks/useJobPhotoCount";
 import JobCompleteAction from "@/components/jobs/JobCompleteAction";
 import JobRemedialChecklist from "@/components/jobs/JobRemedialChecklist";
+import JobTemplateMismatchBanner from "@/components/jobs/JobTemplateMismatchBanner";
 import { Switch } from "@/components/ui/switch";
 import { Wrench, ClipboardPlus } from "lucide-react";
 
