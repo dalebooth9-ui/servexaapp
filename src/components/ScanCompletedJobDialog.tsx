@@ -162,6 +162,8 @@ export default function ScanCompletedJobDialog({
   onOpenChange,
   queueItem,
   onQueueItemResolved,
+  initialFile,
+  onRedirectToPo,
 }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
