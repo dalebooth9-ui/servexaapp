@@ -660,6 +660,15 @@ export default function ScanCompletedJobDialog({
       });
       return;
     }
+    if (!completionDate && !dateUnknown) {
+      toast({
+        title: "Enter the date from the sheet",
+        description:
+          "Type the date handwritten on the paper form (dd/mm/yyyy) — or tick 'Date unknown' to file it without one. Backlog jobs must never silently default to today.",
+        variant: "destructive",
+      });
+      return;
+    }
     setSaving(true);
     try {
       const site = sites.find((s) => s.id === siteId);
@@ -667,14 +676,21 @@ export default function ScanCompletedJobDialog({
         .filter(Boolean)
         .join(", ");
 
-      // Derive completion timestamp
-      let completedAt = new Date().toISOString();
+      // Derive completion timestamp — ONLY from the handwritten date. If the
+      // reviewer explicitly ticked "date unknown", we still need a value for
+      // completed_at, so fall back to today but tag the job so it's obvious
+      // in reports/history.
+      let completedAt: string | null = null;
+      let dateKnown = true;
       if (completionDate) {
-        // dd/mm/yyyy
         const m = completionDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
         if (m) {
           completedAt = new Date(`${m[3]}-${m[2]}-${m[1]}T12:00:00Z`).toISOString();
         }
+      }
+      if (!completedAt) {
+        completedAt = new Date().toISOString();
+        dateKnown = false;
       }
 
       const category =
@@ -688,31 +704,61 @@ export default function ScanCompletedJobDialog({
               ? "commercial_sprinkler_service"
               : (template.category || template.job_category || "general");
 
-      // Insert job
-      const { data: job, error: jobErr } = await supabase
-        .from("jobs")
-        .insert({
-          name: jobName || `${template.name} — backfilled`,
-          customer: selectedCustomer?.name || null,
-          customer_id: customerId,
-          site_id: siteId,
-          address: jobAddress || null,
-          status: "completed",
-          priority: "medium",
-          category,
-          source: "paper backfill",
-          created_by: user.id,
-          completed_by: user.id,
-          completed_at: completedAt,
-          pressure_test_qty: category === "pressure_test" ? 1 : 0,
-          visual_qty: category === "visual" ? 1 : 0,
-          other_qty: category !== "pressure_test" && category !== "visual" ? 1 : 0,
-        } as any)
-        .select("id, reference_number")
-        .single();
-      if (jobErr) throw jobErr;
-      const jobId = (job as any).id;
-      const jobRef = (job as any).reference_number;
+      const backfillSource = dateKnown
+        ? "paper backfill"
+        : "paper backfill (date unknown)";
+
+      let jobId: string;
+      let jobRef: string;
+      const matchedExisting = Boolean(matchExistingJobId);
+
+      if (matchedExisting) {
+        // File this scan against an existing pre-scheduled job — mark it
+        // completed on the handwritten date, don't create a new job.
+        const { data: updated, error: updErr } = await supabase
+          .from("jobs")
+          .update({
+            status: "completed",
+            completed_by: user.id,
+            completed_at: completedAt,
+            historic_backfill: true,
+            source: backfillSource,
+          } as any)
+          .eq("id", matchExistingJobId)
+          .select("id, reference_number")
+          .single();
+        if (updErr) throw updErr;
+        jobId = (updated as any).id;
+        jobRef = (updated as any).reference_number;
+      } else {
+        // Insert brand-new historic job.
+        const { data: job, error: jobErr } = await supabase
+          .from("jobs")
+          .insert({
+            name: jobName || `${template.name} — backfilled`,
+            customer: selectedCustomer?.name || null,
+            customer_id: customerId,
+            site_id: siteId,
+            address: jobAddress || null,
+            status: "completed",
+            priority: "medium",
+            category,
+            source: backfillSource,
+            historic_backfill: true,
+            created_by: user.id,
+            completed_by: user.id,
+            completed_at: completedAt,
+            pressure_test_qty: category === "pressure_test" ? 1 : 0,
+            visual_qty: category === "visual" ? 1 : 0,
+            other_qty: category !== "pressure_test" && category !== "visual" ? 1 : 0,
+          } as any)
+          .select("id, reference_number")
+          .single();
+        if (jobErr) throw jobErr;
+        jobId = (job as any).id;
+        jobRef = (job as any).reference_number;
+      }
+
 
       // Insert job_sheet_responses — strip blank/undefined so the payload
       // only contains real answers (paper backfill: all template fields optional).
