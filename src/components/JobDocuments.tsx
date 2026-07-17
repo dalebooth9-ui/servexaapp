@@ -522,11 +522,95 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       setPreviewUrl(url);
       setPreviewName(buildFriendlyFileName(doc, jobInfo, ext));
       setPreviewMime(mime);
+      setPreviewDocId(doc.id);
       setPreviewOpen(true);
     } else {
       // Non-previewable (e.g. .docx, .xlsx) — fall back to opening in a new tab
       window.open(url, "_blank", "noopener,noreferrer");
     }
+  };
+
+  const handleDirectDownload = async (doc: JobDoc) => {
+    if (!doc.file_url) return;
+    const defaultBucket =
+      doc.source === "customer_paperwork" ? "customer-paperwork" : "submissions";
+    const url = (await resolveToSignedUrl(doc.file_url, defaultBucket, 3600)) || doc.file_url;
+    const ext = (doc.file_name || url).split("?")[0].split("#")[0].split(".").pop() || "bin";
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = buildFriendlyFileName(doc, jobInfo, ext);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleClearReviewFlag = async (doc: JobDoc) => {
+    setClearingReviewId(doc.id);
+    const cleanLabel = stripReviewSuffix(doc.label);
+    const cleanFile = stripReviewSuffix(doc.file_name);
+    const { error } = await supabase
+      .from("job_documents" as any)
+      .update({ label: cleanLabel, file_name: cleanFile } as any)
+      .eq("id", doc.id);
+    setClearingReviewId(null);
+    if (error) {
+      toast({ title: "Could not update", description: error.message, variant: "destructive" });
+      return;
+    }
+    setDocs((prev) => prev.map((d) => (d.id === doc.id ? { ...d, label: cleanLabel, file_name: cleanFile } : d)));
+    toast({ title: "Marked as reviewed" });
+  };
+
+  const addImageDocToPhotos = async (doc: JobDoc): Promise<boolean> => {
+    if (!doc.file_url || !user) return false;
+    const defaultBucket =
+      doc.source === "customer_paperwork" ? "customer-paperwork" : "submissions";
+    const url = (await resolveToSignedUrl(doc.file_url, defaultBucket, 60 * 60 * 24 * 365)) || doc.file_url;
+    if (!url) return false;
+    const cleanName = stripReviewSuffix(doc.file_name) || stripReviewSuffix(doc.label) || "photo";
+    const provenance = `Added from email attachment (${doc.source || "email"})`;
+    const orgId = (jobInfo as any)?.org_id || (job as any)?.org_id;
+    const insertPayload: any = {
+      job_id: jobId,
+      engineer_id: user.id,
+      type: "photo",
+      file_url: url,
+      file_name: cleanName,
+      content: provenance,
+    };
+    if (orgId) insertPayload.org_id = orgId;
+    const { error } = await supabase.from("submissions").insert(insertPayload);
+    if (error) {
+      console.error("add to photos failed", error);
+      return false;
+    }
+    return true;
+  };
+
+  const handleAddToPhotos = async (doc: JobDoc) => {
+    setAddingToPhotosId(doc.id);
+    const ok = await addImageDocToPhotos(doc);
+    setAddingToPhotosId(null);
+    toast({
+      title: ok ? "Added to Photos" : "Could not add to Photos",
+      description: ok ? "Now appears in the Photos tab and customer reports." : undefined,
+      variant: ok ? undefined : "destructive",
+    });
+  };
+
+  const handleAddAllImagesToPhotos = async () => {
+    const images = docs.filter((d) => !!d.file_url && isImageDoc(d));
+    if (images.length === 0) return;
+    setAddingAllPhotos(true);
+    let ok = 0;
+    for (const d of images) {
+      const success = await addImageDocToPhotos(d);
+      if (success) ok++;
+    }
+    setAddingAllPhotos(false);
+    toast({
+      title: `${ok} of ${images.length} added to Photos`,
+    });
   };
 
   const handleUploadSlot = (doc: JobDoc) => {
