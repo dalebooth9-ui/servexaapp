@@ -27,6 +27,9 @@ interface Props {
   templateName: string;
   onConfirm: (fields: Record<string, any>, header: Record<string, any>, fieldNotes: Record<string, string>) => void;
   onRescan: () => void;
+  /** When known, enables the "Previous report" comparison panel. */
+  jobId?: string;
+  templateId?: string;
 }
 
 // Simple similarity score (Dice coefficient on bigrams)
