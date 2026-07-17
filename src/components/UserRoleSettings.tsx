@@ -44,6 +44,13 @@ export default function UserRoleSettings() {
   const [editPages, setEditPages] = useState<string[]>([]);
   const [savingPages, setSavingPages] = useState(false);
 
+  // Edit user details
+  const [editUserOpen, setEditUserOpen] = useState<{ userId: string; name: string } | null>(null);
+  const [editUserForm, setEditUserForm] = useState({ full_name: "", email: "", whatsapp_number: "" });
+  const [editUserLoading, setEditUserLoading] = useState(false);
+  const [editUserSaving, setEditUserSaving] = useState(false);
+  const [editUserResetSending, setEditUserResetSending] = useState(false);
+
   const fetchUsers = async () => {
     const [profilesRes, rolesRes] = await Promise.all([
       supabase.from("profiles").select("id, user_id, full_name"),
