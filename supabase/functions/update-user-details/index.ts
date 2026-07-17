@@ -40,8 +40,9 @@ serve(async (req) => {
     if (!isAdmin) return json({ error: "Admin access required" }, 403);
 
     const body = await req.json().catch(() => ({}));
-    const { user_id, full_name, email, whatsapp_number } = body as {
+    const { user_id, full_name, email, whatsapp_number, mode } = body as {
       user_id?: string; full_name?: string; email?: string; whatsapp_number?: string | null;
+      mode?: "read" | "write";
     };
     if (!user_id) return json({ error: "user_id is required" }, 400);
 
