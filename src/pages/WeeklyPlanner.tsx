@@ -1279,7 +1279,7 @@ export default function WeeklyPlanner() {
         open={aiSchedulerOpen}
         onOpenChange={setAiSchedulerOpen}
         unallocatedJobs={unallocatedJobs}
-        engineers={visibleEngineers}
+        engineers={sortedEngineers}
         weekStart={weekStart}
         existingSchedule={schedule}
         onConfirm={handleAiSchedulerConfirm}
