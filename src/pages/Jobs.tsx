@@ -994,6 +994,7 @@ export default function Jobs() {
     const { data: createdJob, error } = await supabase.from("jobs").insert({
       name: parsed.data.name,
       ...(parsed.data.reference_number ? { reference_number: parsed.data.reference_number } : {}),
+      customer_po: (form.customer_po || "").trim() || null,
       customer_id: form.customer_id || null,
       customer: customerName,
       address: form.address || null,
