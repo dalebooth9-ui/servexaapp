@@ -108,6 +108,10 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
   const [previewMime, setPreviewMime] = useState<string>("application/pdf");
+  const [previewDocId, setPreviewDocId] = useState<string | null>(null);
+  const [addingToPhotosId, setAddingToPhotosId] = useState<string | null>(null);
+  const [addingAllPhotos, setAddingAllPhotos] = useState(false);
+  const [clearingReviewId, setClearingReviewId] = useState<string | null>(null);
 
   const handleFillOnline = (templateId: string) => {
     document.getElementById("job-sheets-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
