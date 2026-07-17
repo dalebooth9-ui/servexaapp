@@ -311,6 +311,7 @@ export default function UserRoleSettings() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Login email</TableHead>
               <TableHead>Current Roles</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
