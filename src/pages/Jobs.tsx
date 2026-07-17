@@ -76,7 +76,7 @@ export default function Jobs() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm, clearJobFormDraft] = useAutoSave("job-create-form", { name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
+  const [form, setForm, clearJobFormDraft] = useAutoSave("job-create-form", { name: "", reference_number: "", customer_po: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
   const [loading, setLoading] = useState(false);
   const [costingSheetFile, setCostingSheetFile] = useState<File | null>(null);
   const [costingSheetProcessing, setCostingSheetProcessing] = useState(false);
@@ -939,12 +939,22 @@ export default function Jobs() {
         oQty = Number(ext2.quantity);
       }
       const totalSystems = ptQty + vQty + oQty;
-      const baseDesc = ext2.job_description || ext2.po_number || dialogParsedFiles[0].name.replace(/\.[^.]+$/, "");
-      const nameWithCount = totalSystems > 1 ? `${baseDesc} (${totalSystems} systems)` : baseDesc;
+      // Build a work-type based name: "<Worktype> — <Customer/Site>".
+      // Never use the raw scope prose (e.g. "SCOPE OF WORK: …") as the name.
+      const workTypeBits: string[] = [];
+      if (ptQty > 0) workTypeBits.push(ptQty > 1 ? `Pressure Test ×${ptQty}` : "Pressure Test");
+      if (vQty > 0) workTypeBits.push(vQty > 1 ? `Visual Inspection ×${vQty}` : "Visual Inspection");
+      if (oQty > 0 && ext2.other_service_type) workTypeBits.push(oQty > 1 ? `${ext2.other_service_type} ×${oQty}` : ext2.other_service_type);
+      const workType = workTypeBits.join(" + ") || "Job";
+      const siteBit = (ext2.customer_name || matchedCustomer?.name || ext2.address || "").trim();
+      const nameWithCount = siteBit ? `${workType} — ${siteBit}` : workType;
       setForm((prev) => ({
         ...prev,
-        name: nameWithCount,
-        reference_number: ext2.po_number || prev.reference_number,
+        name: nameWithCount.slice(0, 200),
+        // Do NOT put the paper PO number into reference_number — that field is
+        // reserved for our internal VFP sequence (auto-generated on insert).
+        // The customer's PO goes into customer_po.
+        customer_po: (ext2.po_number || prev.customer_po || "").trim(),
         customer_id: matchedCustomer?.id || prev.customer_id,
         address: ext2.address || prev.address,
         priority: ["high", "medium", "low"].includes(ext2.priority || "") ? ext2.priority : prev.priority,
@@ -984,6 +994,7 @@ export default function Jobs() {
     const { data: createdJob, error } = await supabase.from("jobs").insert({
       name: parsed.data.name,
       ...(parsed.data.reference_number ? { reference_number: parsed.data.reference_number } : {}),
+      customer_po: (form.customer_po || "").trim() || null,
       customer_id: form.customer_id || null,
       customer: customerName,
       address: form.address || null,
@@ -1015,7 +1026,7 @@ export default function Jobs() {
         ) : undefined,
       });
       clearJobFormDraft();
-      setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
+      setForm({ name: "", reference_number: "", customer_po: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
       setDialogOpen(false);
       const capturedPoFiles = dialogParsedFiles;
       setDialogParsedFiles([]);
@@ -1547,7 +1558,7 @@ export default function Jobs() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" }); setDialogParsedFiles([]); setDialogParsingFile(false); setCostingSheetFile(null); setNewJobReferenceFiles([]); } }}>
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm({ name: "", reference_number: "", customer_po: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" }); setDialogParsedFiles([]); setDialogParsingFile(false); setCostingSheetFile(null); setNewJobReferenceFiles([]); } }}>
               <DialogTrigger asChild>
                 <Button size="sm" data-setup="add-job"><Plus className="mr-2 h-4 w-4" /> New Job</Button>
               </DialogTrigger>
@@ -1638,6 +1649,10 @@ export default function Jobs() {
                 <div className="space-y-2">
                   <Label>Reference Number <span className="text-muted-foreground text-xs font-normal">(auto-generated if left blank)</span></Label>
                   <Input value={form.reference_number} onChange={(e) => setForm({ ...form, reference_number: e.target.value })} placeholder="Auto: VFP-00001" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Customer PO <span className="text-muted-foreground text-xs font-normal">(from paperwork — printed on reports)</span></Label>
+                  <Input value={form.customer_po} onChange={(e) => setForm({ ...form, customer_po: e.target.value })} placeholder="e.g. 38896" />
                 </div>
                 <div className="space-y-2">
                   <Label>Customer</Label>
