@@ -15,6 +15,7 @@ import { resolveToSignedUrl } from "@/lib/durableStorageRef";
 import JobPdfReport from "@/components/JobPdfReport";
 import JobWordReport from "@/components/JobWordReport";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import ReferenceFilesDropzone from "@/components/ReferenceFilesDropzone";
 
 type JobDoc = {
   id: string;
