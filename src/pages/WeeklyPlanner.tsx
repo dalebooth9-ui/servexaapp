@@ -1313,7 +1313,7 @@ export default function WeeklyPlanner() {
         open={multiDayJob !== null}
         onOpenChange={(open) => { if (!open) setMultiDayJob(null); }}
         job={multiDayJob}
-        engineers={visibleEngineers}
+        engineers={sortedEngineers}
         initialWeekStart={weekStart}
         onConfirm={handleMultiDayAssign}
       />
