@@ -296,7 +296,7 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated,
         )}
 
 
-        {extracted && !parsing && (
+        {extracted && !parsing && !isMisdrop && (
           <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground space-y-1">
             <p className="font-semibold text-foreground text-sm mb-1">Extracted from document</p>
             {extracted.customer_name && <p><span className="font-medium">Customer:</span> {extracted.customer_name}</p>}
