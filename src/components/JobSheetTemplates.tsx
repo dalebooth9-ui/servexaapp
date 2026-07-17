@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import JobSheetPdfExport from "./JobSheetPdfExport";
 import BlankTemplatePdfExport from "./BlankTemplatePdfExport";
+import PreviousReportPanel from "./PreviousReportPanel";
 import ScanJobSheet from "./ScanJobSheet";
 import ImportTemplateDialog from "./ImportTemplateDialog";
 import ImportTemplateJsonDialog from "./ImportTemplateJsonDialog";
