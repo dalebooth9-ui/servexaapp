@@ -819,12 +819,34 @@ export default function Jobs() {
     fetchJobs();
   };
 
+  const PO_ALLOWED_EXT = [".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"];
+  const isPoAllowedFile = (name: string) => PO_ALLOWED_EXT.includes(name.slice(name.lastIndexOf(".")).toLowerCase());
+
+  const addDialogFiles = (incoming: File[]) => {
+    const valid: File[] = [];
+    const rejected: string[] = [];
+    for (const f of incoming) {
+      if (isPoAllowedFile(f.name)) valid.push(f);
+      else rejected.push(f.name);
+    }
+    if (rejected.length > 0) {
+      toast({
+        title: "Unsupported file(s) skipped",
+        description: `Accepts PDF, Word or photo (JPG/PNG/HEIC/WEBP). Skipped: ${rejected.join(", ")}`,
+        variant: "destructive",
+      });
+    }
+    if (valid.length > 0) {
+      setDialogParsedFiles((prev) => [...prev, ...valid]);
+    }
+  };
+
   const handleDialogFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
 
     const dt = e.dataTransfer;
-    let file: File | null = null;
+    const collected: File[] = [];
 
     const readString = (type: string): Promise<string | null> =>
       new Promise((resolve) => {
@@ -840,24 +862,20 @@ export default function Jobs() {
         try { resolve(dt.getData(type) || null); } catch { resolve(null); }
       });
 
-    // 1) Standard files array (works for Explorer / Finder drags)
     if (dt.files && dt.files.length > 0) {
-      file = dt.files[0];
+      for (let i = 0; i < dt.files.length; i++) collected.push(dt.files[i]);
     }
-
-    // 2) DataTransferItems — Outlook / Gmail / other email clients often expose files here
-    if (!file && dt.items && dt.items.length > 0) {
+    if (collected.length === 0 && dt.items && dt.items.length > 0) {
       for (let i = 0; i < dt.items.length; i++) {
         const item = dt.items[i];
         if (item.kind === "file") {
           const f = item.getAsFile();
-          if (f && f.size > 0) { file = f; break; }
+          if (f && f.size > 0) collected.push(f);
         }
       }
     }
-
-    // 3) URI-list / HTML payload — try to fetch the referenced file
-    if (!file) {
+    if (collected.length === 0) {
+      // Fallback for email clients that expose files as URLs / HTML fragments.
       const uriList = (await readString("text/uri-list")) || (await readString("text/plain")) || "";
       const htmlPayload = await readString("text/html");
       const candidates: string[] = [];
@@ -866,89 +884,80 @@ export default function Jobs() {
         if (t && !t.startsWith("#") && /^https?:\/\//i.test(t)) candidates.push(t);
       });
       if (htmlPayload) {
-        const matches = htmlPayload.match(/https?:\/\/[^"'\s<>]+\.(?:pdf|docx?|PDF|DOCX?|Doc)/g);
+        const matches = htmlPayload.match(/https?:\/\/[^"'\s<>]+\.(?:pdf|docx?|jpe?g|png|webp|heic|heif)/gi);
         if (matches) candidates.push(...matches);
       }
-
       for (const url of candidates) {
         try {
           const resp = await fetch(url, { credentials: "omit" });
           if (!resp.ok) continue;
           const blob = await resp.blob();
           if (blob.size === 0) continue;
-          const name = decodeURIComponent(url.split("/").pop()?.split("?")[0] || "document.pdf");
-          file = new File([blob], name, { type: blob.type || "application/octet-stream" });
-          break;
+          const name = decodeURIComponent(url.split("/").pop()?.split("?")[0] || "document");
+          collected.push(new File([blob], name, { type: blob.type || "application/octet-stream" }));
         } catch { /* try next */ }
       }
     }
 
-    if (!file) {
-      // TEMP diagnostics — collect what New Outlook / Chromium actually exposed
-      const itemsSummary: Array<{ kind: string; type: string; preview?: string }> = [];
-      const itemCount = dt.items?.length ?? 0;
-      for (let i = 0; i < itemCount; i++) {
-        const it = dt.items![i];
-        const entry: { kind: string; type: string; preview?: string } = { kind: it.kind, type: it.type };
-        if (it.kind === "string") {
-          try {
-            const s = await readString(it.type);
-            entry.preview = (s || "").slice(0, 120);
-          } catch { /* ignore */ }
-        }
-        itemsSummary.push(entry);
-      }
-      const typesArr = Array.from(dt.types || []);
-      const dump = {
-        filesLength: dt.files?.length ?? 0,
-        types: typesArr,
-        items: itemsSummary,
-      };
-      // eslint-disable-next-line no-console
-      console.log("[PO-DROP-DEBUG]", dump);
-      const short = JSON.stringify(dump);
-      toast({
-        title: "No file detected (debug)",
-        description: `types=[${typesArr.join(",")}] files=${dt.files?.length ?? 0} items=${itemCount} :: ${short}`.slice(0, 300),
-        variant: "destructive",
-      });
+    if (collected.length === 0) {
+      toast({ title: "No file detected", description: "Drop the files again, or use the Choose files button.", variant: "destructive" });
       return;
     }
+    addDialogFiles(collected);
+  };
 
-
-    const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
-    if (![".pdf", ".doc", ".docx"].includes(ext)) {
-      toast({ title: "Unsupported file", description: "Drop a PDF or Word document to auto-fill.", variant: "destructive" });
-      return;
-    }
-    const resolvedFile = file;
-    setDialogParsedFile(resolvedFile);
+  const extractFromDialogFiles = async () => {
+    if (dialogParsedFiles.length === 0) return;
     setDialogParsingFile(true);
     try {
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve((reader.result as string).split(",")[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(resolvedFile);
-      });
+      const filesPayload = await Promise.all(
+        dialogParsedFiles.map(
+          (f) =>
+            new Promise<{ file_base64: string; file_name: string }>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve({
+                file_base64: (reader.result as string).split(",")[1],
+                file_name: f.name,
+              });
+              reader.onerror = reject;
+              reader.readAsDataURL(f);
+            })
+        )
+      );
       const { data, error } = await supabase.functions.invoke("parse-po-document", {
-        body: { file_base64: base64, file_name: resolvedFile.name },
+        body: { files: filesPayload },
       });
       if (error || data?.error) throw new Error(error?.message || data?.error || "Parse failed");
       const ext2: any = data?.data || {};
       const matchedCustomer = customers.find(
         (c) => c.name.toLowerCase() === (ext2.customer_name || "").toLowerCase()
       );
+      const ptQty = Math.max(0, Number(ext2.pressure_test_qty) || 0);
+      const vQty = Math.max(0, Number(ext2.visual_qty) || 0);
+      let oQty = Math.max(0, Number(ext2.other_qty) || 0);
+      if (ptQty === 0 && vQty === 0 && oQty === 0 && Number(ext2.quantity) > 0) {
+        oQty = Number(ext2.quantity);
+      }
+      const totalSystems = ptQty + vQty + oQty;
+      const baseDesc = ext2.job_description || ext2.po_number || dialogParsedFiles[0].name.replace(/\.[^.]+$/, "");
+      const nameWithCount = totalSystems > 1 ? `${baseDesc} (${totalSystems} systems)` : baseDesc;
       setForm((prev) => ({
         ...prev,
-        name: ext2.job_description || ext2.po_number || resolvedFile.name.replace(/\.[^.]+$/, ""),
+        name: nameWithCount,
         reference_number: ext2.po_number || prev.reference_number,
         customer_id: matchedCustomer?.id || prev.customer_id,
         address: ext2.address || prev.address,
         priority: ["high", "medium", "low"].includes(ext2.priority || "") ? ext2.priority : prev.priority,
         due_date: ext2.due_date || prev.due_date,
+        pressure_test_qty: ptQty || prev.pressure_test_qty,
+        visual_qty: vQty || prev.visual_qty,
+        other_qty: oQty || prev.other_qty,
+        other_service_type: ext2.other_service_type || prev.other_service_type,
       }));
-      toast({ title: "Details extracted", description: "Form pre-filled from document. Review and adjust as needed." });
+      toast({
+        title: "Details extracted",
+        description: `Combined ${dialogParsedFiles.length} file(s). Review and adjust.`,
+      });
     } catch (err: any) {
       toast({ title: "Could not extract details", description: err.message || "Please fill in manually.", variant: "destructive" });
     } finally {
