@@ -621,9 +621,24 @@ export default function ScanCompletedJobDialog({
           "Couldn't match the form to any template. Try a clearer photo, or select a template manually after upload.",
         );
       }
-      setCandidates(cands);
+      // Safety demotion: never let a Remedial/Repair template win over a
+      // service/inspection candidate. The classifier prompt already forbids
+      // this, but on borderline scans Gemini can still pick a remedial
+      // template as top-1. When a non-remedial candidate is in the top 3,
+      // promote it — the SHEET's title decides, not the pre-attached job
+      // template.
+      const isRemedialName = (n?: string) =>
+        !!n && /remedial|repair works|snag/i.test(n);
+      let promoted = cands;
+      if (isRemedialName(cands[0]?.name)) {
+        const nonRemedial = cands.find((c) => !isRemedialName(c.name));
+        if (nonRemedial) {
+          promoted = [nonRemedial, ...cands.filter((c) => c.template_id !== nonRemedial.template_id)];
+        }
+      }
+      setCandidates(promoted);
 
-      const hdr = await loadTemplateAndExtract(cands[0].template_id, imagePayloads);
+      const hdr = await loadTemplateAndExtract(promoted[0].template_id, imagePayloads);
       await autoCropSignatures(images, hdr);
       setStep("review");
     } catch (e: any) {
