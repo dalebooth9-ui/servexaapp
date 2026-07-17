@@ -332,6 +332,15 @@ export default function UserRoleSettings() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditUser(u.user_id, u.full_name || "this user")}
+                          title="Edit user details"
+                        >
+                          <Pencil className="mr-1 h-3 w-3" />
+                          Edit
+                        </Button>
                         {isEngineer && (
                           <Button
                             variant="outline"
