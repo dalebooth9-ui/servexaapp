@@ -25,6 +25,8 @@ interface ExtractedPO {
   total_value?: number | null;
   currency?: string;
   notes?: string;
+  document_kind?: "purchase_order" | "job_sheet" | "unknown";
+  document_kind_reason?: string;
 }
 
 interface PoImportDialogProps {
@@ -32,6 +34,8 @@ interface PoImportDialogProps {
   onOpenChange: (open: boolean) => void;
   file: File | null;
   onJobCreated: () => void;
+  /** Called when the user chooses to redirect this file to Scan Paper Reports. */
+  onRedirectToScan?: (file: File) => void;
 }
 
 export default function PoImportDialog({ open, onOpenChange, file, onJobCreated }: PoImportDialogProps) {
