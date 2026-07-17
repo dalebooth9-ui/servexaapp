@@ -88,7 +88,7 @@ export default function PaperScanQueue() {
     const { data } = await supabase
       .from("paper_scan_batch_items")
       .select(
-        "id, batch_id, status, confidence, detected_template_id, candidate_matches, extracted, header_data, guess_customer_id, guess_site_id, guess_date, image_paths, error, created_at, created_job_id",
+        "id, batch_id, status, confidence, detected_template_id, candidate_matches, extracted, header_data, guess_customer_id, guess_site_id, guess_date, image_paths, error, created_at, created_job_id, matched_existing_job",
       )
       .order("created_at", { ascending: false })
       .limit(200);
