@@ -420,20 +420,6 @@ export default function WeeklyPlanner() {
     return [...ordered, ...remaining];
   }, [engineers, engineerOrder]);
 
-  const handleEngineerReorder = useCallback((newOrder: string[]) => {
-    // Reorder callback only sees visible engineers. Preserve hidden ones
-    // in their existing relative positions at the end so we don't lose them.
-    const hiddenIds = engineers.map((e) => e.user_id).filter((id) => hiddenEngineers.has(id));
-    const merged = [...newOrder, ...hiddenIds.filter((id) => !newOrder.includes(id))];
-    setEngineerOrder(merged);
-    localStorage.setItem("planner_engineer_order", JSON.stringify(merged));
-    if (user) {
-      supabase.from("profiles").update({ planner_engineer_order: merged }).eq("user_id", user.id).then(({ error }) => {
-        if (error) console.error("Failed to save engineer order:", error);
-      });
-    }
-  }, [user, engineers, hiddenEngineers]);
-
   // Per-user planner view filter: engineer IDs to hide from the grid. Persists
   // in localStorage keyed by user so each planner keeps their own working set.
   const hiddenEngineersKey = user?.id ? `planner_hidden_engineers_${user.id}` : "";
@@ -458,6 +444,20 @@ export default function WeeklyPlanner() {
       try { localStorage.setItem(hiddenEngineersKey, JSON.stringify([...next])); } catch { /* noop */ }
     }
   }, [hiddenEngineersKey]);
+
+  const handleEngineerReorder = useCallback((newOrder: string[]) => {
+    // Reorder callback only sees visible engineers. Preserve hidden ones
+    // in their existing relative positions at the end so we don't lose them.
+    const hiddenIds = engineers.map((e) => e.user_id).filter((id) => hiddenEngineers.has(id));
+    const merged = [...newOrder, ...hiddenIds.filter((id) => !newOrder.includes(id))];
+    setEngineerOrder(merged);
+    localStorage.setItem("planner_engineer_order", JSON.stringify(merged));
+    if (user) {
+      supabase.from("profiles").update({ planner_engineer_order: merged }).eq("user_id", user.id).then(({ error }) => {
+        if (error) console.error("Failed to save engineer order:", error);
+      });
+    }
+  }, [user, engineers, hiddenEngineers]);
 
   const visibleEngineers = useMemo(
     () => sortedEngineers.filter((e) => !hiddenEngineers.has(e.user_id)),
