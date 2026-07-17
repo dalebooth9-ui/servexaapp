@@ -222,6 +222,63 @@ export default function UserRoleSettings() {
     }));
   };
 
+  const openEditUser = async (userId: string, name: string) => {
+    setEditUserOpen({ userId, name });
+    setEditUserForm({ full_name: name, email: "", whatsapp_number: "" });
+    setEditUserLoading(true);
+    const { data, error } = await supabase.functions.invoke("update-user-details", {
+      body: { user_id: userId, mode: "read" },
+    });
+    setEditUserLoading(false);
+    if (error || data?.error) {
+      toast.error(data?.error || "Failed to load user details");
+      return;
+    }
+    setEditUserForm({
+      full_name: data?.full_name ?? name,
+      email: data?.email ?? "",
+      whatsapp_number: data?.whatsapp_number ?? "",
+    });
+  };
+
+  const saveEditUser = async () => {
+    if (!editUserOpen) return;
+    if (!editUserForm.full_name.trim()) { toast.error("Full name is required"); return; }
+    if (!editUserForm.email.trim()) { toast.error("Login email is required"); return; }
+    setEditUserSaving(true);
+    const { data, error } = await supabase.functions.invoke("update-user-details", {
+      body: {
+        user_id: editUserOpen.userId,
+        mode: "write",
+        full_name: editUserForm.full_name.trim(),
+        email: editUserForm.email.trim(),
+        whatsapp_number: editUserForm.whatsapp_number.trim() || null,
+      },
+    });
+    setEditUserSaving(false);
+    if (error || data?.error) {
+      toast.error(data?.error || "Failed to update user");
+      return;
+    }
+    toast.success(`Updated ${editUserForm.full_name}`);
+    setEditUserOpen(null);
+    fetchUsers();
+  };
+
+  const sendResetFromDialog = async () => {
+    if (!editUserOpen) return;
+    setEditUserResetSending(true);
+    const { data, error } = await supabase.functions.invoke("send-password-reset", {
+      body: { user_id: editUserOpen.userId, full_name: editUserForm.full_name || editUserOpen.name },
+    });
+    setEditUserResetSending(false);
+    if (error || data?.error) {
+      toast.error(data?.error || "Failed to send password reset");
+    } else {
+      toast.success(`Password reset email sent`);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
