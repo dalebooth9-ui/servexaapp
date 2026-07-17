@@ -4713,6 +4713,7 @@ export type Database = {
           email_review_flag: boolean
           fault_code_id: string | null
           has_unread_email: boolean
+          historic_backfill: boolean
           id: string
           intake_last_email_at: string | null
           intake_message_ids: string[]
@@ -4760,6 +4761,7 @@ export type Database = {
           email_review_flag?: boolean
           fault_code_id?: string | null
           has_unread_email?: boolean
+          historic_backfill?: boolean
           id?: string
           intake_last_email_at?: string | null
           intake_message_ids?: string[]
@@ -4807,6 +4809,7 @@ export type Database = {
           email_review_flag?: boolean
           fault_code_id?: string | null
           has_unread_email?: boolean
+          historic_backfill?: boolean
           id?: string
           intake_last_email_at?: string | null
           intake_message_ids?: string[]
@@ -5279,6 +5282,7 @@ export type Database = {
           header_data: Json | null
           id: string
           image_paths: string[]
+          matched_existing_job: boolean
           org_id: string
           reviewed_at: string | null
           reviewed_by: string | null
@@ -5300,6 +5304,7 @@ export type Database = {
           header_data?: Json | null
           id?: string
           image_paths: string[]
+          matched_existing_job?: boolean
           org_id: string
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -5321,6 +5326,7 @@ export type Database = {
           header_data?: Json | null
           id?: string
           image_paths?: string[]
+          matched_existing_job?: boolean
           org_id?: string
           reviewed_at?: string | null
           reviewed_by?: string | null

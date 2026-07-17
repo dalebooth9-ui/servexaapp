@@ -43,9 +43,11 @@ type Item = {
   error: string | null;
   created_at: string;
   created_job_id: string | null;
+  matched_existing_job?: boolean | null;
   template_name?: string | null;
   customer_name?: string | null;
   site_name?: string | null;
+  created_job_ref?: string | null;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -86,7 +88,7 @@ export default function PaperScanQueue() {
     const { data } = await supabase
       .from("paper_scan_batch_items")
       .select(
-        "id, batch_id, status, confidence, detected_template_id, candidate_matches, extracted, header_data, guess_customer_id, guess_site_id, guess_date, image_paths, error, created_at, created_job_id",
+        "id, batch_id, status, confidence, detected_template_id, candidate_matches, extracted, header_data, guess_customer_id, guess_site_id, guess_date, image_paths, error, created_at, created_job_id, matched_existing_job",
       )
       .order("created_at", { ascending: false })
       .limit(200);
@@ -103,7 +105,11 @@ export default function PaperScanQueue() {
       new Set(rows.map((r) => r.guess_site_id).filter(Boolean)),
     ) as string[];
 
-    const [tplRes, custRes, siteRes] = await Promise.all([
+    const jobIds = Array.from(
+      new Set(rows.map((r) => r.created_job_id).filter(Boolean)),
+    ) as string[];
+
+    const [tplRes, custRes, siteRes, jobRes] = await Promise.all([
       templateIds.length
         ? supabase.from("job_sheet_templates").select("id, name").in("id", templateIds)
         : Promise.resolve({ data: [] as any[] }),
@@ -113,10 +119,14 @@ export default function PaperScanQueue() {
       siteIds.length
         ? supabase.from("sites").select("id, name").in("id", siteIds)
         : Promise.resolve({ data: [] as any[] }),
+      jobIds.length
+        ? supabase.from("jobs").select("id, reference_number").in("id", jobIds)
+        : Promise.resolve({ data: [] as any[] }),
     ]);
     const tplMap = new Map((tplRes.data as any[]).map((t) => [t.id, t.name]));
     const custMap = new Map((custRes.data as any[]).map((c) => [c.id, c.name]));
     const siteMap = new Map((siteRes.data as any[]).map((s) => [s.id, s.name]));
+    const jobMap = new Map((jobRes.data as any[]).map((j) => [j.id, j.reference_number]));
 
     setItems(
       rows.map((r) => ({
@@ -129,6 +139,9 @@ export default function PaperScanQueue() {
           : null,
         site_name: r.guess_site_id
           ? (siteMap.get(r.guess_site_id) as string | undefined) || null
+          : null,
+        created_job_ref: r.created_job_id
+          ? (jobMap.get(r.created_job_id) as string | undefined) || null
           : null,
       })),
     );
@@ -288,6 +301,7 @@ export default function PaperScanQueue() {
                   <TableHead>Customer / Site (guessed)</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Outcome</TableHead>
                   <TableHead>Age</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
@@ -344,6 +358,25 @@ export default function PaperScanQueue() {
                             <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
                             <span className="line-clamp-2">{i.error}</span>
                           </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {i.status === "confirmed" ? (
+                          i.matched_existing_job ? (
+                            <Badge variant="outline" className="border-blue-500/60 text-blue-700 bg-blue-500/10">
+                              Matched to {i.created_job_ref || "job"}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="border-amber-500/60 text-amber-700 bg-amber-500/10">
+                              New job (historic) {i.created_job_ref ? `· ${i.created_job_ref}` : ""}
+                            </Badge>
+                          )
+                        ) : i.status === "ready" || i.status === "low_confidence" ? (
+                          <span className="text-xs text-muted-foreground">
+                            Will create new (historic) unless matched in review
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">

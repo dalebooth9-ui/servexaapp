@@ -187,7 +187,20 @@ export default function ScanCompletedJobDialog({
 
   const [jobName, setJobName] = useState("");
   const [completionDate, setCompletionDate] = useState<string>("");
+  const [dateUnknown, setDateUnknown] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Optional: file against an existing pre-scheduled job for this customer/site
+  // instead of creating a brand-new historic job.
+  type MatchableJob = {
+    id: string;
+    reference_number: string;
+    name: string | null;
+    status: string;
+    scheduled_date: string | null;
+  };
+  const [existingJobs, setExistingJobs] = useState<MatchableJob[]>([]);
+  const [matchExistingJobId, setMatchExistingJobId] = useState<string>("");
 
   // Cropped signatures (auto or manual) — uploaded on confirm
   type SigCapture = { blob: Blob; previewUrl: string; name: string; pageIdx: number };
@@ -216,12 +229,35 @@ export default function ScanCompletedJobDialog({
       setNewSite({ name: "", address: "", postcode: "", riser_location: "" });
       setJobName("");
       setCompletionDate("");
+      setDateUnknown(false);
+      setMatchExistingJobId("");
+      setExistingJobs([]);
       setProcessingMsg("");
       setCustomerSig(null);
       setManualCrop(null);
       setAckMismatch(false);
     }
   }, [open]);
+
+  // Load open/scheduled jobs for the selected customer+site so the reviewer
+  // can file the scan against an existing job instead of creating a new one.
+  useEffect(() => {
+    if (!customerId || !siteId) {
+      setExistingJobs([]);
+      setMatchExistingJobId("");
+      return;
+    }
+    supabase
+      .from("jobs")
+      .select("id, reference_number, name, status, scheduled_date")
+      .eq("customer_id", customerId)
+      .eq("site_id", siteId)
+      .neq("status", "completed")
+      .neq("status", "cancelled")
+      .order("scheduled_date", { ascending: false, nullsFirst: false })
+      .limit(20)
+      .then(({ data }) => setExistingJobs((data as any) || []));
+  }, [customerId, siteId]);
 
   // Preload from queue item (bulk review flow)
   useEffect(() => {
@@ -624,6 +660,15 @@ export default function ScanCompletedJobDialog({
       });
       return;
     }
+    if (!completionDate && !dateUnknown) {
+      toast({
+        title: "Enter the date from the sheet",
+        description:
+          "Type the date handwritten on the paper form (dd/mm/yyyy) — or tick 'Date unknown' to file it without one. Backlog jobs must never silently default to today.",
+        variant: "destructive",
+      });
+      return;
+    }
     setSaving(true);
     try {
       const site = sites.find((s) => s.id === siteId);
@@ -631,14 +676,21 @@ export default function ScanCompletedJobDialog({
         .filter(Boolean)
         .join(", ");
 
-      // Derive completion timestamp
-      let completedAt = new Date().toISOString();
+      // Derive completion timestamp — ONLY from the handwritten date. If the
+      // reviewer explicitly ticked "date unknown", we still need a value for
+      // completed_at, so fall back to today but tag the job so it's obvious
+      // in reports/history.
+      let completedAt: string | null = null;
+      let dateKnown = true;
       if (completionDate) {
-        // dd/mm/yyyy
         const m = completionDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
         if (m) {
           completedAt = new Date(`${m[3]}-${m[2]}-${m[1]}T12:00:00Z`).toISOString();
         }
+      }
+      if (!completedAt) {
+        completedAt = new Date().toISOString();
+        dateKnown = false;
       }
 
       const category =
@@ -652,31 +704,61 @@ export default function ScanCompletedJobDialog({
               ? "commercial_sprinkler_service"
               : (template.category || template.job_category || "general");
 
-      // Insert job
-      const { data: job, error: jobErr } = await supabase
-        .from("jobs")
-        .insert({
-          name: jobName || `${template.name} — backfilled`,
-          customer: selectedCustomer?.name || null,
-          customer_id: customerId,
-          site_id: siteId,
-          address: jobAddress || null,
-          status: "completed",
-          priority: "medium",
-          category,
-          source: "paper backfill",
-          created_by: user.id,
-          completed_by: user.id,
-          completed_at: completedAt,
-          pressure_test_qty: category === "pressure_test" ? 1 : 0,
-          visual_qty: category === "visual" ? 1 : 0,
-          other_qty: category !== "pressure_test" && category !== "visual" ? 1 : 0,
-        } as any)
-        .select("id, reference_number")
-        .single();
-      if (jobErr) throw jobErr;
-      const jobId = (job as any).id;
-      const jobRef = (job as any).reference_number;
+      const backfillSource = dateKnown
+        ? "paper backfill"
+        : "paper backfill (date unknown)";
+
+      let jobId: string;
+      let jobRef: string;
+      const matchedExisting = Boolean(matchExistingJobId);
+
+      if (matchedExisting) {
+        // File this scan against an existing pre-scheduled job — mark it
+        // completed on the handwritten date, don't create a new job.
+        const { data: updated, error: updErr } = await supabase
+          .from("jobs")
+          .update({
+            status: "completed",
+            completed_by: user.id,
+            completed_at: completedAt,
+            historic_backfill: true,
+            source: backfillSource,
+          } as any)
+          .eq("id", matchExistingJobId)
+          .select("id, reference_number")
+          .single();
+        if (updErr) throw updErr;
+        jobId = (updated as any).id;
+        jobRef = (updated as any).reference_number;
+      } else {
+        // Insert brand-new historic job.
+        const { data: job, error: jobErr } = await supabase
+          .from("jobs")
+          .insert({
+            name: jobName || `${template.name} — backfilled`,
+            customer: selectedCustomer?.name || null,
+            customer_id: customerId,
+            site_id: siteId,
+            address: jobAddress || null,
+            status: "completed",
+            priority: "medium",
+            category,
+            source: backfillSource,
+            historic_backfill: true,
+            created_by: user.id,
+            completed_by: user.id,
+            completed_at: completedAt,
+            pressure_test_qty: category === "pressure_test" ? 1 : 0,
+            visual_qty: category === "visual" ? 1 : 0,
+            other_qty: category !== "pressure_test" && category !== "visual" ? 1 : 0,
+          } as any)
+          .select("id, reference_number")
+          .single();
+        if (jobErr) throw jobErr;
+        jobId = (job as any).id;
+        jobRef = (job as any).reference_number;
+      }
+
 
       // Insert job_sheet_responses — strip blank/undefined so the payload
       // only contains real answers (paper backfill: all template fields optional).
@@ -746,9 +828,10 @@ export default function ScanCompletedJobDialog({
           .update({
             status: "confirmed",
             created_job_id: jobId,
+            matched_existing_job: matchedExisting,
             reviewed_by: user.id,
             reviewed_at: new Date().toISOString(),
-          })
+          } as any)
           .eq("id", queueItem.itemId);
         onQueueItemResolved?.();
       } else {
@@ -1255,23 +1338,84 @@ export default function ScanCompletedJobDialog({
 
 
 
+            {/* Historic backfill banner + optional match-to-existing-job */}
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 space-y-3">
+              <div className="flex items-start gap-2 text-xs">
+                <Badge variant="outline" className="border-amber-500/60 text-amber-700 bg-amber-500/10">
+                  Historic backfill
+                </Badge>
+                <span className="text-muted-foreground">
+                  Filed as a completed job dated to the paper form. Won't appear as active work,
+                  never enters the planner, and never notifies engineers.
+                </span>
+              </div>
+              {existingJobs.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Or file against an existing scheduled job at this site
+                  </Label>
+                  <Select
+                    value={matchExistingJobId || "none"}
+                    onValueChange={(v) => setMatchExistingJobId(v === "none" ? "" : v)}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        No — create a new historic job
+                      </SelectItem>
+                      {existingJobs.map((j) => (
+                        <SelectItem key={j.id} value={j.id}>
+                          {j.reference_number} — {j.name || "(no name)"} · {j.status}
+                          {j.scheduled_date ? ` · ${j.scheduled_date}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {matchExistingJobId && (
+                    <p className="text-[11px] text-muted-foreground">
+                      The existing job will be marked completed on the handwritten date. No new job created.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Job name</Label>
                 <Input
                   value={jobName}
                   onChange={(e) => setJobName(e.target.value)}
+                  disabled={!!matchExistingJobId}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Completion date (dd/mm/yyyy)</Label>
+                <Label>
+                  Date on paper form (dd/mm/yyyy) *
+                </Label>
                 <Input
                   value={completionDate}
                   placeholder="dd/mm/yyyy"
+                  disabled={dateUnknown}
                   onChange={(e) => setCompletionDate(e.target.value)}
                 />
+                <label className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
+                  <input
+                    type="checkbox"
+                    checked={dateUnknown}
+                    onChange={(e) => {
+                      setDateUnknown(e.target.checked);
+                      if (e.target.checked) setCompletionDate("");
+                    }}
+                  />
+                  Date unknown — file it anyway (job will be flagged
+                  "date unknown" instead of silently dated today)
+                </label>
               </div>
             </div>
+
 
             {missingFields.length > 0 && (
               <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
