@@ -772,6 +772,15 @@ ${sections}
         )}
       </div>
 
+      {userRole === "admin" && (
+        <ReferenceFilesDropzone
+          mode="live"
+          jobId={jobId}
+          onUploaded={fetchDocs}
+          label="Attach a reference file (drag &amp; drop supported)"
+        />
+      )}
+
       <PdfPreviewDialog
         open={previewOpen}
         onOpenChange={setPreviewOpen}
