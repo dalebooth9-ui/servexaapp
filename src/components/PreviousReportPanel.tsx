@@ -16,11 +16,15 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { formatDateShort } from "@/lib/dateFormat";
 import {
   diffResponses,
   findPreviousResponse,
+  findPreviousHistoricReport,
   type FieldDiff,
+  type PreviousHistoricReport,
   type PreviousResponse,
   type TemplateFieldLite,
 } from "@/lib/previousReportLookup";
