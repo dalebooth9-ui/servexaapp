@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Shield, ShieldCheck, Plus, Minus, Trash2, UserPlus, Eye, KeyRound } from "lucide-react";
+import { Shield, ShieldCheck, Plus, Minus, Trash2, UserPlus, Eye, KeyRound, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { ENGINEER_TOGGLABLE_PAGES, DEFAULT_ENGINEER_PAGES } from "@/lib/engineerPages";
 
@@ -43,6 +43,13 @@ export default function UserRoleSettings() {
   const [pageAccessOpen, setPageAccessOpen] = useState<{ userId: string; name: string } | null>(null);
   const [editPages, setEditPages] = useState<string[]>([]);
   const [savingPages, setSavingPages] = useState(false);
+
+  // Edit user details
+  const [editUserOpen, setEditUserOpen] = useState<{ userId: string; name: string } | null>(null);
+  const [editUserForm, setEditUserForm] = useState({ full_name: "", email: "", whatsapp_number: "" });
+  const [editUserLoading, setEditUserLoading] = useState(false);
+  const [editUserSaving, setEditUserSaving] = useState(false);
+  const [editUserResetSending, setEditUserResetSending] = useState(false);
 
   const fetchUsers = async () => {
     const [profilesRes, rolesRes] = await Promise.all([
@@ -215,6 +222,63 @@ export default function UserRoleSettings() {
     }));
   };
 
+  const openEditUser = async (userId: string, name: string) => {
+    setEditUserOpen({ userId, name });
+    setEditUserForm({ full_name: name, email: "", whatsapp_number: "" });
+    setEditUserLoading(true);
+    const { data, error } = await supabase.functions.invoke("update-user-details", {
+      body: { user_id: userId, mode: "read" },
+    });
+    setEditUserLoading(false);
+    if (error || data?.error) {
+      toast.error(data?.error || "Failed to load user details");
+      return;
+    }
+    setEditUserForm({
+      full_name: data?.full_name ?? name,
+      email: data?.email ?? "",
+      whatsapp_number: data?.whatsapp_number ?? "",
+    });
+  };
+
+  const saveEditUser = async () => {
+    if (!editUserOpen) return;
+    if (!editUserForm.full_name.trim()) { toast.error("Full name is required"); return; }
+    if (!editUserForm.email.trim()) { toast.error("Login email is required"); return; }
+    setEditUserSaving(true);
+    const { data, error } = await supabase.functions.invoke("update-user-details", {
+      body: {
+        user_id: editUserOpen.userId,
+        mode: "write",
+        full_name: editUserForm.full_name.trim(),
+        email: editUserForm.email.trim(),
+        whatsapp_number: editUserForm.whatsapp_number.trim() || null,
+      },
+    });
+    setEditUserSaving(false);
+    if (error || data?.error) {
+      toast.error(data?.error || "Failed to update user");
+      return;
+    }
+    toast.success(`Updated ${editUserForm.full_name}`);
+    setEditUserOpen(null);
+    fetchUsers();
+  };
+
+  const sendResetFromDialog = async () => {
+    if (!editUserOpen) return;
+    setEditUserResetSending(true);
+    const { data, error } = await supabase.functions.invoke("send-password-reset", {
+      body: { user_id: editUserOpen.userId, full_name: editUserForm.full_name || editUserOpen.name },
+    });
+    setEditUserResetSending(false);
+    if (error || data?.error) {
+      toast.error(data?.error || "Failed to send password reset");
+    } else {
+      toast.success(`Password reset email sent`);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -268,6 +332,15 @@ export default function UserRoleSettings() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditUser(u.user_id, u.full_name || "this user")}
+                          title="Edit user details"
+                        >
+                          <Pencil className="mr-1 h-3 w-3" />
+                          Edit
+                        </Button>
                         {isEngineer && (
                           <Button
                             variant="outline"
@@ -467,6 +540,67 @@ export default function UserRoleSettings() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setPageAccessOpen(null)}>Cancel</Button>
             <Button onClick={savePageAccess} disabled={savingPages}>{savingPages ? "Saving…" : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit user details dialog */}
+      <Dialog open={!!editUserOpen} onOpenChange={(open) => { if (!open) setEditUserOpen(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User — {editUserOpen?.name}</DialogTitle>
+          </DialogHeader>
+          {editUserLoading ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>
+          ) : (
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-user-name">Full name</Label>
+                <Input
+                  id="edit-user-name"
+                  value={editUserForm.full_name}
+                  onChange={(e) => setEditUserForm((f) => ({ ...f, full_name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-user-email">Login email</Label>
+                <Input
+                  id="edit-user-email"
+                  type="email"
+                  value={editUserForm.email}
+                  onChange={(e) => setEditUserForm((f) => ({ ...f, email: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Changing this updates their login immediately — they'll use the new address next time they sign in.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-user-phone">Phone / WhatsApp number</Label>
+                <Input
+                  id="edit-user-phone"
+                  value={editUserForm.whatsapp_number}
+                  onChange={(e) => setEditUserForm((f) => ({ ...f, whatsapp_number: e.target.value }))}
+                  placeholder="+44…"
+                />
+              </div>
+              <div className="pt-2 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={editUserResetSending}
+                  onClick={sendResetFromDialog}
+                >
+                  <KeyRound className="mr-2 h-3 w-3" />
+                  {editUserResetSending ? "Sending…" : "Send password reset email"}
+                </Button>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditUserOpen(null)}>Cancel</Button>
+            <Button onClick={saveEditUser} disabled={editUserSaving || editUserLoading}>
+              {editUserSaving ? "Saving…" : "Save changes"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

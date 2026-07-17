@@ -169,8 +169,8 @@ function DraggableUnallocatedJob({
             </span>
           ) : null}
         </div>
-        <div className="truncate text-foreground">{job.name}</div>
-        {((job as any).customers?.name || job.customer) && <div className="text-muted-foreground truncate">{(job as any).customers?.name || job.customer}</div>}
+        <div className="text-foreground break-words line-clamp-2">{job.name}</div>
+        {((job as any).customers?.name || job.customer) && <div className="text-muted-foreground break-words line-clamp-2">{(job as any).customers?.name || job.customer}</div>}
         {(job.site?.name || job.site?.postcode) && (
           <div className="text-muted-foreground truncate">
             {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
@@ -634,6 +634,43 @@ export default function WeeklyGridView({
   const [selectMode, setSelectMode] = useState(false);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [dayPanel, setDayPanel] = useState<{ engineerId: string; engineerName: string; date: string } | null>(null);
+  const POOL_WIDTH_KEY = "planner:jobPoolWidth";
+  const POOL_MIN = 200;
+  const POOL_MAX = 560;
+  const [poolWidth, setPoolWidth] = useState<number>(() => {
+    if (typeof window === "undefined") return 260;
+    const v = Number(window.localStorage.getItem(POOL_WIDTH_KEY));
+    return Number.isFinite(v) && v >= POOL_MIN && v <= POOL_MAX ? v : 260;
+  });
+  const resizingRef = useRef<{ startX: number; startW: number } | null>(null);
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const delta = e.clientX - resizingRef.current.startX;
+      const next = Math.max(POOL_MIN, Math.min(POOL_MAX, resizingRef.current.startW + delta));
+      setPoolWidth(next);
+    };
+    const onUp = () => {
+      if (resizingRef.current) {
+        try { window.localStorage.setItem(POOL_WIDTH_KEY, String(Math.round(poolWidth))); } catch {}
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      }
+      resizingRef.current = null;
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [poolWidth]);
+  const startPoolResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    resizingRef.current = { startX: e.clientX, startW: poolWidth };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
 
   const toggleSelect = (jobId: string) => {
     setSelectedJobIds((prev) => {
@@ -866,7 +903,7 @@ export default function WeeklyGridView({
       <div className="flex gap-4">
         {/* Unallocated sidebar */}
         {isAdmin && (
-          <div className="w-[220px] shrink-0">
+          <div className="shrink-0 relative" style={{ width: `${poolWidth}px` }}>
             <DroppableUnallocatedZone>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold">Job Pool</h3>
@@ -1032,6 +1069,17 @@ export default function WeeklyGridView({
                 />
               )}
             </DroppableUnallocatedZone>
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize job pool"
+              title="Drag to resize"
+              onMouseDown={startPoolResize}
+              onDoubleClick={() => { setPoolWidth(260); try { window.localStorage.setItem(POOL_WIDTH_KEY, "260"); } catch {} }}
+              className="absolute top-0 right-[-6px] h-full w-3 cursor-col-resize group flex items-center justify-center z-10"
+            >
+              <div className="h-16 w-1 rounded bg-border group-hover:bg-primary transition-colors" />
+            </div>
           </div>
         )}
 
