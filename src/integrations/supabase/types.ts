@@ -7783,6 +7783,7 @@ export type Database = {
         Returns: number
       }
       nextval_ppm_seq: { Args: never; Returns: number }
+      normalise_template_name: { Args: { _name: string }; Returns: string }
       platform_list_organisations: {
         Args: never
         Returns: {
