@@ -360,6 +360,24 @@ export default function PaperScanQueue() {
                           </div>
                         )}
                       </TableCell>
+                      <TableCell>
+                        {i.status === "confirmed" ? (
+                          i.matched_existing_job ? (
+                            <Badge variant="outline" className="border-blue-500/60 text-blue-700 bg-blue-500/10">
+                              Matched to {i.created_job_ref || "job"}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="border-amber-500/60 text-amber-700 bg-amber-500/10">
+                              New job (historic) {i.created_job_ref ? `· ${i.created_job_ref}` : ""}
+                            </Badge>
+                          )
+                        ) : i.status === "ready" || i.status === "low_confidence" ? (
+                          <span className="text-xs text-muted-foreground">
+                            Will create new (historic) unless matched in review
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       <TableCell className="text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(i.created_at), {
                           addSuffix: true,
