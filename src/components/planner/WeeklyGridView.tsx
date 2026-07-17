@@ -120,23 +120,36 @@ function DraggableUnallocatedJob({
         "group relative rounded-md border-l-4 bg-card p-2 text-xs shadow-sm hover:shadow transition-shadow select-none",
         isOverdue ? "border-l-destructive bg-destructive/10 ring-2 ring-destructive/50" : isDueToday ? "border-l-amber-500 bg-amber-500/5 ring-1 ring-amber-500/40" : PRIORITY_BG[job.priority] || "border-l-muted",
         isDragging && "opacity-30",
+        selectable && "cursor-pointer",
         selectable && selected && "ring-2 ring-primary"
       )}
       style={{ WebkitUserSelect: "none", userSelect: "none" } as React.CSSProperties}
       onClick={selectable ? () => onToggleSelect?.(job.id) : undefined}
     >
       {selectable && (
-        <div className="absolute top-1.5 left-1.5 z-20 bg-card rounded p-0.5">
-          <Checkbox checked={!!selected} onCheckedChange={() => onToggleSelect?.(job.id)} />
+        <div
+          className="absolute top-0 left-0 z-20 flex items-center justify-center h-10 w-10 cursor-pointer"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onToggleSelect?.(job.id); }}
+        >
+          <Checkbox
+            checked={!!selected}
+            onCheckedChange={() => onToggleSelect?.(job.id)}
+            onClick={(e) => e.stopPropagation()}
+            className="h-5 w-5"
+          />
         </div>
       )}
-      <div
-        ref={setNodeRef}
-        {...attributes}
-        {...listeners}
-        className="cursor-grab absolute inset-0 rounded-md"
-        style={{ zIndex: 0, WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}
-      />
+      {!selectable && (
+        <div
+          ref={setNodeRef}
+          {...attributes}
+          {...listeners}
+          className="cursor-grab absolute inset-0 rounded-md"
+          style={{ zIndex: 0, WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}
+        />
+      )}
+
       <button
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => { e.stopPropagation(); onMultiDay(job); }}
@@ -747,7 +760,7 @@ export default function WeeklyGridView({
       });
   }, [weekDays]);
 
-  const sensors = useSensors(useSensor(ResizeAwarePointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(useSensor(ResizeAwarePointerSensor, { activationConstraint: { distance: 8 } }));
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
 
