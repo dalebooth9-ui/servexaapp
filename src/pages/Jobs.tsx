@@ -984,8 +984,28 @@ export default function Jobs() {
       setDialogParsedFile(null);
       const capturedCostingSheet = costingSheetFile;
       setCostingSheetFile(null);
+      const capturedReferenceFiles = newJobReferenceFiles;
+      setNewJobReferenceFiles([]);
       setLoading(false);
       fetchJobs();
+
+      if (createdJob && capturedReferenceFiles.length > 0) {
+        // Fire-and-forget upload of any reference files staged in the dialog.
+        uploadReferenceFiles({
+          jobId: createdJob.id,
+          files: capturedReferenceFiles,
+          userId: user?.id,
+        }).then(({ succeeded, failed }) => {
+          if (succeeded > 0) {
+            toast({
+              title: `Attached ${succeeded} reference file${succeeded === 1 ? "" : "s"}`,
+              description: failed > 0 ? `${failed} failed — retry from the Documents tab.` : undefined,
+            });
+          } else if (failed > 0) {
+            toast({ title: "Reference file upload failed", variant: "destructive" });
+          }
+        });
+      }
 
       if (createdJob && capturedCostingSheet) {
         // Upload costing sheet and process it asynchronously
