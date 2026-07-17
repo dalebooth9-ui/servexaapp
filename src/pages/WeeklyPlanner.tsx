@@ -900,7 +900,7 @@ export default function WeeklyPlanner() {
               <Button variant="outline" size="sm" onClick={() => { setBatchEngineerId(""); setBatchJobIds(new Set()); setBatchDate(format(weekDays[0], "yyyy-MM-dd")); setBatchOpen(true); }}>
                 <Users className="mr-1.5 h-4 w-4" /> Batch Deploy
               </Button>
-              <Button variant="outline" size="sm" onClick={() => { setShuntEngineerId(""); setShuntDays("1"); setShuntDirection("forward"); setShuntFromDate(format(new Date(), "yyyy-MM-dd")); setShuntOpen(true); }}>
+              <Button variant="outline" size="sm" onClick={() => { setShuntEngineerId(""); setShuntDays("1"); setShuntDirection("forward"); setShuntFromDate(format(new Date(), "yyyy-MM-dd")); setShuntSkipWeekends(false); setShuntOpen(true); }}>
                 <Zap className="mr-1.5 h-4 w-4" /> Shunt
               </Button>
               <Button variant="outline" size="sm" onClick={handleCopyToNextWeek} disabled={copying || schedule.length === 0}>
