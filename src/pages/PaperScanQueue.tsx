@@ -105,7 +105,11 @@ export default function PaperScanQueue() {
       new Set(rows.map((r) => r.guess_site_id).filter(Boolean)),
     ) as string[];
 
-    const [tplRes, custRes, siteRes] = await Promise.all([
+    const jobIds = Array.from(
+      new Set(rows.map((r) => r.created_job_id).filter(Boolean)),
+    ) as string[];
+
+    const [tplRes, custRes, siteRes, jobRes] = await Promise.all([
       templateIds.length
         ? supabase.from("job_sheet_templates").select("id, name").in("id", templateIds)
         : Promise.resolve({ data: [] as any[] }),
@@ -115,10 +119,14 @@ export default function PaperScanQueue() {
       siteIds.length
         ? supabase.from("sites").select("id, name").in("id", siteIds)
         : Promise.resolve({ data: [] as any[] }),
+      jobIds.length
+        ? supabase.from("jobs").select("id, reference_number").in("id", jobIds)
+        : Promise.resolve({ data: [] as any[] }),
     ]);
     const tplMap = new Map((tplRes.data as any[]).map((t) => [t.id, t.name]));
     const custMap = new Map((custRes.data as any[]).map((c) => [c.id, c.name]));
     const siteMap = new Map((siteRes.data as any[]).map((s) => [s.id, s.name]));
+    const jobMap = new Map((jobRes.data as any[]).map((j) => [j.id, j.reference_number]));
 
     setItems(
       rows.map((r) => ({
@@ -131,6 +139,9 @@ export default function PaperScanQueue() {
           : null,
         site_name: r.guess_site_id
           ? (siteMap.get(r.guess_site_id) as string | undefined) || null
+          : null,
+        created_job_ref: r.created_job_id
+          ? (jobMap.get(r.created_job_id) as string | undefined) || null
           : null,
       })),
     );
