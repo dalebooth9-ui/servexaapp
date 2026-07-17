@@ -333,6 +333,7 @@ export default function UserRoleSettings() {
                 return (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground break-all">{emailMap[u.user_id] || "—"}</TableCell>
                     <TableCell>
                       <div className="flex gap-1.5">
                         {isAdmin && <Badge variant="default" className="gap-1"><ShieldCheck className="h-3 w-3" />Admin</Badge>}
