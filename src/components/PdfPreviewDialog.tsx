@@ -210,6 +210,30 @@ export default function PdfPreviewDialog({
             {title || downloadName}
           </DialogTitle>
           <div className="flex items-center gap-1.5 shrink-0">
+            {(onPrev || onNext) && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={onPrev}
+                  disabled={!hasPrev}
+                  title="Previous"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={onNext}
+                  disabled={!hasNext}
+                  title="Next"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
