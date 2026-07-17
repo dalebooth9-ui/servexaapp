@@ -288,12 +288,17 @@ export default function BulkScanTab({ onClose }: Props) {
               Upload a stack of paper forms — drag & drop, or click to select
             </p>
             <p className="text-xs text-muted-foreground">
-              Add 20–40 photos at once. Group front/back below.
+              Add photos to group manually — or drop a scanner PDF and we'll split each sheet automatically.
             </p>
+            {expanding && (
+              <p className="mt-2 text-xs text-primary flex items-center justify-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> Rendering & splitting PDF…
+              </p>
+            )}
             <input
               ref={fileRef}
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf"
               multiple
               className="hidden"
               onChange={(e) => addFiles(e.target.files)}
