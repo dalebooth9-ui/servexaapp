@@ -800,6 +800,7 @@ function DocRow({
   onUploadSlot,
   uploadingSlotId,
   onFillOnline,
+  onToggleReference,
 }: {
   doc: JobDoc;
   isAdmin: boolean;
@@ -816,6 +817,7 @@ function DocRow({
   onUploadSlot?: (doc: JobDoc) => void;
   uploadingSlotId?: string | null;
   onFillOnline?: (templateId: string) => void;
+  onToggleReference?: (doc: JobDoc) => void;
 }) {
   const isRams = doc.document_type === "rams_pdf";
   const isBlankSheet = doc.document_type === "blank_job_sheet";
