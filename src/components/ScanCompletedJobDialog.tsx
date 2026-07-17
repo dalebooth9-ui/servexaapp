@@ -621,9 +621,24 @@ export default function ScanCompletedJobDialog({
           "Couldn't match the form to any template. Try a clearer photo, or select a template manually after upload.",
         );
       }
-      setCandidates(cands);
+      // Safety demotion: never let a Remedial/Repair template win over a
+      // service/inspection candidate. The classifier prompt already forbids
+      // this, but on borderline scans Gemini can still pick a remedial
+      // template as top-1. When a non-remedial candidate is in the top 3,
+      // promote it — the SHEET's title decides, not the pre-attached job
+      // template.
+      const isRemedialName = (n?: string) =>
+        !!n && /remedial|repair works|snag/i.test(n);
+      let promoted = cands;
+      if (isRemedialName(cands[0]?.name)) {
+        const nonRemedial = cands.find((c) => !isRemedialName(c.name));
+        if (nonRemedial) {
+          promoted = [nonRemedial, ...cands.filter((c) => c.template_id !== nonRemedial.template_id)];
+        }
+      }
+      setCandidates(promoted);
 
-      const hdr = await loadTemplateAndExtract(cands[0].template_id, imagePayloads);
+      const hdr = await loadTemplateAndExtract(promoted[0].template_id, imagePayloads);
       await autoCropSignatures(images, hdr);
       setStep("review");
     } catch (e: any) {
@@ -794,16 +809,32 @@ export default function ScanCompletedJobDialog({
         dateKnown = false;
       }
 
-      const category =
-        template.category === "pressure_test"
-          ? "pressure_test"
-          : template.category === "visual"
-            ? "visual"
-            : template.category === "sprinkler" ||
-                template.category === "sprinkler_service" ||
-                template.category === "commercial_sprinkler_service"
-              ? "commercial_sprinkler_service"
-              : (template.category || template.job_category || "general");
+      // Job category is derived from the CLASSIFIED template — never left as
+      // "general" for a scan whose template clearly belongs to a service
+      // category. This also prevents the Remedial Works template auto-
+      // attaching on genuine service-sheet scans (that trigger fires on
+      // category=general jobs).
+      const deriveCategory = (): string => {
+        const cat = (template.category || "").toLowerCase();
+        const jc = (template.job_category || "").toLowerCase();
+        if (cat === "pressure_test" || jc.includes("pressure_test")) return "pressure_test";
+        if (cat === "visual" || jc.includes("visual")) return "visual";
+        if (
+          cat === "sprinkler" ||
+          cat === "sprinkler_service" ||
+          cat === "commercial_sprinkler_service" ||
+          jc.startsWith("sprinkler") ||
+          jc.includes("sprinkler")
+        ) return "commercial_sprinkler_service";
+        if (jc.startsWith("fire_hydrant") || jc.startsWith("hydrant") || cat.startsWith("hydrant"))
+          return "fire_hydrant";
+        if (jc.startsWith("wet_riser") || cat.startsWith("wet_riser")) return "wet_riser";
+        if (jc.startsWith("dry_riser") || cat.startsWith("dry_riser")) return "dry_riser";
+        if (jc.startsWith("fire_extinguisher") || cat.startsWith("fire_extinguisher") || jc.startsWith("extinguisher"))
+          return "fire_extinguisher";
+        return template.category || template.job_category || "general";
+      };
+      const category = deriveCategory();
 
       const backfillSource = dateKnown
         ? "paper backfill"

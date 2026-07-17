@@ -142,13 +142,15 @@ ALSO classify the document type so we can catch misdrops:
 - "purchase_order": a purchase order issued BEFORE work — a PO number, ordering party, line items with quantities and prices, delivery instructions, no handwritten inspection answers.
 - "unknown": can't tell.
 
-CRITICAL matching rules:
+CRITICAL matching rules — the SHEET decides the template, never the other way round:
 - You MUST return a template_id from the "Available templates" list below. Never invent or generate a template name that is not in the list — return the exact uuid.
-- Match on printed headings, section titles, question wording, and layout — NOT on handwritten answers.
+- Match on the PRINTED title/scope-of-work line, section headings, question wording and column layout — NOT on handwritten answers, and NOT on whatever template happens to be pre-attached to the job.
+- The sheet's own printed "SCOPE OF WORK: <X>" line (or the biggest printed heading) is the strongest signal. If the sheet says "SCOPE OF WORK: HYDRAULIC PRESSURE TEST" or "SCOPE OF WORK: PRESSURE TEST", it is a PRESSURE TEST sheet — pick the pressure-test template for the matching asset (dry riser/wet riser/hydrant), never a visual or a remedial template.
 - A form titled "6 MONTHLY VISUAL INSPECTION", "VISUAL INSPECTION", "PERIODIC VISUAL", or that only contains yes/no tick-box rows for physical condition (valves, outlets, signage, cabinet) is a VISUAL inspection template — never a pressure test template, even if the form is about a dry riser.
 - A form titled "HYDRAULIC PRESSURE TEST", "PRESSURE TEST", "ANNUAL PRESSURE TEST", or that has psi/bar/pressure-reading columns and a hold-time table is a PRESSURE TEST template.
 - "CERTIFICATE OF INSPECTION SPRINKLER SYSTEM" / "SPRINKLER" → sprinkler inspection template.
 - "WET RISER" → wet riser template.
+- REMEDIAL / REPAIR templates ("Remedial Works Completion", "Repair Works", "Remedial / Repair Works") are ONLY for a form that lists snags/defects being closed out with parts fitted, quantities used and defect-closure sign-off. NEVER pick a remedial/repair template for a routine service, inspection or pressure-test sheet — even if the completed form contains handwritten notes about faults found. When in doubt between a service/inspection template and a remedial template, choose the service/inspection template.
 - If more than one plausible template exists, return them ordered best first with honest confidences (do not return 0.9 unless the printed heading is unambiguous). If nothing is a reasonable match, return an empty candidates array.
 
 Return STRICT JSON only, no prose, no markdown:
