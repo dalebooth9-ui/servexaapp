@@ -61,6 +61,8 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated,
 
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [creating, setCreating] = useState(false);
+  const [continueAnyway, setContinueAnyway] = useState(false);
+  const isMisdrop = extracted?.document_kind === "job_sheet" && !continueAnyway;
 
   useEffect(() => {
     supabase.from("customers").select("id, name").order("name").then(({ data }) => {
