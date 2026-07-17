@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, FileText, Sparkles, AlertCircle } from "lucide-react";
+import { Loader2, FileText, Sparkles, AlertCircle, ScanLine } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { logIntakeMisdrop } from "@/lib/logIntakeMisdrop";
 
 interface ExtractedPO {
   customer_name?: string;
