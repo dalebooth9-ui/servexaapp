@@ -83,6 +83,7 @@ export default function Jobs() {
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
   const [scanPaperOpen, setScanPaperOpen] = useState(false);
+  const [scanInitialFile, setScanInitialFile] = useState<File | null>(null);
   const [siteSheetJobId, setSiteSheetJobId] = useState<string | null>(null);
   const [activeJob, setActiveJob] = useState<any>(null);
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
@@ -1723,7 +1724,13 @@ export default function Jobs() {
           </Dialog>
           <BulkImportDialog open={bulkImportOpen} onOpenChange={setBulkImportOpen} onImported={fetchJobs} />
           <FolderImportDialog ref={folderImportRef} open={folderImportOpen} onOpenChange={setFolderImportOpen} onImported={fetchJobs} />
-          <ScanCompletedJobDialog open={scanPaperOpen} onOpenChange={setScanPaperOpen} />
+          <ScanCompletedJobDialog
+            open={scanPaperOpen}
+            onOpenChange={(o) => { setScanPaperOpen(o); if (!o) setScanInitialFile(null); }}
+            initialFile={scanInitialFile}
+            onRedirectToPo={(f) => { setPoImportFile(f); setPoImportOpen(true); }}
+          />
+
           </div>
         )}
       </div>
@@ -2441,6 +2448,7 @@ export default function Jobs() {
         onOpenChange={setPoImportOpen}
         file={poImportFile}
         onJobCreated={fetchJobs}
+        onRedirectToScan={(f) => { setScanInitialFile(f); setScanPaperOpen(true); }}
       />
 
       {/* Reject Job Dialog */}

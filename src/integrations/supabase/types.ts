@@ -3310,6 +3310,57 @@ export type Database = {
           },
         ]
       }
+      intake_misdrop_log: {
+        Row: {
+          action: string
+          created_at: string
+          detected_kind: string
+          file_name: string | null
+          id: string
+          org_id: string | null
+          reason: string | null
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          detected_kind: string
+          file_name?: string | null
+          id?: string
+          org_id?: string | null
+          reason?: string | null
+          source: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          detected_kind?: string
+          file_name?: string | null
+          id?: string
+          org_id?: string | null
+          reason?: string | null
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intake_misdrop_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intake_misdrop_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_line_items: {
         Row: {
           amount: number

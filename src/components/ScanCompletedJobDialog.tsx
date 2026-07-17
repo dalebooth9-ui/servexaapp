@@ -98,6 +98,10 @@ interface Props {
   queueItem?: QueueItemInput;
   /** Called after confirm/reject to refresh the queue. */
   onQueueItemResolved?: () => void;
+  /** Optional file handed in from another intake (e.g. PO import misdrop). */
+  initialFile?: File | null;
+  /** Called when the user chooses to redirect a misdropped PO to Create Job flow. */
+  onRedirectToPo?: (file: File) => void;
 }
 
 // ── Helpers ──
@@ -158,6 +162,8 @@ export default function ScanCompletedJobDialog({
   onOpenChange,
   queueItem,
   onQueueItemResolved,
+  initialFile,
+  onRedirectToPo,
 }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -213,6 +219,9 @@ export default function ScanCompletedJobDialog({
 
   const fileRef = useRef<HTMLInputElement | null>(null);
 
+  // PO misdrop detection (result of classify-job-sheet-template)
+  const [poMisdrop, setPoMisdrop] = useState<{ reason?: string } | null>(null);
+
   // Reset on close
   useEffect(() => {
     if (!open) {
@@ -236,8 +245,18 @@ export default function ScanCompletedJobDialog({
       setCustomerSig(null);
       setManualCrop(null);
       setAckMismatch(false);
+      setPoMisdrop(null);
     }
   }, [open]);
+
+  // Handoff from PO import: preload the file
+  useEffect(() => {
+    if (!open || !initialFile) return;
+    const url = URL.createObjectURL(initialFile);
+    setImages([{ file: initialFile, url }]);
+    setMode("single");
+    setPoMisdrop(null);
+  }, [open, initialFile]);
 
   // Load open/scheduled jobs for the selected customer+site so the reviewer
   // can file the scan against an existing job instead of creating a new one.
@@ -514,6 +533,14 @@ export default function ScanCompletedJobDialog({
         { body: { images: imagePayloads } },
       );
       if (clsErr) throw new Error(clsErr.message || "Classification failed");
+
+      // PO misdrop check — offer redirect to Create Job flow
+      if (clsData?.document_kind === "purchase_order") {
+        setPoMisdrop({ reason: clsData?.document_kind_reason });
+        setStep("upload");
+        return;
+      }
+
       const cands: Candidate[] = clsData?.candidates || [];
       if (cands.length === 0) {
         throw new Error(
@@ -1053,6 +1080,60 @@ export default function ScanCompletedJobDialog({
                   ))}
                 </div>
               )}
+
+              {poMisdrop && (
+                <div className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-3 text-sm space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">This looks like a purchase order, not a completed job sheet.</p>
+                      {poMisdrop.reason && <p className="text-xs text-muted-foreground">{poMisdrop.reason}</p>}
+                      <p className="text-xs text-muted-foreground">Create a job from it instead?</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        const f = images[0]?.file;
+                        if (!f) return;
+                        const { logIntakeMisdrop } = await import("@/lib/logIntakeMisdrop");
+                        await logIntakeMisdrop({
+                          source: "scan_paper_report",
+                          detected_kind: "purchase_order",
+                          action: "redirected",
+                          file_name: f.name,
+                          reason: poMisdrop.reason,
+                        });
+                        onOpenChange(false);
+                        onRedirectToPo?.(f);
+                      }}
+                      disabled={!onRedirectToPo || images.length === 0}
+                    >
+                      Create job from PO
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        const { logIntakeMisdrop } = await import("@/lib/logIntakeMisdrop");
+                        await logIntakeMisdrop({
+                          source: "scan_paper_report",
+                          detected_kind: "purchase_order",
+                          action: "continued",
+                          file_name: images[0]?.file?.name,
+                          reason: poMisdrop.reason,
+                        });
+                        setPoMisdrop(null);
+                        handleAnalyze();
+                      }}
+                    >
+                      Continue as job sheet anyway
+                    </Button>
+                  </div>
+                </div>
+              )}
+
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>

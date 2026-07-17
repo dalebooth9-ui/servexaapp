@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, FileText, Sparkles, AlertCircle } from "lucide-react";
+import { Loader2, FileText, Sparkles, AlertCircle, ScanLine } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { logIntakeMisdrop } from "@/lib/logIntakeMisdrop";
 
 interface ExtractedPO {
   customer_name?: string;
@@ -24,6 +25,8 @@ interface ExtractedPO {
   total_value?: number | null;
   currency?: string;
   notes?: string;
+  document_kind?: "purchase_order" | "job_sheet" | "unknown";
+  document_kind_reason?: string;
 }
 
 interface PoImportDialogProps {
@@ -31,9 +34,11 @@ interface PoImportDialogProps {
   onOpenChange: (open: boolean) => void;
   file: File | null;
   onJobCreated: () => void;
+  /** Called when the user chooses to redirect this file to Scan Paper Reports. */
+  onRedirectToScan?: (file: File) => void;
 }
 
-export default function PoImportDialog({ open, onOpenChange, file, onJobCreated }: PoImportDialogProps) {
+export default function PoImportDialog({ open, onOpenChange, file, onJobCreated, onRedirectToScan }: PoImportDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -56,6 +61,8 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated 
 
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [creating, setCreating] = useState(false);
+  const [continueAnyway, setContinueAnyway] = useState(false);
+  const isMisdrop = extracted?.document_kind === "job_sheet" && !continueAnyway;
 
   useEffect(() => {
     supabase.from("customers").select("id, name").order("name").then(({ data }) => {
@@ -68,6 +75,7 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated 
     if (!open || !file) return;
     setExtracted(null);
     setParseError(null);
+    setContinueAnyway(false);
     // Ensure customers are loaded before parsing so we can match them
     supabase.from("customers").select("id, name").order("name").then(({ data }) => {
       const loaded = data || [];
@@ -236,8 +244,59 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated 
           </div>
         )}
 
-        {/* Extracted fields preview */}
-        {extracted && !parsing && (
+        {/* Misdrop warning: looks like a completed job sheet, not a PO */}
+        {isMisdrop && !parsing && (
+          <div className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-3 text-sm space-y-2">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">This looks like a completed job sheet, not a purchase order.</p>
+                {extracted?.document_kind_reason && (
+                  <p className="text-xs text-muted-foreground">{extracted.document_kind_reason}</p>
+                )}
+                <p className="text-xs text-muted-foreground">Send it to Scan Paper Reports instead — no re-upload needed.</p>
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                size="sm"
+                onClick={async () => {
+                  if (!file) return;
+                  await logIntakeMisdrop({
+                    source: "po_import",
+                    detected_kind: "job_sheet",
+                    action: "redirected",
+                    file_name: file.name,
+                    reason: extracted?.document_kind_reason,
+                  });
+                  onOpenChange(false);
+                  onRedirectToScan?.(file);
+                }}
+              >
+                <ScanLine className="mr-2 h-4 w-4" /> Send to Scan Paper Reports
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  await logIntakeMisdrop({
+                    source: "po_import",
+                    detected_kind: "job_sheet",
+                    action: "continued",
+                    file_name: file?.name,
+                    reason: extracted?.document_kind_reason,
+                  });
+                  setContinueAnyway(true);
+                }}
+              >
+                Continue as PO anyway
+              </Button>
+            </div>
+          </div>
+        )}
+
+
+        {extracted && !parsing && !isMisdrop && (
           <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground space-y-1">
             <p className="font-semibold text-foreground text-sm mb-1">Extracted from document</p>
             {extracted.customer_name && <p><span className="font-medium">Customer:</span> {extracted.customer_name}</p>}
@@ -252,7 +311,7 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated 
         )}
 
         {/* Editable form */}
-        {!parsing && (extracted || parseError) && (
+        {!parsing && !isMisdrop && (extracted || parseError) && (
           <div className="space-y-4 pt-1">
             <div className="space-y-2">
               <Label>Job Name <span className="text-destructive">*</span></Label>
@@ -354,12 +413,14 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated 
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={creating}>
             Cancel
           </Button>
-          <Button
-            onClick={handleCreate}
-            disabled={parsing || creating || (!extracted && !parseError)}
-          >
-            {creating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…</> : "Create Job"}
-          </Button>
+          {!isMisdrop && (
+            <Button
+              onClick={handleCreate}
+              disabled={parsing || creating || (!extracted && !parseError)}
+            >
+              {creating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…</> : "Create Job"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
