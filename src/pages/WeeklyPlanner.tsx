@@ -1281,6 +1281,18 @@ export default function WeeklyPlanner() {
                 <Input type="number" min="1" value={shuntDays} onChange={(e) => setShuntDays(e.target.value)} />
               </div>
             </div>
+            <label className="flex items-start gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+                checked={shuntSkipWeekends}
+                onChange={(e) => setShuntSkipWeekends(e.target.checked)}
+              />
+              <span>
+                <span className="font-medium">Skip weekends</span>
+                <span className="block text-xs text-muted-foreground">Off: shift by calendar days (Sat/Sun included). On: roll weekend landings to the next weekday.</span>
+              </span>
+            </label>
             <Button onClick={handleShunt} className="w-full" disabled={!shuntEngineerId || !shuntFromDate || saving}>
               {saving ? "Shunting..." : "Apply Shunt"}
             </Button>
