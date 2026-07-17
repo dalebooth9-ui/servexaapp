@@ -892,17 +892,7 @@ export default function ScanCompletedJobDialog({
             created_by: user.id,
           });
         }
-        // Mark queue item confirmed
-        await supabase
-          .from("paper_scan_batch_items")
-          .update({
-            status: "confirmed",
-            created_job_id: jobId,
-            matched_existing_job: matchedExisting,
-            reviewed_by: user.id,
-            reviewed_at: new Date().toISOString(),
-          } as any)
-          .eq("id", queueItem.itemId);
+        // Batch item was already marked confirmed inside the atomic RPC.
         onQueueItemResolved?.();
       } else {
         for (let i = 0; i < images.length; i++) {
