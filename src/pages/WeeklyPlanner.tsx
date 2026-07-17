@@ -947,7 +947,7 @@ export default function WeeklyPlanner() {
           )}
           <WeeklyGridView
             weekDays={weekDays}
-            engineers={sortedEngineers}
+            engineers={visibleEngineers}
             schedule={filteredSchedule}
             jobs={jobs}
             unallocatedJobs={unallocatedJobs}
@@ -991,7 +991,7 @@ export default function WeeklyPlanner() {
             schedule={filteredSchedule}
             jobs={jobs}
             unallocatedJobs={isAdmin ? unallocatedJobs : []}
-            engineers={sortedEngineers}
+            engineers={visibleEngineers}
             isAdmin={isAdmin}
             optimisedJobOrder={optimisedJobOrder}
             onAssign={handleAssign}
@@ -1016,7 +1016,7 @@ export default function WeeklyPlanner() {
         </TabsContent>
 
         <TabsContent value="map" className="mt-4">
-          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={engineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
+          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={visibleEngineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
             const j = jobs.find((x) => x.id === jobId);
             if (j) setMapScheduleJob({ id: j.id, name: j.name, reference_number: j.reference_number });
           }} />
@@ -1026,7 +1026,7 @@ export default function WeeklyPlanner() {
       {/* Always-visible map for admins (hidden when map tab is active to avoid duplication) */}
       {isAdmin && view !== "map" && (
         <div className="mt-4">
-          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={engineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
+          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={visibleEngineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
             const j = jobs.find((x) => x.id === jobId);
             if (j) setMapScheduleJob({ id: j.id, name: j.name, reference_number: j.reference_number });
           }} />
@@ -1279,7 +1279,7 @@ export default function WeeklyPlanner() {
         open={aiSchedulerOpen}
         onOpenChange={setAiSchedulerOpen}
         unallocatedJobs={unallocatedJobs}
-        engineers={sortedEngineers}
+        engineers={visibleEngineers}
         weekStart={weekStart}
         existingSchedule={schedule}
         onConfirm={handleAiSchedulerConfirm}
@@ -1313,7 +1313,7 @@ export default function WeeklyPlanner() {
         open={multiDayJob !== null}
         onOpenChange={(open) => { if (!open) setMultiDayJob(null); }}
         job={multiDayJob}
-        engineers={sortedEngineers}
+        engineers={visibleEngineers}
         initialWeekStart={weekStart}
         onConfirm={handleMultiDayAssign}
       />
