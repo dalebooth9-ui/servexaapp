@@ -917,6 +917,28 @@ ${sections}
         fileName={previewName}
         title={previewName}
         mimeType={previewMime}
+        onPrev={() => {
+          const imgs = docs.filter((d) => !!d.file_url && isImageDoc(d));
+          const idx = imgs.findIndex((d) => d.id === previewDocId);
+          if (idx > 0) handleDownload(imgs[idx - 1]);
+        }}
+        onNext={() => {
+          const imgs = docs.filter((d) => !!d.file_url && isImageDoc(d));
+          const idx = imgs.findIndex((d) => d.id === previewDocId);
+          if (idx >= 0 && idx < imgs.length - 1) handleDownload(imgs[idx + 1]);
+        }}
+        hasPrev={(() => {
+          if (!previewMime.startsWith("image/")) return false;
+          const imgs = docs.filter((d) => !!d.file_url && isImageDoc(d));
+          const idx = imgs.findIndex((d) => d.id === previewDocId);
+          return idx > 0;
+        })()}
+        hasNext={(() => {
+          if (!previewMime.startsWith("image/")) return false;
+          const imgs = docs.filter((d) => !!d.file_url && isImageDoc(d));
+          const idx = imgs.findIndex((d) => d.id === previewDocId);
+          return idx >= 0 && idx < imgs.length - 1;
+        })()}
       />
     </div>
   );
