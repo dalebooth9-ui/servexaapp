@@ -1098,29 +1098,42 @@ function DocRow({
         <span className="text-[10px] text-muted-foreground">Loading…</span>
       )}
 
-      {isCustomerPaperwork && hasFile && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs px-2 gap-1 shrink-0"
-          onClick={() => onDownload(doc)}
-          title={viewTooltip}
-        >
-          <Eye className="h-3 w-3" /> View
-        </Button>
+      {hasFile && (
+        <>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={() => onDownload(doc)}
+            title={viewTooltip}
+          >
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={() => onDirectDownload(doc)}
+            title={downloadTooltip}
+          >
+            <Download className="h-3.5 w-3.5" />
+          </Button>
+          {isImage && isEmailAttachment && onAddToPhotos && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs px-2 gap-1 shrink-0"
+              onClick={() => onAddToPhotos(doc)}
+              disabled={addingToPhotos}
+              title="Add this image to the job's Photos tab"
+            >
+              {addingToPhotos ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImagePlus className="h-3 w-3" />}
+              Add to Photos
+            </Button>
+          )}
+        </>
       )}
 
-      {isUploadSlot && hasFile && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs px-2 gap-1 shrink-0"
-          onClick={() => onDownload(doc)}
-          title={viewTooltip}
-        >
-          <Eye className="h-3 w-3" /> View
-        </Button>
-      )}
       {isUploadSlot && isAdmin && onUploadSlot && (
         <Button
           variant="outline"
