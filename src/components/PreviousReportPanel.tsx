@@ -195,65 +195,68 @@ export default function PreviousReportPanel({
       : `${changed.length} difference${changed.length === 1 ? "" : "s"} vs ${dateLabel} report`;
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <div
-        className={`rounded-md border ${
-          flagged.length > 0
-            ? "border-amber-300 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-950/30"
-            : "border-border bg-muted/30"
-        }`}
-      >
-        <div className="flex items-center justify-between gap-2 px-3 py-2">
-          <div className="flex items-center gap-2 min-w-0">
-            {flagged.length > 0 ? (
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-            ) : (
-              <History className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            )}
-            <div className="min-w-0">
-              <p className="text-xs font-medium truncate">{summary}</p>
-              <p className="text-[11px] text-muted-foreground truncate">
-                {prev.jobReference ? `${prev.jobReference} · ` : ""}
-                {prev.submittedByName ? `${prev.submittedByName} · ` : ""}
-                matched by {prev.level}
-                {flagged.length > 0 && (
-                  <>
-                    {" · "}
-                    <span className="text-amber-700 dark:text-amber-300 font-medium">
-                      {flagged.length} to check
-                    </span>
-                  </>
-                )}
-              </p>
+    <div className="space-y-2">
+      {referenceSection}
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <div
+          className={`rounded-md border ${
+            flagged.length > 0
+              ? "border-amber-300 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-950/30"
+              : "border-border bg-muted/30"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2 px-3 py-2">
+            <div className="flex items-center gap-2 min-w-0">
+              {flagged.length > 0 ? (
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+              ) : (
+                <History className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              )}
+              <div className="min-w-0">
+                <p className="text-xs font-medium truncate">{summary}</p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {prev.jobReference ? `${prev.jobReference} · ` : ""}
+                  {prev.submittedByName ? `${prev.submittedByName} · ` : ""}
+                  matched by {prev.level}
+                  {flagged.length > 0 && (
+                    <>
+                      {" · "}
+                      <span className="text-amber-700 dark:text-amber-300 font-medium">
+                        {flagged.length} to check
+                      </span>
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <Button
+                asChild
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-xs gap-1"
+              >
+                <Link to={`/jobs/${prev.jobId}`} target="_blank" rel="noreferrer">
+                  Open <ExternalLink className="h-3 w-3" />
+                </Link>
+              </Button>
+              {!compact && changed.length > 0 && (
+                <CollapsibleTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
+                    {open ? "Hide diff" : "Show diff"}
+                  </Button>
+                </CollapsibleTrigger>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <Button
-              asChild
-              size="sm"
-              variant="ghost"
-              className="h-7 px-2 text-xs gap-1"
-            >
-              <Link to={`/jobs/${prev.jobId}`} target="_blank" rel="noreferrer">
-                Open <ExternalLink className="h-3 w-3" />
-              </Link>
-            </Button>
-            {!compact && changed.length > 0 && (
-              <CollapsibleTrigger asChild>
-                <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
-                  {open ? "Hide diff" : "Show diff"}
-                </Button>
-              </CollapsibleTrigger>
-            )}
-          </div>
+          {!compact && (
+            <CollapsibleContent>
+              <DiffTable diffs={diffs} />
+            </CollapsibleContent>
+          )}
         </div>
-        {!compact && (
-          <CollapsibleContent>
-            <DiffTable diffs={diffs} />
-          </CollapsibleContent>
-        )}
-      </div>
-    </Collapsible>
+      </Collapsible>
+    </div>
   );
 }
 
