@@ -219,6 +219,9 @@ export default function ScanCompletedJobDialog({
 
   const fileRef = useRef<HTMLInputElement | null>(null);
 
+  // PO misdrop detection (result of classify-job-sheet-template)
+  const [poMisdrop, setPoMisdrop] = useState<{ reason?: string } | null>(null);
+
   // Reset on close
   useEffect(() => {
     if (!open) {
