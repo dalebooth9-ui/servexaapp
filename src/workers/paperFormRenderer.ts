@@ -557,7 +557,7 @@ export function renderPaperFormPage(
         const suffix = "   NO OF OUTLETS: ______";
         ans = ans ? ans + suffix : suffix.trimStart();
       }
-      drawCell(label, ans, y, fit.rowH, false);
+      drawCell(label, ans, y, fit.rowH, false, it.field);
       y += fit.rowH;
     }
   }
