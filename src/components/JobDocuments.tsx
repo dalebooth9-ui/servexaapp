@@ -730,6 +730,7 @@ ${sections}
               onUploadSlot={handleUploadSlot}
               uploadingSlotId={uploadingSlotId}
                 onFillOnline={handleFillOnline}
+                onToggleReference={handleToggleReference}
             />
           ))}
         </div>
