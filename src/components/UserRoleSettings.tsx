@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Shield, ShieldCheck, Plus, Minus, Trash2, UserPlus, Eye, KeyRound } from "lucide-react";
+import { Shield, ShieldCheck, Plus, Minus, Trash2, UserPlus, Eye, KeyRound, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { ENGINEER_TOGGLABLE_PAGES, DEFAULT_ENGINEER_PAGES } from "@/lib/engineerPages";
 
