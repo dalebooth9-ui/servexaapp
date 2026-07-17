@@ -421,14 +421,18 @@ export default function WeeklyPlanner() {
   }, [engineers, engineerOrder]);
 
   const handleEngineerReorder = useCallback((newOrder: string[]) => {
-    setEngineerOrder(newOrder);
-    localStorage.setItem("planner_engineer_order", JSON.stringify(newOrder));
+    // Reorder callback only sees visible engineers. Preserve hidden ones
+    // in their existing relative positions at the end so we don't lose them.
+    const hiddenIds = engineers.map((e) => e.user_id).filter((id) => hiddenEngineers.has(id));
+    const merged = [...newOrder, ...hiddenIds.filter((id) => !newOrder.includes(id))];
+    setEngineerOrder(merged);
+    localStorage.setItem("planner_engineer_order", JSON.stringify(merged));
     if (user) {
-      supabase.from("profiles").update({ planner_engineer_order: newOrder }).eq("user_id", user.id).then(({ error }) => {
+      supabase.from("profiles").update({ planner_engineer_order: merged }).eq("user_id", user.id).then(({ error }) => {
         if (error) console.error("Failed to save engineer order:", error);
       });
     }
-  }, [user]);
+  }, [user, engineers, hiddenEngineers]);
 
   // Per-user planner view filter: engineer IDs to hide from the grid. Persists
   // in localStorage keyed by user so each planner keeps their own working set.
