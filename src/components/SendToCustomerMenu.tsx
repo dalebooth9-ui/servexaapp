@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Send, FileText, Receipt, ClipboardList, Loader2, Mail, ClipboardCheck, ShieldCheck, Award, ListChecks } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CustomerReportPdf from "./CustomerReportPdf";
+import PreviousReportsForJob from "./PreviousReportsForJob";
 import { generateJobSheetPdf } from "./JobSheetPdfExport";
 import { useJobCategories } from "@/hooks/useJobCategories";
 
