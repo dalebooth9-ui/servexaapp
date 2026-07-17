@@ -77,6 +77,7 @@ export default function Jobs() {
   const [loading, setLoading] = useState(false);
   const [costingSheetFile, setCostingSheetFile] = useState<File | null>(null);
   const [costingSheetProcessing, setCostingSheetProcessing] = useState(false);
+  const [newJobReferenceFiles, setNewJobReferenceFiles] = useState<File[]>([]);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
   const [scanPaperOpen, setScanPaperOpen] = useState(false);
