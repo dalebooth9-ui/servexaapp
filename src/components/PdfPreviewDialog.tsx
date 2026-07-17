@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Download, ExternalLink, Loader2, ChevronDown, FileText, Droplet } from "lucide-react";
+import { Download, ExternalLink, Loader2, ChevronDown, FileText, Droplet, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -43,6 +43,11 @@ export interface PdfPreviewDialogProps {
   watermarkControls?: boolean;
   /** Called when the user changes the watermark override; should rebuild the PDF and update `blob`. */
   onRebuildWithWatermark?: (override: Partial<WatermarkSettings>) => Promise<void> | void;
+  /** Optional prev/next handlers to flick through a set (e.g. a job's image documents). */
+  onPrev?: () => void;
+  onNext?: () => void;
+  hasPrev?: boolean;
+  hasNext?: boolean;
 }
 
 /** Slugify a candidate filename so it renders cleanly inside browser viewer chrome. */
@@ -80,6 +85,10 @@ export default function PdfPreviewDialog({
   mimeType = "application/pdf",
   watermarkControls = false,
   onRebuildWithWatermark,
+  onPrev,
+  onNext,
+  hasPrev,
+  hasNext,
 }: PdfPreviewDialogProps) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const { settings: savedWatermark, loaded: watermarkLoaded } = useWatermarkSettings();
@@ -201,6 +210,30 @@ export default function PdfPreviewDialog({
             {title || downloadName}
           </DialogTitle>
           <div className="flex items-center gap-1.5 shrink-0">
+            {(onPrev || onNext) && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={onPrev}
+                  disabled={!hasPrev}
+                  title="Previous"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={onNext}
+                  disabled={!hasNext}
+                  title="Next"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button

@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, Trash2, Upload, Loader2, Building2, Printer, Eye } from "lucide-react";
+import { FileText, Download, Trash2, Upload, Loader2, Building2, Printer, Eye, ImagePlus, Check } from "lucide-react";
 import { generateRamsPdf } from "@/lib/ramsPdf";
 import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf, generateInstallationRamsPdf } from "@/lib/ramsPdfVariants";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
@@ -35,6 +35,24 @@ type Props = {
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+const REVIEW_SUFFIX_RE = / — email attachment, review$/;
+const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|heic|heif|bmp)$/i;
+
+/** True when a job document is an image email attachment. */
+function isImageDoc(doc: { file_name: string | null; label: string | null }): boolean {
+  const n = doc.file_name || doc.label || "";
+  return IMAGE_EXT_RE.test(n);
+}
+
+/** Strip the "— email attachment, review" marker if present. */
+function stripReviewSuffix(s: string | null | undefined): string {
+  return (s || "").replace(REVIEW_SUFFIX_RE, "").trim();
+}
+
+function hasReviewFlag(doc: { label: string | null; file_name: string | null }): boolean {
+  return REVIEW_SUFFIX_RE.test(doc.label || "") || REVIEW_SUFFIX_RE.test(doc.file_name || "");
+}
 
 /**
  * Build a friendly file name like "Dry Riser Pressure test - VFP-00123 - Acme Ltd.pdf"
@@ -90,6 +108,10 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
   const [previewMime, setPreviewMime] = useState<string>("application/pdf");
+  const [previewDocId, setPreviewDocId] = useState<string | null>(null);
+  const [addingToPhotosId, setAddingToPhotosId] = useState<string | null>(null);
+  const [addingAllPhotos, setAddingAllPhotos] = useState(false);
+  const [clearingReviewId, setClearingReviewId] = useState<string | null>(null);
 
   const handleFillOnline = (templateId: string) => {
     document.getElementById("job-sheets-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -500,11 +522,95 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       setPreviewUrl(url);
       setPreviewName(buildFriendlyFileName(doc, jobInfo, ext));
       setPreviewMime(mime);
+      setPreviewDocId(doc.id);
       setPreviewOpen(true);
     } else {
       // Non-previewable (e.g. .docx, .xlsx) — fall back to opening in a new tab
       window.open(url, "_blank", "noopener,noreferrer");
     }
+  };
+
+  const handleDirectDownload = async (doc: JobDoc) => {
+    if (!doc.file_url) return;
+    const defaultBucket =
+      doc.source === "customer_paperwork" ? "customer-paperwork" : "submissions";
+    const url = (await resolveToSignedUrl(doc.file_url, defaultBucket, 3600)) || doc.file_url;
+    const ext = (doc.file_name || url).split("?")[0].split("#")[0].split(".").pop() || "bin";
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = buildFriendlyFileName(doc, jobInfo, ext);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleClearReviewFlag = async (doc: JobDoc) => {
+    setClearingReviewId(doc.id);
+    const cleanLabel = stripReviewSuffix(doc.label);
+    const cleanFile = stripReviewSuffix(doc.file_name);
+    const { error } = await supabase
+      .from("job_documents" as any)
+      .update({ label: cleanLabel, file_name: cleanFile } as any)
+      .eq("id", doc.id);
+    setClearingReviewId(null);
+    if (error) {
+      toast({ title: "Could not update", description: error.message, variant: "destructive" });
+      return;
+    }
+    setDocs((prev) => prev.map((d) => (d.id === doc.id ? { ...d, label: cleanLabel, file_name: cleanFile } : d)));
+    toast({ title: "Marked as reviewed" });
+  };
+
+  const addImageDocToPhotos = async (doc: JobDoc): Promise<boolean> => {
+    if (!doc.file_url || !user) return false;
+    const defaultBucket =
+      doc.source === "customer_paperwork" ? "customer-paperwork" : "submissions";
+    const url = (await resolveToSignedUrl(doc.file_url, defaultBucket, 60 * 60 * 24 * 365)) || doc.file_url;
+    if (!url) return false;
+    const cleanName = stripReviewSuffix(doc.file_name) || stripReviewSuffix(doc.label) || "photo";
+    const provenance = `Added from email attachment (${doc.source || "email"})`;
+    const orgId = (jobInfo as any)?.org_id || (job as any)?.org_id;
+    const insertPayload: any = {
+      job_id: jobId,
+      engineer_id: user.id,
+      type: "photo",
+      file_url: url,
+      file_name: cleanName,
+      content: provenance,
+    };
+    if (orgId) insertPayload.org_id = orgId;
+    const { error } = await supabase.from("submissions").insert(insertPayload);
+    if (error) {
+      console.error("add to photos failed", error);
+      return false;
+    }
+    return true;
+  };
+
+  const handleAddToPhotos = async (doc: JobDoc) => {
+    setAddingToPhotosId(doc.id);
+    const ok = await addImageDocToPhotos(doc);
+    setAddingToPhotosId(null);
+    toast({
+      title: ok ? "Added to Photos" : "Could not add to Photos",
+      description: ok ? "Now appears in the Photos tab and customer reports." : undefined,
+      variant: ok ? undefined : "destructive",
+    });
+  };
+
+  const handleAddAllImagesToPhotos = async () => {
+    const images = docs.filter((d) => !!d.file_url && isImageDoc(d));
+    if (images.length === 0) return;
+    setAddingAllPhotos(true);
+    let ok = 0;
+    for (const d of images) {
+      const success = await addImageDocToPhotos(d);
+      if (success) ok++;
+    }
+    setAddingAllPhotos(false);
+    toast({
+      title: `${ok} of ${images.length} added to Photos`,
+    });
   };
 
   const handleUploadSlot = (doc: JobDoc) => {
@@ -697,6 +803,7 @@ ${sections}
                 deleting={deletingId === doc.id}
                 onDelete={handleDelete}
                 onDownload={handleDownload}
+                onDirectDownload={handleDirectDownload}
                 onGenerateRams={handleGenerateRams}
                 generatingRams={generatingRams}
                 jobId={jobId}
@@ -704,6 +811,10 @@ ${sections}
                 jobInfo={jobInfo}
                 blankTemplates={blankTemplates}
                 isCustomerPaperwork
+                onAddToPhotos={handleAddToPhotos}
+                addingToPhotos={addingToPhotosId === doc.id}
+                onClearReviewFlag={handleClearReviewFlag}
+                clearingReview={clearingReviewId === doc.id}
               />
             ))}
           </div>
@@ -721,6 +832,7 @@ ${sections}
               deleting={deletingId === doc.id}
               onDelete={handleDelete}
               onDownload={handleDownload}
+              onDirectDownload={handleDirectDownload}
               onGenerateRams={handleGenerateRams}
               generatingRams={generatingRams}
               jobId={jobId}
@@ -729,8 +841,12 @@ ${sections}
               blankTemplates={blankTemplates}
               onUploadSlot={handleUploadSlot}
               uploadingSlotId={uploadingSlotId}
-                onFillOnline={handleFillOnline}
-                onToggleReference={handleToggleReference}
+              onFillOnline={handleFillOnline}
+              onToggleReference={handleToggleReference}
+              onAddToPhotos={handleAddToPhotos}
+              addingToPhotos={addingToPhotosId === doc.id}
+              onClearReviewFlag={handleClearReviewFlag}
+              clearingReview={clearingReviewId === doc.id}
             />
           ))}
         </div>
@@ -755,6 +871,19 @@ ${sections}
           {printingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
           Print all
         </Button>
+        {docs.some((d) => !!d.file_url && isImageDoc(d) && d.source === "email_po") && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleAddAllImagesToPhotos}
+            disabled={addingAllPhotos}
+            title="Copy every image received by email into the Photos tab"
+          >
+            {addingAllPhotos ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+            Add all images to Photos
+          </Button>
+        )}
         {userRole === "admin" && (
           <>
             <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={handleManualUpload} />
@@ -788,6 +917,28 @@ ${sections}
         fileName={previewName}
         title={previewName}
         mimeType={previewMime}
+        onPrev={() => {
+          const imgs = docs.filter((d) => !!d.file_url && isImageDoc(d));
+          const idx = imgs.findIndex((d) => d.id === previewDocId);
+          if (idx > 0) handleDownload(imgs[idx - 1]);
+        }}
+        onNext={() => {
+          const imgs = docs.filter((d) => !!d.file_url && isImageDoc(d));
+          const idx = imgs.findIndex((d) => d.id === previewDocId);
+          if (idx >= 0 && idx < imgs.length - 1) handleDownload(imgs[idx + 1]);
+        }}
+        hasPrev={(() => {
+          if (!previewMime.startsWith("image/")) return false;
+          const imgs = docs.filter((d) => !!d.file_url && isImageDoc(d));
+          const idx = imgs.findIndex((d) => d.id === previewDocId);
+          return idx > 0;
+        })()}
+        hasNext={(() => {
+          if (!previewMime.startsWith("image/")) return false;
+          const imgs = docs.filter((d) => !!d.file_url && isImageDoc(d));
+          const idx = imgs.findIndex((d) => d.id === previewDocId);
+          return idx >= 0 && idx < imgs.length - 1;
+        })()}
       />
     </div>
   );
@@ -799,6 +950,7 @@ function DocRow({
   deleting,
   onDelete,
   onDownload,
+  onDirectDownload,
   onGenerateRams,
   generatingRams,
   jobId,
@@ -810,12 +962,17 @@ function DocRow({
   uploadingSlotId,
   onFillOnline,
   onToggleReference,
+  onAddToPhotos,
+  addingToPhotos,
+  onClearReviewFlag,
+  clearingReview,
 }: {
   doc: JobDoc;
   isAdmin: boolean;
   deleting: boolean;
   onDelete: (d: JobDoc) => void;
   onDownload: (d: JobDoc) => void;
+  onDirectDownload: (d: JobDoc) => void;
   onGenerateRams: () => void;
   generatingRams: boolean;
   jobId: string;
@@ -827,6 +984,10 @@ function DocRow({
   uploadingSlotId?: string | null;
   onFillOnline?: (templateId: string) => void;
   onToggleReference?: (doc: JobDoc) => void;
+  onAddToPhotos?: (doc: JobDoc) => void;
+  addingToPhotos?: boolean;
+  onClearReviewFlag?: (doc: JobDoc) => void;
+  clearingReview?: boolean;
 }) {
   const isRams = doc.document_type === "rams_pdf";
   const isBlankSheet = doc.document_type === "blank_job_sheet";
@@ -887,11 +1048,16 @@ function DocRow({
   const downloadTooltip = `Download as: ${friendlyName}`;
   const viewTooltip = `View — will download as: ${friendlyName}`;
 
+  const cleanLabel = stripReviewSuffix(doc.label);
+  const needsReview = hasReviewFlag(doc);
+  const isImage = isImageDoc(doc);
+  const isEmailAttachment = doc.source === "email_po";
+
   return (
     <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${isCustomerPaperwork ? "bg-primary/5 border-primary/20" : isReference ? "bg-amber-50/60 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900" : "bg-card"}`}>
       <FileText className={`h-4 w-4 shrink-0 ${isCustomerPaperwork ? "text-primary" : isReference ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate" title={doc.label}>{doc.label}</p>
+        <p className="text-sm font-medium truncate" title={cleanLabel}>{cleanLabel}</p>
         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
           {isCustomerPaperwork ? (
             <Badge variant="outline" className="text-[10px] gap-0.5 border-primary/40 text-primary">
@@ -901,6 +1067,24 @@ function DocRow({
             <Badge variant="secondary" className="text-[10px]">
               {DOC_TYPE_BADGE[doc.document_type] ?? "File"}
             </Badge>
+          )}
+          {needsReview && (
+            <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-700 dark:text-amber-300 bg-amber-50/60 dark:bg-amber-950/30">
+              Review
+            </Badge>
+          )}
+          {needsReview && isAdmin && onClearReviewFlag && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 text-[10px] px-1.5 gap-1 text-amber-700 dark:text-amber-300"
+              onClick={() => onClearReviewFlag(doc)}
+              disabled={clearingReview}
+              title="Clear the review flag"
+            >
+              {clearingReview ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" />}
+              Looks fine
+            </Button>
           )}
           {isUploadSlot && !hasFile && (
             <span className="text-[10px] text-muted-foreground italic">Awaiting upload</span>
@@ -914,6 +1098,7 @@ function DocRow({
           📄 {friendlyName}
         </p>
       </div>
+
 
       {/* Action buttons */}
       {isRams && (
@@ -948,29 +1133,42 @@ function DocRow({
         <span className="text-[10px] text-muted-foreground">Loading…</span>
       )}
 
-      {isCustomerPaperwork && hasFile && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs px-2 gap-1 shrink-0"
-          onClick={() => onDownload(doc)}
-          title={viewTooltip}
-        >
-          <Eye className="h-3 w-3" /> View
-        </Button>
+      {hasFile && (
+        <>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={() => onDownload(doc)}
+            title={viewTooltip}
+          >
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={() => onDirectDownload(doc)}
+            title={downloadTooltip}
+          >
+            <Download className="h-3.5 w-3.5" />
+          </Button>
+          {isImage && isEmailAttachment && onAddToPhotos && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs px-2 gap-1 shrink-0"
+              onClick={() => onAddToPhotos(doc)}
+              disabled={addingToPhotos}
+              title="Add this image to the job's Photos tab"
+            >
+              {addingToPhotos ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImagePlus className="h-3 w-3" />}
+              Add to Photos
+            </Button>
+          )}
+        </>
       )}
 
-      {isUploadSlot && hasFile && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs px-2 gap-1 shrink-0"
-          onClick={() => onDownload(doc)}
-          title={viewTooltip}
-        >
-          <Eye className="h-3 w-3" /> View
-        </Button>
-      )}
       {isUploadSlot && isAdmin && onUploadSlot && (
         <Button
           variant="outline"
