@@ -73,6 +73,14 @@ export default function UserRoleSettings() {
     merged.sort((a, b) => (a.full_name || "").localeCompare(b.full_name || ""));
     setUsers(merged);
     setLoading(false);
+
+    // Fetch login emails (admin-gated edge function; best-effort).
+    supabase.functions
+      .invoke("update-user-details", { body: { mode: "list_emails" } })
+      .then(({ data }) => {
+        if (data?.emails && typeof data.emails === "object") setEmailMap(data.emails);
+      })
+      .catch(() => {});
   };
 
   useEffect(() => { fetchUsers(); }, []);
