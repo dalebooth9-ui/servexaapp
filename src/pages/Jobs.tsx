@@ -1723,7 +1723,13 @@ export default function Jobs() {
           </Dialog>
           <BulkImportDialog open={bulkImportOpen} onOpenChange={setBulkImportOpen} onImported={fetchJobs} />
           <FolderImportDialog ref={folderImportRef} open={folderImportOpen} onOpenChange={setFolderImportOpen} onImported={fetchJobs} />
-          <ScanCompletedJobDialog open={scanPaperOpen} onOpenChange={setScanPaperOpen} />
+          <ScanCompletedJobDialog
+            open={scanPaperOpen}
+            onOpenChange={(o) => { setScanPaperOpen(o); if (!o) setScanInitialFile(null); }}
+            initialFile={scanInitialFile}
+            onRedirectToPo={(f) => { setPoImportFile(f); setPoImportOpen(true); }}
+          />
+
           </div>
         )}
       </div>
