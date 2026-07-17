@@ -110,6 +110,11 @@ serve(async (req) => {
           {
             role: "system",
             content: `You extract purchase order details from documents. Return a SINGLE JSON object (not an array) with these exact fields:
+- document_kind: classify the document type. One of:
+    * "purchase_order" — issued BEFORE work is done: a PO number, line items, ordering party, delivery instructions, prices, no handwritten answers or ticked inspection boxes.
+    * "job_sheet" — a COMPLETED paper job/inspection/service sheet: has printed section headings like "Visual Inspection", "Pressure Test", "Service Report", "Certificate of Inspection"; ticked yes/no/pass/fail boxes; handwritten answers; engineer/customer signature blocks. Even if a job/reference number is present, if the document records work already carried out, it is a job_sheet, NOT a purchase_order.
+    * "unknown" — cannot determine confidently.
+- document_kind_reason: one short sentence explaining the classification (visible printed titles, tick boxes, signatures, etc.).
 - customer_name: the name of the client / company who issued or sent the order. Look everywhere: letterhead, "From", "Bill To", "Client", "Company", "Ordered By", "Issued To", "Raised By". Even short abbreviations like "ABCA" or initials are valid company names — copy them exactly as written.
 - contact_name: contact person name if present, else ""
 - address: the site/delivery/work address (look for "Deliver To", "Site Address", "Work Location", "Ship To", NOT the issuing company address)
