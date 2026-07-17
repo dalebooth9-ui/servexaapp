@@ -1827,7 +1827,7 @@ export default function Sites() {
             </div>
             {editing && (
               <div className="pt-2 border-t">
-                <HistoricReportsList siteId={editing} canDelete />
+                <HistoricReportsList siteId={editing.id} canDelete />
               </div>
             )}
             <div className="flex justify-end gap-2">
