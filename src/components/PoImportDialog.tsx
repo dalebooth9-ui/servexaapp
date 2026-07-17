@@ -413,12 +413,14 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated,
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={creating}>
             Cancel
           </Button>
-          <Button
-            onClick={handleCreate}
-            disabled={parsing || creating || (!extracted && !parseError)}
-          >
-            {creating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…</> : "Create Job"}
-          </Button>
+          {!isMisdrop && (
+            <Button
+              onClick={handleCreate}
+              disabled={parsing || creating || (!extracted && !parseError)}
+            >
+              {creating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…</> : "Create Job"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
