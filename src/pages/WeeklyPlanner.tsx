@@ -25,6 +25,7 @@ import AiSchedulerDialog from "@/components/planner/AiSchedulerDialog";
 import AutonomousAgentDialog from "@/components/planner/AutonomousAgentDialog";
 import MultiDayScheduleDialog from "@/components/planner/MultiDayScheduleDialog";
 import QuickScheduleDialog from "@/components/jobs/QuickScheduleDialog";
+import EngineerVisibilityFilter from "@/components/planner/EngineerVisibilityFilter";
 
 const NOTE_COLORS = [
   { value: null,      label: "Default",  swatch: "bg-foreground/10 border border-border" },
@@ -419,15 +420,49 @@ export default function WeeklyPlanner() {
     return [...ordered, ...remaining];
   }, [engineers, engineerOrder]);
 
+  // Per-user planner view filter: engineer IDs to hide from the grid. Persists
+  // in localStorage keyed by user so each planner keeps their own working set.
+  const hiddenEngineersKey = user?.id ? `planner_hidden_engineers_${user.id}` : "";
+  const [hiddenEngineers, setHiddenEngineers] = useState<Set<string>>(() => {
+    if (typeof window === "undefined" || !hiddenEngineersKey) return new Set();
+    try {
+      const raw = localStorage.getItem(hiddenEngineersKey);
+      return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch { return new Set(); }
+  });
+  // Re-hydrate when user resolves after initial mount.
+  useEffect(() => {
+    if (!hiddenEngineersKey) return;
+    try {
+      const raw = localStorage.getItem(hiddenEngineersKey);
+      setHiddenEngineers(new Set(raw ? (JSON.parse(raw) as string[]) : []));
+    } catch { /* noop */ }
+  }, [hiddenEngineersKey]);
+  const updateHiddenEngineers = useCallback((next: Set<string>) => {
+    setHiddenEngineers(next);
+    if (hiddenEngineersKey) {
+      try { localStorage.setItem(hiddenEngineersKey, JSON.stringify([...next])); } catch { /* noop */ }
+    }
+  }, [hiddenEngineersKey]);
+
   const handleEngineerReorder = useCallback((newOrder: string[]) => {
-    setEngineerOrder(newOrder);
-    localStorage.setItem("planner_engineer_order", JSON.stringify(newOrder));
+    // Reorder callback only sees visible engineers. Preserve hidden ones
+    // in their existing relative positions at the end so we don't lose them.
+    const hiddenIds = engineers.map((e) => e.user_id).filter((id) => hiddenEngineers.has(id));
+    const merged = [...newOrder, ...hiddenIds.filter((id) => !newOrder.includes(id))];
+    setEngineerOrder(merged);
+    localStorage.setItem("planner_engineer_order", JSON.stringify(merged));
     if (user) {
-      supabase.from("profiles").update({ planner_engineer_order: newOrder }).eq("user_id", user.id).then(({ error }) => {
+      supabase.from("profiles").update({ planner_engineer_order: merged }).eq("user_id", user.id).then(({ error }) => {
         if (error) console.error("Failed to save engineer order:", error);
       });
     }
-  }, [user]);
+  }, [user, engineers, hiddenEngineers]);
+
+  const visibleEngineers = useMemo(
+    () => sortedEngineers.filter((e) => !hiddenEngineers.has(e.user_id)),
+    [sortedEngineers, hiddenEngineers],
+  );
 
   // Unallocated: active jobs with no schedule entry this period
   const unallocatedJobs = useMemo(() => {
@@ -435,17 +470,19 @@ export default function WeeklyPlanner() {
     return jobs.filter((j) => !scheduledJobIds.has(j.id));
   }, [jobs, schedule]);
 
-  // Filter schedule for non-admin
+  // Filter schedule for non-admin AND drop rows for hidden engineers.
   const filteredSchedule = useMemo(() => {
-    if (isAdmin) return schedule;
-    return schedule.filter((s) => s.engineer_id === user?.id);
-  }, [schedule, isAdmin, user]);
+    const base = isAdmin ? schedule : schedule.filter((s) => s.engineer_id === user?.id);
+    if (hiddenEngineers.size === 0) return base;
+    return base.filter((s) => !hiddenEngineers.has(s.engineer_id));
+  }, [schedule, isAdmin, user, hiddenEngineers]);
 
-  // Filter adhoc entries for non-admin
+  // Filter adhoc entries for non-admin AND drop rows for hidden engineers.
   const filteredAdhoc = useMemo(() => {
-    if (isAdmin) return adhocEntries;
-    return adhocEntries.filter((a) => a.engineer_id === user?.id);
-  }, [adhocEntries, isAdmin, user]);
+    const base = isAdmin ? adhocEntries : adhocEntries.filter((a) => a.engineer_id === user?.id);
+    if (hiddenEngineers.size === 0) return base;
+    return base.filter((a) => !a.engineer_id || !hiddenEngineers.has(a.engineer_id));
+  }, [adhocEntries, isAdmin, user, hiddenEngineers]);
 
   // Add adhoc entry handler
   const handleAddAdhoc = async () => {
@@ -862,6 +899,11 @@ export default function WeeklyPlanner() {
               </Button>
             </>
           )}
+          <EngineerVisibilityFilter
+            engineers={sortedEngineers}
+            hidden={hiddenEngineers}
+            onChange={updateHiddenEngineers}
+          />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
@@ -910,7 +952,7 @@ export default function WeeklyPlanner() {
           )}
           <WeeklyGridView
             weekDays={weekDays}
-            engineers={sortedEngineers}
+            engineers={visibleEngineers}
             schedule={filteredSchedule}
             jobs={jobs}
             unallocatedJobs={unallocatedJobs}
@@ -954,7 +996,7 @@ export default function WeeklyPlanner() {
             schedule={filteredSchedule}
             jobs={jobs}
             unallocatedJobs={isAdmin ? unallocatedJobs : []}
-            engineers={sortedEngineers}
+            engineers={visibleEngineers}
             isAdmin={isAdmin}
             optimisedJobOrder={optimisedJobOrder}
             onAssign={handleAssign}
@@ -965,7 +1007,7 @@ export default function WeeklyPlanner() {
         <TabsContent value="list" className="mt-4">
           <ListView
             schedule={filteredSchedule}
-            engineers={engineers}
+            engineers={visibleEngineers}
             jobs={jobs}
             isAdmin={isAdmin}
             onRemove={handleRemove}
@@ -979,7 +1021,7 @@ export default function WeeklyPlanner() {
         </TabsContent>
 
         <TabsContent value="map" className="mt-4">
-          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={engineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
+          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={visibleEngineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
             const j = jobs.find((x) => x.id === jobId);
             if (j) setMapScheduleJob({ id: j.id, name: j.name, reference_number: j.reference_number });
           }} />
@@ -989,7 +1031,7 @@ export default function WeeklyPlanner() {
       {/* Always-visible map for admins (hidden when map tab is active to avoid duplication) */}
       {isAdmin && view !== "map" && (
         <div className="mt-4">
-          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={engineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
+          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={visibleEngineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
             const j = jobs.find((x) => x.id === jobId);
             if (j) setMapScheduleJob({ id: j.id, name: j.name, reference_number: j.reference_number });
           }} />
