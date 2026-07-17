@@ -139,6 +139,11 @@ serve(async (req) => {
 - po_number: purchase order number or reference number (look for "PO#", "PO Number", "Order No", "Reference", "Ref No")
 - job_description: full description of the work or goods ordered — include as much detail as possible
 - quantity: total quantity ordered as a number (look for "Qty", "Quantity", "Units", "No. of", default 1 if only one item and no quantity stated)
+- pressure_test_qty: number of items requiring pressure/hydraulic testing (look for "pressure test", "hydraulic test", "wet test", "annual test"). Sum across line items and across pages. Default 0.
+- visual_qty: number of items requiring visual inspection only ("visual", "visual inspection", "visual check", "six month visual"). Default 0.
+- other_qty: number of items for any other service type (installation, repair, survey, remedial). Default 0. If the document only states a single overall quantity with no service-type breakdown, put it here.
+- other_service_type: short label describing the "other" service when other_qty > 0 (e.g. "Installation", "Repair", "Survey", "Remedial"), else ""
+- systems: array describing each distinct system/riser/asset referenced (e.g. [{ "label": "Dry Riser 1", "service": "Pressure Test" }, ...]) — used to drive multi-copy site sheets. Include one entry per riser/system per service type. Empty array if the PO covers a single system.
 - due_date: required completion or delivery date in YYYY-MM-DD format, or "" if not found
 - priority: "high", "medium", or "low" based on urgency language such as "urgent", "ASAP", "priority" (default "medium")
 - total_value: numeric value of the PO if present (strip currency symbols), else null
@@ -146,10 +151,11 @@ serve(async (req) => {
 - notes: any other important instructions, special requirements, or notes
 
 Rules:
-- Extract ALL available information — do not leave fields empty if the information exists anywhere in the document
+- Extract ALL available information — do not leave fields empty if the information exists anywhere in the document(s)
+- When multiple files are provided, treat them as pages of ONE purchase order. Sum quantities, merge line items, reconcile the PO number/customer/site — return ONE aggregated object.
 - Company/customer names can be abbreviations, acronyms, or short codes — always copy them verbatim
 - Return ONLY the JSON object, no markdown, no explanation
-- If a field is truly not found, use empty string "" or null for numeric fields`,
+- If a field is truly not found, use empty string "" or null for numeric fields, or 0 for quantity fields, or [] for arrays`,
           },
           {
             role: "user",
