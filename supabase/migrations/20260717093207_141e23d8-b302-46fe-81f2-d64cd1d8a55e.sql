@@ -1,0 +1,1 @@
+ALTER TABLE public.paper_scan_batches ALTER COLUMN created_by DROP NOT NULL;

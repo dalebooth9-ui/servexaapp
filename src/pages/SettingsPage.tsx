@@ -20,6 +20,7 @@ import HelpArticlesAdmin from "@/components/HelpArticlesAdmin";
 import EmailFromSettings from "@/components/EmailFromSettings";
 import EmailBrandingSettings from "@/components/EmailBrandingSettings";
 import PoIntakeEmailCard from "@/components/PoIntakeEmailCard";
+import ScanIntakeEmailCard from "@/components/ScanIntakeEmailCard";
 import EmailAutomationSettings from "@/components/EmailAutomationSettings";
 import JobCategorySettings from "@/components/JobCategorySettings";
 import AssetCategorySettings from "@/components/AssetCategorySettings";
@@ -298,6 +299,10 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-6 mt-0">
+          <div className="grid gap-6 md:grid-cols-2">
+            <PoIntakeEmailCard />
+            <ScanIntakeEmailCard />
+          </div>
           <JobCategorySettings />
           <AssetCategorySettings />
           <JobTemplateSettings />
