@@ -42,8 +42,36 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { user_id, full_name, email, whatsapp_number, mode } = body as {
       user_id?: string; full_name?: string; email?: string; whatsapp_number?: string | null;
-      mode?: "read" | "write";
+      mode?: "read" | "write" | "list_emails";
     };
+
+    // List mode: return { user_id -> email } for everyone in the caller's org(s).
+    if (mode === "list_emails") {
+      const { data: callerMem } = await supabaseAdmin
+        .from("organisation_members").select("org_id")
+        .eq("user_id", caller.id).eq("status", "active");
+      const orgIds = (callerMem ?? []).map((r: any) => r.org_id);
+      if (orgIds.length === 0) return json({ emails: {} });
+      const { data: mates } = await supabaseAdmin
+        .from("organisation_members").select("user_id")
+        .in("org_id", orgIds).eq("status", "active");
+      const wanted = new Set((mates ?? []).map((r: any) => r.user_id));
+      const emails: Record<string, string> = {};
+      // Paginate auth.admin.listUsers
+      let page = 1;
+      while (true) {
+        const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+        if (error) break;
+        for (const u of data?.users ?? []) {
+          if (wanted.has(u.id) && u.email) emails[u.id] = u.email;
+        }
+        if (!data?.users || data.users.length < 200) break;
+        page += 1;
+        if (page > 20) break; // safety
+      }
+      return json({ emails });
+    }
+
     if (!user_id) return json({ error: "user_id is required" }, 400);
 
     // Org gate: caller and target must share an active organisation
@@ -83,7 +111,13 @@ serve(async (req) => {
         email_confirm: true,
         user_metadata: { ...(existing.user.user_metadata ?? {}), ...(full_name ? { full_name } : {}) },
       });
-      if (updErr) return json({ error: `Failed to update email: ${updErr.message}` }, 400);
+      if (updErr) {
+        const msg = (updErr.message || "").toLowerCase();
+        const friendly = msg.includes("already") || msg.includes("registered") || msg.includes("exists") || msg.includes("duplicate")
+          ? "That email is already in use by another account."
+          : `Failed to update email: ${updErr.message}`;
+        return json({ error: friendly }, 400);
+      }
       // GoTrue's admin updateUserById with `email` + `email_confirm: true` rewrites
       // the primary email AND syncs auth.identities.identity_data.email for the
       // 'email' provider identity in one step, so the user can log in with the

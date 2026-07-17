@@ -24,6 +24,7 @@ type UserWithRoles = {
 export default function UserRoleSettings() {
   const { user } = useAuth();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
+  const [emailMap, setEmailMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<{ userId: string; name: string } | null>(null);
@@ -72,6 +73,14 @@ export default function UserRoleSettings() {
     merged.sort((a, b) => (a.full_name || "").localeCompare(b.full_name || ""));
     setUsers(merged);
     setLoading(false);
+
+    // Fetch login emails (admin-gated edge function; best-effort).
+    supabase.functions
+      .invoke("update-user-details", { body: { mode: "list_emails" } })
+      .then(({ data }) => {
+        if (data?.emails && typeof data.emails === "object") setEmailMap(data.emails);
+      })
+      .catch(() => {});
   };
 
   useEffect(() => { fetchUsers(); }, []);
@@ -302,6 +311,7 @@ export default function UserRoleSettings() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Login email</TableHead>
               <TableHead>Current Roles</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -309,11 +319,11 @@ export default function UserRoleSettings() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={3} className="py-6 text-center text-muted-foreground">Loading…</TableCell>
+                <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">Loading…</TableCell>
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} className="py-6 text-center text-muted-foreground">No users found.</TableCell>
+                <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">No users found.</TableCell>
               </TableRow>
             ) : (
               users.map((u) => {
@@ -323,6 +333,7 @@ export default function UserRoleSettings() {
                 return (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground break-all">{emailMap[u.user_id] || "—"}</TableCell>
                     <TableCell>
                       <div className="flex gap-1.5">
                         {isAdmin && <Badge variant="default" className="gap-1"><ShieldCheck className="h-3 w-3" />Admin</Badge>}
