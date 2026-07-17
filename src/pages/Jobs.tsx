@@ -2156,6 +2156,16 @@ export default function Jobs() {
                         </Select>
                       </div>
                     )}
+                    {isAdmin && (
+                      <div className="mt-2">
+                        <ReferenceFilesDropzone
+                          mode="live"
+                          jobId={j.id}
+                          variant="compact"
+                          label="Attach reference file…"
+                        />
+                      </div>
+                    )}
                   </div>
                   );
                 })}
