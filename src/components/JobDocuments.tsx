@@ -975,6 +975,19 @@ function DocRow({
         </Button>
       )}
 
+
+      {isAdmin && onToggleReference && (doc.document_type === "uploaded_file" || doc.document_type === "reference") && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`h-7 text-[10px] px-2 shrink-0 ${isReference ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`}
+          onClick={() => onToggleReference(doc)}
+          title={isReference ? "Currently internal-only — click to make it a normal file (may appear in customer exports)" : "Tag as internal Reference — hidden from customer exports"}
+        >
+          {isReference ? "Untag Reference" : "Tag as Reference"}
+        </Button>
+      )}
+
       {isAdmin && (
         <Button
           variant="ghost"
