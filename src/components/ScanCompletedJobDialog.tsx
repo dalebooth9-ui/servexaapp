@@ -523,6 +523,14 @@ export default function ScanCompletedJobDialog({
         { body: { images: imagePayloads } },
       );
       if (clsErr) throw new Error(clsErr.message || "Classification failed");
+
+      // PO misdrop check — offer redirect to Create Job flow
+      if (clsData?.document_kind === "purchase_order") {
+        setPoMisdrop({ reason: clsData?.document_kind_reason });
+        setStep("upload");
+        return;
+      }
+
       const cands: Candidate[] = clsData?.candidates || [];
       if (cands.length === 0) {
         throw new Error(
