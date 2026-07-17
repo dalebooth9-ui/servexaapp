@@ -43,6 +43,11 @@ export interface PdfPreviewDialogProps {
   watermarkControls?: boolean;
   /** Called when the user changes the watermark override; should rebuild the PDF and update `blob`. */
   onRebuildWithWatermark?: (override: Partial<WatermarkSettings>) => Promise<void> | void;
+  /** Optional prev/next handlers to flick through a set (e.g. a job's image documents). */
+  onPrev?: () => void;
+  onNext?: () => void;
+  hasPrev?: boolean;
+  hasNext?: boolean;
 }
 
 /** Slugify a candidate filename so it renders cleanly inside browser viewer chrome. */
