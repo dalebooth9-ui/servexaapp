@@ -484,6 +484,7 @@ export function renderPaperFormPage(
     yy: number,
     rowH: number,
     isSection: boolean,
+    field?: PdfTemplateField,
   ) => {
     if (isSection) {
       // Full-width bold shaded band.
@@ -496,6 +497,8 @@ export function renderPaperFormPage(
       doc.setTextColor(0, 0, 0);
       doc.text(label, margin + 2, yy + rowH * 0.7);
     } else {
+      // Body cells — transparent (no white fill) so the watermark shows
+      // through uniformly per the current z-order/transparent-cells rules.
       doc.setDrawColor(120);
       doc.rect(margin, yy, colSplit - margin, rowH);
       doc.rect(colSplit, yy, margin + maxWidth - colSplit, rowH);
@@ -508,14 +511,30 @@ export function renderPaperFormPage(
       const maxLines = Math.max(1, Math.floor((rowH - 1) / lineH));
       const lines = (doc.splitTextToSize(label, labelMaxW) as string[]).slice(0, maxLines);
       lines.forEach((ln, i) => doc.text(ln, margin + 2, yy + lineH * (i + 0.85)));
-      // Answer cell text
+      // Answer cell — options to circle, or a ruled writing line for
+      // free-text/number/date fields. Never leave the cell blank; an empty
+      // answer cell is unusable on site.
+      const ansX = colSplit + 2;
+      const ansMaxW = margin + maxWidth - colSplit - 4;
       if (ans) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(fit.font.ans);
-        doc.text(ans, colSplit + 2, yy + rowH * 0.7);
+        // Shrink options text if it would overflow the answer cell width.
+        let ansSize = fit.font.ans;
+        while (ansSize > 6 && doc.getTextWidth(ans) > ansMaxW) {
+          ansSize -= 0.5;
+          doc.setFontSize(ansSize);
+        }
+        doc.text(ans, ansX, yy + rowH * 0.7);
+      } else if (field && isWritingLineField(field)) {
+        // Ruled writing line for text/number/date fields.
+        doc.setDrawColor(160);
+        doc.setLineWidth(0.15);
+        doc.line(ansX, yy + rowH * 0.75, colSplit + (margin + maxWidth - colSplit) - 2, yy + rowH * 0.75);
       }
     }
   };
+
 
   for (const it of items) {
     if (it.kind === "section") {
