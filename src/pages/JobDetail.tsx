@@ -1069,6 +1069,14 @@ export default function JobDetail() {
           {userRole === "admin" && (
             <JobStatusPipeline currentStatus={job.status} onChange={handleStatusChange} />
           )}
+          {(job as any).template_mismatch_reason && (
+            <JobTemplateMismatchBanner
+              jobId={id!}
+              reason={(job as any).template_mismatch_reason}
+              detectedWorkTypes={(job as any).detected_work_types}
+              onDrafted={fetchData}
+            />
+          )}
           <JobCompleteAction
             jobId={id!}
             jobStatus={job.status}
