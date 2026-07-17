@@ -15,6 +15,7 @@ import { resolveToSignedUrl } from "@/lib/durableStorageRef";
 import JobPdfReport from "@/components/JobPdfReport";
 import JobWordReport from "@/components/JobWordReport";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import ReferenceFilesDropzone from "@/components/ReferenceFilesDropzone";
 
 type JobDoc = {
   id: string;
@@ -455,6 +456,25 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     setDeletingId(null);
   };
 
+  // Toggle a document's Reference tag. Reference docs stay internal
+  // (excluded from customer-facing PDF/Word exports and Send-to-Customer).
+  const handleToggleReference = async (doc: JobDoc) => {
+    const newType = doc.document_type === "reference" ? "uploaded_file" : "reference";
+    const { error } = await supabase
+      .from("job_documents" as any)
+      .update({ document_type: newType } as any)
+      .eq("id", doc.id);
+    if (error) {
+      toast({ title: "Could not update tag", description: error.message, variant: "destructive" });
+      return;
+    }
+    setDocs((prev) => prev.map((d) => (d.id === doc.id ? { ...d, document_type: newType } : d)));
+    toast({
+      title: newType === "reference" ? "Tagged as Reference" : "Reference tag removed",
+      description: newType === "reference" ? "Internal only — excluded from customer exports." : undefined,
+    });
+  };
+
   const handleDownload = async (doc: JobDoc) => {
     if (!doc.file_url) return;
     // Always resolve to a FRESH signed URL — legacy rows may hold expired
@@ -710,6 +730,7 @@ ${sections}
               onUploadSlot={handleUploadSlot}
               uploadingSlotId={uploadingSlotId}
                 onFillOnline={handleFillOnline}
+                onToggleReference={handleToggleReference}
             />
           ))}
         </div>
@@ -751,6 +772,15 @@ ${sections}
         )}
       </div>
 
+      {userRole === "admin" && (
+        <ReferenceFilesDropzone
+          mode="live"
+          jobId={jobId}
+          onUploaded={fetchDocs}
+          label="Attach a reference file (drag &amp; drop supported)"
+        />
+      )}
+
       <PdfPreviewDialog
         open={previewOpen}
         onOpenChange={setPreviewOpen}
@@ -779,6 +809,7 @@ function DocRow({
   onUploadSlot,
   uploadingSlotId,
   onFillOnline,
+  onToggleReference,
 }: {
   doc: JobDoc;
   isAdmin: boolean;
@@ -795,11 +826,12 @@ function DocRow({
   onUploadSlot?: (doc: JobDoc) => void;
   uploadingSlotId?: string | null;
   onFillOnline?: (templateId: string) => void;
+  onToggleReference?: (doc: JobDoc) => void;
 }) {
   const isRams = doc.document_type === "rams_pdf";
   const isBlankSheet = doc.document_type === "blank_job_sheet";
   const isPreStart = doc.document_type === "pre_start_checklist";
-  const isUploadSlot = ["quote", "purchase_order", "site_drawing", "uploaded_file"].includes(doc.document_type);
+  const isUploadSlot = ["quote", "purchase_order", "site_drawing", "uploaded_file", "reference"].includes(doc.document_type);
   const hasFile = !!doc.file_url;
 
   const DOC_TYPE_BADGE: Record<string, string> = {
@@ -810,7 +842,9 @@ function DocRow({
     purchase_order: "Purchase Order",
     site_drawing: "Site Drawing",
     pre_start_checklist: "Pre-start Checklist",
+    reference: "Reference (internal)",
   };
+  const isReference = doc.document_type === "reference";
 
   // Find matching template for blank job sheet — prefer same job_category and published,
   // then frequency keyword overlap (annual / 6 month / quarterly / etc.), then fuzzy name match.
@@ -854,8 +888,8 @@ function DocRow({
   const viewTooltip = `View — will download as: ${friendlyName}`;
 
   return (
-    <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${isCustomerPaperwork ? "bg-primary/5 border-primary/20" : "bg-card"}`}>
-      <FileText className={`h-4 w-4 shrink-0 ${isCustomerPaperwork ? "text-primary" : "text-muted-foreground"}`} />
+    <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${isCustomerPaperwork ? "bg-primary/5 border-primary/20" : isReference ? "bg-amber-50/60 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900" : "bg-card"}`}>
+      <FileText className={`h-4 w-4 shrink-0 ${isCustomerPaperwork ? "text-primary" : isReference ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate" title={doc.label}>{doc.label}</p>
         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -947,6 +981,19 @@ function DocRow({
         >
           {uploadingSlotId === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
           {hasFile ? "Replace" : "Upload"}
+        </Button>
+      )}
+
+
+      {isAdmin && onToggleReference && (doc.document_type === "uploaded_file" || doc.document_type === "reference") && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`h-7 text-[10px] px-2 shrink-0 ${isReference ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`}
+          onClick={() => onToggleReference(doc)}
+          title={isReference ? "Currently internal-only — click to make it a normal file (may appear in customer exports)" : "Tag as internal Reference — hidden from customer exports"}
+        >
+          {isReference ? "Untag Reference" : "Tag as Reference"}
         </Button>
       )}
 

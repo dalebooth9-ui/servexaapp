@@ -23,6 +23,8 @@ import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import ScanCompletedJobDialog from "@/components/ScanCompletedJobDialog";
 import PaperScanQueueBadge from "@/components/paper-scan/PaperScanQueueBadge";
+import ReferenceFilesDropzone, { DeferredReferenceFilesList } from "@/components/ReferenceFilesDropzone";
+import { uploadReferenceFiles } from "@/lib/uploadReferenceFile";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Accordion } from "@/components/ui/accordion";
@@ -77,6 +79,7 @@ export default function Jobs() {
   const [loading, setLoading] = useState(false);
   const [costingSheetFile, setCostingSheetFile] = useState<File | null>(null);
   const [costingSheetProcessing, setCostingSheetProcessing] = useState(false);
+  const [newJobReferenceFiles, setNewJobReferenceFiles] = useState<File[]>([]);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
   const [scanPaperOpen, setScanPaperOpen] = useState(false);
@@ -981,8 +984,28 @@ export default function Jobs() {
       setDialogParsedFile(null);
       const capturedCostingSheet = costingSheetFile;
       setCostingSheetFile(null);
+      const capturedReferenceFiles = newJobReferenceFiles;
+      setNewJobReferenceFiles([]);
       setLoading(false);
       fetchJobs();
+
+      if (createdJob && capturedReferenceFiles.length > 0) {
+        // Fire-and-forget upload of any reference files staged in the dialog.
+        uploadReferenceFiles({
+          jobId: createdJob.id,
+          files: capturedReferenceFiles,
+          userId: user?.id,
+        }).then(({ succeeded, failed }) => {
+          if (succeeded > 0) {
+            toast({
+              title: `Attached ${succeeded} reference file${succeeded === 1 ? "" : "s"}`,
+              description: failed > 0 ? `${failed} failed — retry from the Documents tab.` : undefined,
+            });
+          } else if (failed > 0) {
+            toast({ title: "Reference file upload failed", variant: "destructive" });
+          }
+        });
+      }
 
       if (createdJob && capturedCostingSheet) {
         // Upload costing sheet and process it asynchronously
@@ -1477,7 +1500,7 @@ export default function Jobs() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" }); setDialogParsedFile(null); setDialogParsingFile(false); setCostingSheetFile(null); } }}>
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" }); setDialogParsedFile(null); setDialogParsingFile(false); setCostingSheetFile(null); setNewJobReferenceFiles([]); } }}>
               <DialogTrigger asChild>
                 <Button size="sm" data-setup="add-job"><Plus className="mr-2 h-4 w-4" /> New Job</Button>
               </DialogTrigger>
@@ -1658,6 +1681,20 @@ export default function Jobs() {
                       <Loader2 className="h-3 w-3 animate-spin" /> Processing costing sheet in background…
                     </p>
                   )}
+                </div>
+                {/* Reference files — internal companion docs, e.g. last year's report */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                    Reference files <span className="text-muted-foreground text-xs font-normal">(optional — attached for office reference, not sent to customer)</span>
+                  </Label>
+                  <ReferenceFilesDropzone
+                    mode="deferred"
+                    files={newJobReferenceFiles}
+                    onFilesChange={setNewJobReferenceFiles}
+                    label="Drop last year's report or other reference files"
+                  />
+                  <DeferredReferenceFilesList files={newJobReferenceFiles} onFilesChange={setNewJobReferenceFiles} />
                 </div>
                 <div className="flex gap-2">
                   <Button type="submit" className="flex-1" disabled={loading}>
@@ -2117,6 +2154,16 @@ export default function Jobs() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
+                    )}
+                    {isAdmin && (
+                      <div className="mt-2">
+                        <ReferenceFilesDropzone
+                          mode="live"
+                          jobId={j.id}
+                          variant="compact"
+                          label="Attach reference file…"
+                        />
                       </div>
                     )}
                   </div>
