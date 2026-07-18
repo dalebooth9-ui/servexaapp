@@ -354,18 +354,22 @@ export default function BatchScanDialog() {
 
               {/* Drop zone */}
               <div
+                role="button"
+                tabIndex={0}
+                aria-label="Choose or drop scanned sheets"
                 onDragEnter={(e) => { e.preventDefault(); dragCounter.current++; setIsDragOver(true); }}
                 onDragLeave={(e) => { e.preventDefault(); dragCounter.current--; if (dragCounter.current === 0) setIsDragOver(false); }}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { e.preventDefault(); dragCounter.current = 0; setIsDragOver(false); handleFiles(e.dataTransfer.files); }}
                 onClick={() => fileRef.current?.click()}
-                className={`flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 cursor-pointer transition-colors ${
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileRef.current?.click(); } }}
+                className={`flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                   isDragOver ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50"
                 }`}
               >
                 <Upload className="h-8 w-8 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
-                  Drop all your sheets here, or <span className="text-primary font-medium">click to browse</span>
+                  Drop sheets here or <span className="text-primary font-medium">tap to choose</span>
                 </p>
                 <p className="text-xs text-muted-foreground">JPG, PNG, PDF — no limit</p>
               </div>
