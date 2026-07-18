@@ -1081,6 +1081,7 @@ export default function JobDetail() {
               onDrafted={fetchData}
             />
           )}
+          <RamsRequiredBanner jobId={id!} status={ramsStatus} />
           <JobCompleteAction
             jobId={id!}
             jobStatus={job.status}
