@@ -1955,6 +1955,28 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                 <p className="text-[10px] text-muted-foreground mt-1">{sitePhotos.length} photo(s) — will appear at the bottom of the PDF</p>
               )}
             </div>
+
+            {/* Inline sign-off — engineer signs here so the flow is one continuous
+                sequence (answer → sign → submit) without hunting for a separate tab.
+                The Sign-off tab remains for adding/managing signatures later. */}
+            <div className="mt-6 pt-4 border-t border-border space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold mb-1">Sign off</h3>
+                <p className="text-xs text-muted-foreground">Sign here to complete the sheet. You can also collect an on-site customer signature.</p>
+              </div>
+              <SignatureCapture
+                jobId={jobId}
+                signerRole="engineer"
+                filterByRole
+                heading="Engineer signature"
+              />
+              <SignatureCapture
+                jobId={jobId}
+                signerRole="customer"
+                filterByRole
+                heading="Customer signature (optional)"
+              />
+            </div>
           </div>
           <div className="flex gap-2 px-4 py-3 border-t border-border bg-card">
             <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={submitting}>
