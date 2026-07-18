@@ -226,7 +226,7 @@ export default function JobWordReport({ jobId, job }: Props) {
       ]);
 
       // Honour user's sheet ticks from the picker (empty = none).
-      const filteredSheets = ((sheetsRes.data || []) as any[]).filter((s) =>
+      const filteredSheets = ((filteredSheetsRes.data || []) as any[]).filter((s) =>
         selectedSheetIds.size === 0 ? false : selectedSheetIds.has(s.id),
       );
       const filteredSheetsRes = { data: filteredSheets, error: sheetsRes.error };
@@ -239,7 +239,7 @@ export default function JobWordReport({ jobId, job }: Props) {
       }
 
       // Load templates for each response (name + fields + branding).
-      const tplIds = [...new Set((sheetsRes.data || []).map((s: any) => s.template_id).filter(Boolean))];
+      const tplIds = [...new Set((filteredSheetsRes.data || []).map((s: any) => s.template_id).filter(Boolean))];
       const templatesById: Record<string, { name: string; fields: PdfTemplateField[] }> = {};
       if (tplIds.length) {
         const { data: tpls } = await supabase
@@ -285,7 +285,7 @@ export default function JobWordReport({ jobId, job }: Props) {
       // Fallback engineer signature from library (matches PDF behaviour).
       if (!sigEntries.some((s) => s.role.toLowerCase().includes("engineer"))) {
         // Prefer technician_name captured in the response over assigned-engineer list.
-        const techFromSheet = ((sheetsRes.data as any[]) || [])
+        const techFromSheet = ((filteredSheetsRes.data as any[]) || [])
           .map((row: any) => (row?.responses?.technician_name || "").toString().trim())
           .find((v: string) => v.length > 0);
         const techName = techFromSheet || engineerNames[0];
@@ -384,7 +384,7 @@ export default function JobWordReport({ jobId, job }: Props) {
 
       // Template-driven job-sheet responses — use field labels + section order
       // exactly like the PDF, and skip fields already rendered in the header.
-      const sheets = (sheetsRes.data as any[]) || [];
+      const sheets = (filteredSheetsRes.data as any[]) || [];
       for (const sheet of sheets) {
         const tpl = templatesById[sheet.template_id];
         if (!tpl || !Array.isArray(tpl.fields) || tpl.fields.length === 0) continue;
