@@ -1,132 +1,118 @@
-## Customer Portal — external customer contacts as a new user class
+# Commercialisation Pack — Build Plan
 
-Because this introduces the first non-staff user class, everything is designed around the assumption that a customer_user is hostile-by-default: they get an authenticated login but must see **nothing** outside their own customer_id within one org.
+Scope is large so I'm laying it out end-to-end before touching code. Sequenced so each block is independently verifiable and the security probe can run against real infrastructure at the end.
 
----
+## 1. Routing changes
 
-### 1. Data model (one migration)
+- `/` → public `LandingPage` for signed-out visitors; signed-in users get redirected to `/dashboard` (or their role's home).
+- `/login` → the existing `Auth` page (keep `/auth` as an alias so any old links still work).
+- `/signup` → new invite-gated signup flow (replaces the "create workspace" branch of `Auth.tsx`).
+- `/pricing`, `/dpa`, `/aup`, `/sla`, `/cookies`, `/fire-liability`, `/privacy`, `/terms` remain public; cookie banner stays global.
+- Wrap the app shell so authenticated navigation is unchanged — only the `/` route flips.
 
-**`customer_portal_users`** — the join between an auth user and a single customer within one org.
-Fields: `user_id`, `org_id`, `customer_id`, `email`, `invited_by`, `invited_at`, `accepted_at`, `is_active`, `role` (default `'customer_user'` for now — leaves room for `'customer_admin'` later).
-Unique on `(user_id)` — a portal user belongs to exactly one customer. (Multi-customer portal users are out of scope for v1; if a person represents two customers they get two invites/two logins.)
+## 2. Stripe billing (sandbox → live-ready)
 
-**`app_role` enum** — add `'customer_user'`.
+Provider: bring-your-own-key Stripe (owner will paste sandbox keys now, live later). No custom card UI — hosted **Checkout** for subscribe, hosted **Billing Portal** for manage.
 
-**`organisations`** — add `portal_enabled boolean default false`. Off by default per spec.
+### Secrets (owner adds in Project Settings → Secrets before webhook works)
+- `STRIPE_SECRET_KEY` (sk_test_… now, sk_live_… later)
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRICE_ID_DEFAULT` (single monthly price; default plan)
+- `APP_PUBLIC_URL` (used for Checkout success/cancel URLs)
 
-**`customer_portal_invites`** — token, org_id, customer_id, email, expires_at, used_at, invited_by. 7-day expiry.
+### Schema (`organisation_billing` extended)
+Columns added:
+- `stripe_customer_id`, `stripe_subscription_id`, `stripe_price_id`
+- `plan_code` (default `'pro_monthly'`)
+- `subscription_status` (`trialing|active|past_due|canceled|unpaid|incomplete`)
+- `current_period_end`, `grace_period_ends_at`
+- `last_webhook_event_id` (idempotency)
 
-**`portal_visit_requests`** — customer_id, site_id, requested_by, preferred_date, notes, status (`new`/`triaged`/`scheduled`/`dismissed`). Feeds the office as flagged enquiries.
+RLS: org admins can `select` their own row; only service role writes. Platform admins can select all.
 
-**`shareable_with_customer boolean`** — add to `job_documents`, `customer_paperwork`, `rams_documents`, `historic_reports`. Default:
-- `customer_paperwork` (reports/certificates generated for customer): **true**
-- Everything else: **false**
-Backfill existing customer-facing docs to `true` where `is_customer_facing` / equivalent flag exists; leave rest false.
+### Edge functions
+- `stripe-create-checkout-session` — org admin → returns hosted Checkout URL for `STRIPE_PRICE_ID_DEFAULT` (mode=subscription, customer created/reused by email, metadata `org_id`).
+- `stripe-billing-portal` — org admin → returns hosted Billing Portal URL for the org's `stripe_customer_id`.
+- `stripe-webhook` — public, verifies signature, idempotent on `event.id`. Handles:
+  - `checkout.session.completed` → link customer+subscription to org, set status `active`, clear grace, call existing `reactivate_organisation`.
+  - `invoice.payment_failed` → set status `past_due`, start 14-day grace (`grace_period_ends_at = now()+14d`) if not already set. Do NOT suspend yet.
+  - `customer.subscription.deleted` → status `canceled`, call `suspend_organisation` with reason `subscription_cancelled`.
+- Cron `enforce-billing-grace` (daily) — orgs where `subscription_status='past_due' AND grace_period_ends_at < now() AND status='active'` → `suspend_organisation` reason `payment_failed_grace_expired`.
 
-**Helpers (SECURITY DEFINER, `SET search_path = public`):**
-- `is_customer_user(_uid uuid) returns boolean`
-- `customer_user_customer_id(_uid uuid) returns uuid` — the caller's bound customer, or null
-- `customer_user_org_id(_uid uuid) returns uuid`
-- `customer_user_can_see_site(_uid uuid, _site_id uuid) returns boolean` — site.customer_id matches
-- `customer_user_can_see_job(_uid uuid, _job_id uuid) returns boolean` — job.customer_id matches AND job.status in ('completed','invoiced')
+### UI
+- Org Settings → new "Billing" card showing plan, status, next renewal, "Manage billing" (Stripe portal) and, if no sub, "Subscribe" (Checkout).
+- `PlatformOrganisations` list: add columns Plan / Billing status / Renewal.
+- Existing `AccountPaused` page: if suspension reason is billing, show `Restart subscription` button routing to Checkout.
+- `PastDueBanner` (in-app, dismissible per session) when `subscription_status='past_due'`, counting down `grace_period_ends_at`.
 
-### 2. RLS — additive, never widening
+## 3. Invite-gated signup + org provisioning
 
-For each of the tables below, add a **new** policy `"Customer users read own"` that adds `SELECT` on rows scoped to their customer_id within their org. Existing staff policies stay untouched (staff experience unchanged).
+### Schema
+- `platform_invite_codes(code, note, created_by, expires_at, max_uses, uses, is_active)` — platform-admin managed.
+- `signup_intents(email, code, requested_at, completed_at, org_id)` — audit trail.
 
-- `sites` — where `customer_id = customer_user_customer_id(auth.uid())` AND org matches
-- `jobs` — same, AND `status in ('completed','invoiced')` (never drafts/pending/in-progress)
-- `job_documents` — via job scope AND `shareable_with_customer = true`
-- `customer_paperwork` — via customer_id AND `shareable_with_customer = true`
-- `defects` — via job scope; expose only `title, severity, status, created_at, location_on_site` through a **view** `customer_defect_summary` (see below). Base table SELECT for customer_user = false.
-- `invoices` — where `document_type='quote'` AND `customer_id` matches AND status in ('sent','accepted','declined')
-- `invoice_line_items` — via parent quote
-- `site_service_schedules` / `renewal_reminder_log` — via site scope, next-due only
-- `historic_reports` — customer_id matches AND `shareable_with_customer = true`
-- `customers` — the caller's OWN customer row only
+### Platform admin UI
+- New section in `PlatformOrganisations` for "Signup codes": create/copy/revoke, note (e.g. "Firetech"), optional expiry & max uses. Live usage counter.
 
-For **every other** table (engineer_*, van_stock, parts_library, profiles, user_roles, org_status_log, po_intake_*, support_*, price_book_items, notifications, job_messages, submissions, etc.) — add a restrictive check to existing admin/engineer policies OR rely on the fact no customer_user policy is granted (default deny). We do a spot-audit to confirm no accidental `USING (true)` policies swallow customer_users.
+### `/signup` flow
+1. Enter company name, admin name/email/password, invite code, checkbox "Start with example fire protection templates".
+2. Client validates code via new RPC `preview_signup_code(_code)` (SECURITY DEFINER, returns bool + note).
+3. `supabase.auth.signUp({ options: { data: { signup_code, org_name, full_name, seed_templates } } })`.
+4. New edge function `provision-new-org` invoked from post-confirm client bootstrap OR from an `on_auth_user_created` trigger. Trigger route is more reliable — do that. The DB trigger enqueues by calling function via `pg_net` OR the function is invoked once by the client on first sign-in. **Chosen: trigger + function via pg_net** to guarantee provisioning even if the tab closes.
 
-**Views for field-hiding:**
-- `customer_defect_summary` — hides internal_notes/recommendation/priority-cost fields
-- `customer_job_summary` — hides internal notes, engineer names, costs
+### `provision-new-org` (service-role edge function) does, atomically:
+1. Look up code, increment `uses`, deactivate if `uses >= max_uses`.
+2. Insert `organisations` row: `status='active'`, generate unique `slug`, `scan_intake_email = <slug>-scan@intake.servexaapp.com`, `po_intake_email = <slug>-po@intake.servexaapp.com`. Add `org_intake_secrets` row.
+3. Add `organisation_members`, `profiles.org_id`, `user_roles` (admin), primary owner.
+4. If `seed_templates=true`, clone the canonical Viva templates **structure only** (`job_sheet_templates` where `org_id = viva_org AND is_seed_template = true`), stripping `org_id`, branding fields, signatures. New copies get the new `org_id`, `is_template_seed_copy=true`.
+5. Record `signup_intents.completed_at`, `org_id`.
+6. No sample jobs, no sample customers, no branding assets — clean slate.
 
-Both `WITH (security_invoker=on)` so the caller's RLS still applies.
+### Isolation self-check (compile-time)
+After provisioning, function runs an internal `probe_org_isolation(new_org_id)` RPC that: counts rows in `jobs, customers, sites, job_documents, job_sheet_responses` visible to a synthetic member of the new org — expects 0 rows from other orgs. Result logged.
 
-### 3. Storage
+## 4. Storage prefixing on fresh orgs
 
-All customer downloads use `createSignedUrl` with 5-min TTL from an Edge Function that first checks `customer_user_can_see_job` / paperwork ownership before minting the URL. No direct bucket policies added for `customer_user`.
+Already enforced by `buildOrgPath` + storage RLS using `storage_object_org_id`. Verify on the new org: every write goes to `<new_org_id>/…`. Add a test upload during provisioning to prove the prefix and RLS gate work.
 
-Buckets touched: `customer-paperwork`, `job-documents` (only shareable rows), `historic-reports`.
+## 5. Security probe — three personas
 
-### 4. Invite flow
+Run via shell Playwright + service-role SQL probes.
 
-**Admin side:** on Customers → contact card, new "Invite to portal" button (visible only if `organisations.portal_enabled`). Calls `invite-customer-portal-user` Edge Function:
-1. Creates auth user via service role (or reuses if exists in same org)
-2. Assigns `customer_user` role
-3. Inserts `customer_portal_users` row
-4. Sends invite email via existing `send-transactional-email` (`customer-portal-invite` template) with a one-time link
+### Persona (a) — Test Fire Co regression
+Log in as their admin, walk core pages, assert row counts match `has_role_in_org` scope. Cross-query for any Viva IDs leaking.
 
-**Customer side:** invite link → `/portal/accept?token=...` → sets password → lands on `/portal`.
+### Persona (b) — Customer portal scoping
+Log in as a Test Fire Co portal customer, assert:
+- Only their sites/reports/quotes/invoices visible.
+- Storage signed URLs 404 for other-customer paths.
+- Reminder edge functions refuse cross-customer `customer_id`.
 
-### 5. Portal UI (`/portal/*`)
+### Persona (c) — Fresh throwaway org via invite
+1. Platform admin creates invite code `PROBE-<ts>`.
+2. Playwright signs up `probe-<ts>@servexaapp.test` at `/signup`.
+3. Confirm auth (use service role to auto-confirm for test).
+4. Isolation probes both ways vs Viva and vs Test Fire Co (SELECT counts through their respective sessions).
+5. Sandbox Stripe Checkout: use Stripe test card `4242 4242 4242 4242` → assert `subscription_status='active'`.
+6. Force `invoice.payment_failed` via Stripe CLI event replay against the deployed webhook → assert `past_due` + grace set.
+7. Force `customer.subscription.deleted` → assert org suspended, `AccountPaused` page rendered.
+8. Cleanup: delete auth user, org row, `organisation_members`, `profiles`, `user_roles`, storage prefix (`.list()` + bulk remove), intake secrets, invite code, `signup_intents` row, Stripe customer (test mode delete).
 
-Separate layout `PortalLayout.tsx` — no admin sidebar; only: My Sites, Documents, Quotes, Request Visit, org logo/branding pulled from `email_branding`.
+Report matrix: probe × persona × pass/fail with row-count evidence.
 
-Pages:
-- `/portal` — dashboard: next 5 due, open quotes count, recent completed reports
-- `/portal/sites` — list, click into per-site: service history (completed jobs table with "Download report" per row), next-due list, open defects (summary view)
-- `/portal/documents` — flat list of shareable docs across their sites, filter by site/date
-- `/portal/quotes` — list; click → view line items + Accept button (calls `accept-portal-quote` edge fn: sets `invoices.status='accepted'`, logs activity, notifies office)
-- `/portal/request-visit` — form: site, preferred date, notes → `portal_visit_requests` insert
+## 6. Reporting / non-goals
 
-**Route guard:** `PortalRoute.tsx` — requires session + `is_customer_user(auth.uid()) = true`. Conversely, `AdminRoute`/`EngineerRoute` reject customer_users. Root `App.tsx` redirects customer_users away from `/` to `/portal`.
+- Do NOT publish. Owner publishes on green.
+- Owner-supplied real price + real Stripe keys are prerequisites for going live; sandbox works with placeholder price today.
+- If any secret is missing at build time, functions return 503 via `requireEnv` — no silent failures.
 
-### 6. Org toggle
+## Technical notes
 
-Settings → Organisation → "Customer Portal" card: switch bound to `organisations.portal_enabled`. When OFF: invite button hidden, existing portal users get a "Portal disabled by your provider" page, no login redirect to `/portal`.
+- Stripe library: `import Stripe from "npm:stripe@17"` inside edge functions.
+- Webhook uses `stripe.webhooks.constructEventAsync` (Deno-compatible).
+- All new tables get `GRANT` blocks per house rules; RLS on; no bare `has_role()`.
+- Migrations are additive; no destructive changes to existing tables.
+- Trigger for post-confirm provisioning uses `pg_net.http_post` to the edge function with an internal shared secret (`INTERNAL_PROVISION_SECRET`, auto-generated).
+- Feature flag `commercialisation_enabled` in `app_settings` gates the new `/` and `/signup` behaviour so the owner can dark-launch.
 
-Platform admin can force-disable (already covered by existing `PlatformOrganisations`).
-
-### 7. Security probe suite (extend existing two-company probe)
-
-Add persona C: `customer.a@probe.test`, portal user for Customer A in Viva org.
-Matrix asserted:
-| Check | Expected |
-|---|---|
-| Sees Customer A sites in Viva | ✅ |
-| Sees Customer B sites in Viva | ❌ 0 rows |
-| Sees Test Fire Co sites (other org) | ❌ 0 rows |
-| Sees Customer A completed job reports | ✅ shareable ones only |
-| Sees Customer A draft/in-progress jobs | ❌ |
-| Sees Customer A internal reference docs | ❌ |
-| Sees engineer_locations / van_stock / parts_library | ❌ |
-| Sees defects.internal_notes | ❌ (view strips) |
-| Can accept own quote | ✅ |
-| Can accept Customer B quote | ❌ |
-| Can `POST` to admin edge functions (create-user, update-user-details, etc.) | ❌ 403 |
-| Can navigate to `/jobs`, `/planner`, `/settings` | ❌ redirected |
-| Viva staff experience: any change to job counts, reports visible, planner rows | ❌ unchanged |
-
-Probe runs against a seeded fixture and prints the matrix.
-
-### 8. What's out of scope for v1
-
-- Multi-customer portal users (one login → multiple customers)
-- Portal-side messaging / comments
-- Payment of quotes (Accept only)
-- Custom portal domain (uses `/portal` under the main app)
-- Push notifications to customers (email only)
-
----
-
-### Implementation order (turns)
-
-1. **Migration** — enum + all tables/columns/helpers/views/policies + `shareable_with_customer` backfill
-2. **Edge functions** — `invite-customer-portal-user`, `accept-portal-quote`, `portal-download-document` (signed URL minter), `portal-request-visit` (or plain insert with RLS)
-3. **Email template** — `customer-portal-invite` + deploy
-4. **Portal UI** — layout, pages, route guards, App.tsx redirect
-5. **Admin UI** — Invite button on customer contact, org toggle in Settings
-6. **Probe suite extension** — persona C + matrix runner
-
-Confirm this shape and I'll start with the migration.
+Awaiting approval to start executing.
