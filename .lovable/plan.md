@@ -1,141 +1,132 @@
-# RAMS Upgrade Package
+## Customer Portal — external customer contacts as a new user class
 
-Three coordinated features that build on the existing wizard + AI Auto-Fill without touching those flows.
+Because this introduces the first non-staff user class, everything is designed around the assumption that a customer_user is hostile-by-default: they get an authenticated login but must see **nothing** outside their own customer_id within one org.
 
-## Assumptions
+---
 
-- Three RAMS variants coexist in DB: `rams` (dry-riser wizard), `generic_rams` (Generic RAMS page), `rams_documents` (branded/typed variants). The features below apply to all three via a small polymorphic layer keyed on `(rams_kind, rams_id)`.
-- "Library" is per-org, admin-managed. Engineers can pick from it but not edit it.
-- Sign-off is a first-class record: office needs auditability, not just a flag on the PDF.
-- RAMS-required rule lives on `job_categories` (per-org) — one source of truth used by planner + job page + engineer app.
+### 1. Data model (one migration)
 
-## 1. RAMS Library
+**`customer_portal_users`** — the join between an auth user and a single customer within one org.
+Fields: `user_id`, `org_id`, `customer_id`, `email`, `invited_by`, `invited_at`, `accepted_at`, `is_active`, `role` (default `'customer_user'` for now — leaves room for `'customer_admin'` later).
+Unique on `(user_id)` — a portal user belongs to exactly one customer. (Multi-customer portal users are out of scope for v1; if a person represents two customers they get two invites/two logins.)
 
-### Data model (one migration)
+**`app_role` enum** — add `'customer_user'`.
 
-```
-rams_library_items
-  id, org_id, kind ('whole' | 'block'),
-  block_type text NULL,                 -- e.g. 'working_at_height', 'lone_working', 'cosh'
-  work_types text[] NULL,               -- tags for AI matching: ['dry_riser','pressure_test',...]
-  name text, description text,
-  payload jsonb,                        -- for 'whole': full snapshot of a rams row; for 'block': {hazards[], controls[], method_steps[], ppe[], notes}
-  source_rams_kind text NULL, source_rams_id uuid NULL,   -- provenance if saved from a job
-  created_by, created_at, updated_at,
-  archived boolean default false
-```
+**`organisations`** — add `portal_enabled boolean default false`. Off by default per spec.
 
-RLS: org-scoped read for authenticated members; admin-only insert/update/delete.
-GRANTs per house rules.
+**`customer_portal_invites`** — token, org_id, customer_id, email, expires_at, used_at, invited_by. 7-day expiry.
 
-### UI
+**`portal_visit_requests`** — customer_id, site_id, requested_by, preferred_date, notes, status (`new`/`triaged`/`scheduled`/`dismissed`). Feeds the office as flagged enquiries.
 
-- **Settings → RAMS Library** (new page, admin only): tabs "Whole RAMS templates" and "Content blocks". CRUD + preview + archive.
-- **On any RAMS editor**: "Save to library" button (whole) and, on any hazard/method section, a small "Save block" affordance.
-- **On New RAMS**: "Start from library…" picker at the top (whole templates only). Duplicates payload into the new draft.
-- **In RAMS editor sections**: "Insert from library" dropdowns per section (hazards/controls/method/PPE), filtered by matching `work_types`.
+**`shareable_with_customer boolean`** — add to `job_documents`, `customer_paperwork`, `rams_documents`, `historic_reports`. Default:
+- `customer_paperwork` (reports/certificates generated for customer): **true**
+- Everything else: **false**
+Backfill existing customer-facing docs to `true` where `is_customer_facing` / equivalent flag exists; leave rest false.
 
-### AI Auto-Fill composition
+**Helpers (SECURITY DEFINER, `SET search_path = public`):**
+- `is_customer_user(_uid uuid) returns boolean`
+- `customer_user_customer_id(_uid uuid) returns uuid` — the caller's bound customer, or null
+- `customer_user_org_id(_uid uuid) returns uuid`
+- `customer_user_can_see_site(_uid uuid, _site_id uuid) returns boolean` — site.customer_id matches
+- `customer_user_can_see_job(_uid uuid, _job_id uuid) returns boolean` — job.customer_id matches AND job.status in ('completed','invoiced')
 
-Extend `supabase/functions/ai-rams-autofill/index.ts`:
-1. Fetch org's library blocks matching detected work type/ramsType.
-2. Pass them into the system prompt as "prefer these vetted phrasings; only invent text for gaps".
-3. Return `used_block_ids[]` alongside the generated content so UI can show "3 library blocks · 2 AI-generated" attribution chips.
+### 2. RLS — additive, never widening
 
-### Seeding Viva
+For each of the tables below, add a **new** policy `"Customer users read own"` that adds `SELECT` on rows scoped to their customer_id within their org. Existing staff policies stay untouched (staff experience unchanged).
 
-One-off backfill migration that scans existing `rams` / `generic_rams` / `rams_documents` rows in Viva's org, extracts distinct hazard/control/method entries (grouped by category label if present, otherwise clustered by text), and inserts library blocks. Whole-RAMS seeds: one saved snapshot per distinct `rams_type`/`category`.
+- `sites` — where `customer_id = customer_user_customer_id(auth.uid())` AND org matches
+- `jobs` — same, AND `status in ('completed','invoiced')` (never drafts/pending/in-progress)
+- `job_documents` — via job scope AND `shareable_with_customer = true`
+- `customer_paperwork` — via customer_id AND `shareable_with_customer = true`
+- `defects` — via job scope; expose only `title, severity, status, created_at, location_on_site` through a **view** `customer_defect_summary` (see below). Base table SELECT for customer_user = false.
+- `invoices` — where `document_type='quote'` AND `customer_id` matches AND status in ('sent','accepted','declined')
+- `invoice_line_items` — via parent quote
+- `site_service_schedules` / `renewal_reminder_log` — via site scope, next-due only
+- `historic_reports` — customer_id matches AND `shareable_with_customer = true`
+- `customers` — the caller's OWN customer row only
 
-## 2. Engineer RAMS sign-off on mobile
+For **every other** table (engineer_*, van_stock, parts_library, profiles, user_roles, org_status_log, po_intake_*, support_*, price_book_items, notifications, job_messages, submissions, etc.) — add a restrictive check to existing admin/engineer policies OR rely on the fact no customer_user policy is granted (default deny). We do a spot-audit to confirm no accidental `USING (true)` policies swallow customer_users.
 
-### Data model
+**Views for field-hiding:**
+- `customer_defect_summary` — hides internal_notes/recommendation/priority-cost fields
+- `customer_job_summary` — hides internal notes, engineer names, costs
 
-```
-rams_signoffs
-  id, org_id, job_id,
-  rams_kind text, rams_id uuid,
-  engineer_id uuid, engineer_name text,
-  signature_path text,                  -- storage: signatures/<org>/rams/<job>/<user>.png
-  signed_at timestamptz,
-  rams_version int,                     -- snapshot of rams.version at time of signing
-  ip text NULL, user_agent text NULL
-  UNIQUE (rams_id, rams_kind, engineer_id, rams_version)
-```
+Both `WITH (security_invoker=on)` so the caller's RLS still applies.
 
-RLS: engineers can insert their own row for jobs they're assigned to; read own + admins read all in org.
+### 3. Storage
 
-### Mobile flow
+All customer downloads use `createSignedUrl` with 5-min TTL from an Edge Function that first checks `customer_user_can_see_job` / paperwork ownership before minting the URL. No direct bucket policies added for `customer_user`.
 
-- Extend the mobile job view: new "RAMS" section listing every RAMS attached (across the three tables). Each row shows status (`Not signed` / `Signed <date>`) with a "Read & sign" CTA.
-- New component `RamsReadAndSignSheet.tsx`:
-  1. Renders the RAMS PDF inline (reuse existing `RamsPdfExport` preview).
-  2. "I've read & understood" checkbox.
-  3. Signature capture (reuse `SignaturePad`, honour saved signature from `engineer_signatures`).
-  4. Submit → insert `rams_signoffs` + regenerate PDF.
-- Prompt on job open: if RAMS attached but current engineer hasn't signed the latest version, show a blocking-ish banner with "Read & sign" before "Start job".
+Buckets touched: `customer-paperwork`, `job-documents` (only shareable rows), `historic-reports`.
 
-### PDF regeneration
+### 4. Invite flow
 
-Add a "Briefing Record / Signatures" appendix section to all three PDF exporters (`brandedRamsPdf.ts`, `genericRamsPdf.ts`, `ramsPdf.ts`) that reads `rams_signoffs` for the RAMS and prints a signed-by table with embedded signature images. Regeneration triggers on each new sign-off.
+**Admin side:** on Customers → contact card, new "Invite to portal" button (visible only if `organisations.portal_enabled`). Calls `invite-customer-portal-user` Edge Function:
+1. Creates auth user via service role (or reuses if exists in same org)
+2. Assigns `customer_user` role
+3. Inserts `customer_portal_users` row
+4. Sends invite email via existing `send-transactional-email` (`customer-portal-invite` template) with a one-time link
 
-### Office visibility
+**Customer side:** invite link → `/portal/accept?token=...` → sets password → lands on `/portal`.
 
-- Job page RAMS card and planner card get a badge: `RAMS: n/m signed` (green when full, amber when partial, red when zero and required).
-- New "RAMS sign-offs" tab on job detail listing signer, timestamp, version.
+### 5. Portal UI (`/portal/*`)
 
-## 3. RAMS-required flagging
+Separate layout `PortalLayout.tsx` — no admin sidebar; only: My Sites, Documents, Quotes, Request Visit, org logo/branding pulled from `email_branding`.
 
-### Data model
+Pages:
+- `/portal` — dashboard: next 5 due, open quotes count, recent completed reports
+- `/portal/sites` — list, click into per-site: service history (completed jobs table with "Download report" per row), next-due list, open defects (summary view)
+- `/portal/documents` — flat list of shareable docs across their sites, filter by site/date
+- `/portal/quotes` — list; click → view line items + Accept button (calls `accept-portal-quote` edge fn: sets `invoices.status='accepted'`, logs activity, notifies office)
+- `/portal/request-visit` — form: site, preferred date, notes → `portal_visit_requests` insert
 
-- Add `rams_required boolean default false` to `job_categories`.
-- Seed defaults ON for slugs matching install / pressure_test / remedial / commissioning categories.
-- Settings → Job Categories page gets a "RAMS required" toggle per row.
+**Route guard:** `PortalRoute.tsx` — requires session + `is_customer_user(auth.uid()) = true`. Conversely, `AdminRoute`/`EngineerRoute` reject customer_users. Root `App.tsx` redirects customer_users away from `/` to `/portal`.
 
-### Enforcement
+### 6. Org toggle
 
-- Shared helper `useJobRamsStatus(jobId)` returning `{ required, ramsCount, signedCount, missing }` — queries the category + three RAMS tables + `rams_signoffs`.
-- **Job page**: amber warning banner (same visual family as `JobTemplateMismatchBanner`) — "RAMS required — none attached" with "Create RAMS" CTA.
-- **Planner card**: small red dot / tooltip when required & missing.
-- **Scheduling / approving**: when the flag trips, the schedule/approve action opens a confirm dialog requiring explicit "Schedule anyway — RAMS missing" override; override reason logged to `job_activity_log`.
-- **Engineer app**: on job open, if RAMS attached but not signed by current user, prompt to sign before "Start job" (soft-block; can dismiss with "Sign later" that re-prompts on Start).
+Settings → Organisation → "Customer Portal" card: switch bound to `organisations.portal_enabled`. When OFF: invite button hidden, existing portal users get a "Portal disabled by your provider" page, no login redirect to `/portal`.
 
-## Technical file changes
+Platform admin can force-disable (already covered by existing `PlatformOrganisations`).
 
-### New files
-- `supabase/migrations/…_rams_library_signoffs.sql` — 3 tables + RLS + GRANTs + `job_categories.rams_required` column + backfill of defaults.
-- `supabase/migrations/…_seed_viva_rams_library.sql` — extraction/seed for org `11111111-…`.
-- `supabase/functions/save-rams-to-library/index.ts` — normalises a whole RAMS into a library payload.
-- `src/pages/RamsLibrary.tsx` — admin CRUD page (Settings route).
-- `src/components/rams/RamsLibraryPicker.tsx` — "Start from library" / "Insert block" pickers.
-- `src/components/rams/RamsReadAndSignSheet.tsx` — mobile read-and-sign UI.
-- `src/components/rams/RamsSignoffBadge.tsx` — n/m badge.
-- `src/components/rams/RamsSignoffsList.tsx` — signature list for PDFs & job tab.
-- `src/hooks/useJobRamsStatus.ts` — shared status hook.
-- `src/hooks/useRamsLibrary.ts` — org library reads + cache.
+### 7. Security probe suite (extend existing two-company probe)
 
-### Edited files
-- `supabase/functions/ai-rams-autofill/index.ts` — accept library blocks, prefer them.
-- `src/components/AiRamsAutoFill.tsx` — pass library, render attribution chips.
-- `src/pages/RamsEditor.tsx`, `NewRamsPage.tsx`, `GenericRamsPage.tsx` — add library picker + "Save to library" + block insertion.
-- `src/lib/ramsPdf.ts`, `brandedRamsPdf.ts`, `genericRamsPdf.ts` — append signatures section.
-- `src/pages/JobDetail.tsx` — new RAMS card with required warning + sign-off badge + signoffs tab.
-- `src/components/planner/*` — planner-card badge/tooltip when required & missing.
-- Engineer job screen — RAMS section + Start-job gate.
-- Settings pages: Job Categories (rams_required toggle) + nav entry for RAMS Library.
+Add persona C: `customer.a@probe.test`, portal user for Customer A in Viva org.
+Matrix asserted:
+| Check | Expected |
+|---|---|
+| Sees Customer A sites in Viva | ✅ |
+| Sees Customer B sites in Viva | ❌ 0 rows |
+| Sees Test Fire Co sites (other org) | ❌ 0 rows |
+| Sees Customer A completed job reports | ✅ shareable ones only |
+| Sees Customer A draft/in-progress jobs | ❌ |
+| Sees Customer A internal reference docs | ❌ |
+| Sees engineer_locations / van_stock / parts_library | ❌ |
+| Sees defects.internal_notes | ❌ (view strips) |
+| Can accept own quote | ✅ |
+| Can accept Customer B quote | ❌ |
+| Can `POST` to admin edge functions (create-user, update-user-details, etc.) | ❌ 403 |
+| Can navigate to `/jobs`, `/planner`, `/settings` | ❌ redirected |
+| Viva staff experience: any change to job counts, reports visible, planner rows | ❌ unchanged |
 
-### Non-technical summary
+Probe runs against a seeded fixture and prints the matrix.
 
-- A reusable RAMS library so engineers/office start from vetted content instead of a blank page.
-- Engineers read and sign RAMS on their phone before starting; office sees who signed and when.
-- Jobs that legally need a RAMS get an amber warning until one is attached and signed.
+### 8. What's out of scope for v1
 
-## Rollout order (single response, small verifications between)
+- Multi-customer portal users (one login → multiple customers)
+- Portal-side messaging / comments
+- Payment of quotes (Accept only)
+- Custom portal domain (uses `/portal` under the main app)
+- Push notifications to customers (email only)
 
-1. Migration (tables, RLS, category flag, defaults).
-2. Library CRUD + hook.
-3. Editor integrations (start-from + insert-block + save-to-library).
-4. AI Auto-Fill composition update.
-5. Sign-off table + mobile sheet + PDF appendix.
-6. Required-flag enforcement (job page, planner, engineer app gate).
-7. Viva backfill seed migration.
-8. Verify: typecheck, targeted RLS check via psql, and a Playwright pass on the admin RAMS Library page and the engineer sign-off sheet.
+---
+
+### Implementation order (turns)
+
+1. **Migration** — enum + all tables/columns/helpers/views/policies + `shareable_with_customer` backfill
+2. **Edge functions** — `invite-customer-portal-user`, `accept-portal-quote`, `portal-download-document` (signed URL minter), `portal-request-visit` (or plain insert with RLS)
+3. **Email template** — `customer-portal-invite` + deploy
+4. **Portal UI** — layout, pages, route guards, App.tsx redirect
+5. **Admin UI** — Invite button on customer contact, org toggle in Settings
+6. **Probe suite extension** — persona C + matrix runner
+
+Confirm this shape and I'll start with the migration.
