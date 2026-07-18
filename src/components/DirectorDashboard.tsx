@@ -360,7 +360,7 @@ export default function DirectorDashboard() {
       <SetupChecklist />
 
       {/* ── Needs me today ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         <ActionCard
           title="Awaiting approval"
           icon={AlertCircle}
@@ -401,6 +401,7 @@ export default function DirectorDashboard() {
             </Button>
           </CardContent>
         </Card>
+        <RenewalsTile />
       </div>
 
       {/* ── Recent activity (always visible) ─────────────────────────── */}
