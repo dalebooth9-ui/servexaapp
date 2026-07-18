@@ -144,9 +144,26 @@ export default function SignupPage() {
                 <Label htmlFor="code">Invitation code</Label>
                 <Input id="code" value={code} onChange={(e) => setCode(e.target.value)} required placeholder="e.g. FIRETECH-2026" autoComplete="off" />
                 {codeStatus?.valid && (
-                  <p className="text-xs text-primary flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" /> Valid invitation{codeStatus.note ? ` — ${codeStatus.note}` : ""}
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-xs text-primary flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Valid invitation{codeStatus.note ? ` — ${codeStatus.note}` : ""}
+                    </p>
+                    {codeStatus.pricePence ? (
+                      <div className="rounded-md border border-primary/30 bg-primary/5 p-2 text-xs">
+                        <span className="flex items-center gap-1 font-medium text-primary">
+                          <Sparkles className="h-3 w-3" />
+                          {codeStatus.priceNote || "Founder rate"} · {penceToPoundsDisplay(codeStatus.pricePence)}/mo
+                        </span>
+                        <span className="text-muted-foreground block mt-0.5">
+                          Standard price for this band is £{LAUNCH_BAND.monthlyPriceGbp}/mo. This discount is applied automatically at checkout.
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {LAUNCH_BAND.label} · £{LAUNCH_BAND.monthlyPriceGbp}/mo flat — whole team included.
+                      </p>
+                    )}
+                  </div>
                 )}
                 {codeStatus?.valid === false && (
                   <p className="text-xs text-destructive">That code isn't valid or has been used.</p>
