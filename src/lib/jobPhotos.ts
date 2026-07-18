@@ -49,6 +49,11 @@ type LoadOpts = {
    * A submission is skipped if its storage path appears in this set.
    */
   excludePaths?: Set<string>;
+  /**
+   * When provided, only photos whose `JobPhoto.id` is in this set are loaded.
+   * Used by the export dialog picker so exports honour the user's ticks.
+   */
+  includeIds?: Set<string>;
   /** Max output pixels on the longer edge (default 1400). */
   maxEdgePx?: number;
   /** JPEG quality 0..1 (default 0.72). */
