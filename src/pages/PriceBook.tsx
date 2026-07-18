@@ -43,6 +43,7 @@ export default function PriceBook() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Item | null>(null);
   const [form, setForm] = useState<Omit<Item, "id">>(EMPTY);
   const [busy, setBusy] = useState(false);
@@ -73,11 +74,13 @@ export default function PriceBook() {
   const openNew = () => {
     setEditing(null);
     setForm(EMPTY);
+    setDialogOpen(true);
   };
   const openEdit = (it: Item) => {
     setEditing(it);
     const { id, ...rest } = it;
     setForm(rest);
+    setDialogOpen(true);
   };
 
   const save = async () => {
@@ -110,6 +113,7 @@ export default function PriceBook() {
     setBusy(false);
     if (err) return toast.error(err.message);
     toast.success(editing ? "Updated" : "Added");
+    setDialogOpen(false);
     setEditing(null);
     setForm(EMPTY);
     load();
@@ -131,15 +135,12 @@ export default function PriceBook() {
             <BookOpen className="h-6 w-6 text-primary" /> Price Book
           </h1>
           <p className="text-sm text-muted-foreground">
-            Reusable remedial line items — supply &amp; fit valves, replace caps, signage, etc.
-            Referenced when drafting quotes from defects.
+            Reusable remedial line items — used when drafting quotes from defects.
           </p>
         </div>
-        <Dialog open={editing !== null || (form !== EMPTY && !loading && form.description === "" ? false : false) ? false : undefined}>
-          <Button onClick={openNew} size="sm" className="gap-1">
-            <Plus className="h-4 w-4" /> New line
-          </Button>
-        </Dialog>
+        <Button onClick={openNew} size="sm" className="gap-1">
+          <Plus className="h-4 w-4" /> New line
+        </Button>
       </div>
 
       <div className="relative max-w-sm">
@@ -227,12 +228,10 @@ export default function PriceBook() {
         </div>
       )}
 
-      <Dialog
-        open={editing !== null || busy || form.description !== "" || form.code !== "" || form.category !== "" || form.notes !== "" || Number(form.unit_price) > 0 || form.unit !== "each" || !form.is_active}
-        onOpenChange={(open) => {
-          if (!open) { setEditing(null); setForm(EMPTY); }
-        }}
-      >
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        setDialogOpen(open);
+        if (!open) { setEditing(null); setForm(EMPTY); }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editing ? "Edit price line" : "New price line"}</DialogTitle>
@@ -301,9 +300,7 @@ export default function PriceBook() {
             </label>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setEditing(null); setForm(EMPTY); }}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button onClick={save} disabled={busy}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
             </Button>
