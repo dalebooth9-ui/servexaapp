@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -15,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import {
-  AlertTriangle, CheckCircle2, Loader2, Search, Camera, ArrowRight,
+  AlertTriangle, CheckCircle2, Loader2, Search, Camera, ArrowRight, FileText,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
