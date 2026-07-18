@@ -83,6 +83,13 @@ export default function ReferenceFilesDropzone(props: Props) {
 
   return (
     <div
+      role="button"
+      tabIndex={uploading ? -1 : 0}
+      aria-label="Choose or drop reference files"
+      onKeyDown={(e) => {
+        if (uploading) return;
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); }
+      }}
       onDragEnter={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -104,7 +111,7 @@ export default function ReferenceFilesDropzone(props: Props) {
         if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
       }}
       onClick={() => !uploading && inputRef.current?.click()}
-      className={`flex items-center gap-2 rounded-md border border-dashed cursor-pointer transition-colors ${
+      className={`flex items-center gap-2 rounded-md border border-dashed cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
         dragOver
           ? "border-primary bg-primary/10"
           : "border-muted-foreground/30 hover:border-primary/40 hover:bg-primary/5"

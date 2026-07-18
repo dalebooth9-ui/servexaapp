@@ -344,11 +344,18 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
   return (
     <>
       <div
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-label="Choose or drop a document to extract site details"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onClick={() => !disabled && fileRef.current?.click()}
-        className={`relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 text-center cursor-pointer transition-colors
+        onKeyDown={(e) => {
+          if (disabled) return;
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileRef.current?.click(); }
+        }}
+        className={`relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 text-center cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary
           ${isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30"}
           ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
       >
@@ -368,7 +375,7 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
         ) : (
           <>
             <FileText className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm font-medium">Drop a PDF or Word document here</p>
+            <p className="text-sm font-medium">Drop a file here or tap to choose — PDF or Word</p>
             <p className="text-xs text-muted-foreground">AI extracts sites & systems — multiple systems at one address become sub-records</p>
             <Button variant="outline" size="sm" className="mt-1 pointer-events-none gap-2">
               <Upload className="h-3.5 w-3.5" /> Browse file

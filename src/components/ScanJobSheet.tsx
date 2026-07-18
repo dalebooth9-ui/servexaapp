@@ -828,8 +828,12 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
             <TabsContent value="upload" className="mt-3">
               {images.length === 0 ? (
                 <div
-                  className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragOver ? "border-primary bg-primary/5 text-primary" : "border-border hover:bg-muted/50"}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Take a photo, choose files, or drop images"
+                  className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isDragOver ? "border-primary bg-primary/5 text-primary" : "border-border hover:bg-muted/50"}`}
                   onClick={() => fileRef.current?.click()}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileRef.current?.click(); } }}
                   onDragEnter={(e) => { e.preventDefault(); dragCounterRef.current++; setIsDragOver(true); }}
                   onDragLeave={(e) => { e.preventDefault(); dragCounterRef.current--; if (dragCounterRef.current === 0) setIsDragOver(false); }}
                   onDragOver={(e) => e.preventDefault()}
@@ -837,7 +841,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
                 >
                   <Camera className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                   <p className="text-sm font-medium">{isDragOver ? "Drop files here" : "Take Photo or Upload Image"}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Drag & drop images or PDFs here, or click to browse — up to 5 pages</p>
+                  <p className="text-xs text-muted-foreground mt-1">Drop images or PDFs here or tap to choose — camera, files or photo library</p>
                 </div>
               ) : (
                 <div
