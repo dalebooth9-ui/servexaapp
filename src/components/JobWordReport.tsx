@@ -226,7 +226,7 @@ export default function JobWordReport({ jobId, job }: Props) {
       ]);
 
       // Honour user's sheet ticks from the picker (empty = none).
-      const filteredSheets = ((filteredSheetsRes.data || []) as any[]).filter((s) =>
+      const filteredSheets = ((sheetsRes.data || []) as any[]).filter((s) =>
         selectedSheetIds.size === 0 ? false : selectedSheetIds.has(s.id),
       );
       const filteredSheetsRes = { data: filteredSheets, error: sheetsRes.error };
