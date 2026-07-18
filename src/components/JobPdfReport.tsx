@@ -1187,7 +1187,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       }
 
       // Trigger download of the (possibly merged) bytes.
-      const blob = new Blob([finalBytes], { type: "application/pdf" });
+      const blob = new Blob([finalBytes as BlobPart], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
