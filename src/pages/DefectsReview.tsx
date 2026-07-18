@@ -51,6 +51,7 @@ const SEVERITY_ORDER: Record<string, number> = {
 
 export default function DefectsReview() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [defects, setDefects] = useState<Defect[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -62,6 +63,9 @@ export default function DefectsReview() {
   const [resolving, setResolving] = useState<Defect | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [draftingQuote, setDraftingQuote] = useState(false);
 
   const [lightboxPhotos, setLightboxPhotos] = useState<{ id: string; url: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
