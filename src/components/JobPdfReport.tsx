@@ -514,8 +514,14 @@ export default function JobPdfReport({ jobId, job }: Props) {
           latestByTemplate.set(r.template_id, r);
         }
       }
-      const sheetResponses = Array.from(latestByTemplate.values());
-      console.log("[JobPdfReport] sheet responses", { total: allSheetResponses.length, deduped: sheetResponses.length });
+      let sheetResponses = Array.from(latestByTemplate.values());
+      // Honour the user's sheet ticks from the picker (empty set = none).
+      if (selectedSheetIds.size > 0) {
+        sheetResponses = sheetResponses.filter((r) => selectedSheetIds.has(r.id));
+      } else {
+        sheetResponses = [];
+      }
+      console.log("[JobPdfReport] sheet responses", { total: allSheetResponses.length, selected: sheetResponses.length });
       const templates = (templatesRes.data || []) as any[];
 
       const templateMap: Record<string, any> = {};
