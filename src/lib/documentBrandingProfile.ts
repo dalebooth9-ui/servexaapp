@@ -1,19 +1,20 @@
 /**
  * Single-source-of-truth branding resolver for PDF documents.
  *
- * Historically each PDF generator (JobSheetPdfExport, JobPdfReport,
- * CustomerReportPdf) resolved the header logo, accent colour, and watermark
- * tint independently. That let a customer-branded template (e.g. Besseges)
- * render with the customer's tinted flame watermark AND a Viva Fire header —
- * mixed branding. This resolver forces one profile per document: header logo,
- * watermark tint, and footer all derive from the SAME image source.
+ * One profile per document — the header logo, watermark tint, accreditation
+ * strip, and footer must all come from the same source. Priority:
  *
- * Priority for the logo image:
  *   1. Template-level branding override (`template.branding.logo_url`)
  *      — set when a template is explicitly customer-branded.
  *   2. Customer record logo (`customer.logo_url`)
  *      — set when the job's customer has uploaded a logo.
  *   3. Default Viva Fire logo.
+ *
+ * The watermark accent colour prefers the customer's saved `brand_colour`
+ * (hex) so we can tint the STANDARD flame graphic per-customer without
+ * shipping bespoke watermark images. If no brand_colour is set but the
+ * customer is otherwise branded, we fall back to a neutral grey; if the
+ * customer isn't branded at all we extract from the org logo as before.
  */
 
 import { getBrandColorFromLogo, type RgbTriple } from "@/lib/extractLogoColors";
@@ -25,9 +26,11 @@ export type DocumentBrandingProfile = {
   logoUrl: string;
   /** Loaded image element for the resolved logo (null if load failed). */
   logoImage: HTMLImageElement | null;
-  /** Accent RGB extracted from `logoImage`, used to tint the watermark. */
+  /** Accent RGB used to tint the watermark. Either the customer's saved
+   *  `brand_colour`, extracted from `logoImage`, or a neutral grey. */
   accentColor: RgbTriple;
-  /** True when a non-default (customer-specific) logo was resolved. */
+  /** True when a customer branding profile is in effect (customer had a
+   *  logo_url or brand_colour). Turns off the org's accreditation strip. */
   isCustomerBranded: boolean;
   /** Header company name to display (may be undefined for default). */
   companyName?: string;
@@ -49,8 +52,25 @@ export type BrandingInput = {
   customer?: {
     name?: string | null;
     logo_url?: string | null;
+    brand_colour?: string | null;
   } | null;
 };
+
+/** Neutral grey used when a customer is branded but has no brand_colour. */
+const NEUTRAL_GREY: RgbTriple = [140, 140, 140];
+
+/** Parse `#rrggbb` (or `#rgb`) to an RgbTriple, or null if unparseable. */
+export function parseHexColor(hex?: string | null): RgbTriple | null {
+  if (!hex) return null;
+  let h = hex.trim().replace(/^#/, "");
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
+}
 
 async function loadImage(url: string): Promise<HTMLImageElement | null> {
   try {
@@ -72,14 +92,28 @@ export async function resolveDocumentBrandingProfile(
 ): Promise<DocumentBrandingProfile> {
   const templateLogo = input.template?.branding?.logo_url?.trim() || "";
   const customerLogo = input.customer?.logo_url?.trim() || "";
+  const customerBrandColour = parseHexColor(input.customer?.brand_colour);
 
   // Template branding wins so customer-branded templates stay consistent
   // even when the customer record has its own (differently sized) logo.
   const resolvedUrl = templateLogo || customerLogo || DEFAULT_LOGO_URL;
-  const isCustomerBranded = Boolean(templateLogo || customerLogo);
+  const isCustomerBranded =
+    Boolean(templateLogo || customerLogo) || Boolean(customerBrandColour);
 
   const logoImage = await loadImage(resolvedUrl);
-  const accentColor = getBrandColorFromLogo(logoImage, isCustomerBranded);
+
+  // Colour resolution: explicit brand_colour wins for customer-branded docs.
+  // Otherwise, for the org's own docs we extract from the org logo; for a
+  // customer-branded doc with no brand_colour we use neutral grey rather than
+  // guessing a colour off their logo (which often produced garish tints).
+  let accentColor: RgbTriple;
+  if (customerBrandColour) {
+    accentColor = customerBrandColour;
+  } else if (isCustomerBranded) {
+    accentColor = NEUTRAL_GREY;
+  } else {
+    accentColor = getBrandColorFromLogo(logoImage, false);
+  }
 
   return {
     logoUrl: resolvedUrl,
