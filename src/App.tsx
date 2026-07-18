@@ -223,6 +223,11 @@ const App = () => (
               <Route path="/install" element={<Suspense fallback={<PageFallback />}><Install /></Suspense>} />
               <Route path="/sign-off" element={<Suspense fallback={<PageFallback />}><CustomerSignOff /></Suspense>} />
               <Route path="/portal" element={<Suspense fallback={<PageFallback />}><CustomerPortal /></Suspense>} />
+              <Route path="/customer-portal" element={<Suspense fallback={<PageFallback />}><PortalLayout /></Suspense>}>
+                <Route index element={<Suspense fallback={<PageFallback />}><PortalHome /></Suspense>} />
+                <Route path="documents" element={<Suspense fallback={<PageFallback />}><PortalDocuments /></Suspense>} />
+                <Route path="quotes" element={<Suspense fallback={<PageFallback />}><PortalQuotes /></Suspense>} />
+              </Route>
               <Route path="/quote-approval" element={<Suspense fallback={<PageFallback />}><QuoteApproval /></Suspense>} />
               <Route path="/reports/engineers" element={<AdminRoute><EngineerReport /></AdminRoute>} />
               <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
