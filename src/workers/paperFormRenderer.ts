@@ -315,11 +315,18 @@ export function renderPaperFormPage(
     doc.text(clipped, detailX, detailY + i * 4.2);
   });
 
-  // RIGHT top row: DATE | PO NUMBER
+  // RIGHT top row: DATE | PO NUMBER (or REF when there is no customer PO)
+  // Print the label honestly: the internal VFP-/TM- reference must never
+  // masquerade as a customer PO number.
+  const custPoRaw = (jobInfo?.customer_po || "").toString().trim();
+  const intRefRaw = (jobInfo?.reference_number || "").toString().trim();
+  const showAsPo = !!custPoRaw;
+  const poLabel = showAsPo ? "PO NUMBER:" : "REF:";
+  const poVal = showAsPo ? custPoRaw : intRefRaw;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.text("DATE:", rightX + 2, detailsTop + 3.2);
-  doc.text("PO NUMBER:", rightSplitX + 2, detailsTop + 3.2);
+  doc.text(poLabel, rightSplitX + 2, detailsTop + 3.2);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   const dateStr = (() => {
@@ -332,9 +339,6 @@ export function renderPaperFormPage(
     } catch { return String(iso); }
   })();
   doc.text(dateStr, rightX + 2, detailsTop + 6.2);
-  // PO NUMBER cell prefers the CUSTOMER PO; falls back to our VFP- ref only
-  // when the job has no customer PO on file.
-  const poVal = (jobInfo?.customer_po || jobInfo?.reference_number || "").toString();
   doc.text(doc.splitTextToSize(poVal, rightW * 0.58 - 4).slice(0, 1)[0] || "", rightSplitX + 2, detailsTop + 6.2);
 
   // RIGHT row 2: RISER LOCATION
