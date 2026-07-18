@@ -27,6 +27,7 @@ import {
   FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy, Lock, Unlock, RotateCcw, FileJson, Download,
 } from "lucide-react";
 import JobSheetPdfExport from "./JobSheetPdfExport";
+import SignatureCapture from "./SignatureCapture";
 import BlankTemplatePdfExport from "./BlankTemplatePdfExport";
 import PreviousReportPanel from "./PreviousReportPanel";
 import ScanJobSheet from "./ScanJobSheet";
