@@ -41,6 +41,7 @@ import {
 } from "@/lib/pdfBody";
 import { fetchCustomerAccreditationLogos } from "@/lib/pdfAccreditations";
 import { getDefaultFooterText } from "@/lib/pdfFooter";
+import ExportBundlePickerDialog, { type ExportBundleSelection } from "@/components/exports/ExportBundlePickerDialog";
 
 interface Props {
   jobId: string;
@@ -201,10 +202,15 @@ function buildRepeatingTable(field: any, rowsIn: any[]): (Paragraph | Table)[] {
 
 export default function JobWordReport({ jobId, job }: Props) {
   const [generating, setGenerating] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const generate = async () => {
+  const generate = async (sel: ExportBundleSelection) => {
+    setDialogOpen(false);
     setGenerating(true);
+    const selectedPhotoIds = sel.photoIds;
+    const selectedSheetIds = sel.sheetIds;
+    const includePhotos = sel.includePhotos;
     try {
       const custName = job.customers?.name || job.customer || "";
       const [visitsRes, partsRes, assignRes, sigRes, sheetsRes, subsRes, accredUrls] = await Promise.all([
@@ -219,6 +225,12 @@ export default function JobWordReport({ jobId, job }: Props) {
         fetchCustomerAccreditationLogos(custName),
       ]);
 
+      // Honour user's sheet ticks from the picker (empty = none).
+      const filteredSheets = ((sheetsRes.data || []) as any[]).filter((s) =>
+        selectedSheetIds.size === 0 ? false : selectedSheetIds.has(s.id),
+      );
+      const filteredSheetsRes = { data: filteredSheets, error: sheetsRes.error };
+
       const engIds = [...new Set((assignRes.data || []).map((a: any) => a.engineer_id))];
       let engineerNames: string[] = [];
       if (engIds.length > 0) {
@@ -227,7 +239,7 @@ export default function JobWordReport({ jobId, job }: Props) {
       }
 
       // Load templates for each response (name + fields + branding).
-      const tplIds = [...new Set((sheetsRes.data || []).map((s: any) => s.template_id).filter(Boolean))];
+      const tplIds = [...new Set((filteredSheetsRes.data || []).map((s: any) => s.template_id).filter(Boolean))];
       const templatesById: Record<string, { name: string; fields: PdfTemplateField[] }> = {};
       if (tplIds.length) {
         const { data: tpls } = await supabase
@@ -273,7 +285,7 @@ export default function JobWordReport({ jobId, job }: Props) {
       // Fallback engineer signature from library (matches PDF behaviour).
       if (!sigEntries.some((s) => s.role.toLowerCase().includes("engineer"))) {
         // Prefer technician_name captured in the response over assigned-engineer list.
-        const techFromSheet = ((sheetsRes.data as any[]) || [])
+        const techFromSheet = ((filteredSheetsRes.data as any[]) || [])
           .map((row: any) => (row?.responses?.technician_name || "").toString().trim())
           .find((v: string) => v.length > 0);
         const techName = techFromSheet || engineerNames[0];
@@ -372,7 +384,7 @@ export default function JobWordReport({ jobId, job }: Props) {
 
       // Template-driven job-sheet responses — use field labels + section order
       // exactly like the PDF, and skip fields already rendered in the header.
-      const sheets = (sheetsRes.data as any[]) || [];
+      const sheets = (filteredSheetsRes.data as any[]) || [];
       for (const sheet of sheets) {
         const tpl = templatesById[sheet.template_id];
         if (!tpl || !Array.isArray(tpl.fields) || tpl.fields.length === 0) continue;
@@ -490,10 +502,12 @@ export default function JobWordReport({ jobId, job }: Props) {
         }
       }
 
-      // Photos / evidence — attached job photos (Photos tab & per-item)
+      // Photos / evidence — honour picker selection (empty = skip section).
       try {
         const { loadJobPhotosForPdf } = await import("@/lib/jobPhotos");
-        const jobPhotos = await loadJobPhotosForPdf({ jobId });
+        const jobPhotos = includePhotos && selectedPhotoIds.size > 0
+          ? await loadJobPhotosForPdf({ jobId, includeIds: selectedPhotoIds })
+          : [];
         if (jobPhotos.length > 0) {
           children.push(sectionHeading(`Photos / Evidence (${jobPhotos.length})`));
           // 2-column table of images with captions.
@@ -643,9 +657,19 @@ export default function JobWordReport({ jobId, job }: Props) {
   };
 
   return (
-    <Button size="sm" variant="outline" onClick={generate} disabled={generating}>
-      {generating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileText className="mr-1.5 h-4 w-4" />}
-      Export to Word
-    </Button>
+    <>
+      <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)} disabled={generating}>
+        {generating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileText className="mr-1.5 h-4 w-4" />}
+        Export to Word
+      </Button>
+      <ExportBundlePickerDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        jobId={jobId}
+        confirmLabel="Generate Word"
+        generating={generating}
+        onConfirm={generate}
+      />
+    </>
   );
 }
