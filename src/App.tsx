@@ -170,6 +170,8 @@ const App = () => (
               <Route path="/auth" element={<AuthRoute />} />
               <Route path="/.lovable/oauth/consent" element={<Suspense fallback={<PageFallback />}><OAuthConsent /></Suspense>} />
               <Route path="/offline" element={<Suspense fallback={<PageFallback />}><Offline /></Suspense>} />
+              <Route path="/landing" element={<Suspense fallback={<PageFallback />}><LandingPage /></Suspense>} />
+              <Route path="/pricing" element={<Suspense fallback={<PageFallback />}><PricingPage /></Suspense>} />
               <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
               <Route path="/my-timesheet" element={<ProtectedRoute><MyTimesheet /></ProtectedRoute>} />
