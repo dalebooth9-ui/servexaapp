@@ -89,10 +89,9 @@ export default function EngineerNextStepBar({
     }
 
     const { count: subCount } = await supabase
-      .from("job_submissions" as any)
+      .from("submissions")
       .select("id", { count: "exact", head: true })
-      .eq("job_id", jobId)
-      .eq("engineer_id", user.id);
+      .eq("job_id", jobId);
     setSheetSubmitted((subCount || 0) > 0);
   };
 
