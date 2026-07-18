@@ -8,7 +8,7 @@ import { Download, FileText } from "lucide-react";
 
 interface DocRow {
   id: string; job_id: string; document_type: string | null; file_name: string | null;
-  file_path: string | null; storage_bucket: string | null; created_at: string;
+  file_url: string | null; label: string | null; created_at: string;
 }
 
 export default function PortalDocuments() {
