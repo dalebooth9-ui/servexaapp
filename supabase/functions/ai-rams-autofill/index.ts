@@ -30,6 +30,40 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    // Pull the caller's org so we compose from their RAMS Library.
+    const { data: userRes } = await supabase.auth.getUser(token);
+    const uid = userRes?.user?.id;
+    let orgId: string | null = null;
+    if (uid) {
+      const { data: prof } = await supabase.from("profiles").select("org_id").eq("id", uid).maybeSingle();
+      orgId = (prof as any)?.org_id || null;
+    }
+
+    // Fetch library blocks matching this work type (or generic ones with no work_types).
+    let libraryBlocks: any[] = [];
+    if (orgId) {
+      const { data: blocks } = await supabase
+        .from("rams_library_items")
+        .select("name, work_types, payload")
+        .eq("org_id", orgId)
+        .eq("kind", "block")
+        .eq("archived", false);
+      libraryBlocks = ((blocks as any) || []).filter((b: any) =>
+        !b.work_types?.length || (ramsType && b.work_types.includes(ramsType)),
+      );
+    }
+
+    const librarySnippet = libraryBlocks.length
+      ? `\n\nUse the following vetted library blocks as source-of-truth. PREFER these exact lines for any hazard/control they cover; only invent new lines for gaps. Library:\n${
+          libraryBlocks
+            .map(
+              (b) =>
+                `• ${b.name}\n   hazards: ${(b.payload?.hazards || []).join(" | ")}\n   controls: ${(b.payload?.controls || []).join(" | ")}\n   method: ${(b.payload?.method_steps || []).join(" | ")}\n   ppe: ${(b.payload?.ppe || []).join(", ")}`,
+            )
+            .join("\n")
+        }`
+      : "";
+
     const systemPrompt = `You are a fire safety RAMS (Risk Assessment and Method Statement) expert.
 Generate professional, compliance-ready RAMS content for UK fire safety work.
 Return ONLY valid JSON matching this exact schema with no markdown wrapping:
