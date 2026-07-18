@@ -866,6 +866,7 @@ export default function CustomerDetail() {
       {isAdmin && (
         <div className="flex flex-wrap gap-2">
           <CustomerPortalLink customerId={id!} customerEmail={customer.email} customerName={customer.name} />
+          <InvitePortalButton customerId={id!} customerName={customer.name} />
         </div>
       )}
 
