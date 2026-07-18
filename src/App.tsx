@@ -94,8 +94,11 @@ const FleetVehicles = lazy(() => import("@/pages/FleetVehicles"));
 const PlatformOrganisations = lazy(() => import("@/pages/PlatformOrganisations"));
 const PlatformSupportInbox = lazy(() => import("@/pages/PlatformSupportInbox"));
 const MyTickets = lazy(() => import("@/pages/MyTickets"));
+const LandingPage = lazy(() => import("@/pages/LandingPage"));
+const PricingPage = lazy(() => import("@/pages/PricingPage"));
 // Hidden emergency route — no visible entry. Reach via direct URL.
 const StorageMigrationPanel = lazy(() => import("@/components/StorageMigrationPanel"));
+import CookieBanner from "@/components/CookieBanner";
 
 const queryClient = new QueryClient();
 
@@ -167,6 +170,8 @@ const App = () => (
               <Route path="/auth" element={<AuthRoute />} />
               <Route path="/.lovable/oauth/consent" element={<Suspense fallback={<PageFallback />}><OAuthConsent /></Suspense>} />
               <Route path="/offline" element={<Suspense fallback={<PageFallback />}><Offline /></Suspense>} />
+              <Route path="/landing" element={<Suspense fallback={<PageFallback />}><LandingPage /></Suspense>} />
+              <Route path="/pricing" element={<Suspense fallback={<PageFallback />}><PricingPage /></Suspense>} />
               <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
               <Route path="/my-timesheet" element={<ProtectedRoute><MyTimesheet /></ProtectedRoute>} />
@@ -250,6 +255,7 @@ const App = () => (
             <OfflineIndicator />
             <PWAPrompts />
             <ConflictResolutionDialog />
+            <CookieBanner />
           </AuthProvider>
         </ErrorBoundary>
       </BrowserRouter>
