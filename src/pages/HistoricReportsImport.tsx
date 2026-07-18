@@ -450,6 +450,9 @@ export default function HistoricReportsImport() {
 
       {/* Drop zone */}
       <div
+        role="button"
+        tabIndex={0}
+        aria-label="Choose or drop legacy report files"
         onDragEnter={(e) => {
           e.preventDefault();
           setDragOver(true);
@@ -462,7 +465,10 @@ export default function HistoricReportsImport() {
           if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
         }}
         onClick={() => fileRef.current?.click()}
-        className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 cursor-pointer transition-colors ${
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileRef.current?.click(); }
+        }}
+        className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
           dragOver
             ? "border-primary bg-primary/5"
             : "border-muted-foreground/25 hover:border-primary/50"
@@ -470,8 +476,8 @@ export default function HistoricReportsImport() {
       >
         <Upload className="h-8 w-8 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">
-          Drop legacy reports here, or{" "}
-          <span className="text-primary font-medium">click to browse</span>
+          Drop legacy reports here or{" "}
+          <span className="text-primary font-medium">tap to choose</span>
         </p>
         <p className="text-xs text-muted-foreground">
           Accepted: {ACCEPTED_EXT.join(", ")} — no limit per batch
