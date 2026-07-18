@@ -795,8 +795,11 @@ export default function JobPdfReport({ jobId, job }: Props) {
         y += 6;
       }
 
-      // ── JOB SHEET RESPONSES ──
-      if (includeJobSheets && sheetResponses.length > 0) {
+      // ── JOB SHEET RESPONSES (tabular fallback) ──
+      // Skipped when the user opted to embed the *filled* sheet report(s)
+      // at the top of the export via pdf-lib merge — those render as the
+      // full customer sheet PDF and this compact table would just duplicate.
+      if (!includeFilledSheets && sheetResponses.length > 0) {
         for (const resp of sheetResponses) {
           const tpl = templateMap[resp.template_id];
           if (!tpl) continue;
