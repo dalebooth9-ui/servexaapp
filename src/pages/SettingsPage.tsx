@@ -12,6 +12,7 @@ import { QRCodeSVG } from "qrcode.react";
 import ComplianceReminderSettings from "@/components/ComplianceReminderSettings";
 import XeroSettings from "@/components/XeroSettings";
 import RamsTemplateSettings from "@/components/RamsTemplateSettings";
+import RenewalsSettingsCard from "@/components/settings/RenewalsSettingsCard";
 import FollowUpReminderSettings from "@/components/FollowUpReminderSettings";
 import EmailDeliveryTestCard from "@/components/EmailDeliveryTestCard";
 // StorageMigrationPanel intentionally not imported — one-off migration completed.
