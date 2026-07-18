@@ -1743,6 +1743,7 @@ export type Database = {
         Row: {
           accreditation_logos: string[]
           address: string | null
+          brand_colour: string | null
           created_at: string
           created_by: string | null
           email: string | null
@@ -1760,6 +1761,7 @@ export type Database = {
         Insert: {
           accreditation_logos?: string[]
           address?: string | null
+          brand_colour?: string | null
           created_at?: string
           created_by?: string | null
           email?: string | null
@@ -1777,6 +1779,7 @@ export type Database = {
         Update: {
           accreditation_logos?: string[]
           address?: string | null
+          brand_colour?: string | null
           created_at?: string
           created_by?: string | null
           email?: string | null

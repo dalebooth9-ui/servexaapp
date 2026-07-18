@@ -12,9 +12,14 @@ const DEFAULT_ACCREDITATION_LOGOS = [
 ];
 
 /**
- * Fetch accreditation logo URLs for a customer from the database.
- * If the customer has their own, return those.
- * If they have none, fall back to the default Viva Fire accreditation logos.
+ * Fetch accreditation logo URLs for a customer's PDF pack.
+ *
+ * Branding rule: accreditations are CLAIMS held by whoever's brand is on the
+ * document. If the customer is branded (has a logo, brand_colour, or any
+ * accreditation_logos of their own) we render ONLY their accreditations —
+ * an empty list means no strip at all. Viva's badges must never appear on
+ * another company's paperwork. If the customer has no branding whatsoever
+ * we fall back to Viva Fire's own accreditation logos.
  */
 export async function fetchCustomerAccreditationLogos(
   customerName?: string | null
@@ -23,11 +28,13 @@ export async function fetchCustomerAccreditationLogos(
   try {
     const { data } = await supabase
       .from("customers")
-      .select("accreditation_logos")
+      .select("accreditation_logos, logo_url, brand_colour")
       .ilike("name", customerName)
       .maybeSingle();
-    const logos = (data as any)?.accreditation_logos as string[] | undefined;
-    if (logos && logos.length > 0) return logos;
+    const row = data as any;
+    const logos = (row?.accreditation_logos as string[] | undefined) || [];
+    const isCustomerBranded = Boolean(row?.logo_url) || Boolean(row?.brand_colour) || logos.length > 0;
+    if (isCustomerBranded) return logos; // may be []; suppress org accreditations
     return DEFAULT_ACCREDITATION_LOGOS;
   } catch {
     return DEFAULT_ACCREDITATION_LOGOS;
