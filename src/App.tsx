@@ -44,6 +44,7 @@ const PaperScanQueue = lazy(() => import("@/pages/PaperScanQueue"));
 const PartsLibrary = lazy(() => import("@/pages/PartsLibrary"));
 const VanStock = lazy(() => import("@/pages/VanStock"));
 const IndustryTemplates = lazy(() => import("@/pages/IndustryTemplates"));
+const PriceBook = lazy(() => import("@/pages/PriceBook"));
 const Install = lazy(() => import("@/pages/Install"));
 const CustomerSignOff = lazy(() => import("@/pages/CustomerSignOff"));
 const CustomerPortal = lazy(() => import("@/pages/CustomerPortal"));
