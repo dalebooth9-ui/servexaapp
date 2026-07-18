@@ -293,24 +293,26 @@ export async function generateJobSheetPdf(
       customerLogoUrl = (freshJob as any)?.customers?.logo_url || null;
     } catch { /* use null */ }
   }
-  // Dry Riser sheets: force Viva Fire branding regardless of customer logo, to match
-  // the Industry Templates page version (single source of truth for template look).
-  const branding = isDryRiser
-    ? { ...(template.branding || {}), logo_url: "/vivafire-logo.png" }
-    : { ...(template.branding || {}), logo_url: customerLogoUrl || template.branding?.logo_url || undefined };
-  const footerText = getDefaultFooterText(template.name, branding, template.footer_text);
 
-  // --- Load customer logo and extract dominant brand colour ---
-  let brandLogoImg: HTMLImageElement | null = null;
-  if (customerLogoUrl) {
-    try {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(); img.src = customerLogoUrl; });
-      brandLogoImg = img;
-    } catch { /* use default colour */ }
-  }
-  const accentColor = getBrandColorFromLogo(brandLogoImg, !!customerLogoUrl);
+  // Resolve ONE branding profile per document — header logo, watermark tint,
+  // and footer all derive from the same source. Prevents mixed branding
+  // (e.g. customer-tinted watermark under a Viva Fire header).
+  const brandProfile = isDryRiser
+    ? await resolveDocumentBrandingProfile({
+        template: { branding: { ...(template.branding || {}), logo_url: "/vivafire-logo.png" } },
+        customer: null,
+      })
+    : await resolveDocumentBrandingProfile({
+        template,
+        customer: { name: jobInfo?.customers?.name, logo_url: customerLogoUrl },
+      });
+  const branding = {
+    ...(template.branding || {}),
+    logo_url: brandProfile.logoUrl,
+  };
+  const footerText = getDefaultFooterText(template.name, branding, template.footer_text);
+  const brandLogoImg = brandProfile.logoImage;
+  const accentColor = brandProfile.accentColor;
 
   // Helper: find form value by label pattern
   const findFormVal = (...patterns: string[]): string => {
