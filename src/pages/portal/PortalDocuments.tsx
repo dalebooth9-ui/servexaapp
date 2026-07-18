@@ -46,15 +46,15 @@ export default function PortalDocuments() {
         ) : (
           <ul className="divide-y">
             {docs.map(d => (
-              <li key={d.id} className="p-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">{d.file_name || d.document_type || "Document"}</div>
+              <li key={d.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  <FileText className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium break-words line-clamp-3 sm:line-clamp-2">{d.file_name || d.document_type || "Document"}</div>
                     <div className="text-xs text-muted-foreground">{new Date(d.created_at).toLocaleDateString()} · {d.document_type}</div>
                   </div>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => open(d)}><Download className="w-4 h-4 mr-2" />Open</Button>
+                <Button size="sm" variant="outline" className="w-full sm:w-auto shrink-0" onClick={() => open(d)}><Download className="w-4 h-4 mr-2" />Open</Button>
               </li>
             ))}
           </ul>
