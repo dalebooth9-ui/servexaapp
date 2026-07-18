@@ -113,3 +113,38 @@ export function getBrandColorFromLogo(
   if (!hasCustomLogo || !logoImg) return DEFAULT_NAVY;
   return extractDominantColor(logoImg);
 }
+
+/** Format an RgbTriple as `#rrggbb`. */
+export function rgbToHex([r, g, b]: RgbTriple): string {
+  const to2 = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
+  return `#${to2(r)}${to2(g)}${to2(b)}`;
+}
+
+/**
+ * Load an image URL and extract its dominant brand colour as `#rrggbb`.
+ * Returns null when the image can't be loaded or no colourful pixel is
+ * confidently found (near-white / near-black / near-grey are ignored so
+ * we pick the true brand colour rather than the backdrop).
+ */
+export async function extractBrandColorHexFromUrl(url: string): Promise<string | null> {
+  if (!url) return null;
+  try {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("logo load failed"));
+      img.src = url;
+    });
+    const rgb = extractDominantColor(img);
+    // extractDominantColor returns DEFAULT_NAVY when nothing colourful was
+    // found; treat that as "no confident pick" so callers can leave
+    // brand_colour null and fall back to neutral grey.
+    if (rgb[0] === DEFAULT_NAVY[0] && rgb[1] === DEFAULT_NAVY[1] && rgb[2] === DEFAULT_NAVY[2]) {
+      return null;
+    }
+    return rgbToHex(rgb);
+  } catch {
+    return null;
+  }
+}
