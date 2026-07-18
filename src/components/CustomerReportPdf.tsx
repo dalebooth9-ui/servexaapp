@@ -159,8 +159,14 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         } catch { /* skip */ }
       }
 
+      // Resolve unified branding profile — header logo and watermark tint
+      // both derive from the same source (template branding > customer logo > default).
+      const brandProfile = await resolveDocumentBrandingProfile({
+        template: null,
+        customer: { name: job.customers?.name, logo_url: job.customers?.logo_url },
+      });
       const branding: PdfBranding = {
-        logo_url: job.customers?.logo_url || undefined,
+        logo_url: brandProfile.logoUrl,
       };
       const headerData: PdfHeaderData = {
         customerName,
