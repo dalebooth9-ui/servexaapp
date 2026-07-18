@@ -1,127 +1,141 @@
+# RAMS Upgrade Package
 
-## Goal
+Three coordinated features that build on the existing wizard + AI Auto-Fill without touching those flows.
 
-Stop the "General → Remedial Works Completion" fallback from being attached to regulated jobs (e.g. gas suppression RITs). Detect a wider set of work types up front, warn when attached paperwork doesn't match, and let the office AI-draft a missing template into the builder as an unpublished draft.
+## Assumptions
 
----
+- Three RAMS variants coexist in DB: `rams` (dry-riser wizard), `generic_rams` (Generic RAMS page), `rams_documents` (branded/typed variants). The features below apply to all three via a small polymorphic layer keyed on `(rams_kind, rams_id)`.
+- "Library" is per-org, admin-managed. Engineers can pick from it but not edit it.
+- Sign-off is a first-class record: office needs auditability, not just a flag on the PDF.
+- RAMS-required rule lives on `job_categories` (per-org) — one source of truth used by planner + job page + engineer app.
 
-## 1. Expand work-type detection
+## 1. RAMS Library
 
-Rewrite `supabase/functions/_shared/inferJobScope.ts` to recognise, in addition to today's list:
+### Data model (one migration)
 
-| Work type slug | Detection keywords |
-| --- | --- |
-| `gas_suppression` | RIT, room integrity test, IG-55, IG-541, IG55, IG541, FM-200/FM200, Novec, Novec 1230, HFC-227, clean agent, suppression discharge / retention |
-| `kitchen_suppression` | Ansul, R-102, kitchen suppression, kitchen fire suppression |
-| `fire_alarm` | fire alarm, L1/L2/L3/L4/L5, BS 5839, alarm panel, detector head, call point |
-| `emergency_lighting` | emergency lighting, EM lighting, BS 5266, 3-hour test, monthly EM test |
-| `hose_reel` | hose reel |
-| `water_mist` | water mist, watermist |
-| `smoke_vent` | smoke vent, AOV, natural smoke vent, mechanical smoke vent, BS 7346 |
-| `fire_door` | fire door, FD30, FD60, fire door inspection |
-| `wet_riser` | (already partial) — wet riser, wet-riser |
-| `extinguisher` | (already partial) — promote from ambiguous to definite |
-
-Output shape changes to:
-
-```ts
-{
-  categorySlug: string | null,
-  detectedWorkTypes: Array<{ slug: string; label: string; canonicalTemplateNames: string[]; qty?: number }>,
-  templateNames: string[],           // legacy: names to attempt-attach
-  reasons: string[],
-  isRemedial: boolean,
-  remedialItems: string[],
-}
+```
+rams_library_items
+  id, org_id, kind ('whole' | 'block'),
+  block_type text NULL,                 -- e.g. 'working_at_height', 'lone_working', 'cosh'
+  work_types text[] NULL,               -- tags for AI matching: ['dry_riser','pressure_test',...]
+  name text, description text,
+  payload jsonb,                        -- for 'whole': full snapshot of a rams row; for 'block': {hazards[], controls[], method_steps[], ppe[], notes}
+  source_rams_kind text NULL, source_rams_id uuid NULL,   -- provenance if saved from a job
+  created_by, created_at, updated_at,
+  archived boolean default false
 ```
 
-Key rule: **if any specific work type is detected, `isRemedial` may be true only when wording is literally "remedial/snag/rectify/retest of <that work>" — never as a fallback**. Remove the current "unknown scope → default remedial attach".
+RLS: org-scoped read for authenticated members; admin-only insert/update/delete.
+GRANTs per house rules.
 
-Extract a rough quantity for each work type (`\b(\d+)\s*(?:x|×|off|no\.?)\s*RIT\b` etc.) so quantity mismatches can be surfaced.
+### UI
 
-## 2. Stop attaching remedial default when a specific type is detected
+- **Settings → RAMS Library** (new page, admin only): tabs "Whole RAMS templates" and "Content blocks". CRUD + preview + archive.
+- **On any RAMS editor**: "Save to library" button (whole) and, on any hazard/method section, a small "Save block" affordance.
+- **On New RAMS**: "Start from library…" picker at the top (whole templates only). Duplicates payload into the new draft.
+- **In RAMS editor sections**: "Insert from library" dropdowns per section (hazards/controls/method/PPE), filtered by matching `work_types`.
 
-In `supabase/functions/inbound-po-email/index.ts`:
+### AI Auto-Fill composition
 
-- After `inferJobScope`, load the org's `job_sheet_templates` (published + draft) and, for each `detectedWorkTypes[i]`, resolve any template whose `job_category`/`category` matches (or whose name matches one of `canonicalTemplateNames`).
-- Only attach templates that resolve. Never attach `Remedial Works Completion` unless the detected work type IS remedial closure.
-- Persist onto the job:
-  - `detected_work_types text[]` — slugs
-  - `template_mismatch_reason text` — human string (e.g. `"Work type: Gas suppression (RIT) — no matching job sheet template exists in your library. Build one or AI-draft."`) — set when a work type is detected but nothing resolves.
-- Clear `template_mismatch_reason` when a matching template is later attached (trigger on `job_documents` insert of type `blank_job_sheet`).
+Extend `supabase/functions/ai-rams-autofill/index.ts`:
+1. Fetch org's library blocks matching detected work type/ramsType.
+2. Pass them into the system prompt as "prefer these vetted phrasings; only invent text for gaps".
+3. Return `used_block_ids[]` alongside the generated content so UI can show "3 library blocks · 2 AI-generated" attribution chips.
 
-## 3. UI — mismatch banner
+### Seeding Viva
 
-New component `src/components/JobTemplateMismatchBanner.tsx`:
+One-off backfill migration that scans existing `rams` / `generic_rams` / `rams_documents` rows in Viva's org, extracts distinct hazard/control/method entries (grouped by category label if present, otherwise clustered by text), and inserts library blocks. Whole-RAMS seeds: one saved snapshot per distinct `rams_type`/`category`.
 
-- Reads `jobs.detected_work_types`, `jobs.template_mismatch_reason`, and current attached templates.
-- Two states:
-  1. **Missing template** — "Work type: <label> — no matching job sheet template exists." Buttons: `Build template` (→ Industry Templates page prefilled) / `AI-draft template` (calls new edge fn — see §4).
-  2. **Wrong template** — detected work type X, but attached sheets are only Y/Z. Amber warning: `"Scope mentions <X>; attached sheets: <Y, Z>."` Includes an `Approve anyway (mismatch)` control that requires a typed reason and writes to `job_activity_log`.
+## 2. Engineer RAMS sign-off on mobile
 
-Mount points:
-- `src/pages/JobDetail.tsx` — top of the Overview tab.
-- `src/components/jobs/JobsToApproveCard.tsx` (or the current pending-review card — will locate) — inline badge with tooltip.
+### Data model
 
-Approval flow (`Approve` on the pending-review card) checks `template_mismatch_reason`/quantity mismatch; if present, the button relabels to `Approve anyway…` and opens a confirm dialog capturing the reason.
-
-## 4. AI-draft template edge function
-
-New `supabase/functions/draft-job-sheet-template/index.ts`:
-
-- Input: `{ work_type_slug, work_type_label, source_job_id? }`
-- Uses Lovable AI (`google/gemini-2.5-pro`) with a strict JSON schema output covering the same structure the Template Builder uses (sections → items with `field_type`, `options`, `required`).
-- Inserts into `public.job_sheet_templates` with:
-  - `status = 'draft'` (never published)
-  - `name` = e.g. `"Gas Suppression — Room Integrity Test — AI DRAFT, review before use"`
-  - `category`/`job_category` set from work type
-  - `created_by` = caller, `org_id` = caller's org
-- Returns the new template id so the UI can deep-link straight into `EditTemplateDialog`.
-- No auto-attach to the source job — office must publish first.
-
-## 5. Migration
-
-```sql
-ALTER TABLE public.jobs
-  ADD COLUMN IF NOT EXISTS detected_work_types text[] DEFAULT '{}'::text[],
-  ADD COLUMN IF NOT EXISTS template_mismatch_reason text,
-  ADD COLUMN IF NOT EXISTS mismatch_approved_reason text,
-  ADD COLUMN IF NOT EXISTS mismatch_approved_by uuid,
-  ADD COLUMN IF NOT EXISTS mismatch_approved_at timestamptz;
+```
+rams_signoffs
+  id, org_id, job_id,
+  rams_kind text, rams_id uuid,
+  engineer_id uuid, engineer_name text,
+  signature_path text,                  -- storage: signatures/<org>/rams/<job>/<user>.png
+  signed_at timestamptz,
+  rams_version int,                     -- snapshot of rams.version at time of signing
+  ip text NULL, user_agent text NULL
+  UNIQUE (rams_id, rams_kind, engineer_id, rams_version)
 ```
 
-No RLS changes — existing `jobs` policies cover it.
+RLS: engineers can insert their own row for jobs they're assigned to; read own + admins read all in org.
 
-## 6. Audit of current live jobs (Viva org)
+### Mobile flow
 
-From the DB right now, non-completed jobs that mention a work type the current fallback would mis-file:
+- Extend the mobile job view: new "RAMS" section listing every RAMS attached (across the three tables). Each row shows status (`Not signed` / `Signed <date>`) with a "Read & sign" CTA.
+- New component `RamsReadAndSignSheet.tsx`:
+  1. Renders the RAMS PDF inline (reuse existing `RamsPdfExport` preview).
+  2. "I've read & understood" checkbox.
+  3. Signature capture (reuse `SignaturePad`, honour saved signature from `engineer_signatures`).
+  4. Submit → insert `rams_signoffs` + regenerate PDF.
+- Prompt on job open: if RAMS attached but current engineer hasn't signed the latest version, show a blocking-ish banner with "Read & sign" before "Start job".
 
-| Ref | Category | Status | Detected work type | Attached sheets |
-| --- | --- | --- | --- | --- |
-| VFP-00219 | general | pending_review | Gas suppression (RIT, IG-55) | Remedial Works Completion ⚠️ |
-| VFP-00192 | general | pending_review | Gas suppression (RIT, IG-55) — same PO 3048 as 00219 | none |
-| VFP-00198 | general | pending_review | Gas suppression (server room) | (to verify) |
-| 11609 | general | active | Kitchen suppression (Ansul R-102) | (to verify) |
+### PDF regeneration
 
-Reported in the reply, not auto-changed.
+Add a "Briefing Record / Signatures" appendix section to all three PDF exporters (`brandedRamsPdf.ts`, `genericRamsPdf.ts`, `ramsPdf.ts`) that reads `rams_signoffs` for the RAMS and prints a signed-by table with embedded signature images. Regeneration triggers on each new sign-off.
 
-## 7. VFP-00192 / VFP-00219 duplicate
+### Office visibility
 
-Both jobs are the same PFS PO 3048, one line "1 × RIT for IG-55 in Comms room".
+- Job page RAMS card and planner card get a badge: `RAMS: n/m signed` (green when full, amber when partial, red when zero and required).
+- New "RAMS sign-offs" tab on job detail listing signer, timestamp, version.
 
-- **Keep VFP-00192** — it's the first-created reference (lower number, canonical).
-- Fold **VFP-00219** into it via the existing job-merge tool; VFP-00219 is the one that has `customer_po = 3048` set, so before merging, copy `customer_po` from 00219 → 00192, then merge & delete 00219.
+## 3. RAMS-required flagging
 
-Merge tool behaviour I'll confirm: the existing job-merge path already reassigns `job_documents`, `job_emails`, `job_activity_log`, `job_assignments`, `job_sheet_responses`, and `job_visits` from the loser to the winner. I'll verify that path handles the two new columns (`detected_work_types`, `template_mismatch_reason`) — plan is to prefer the winner's value, fall back to loser's when winner is null.
+### Data model
 
-## Out of scope for this change
+- Add `rams_required boolean default false` to `job_categories`.
+- Seed defaults ON for slugs matching install / pressure_test / remedial / commissioning categories.
+- Settings → Job Categories page gets a "RAMS required" toggle per row.
 
-- Fixing the Ansul template gap for job 11609 — audit only; the office decides.
-- Extending Word/PDF renderers for gas suppression — not needed until a template exists.
-- Notifications / email alerts for mismatched jobs — the banner is sufficient for now.
+### Enforcement
 
-## Technical notes
+- Shared helper `useJobRamsStatus(jobId)` returning `{ required, ramsCount, signedCount, missing }` — queries the category + three RAMS tables + `rams_signoffs`.
+- **Job page**: amber warning banner (same visual family as `JobTemplateMismatchBanner`) — "RAMS required — none attached" with "Create RAMS" CTA.
+- **Planner card**: small red dot / tooltip when required & missing.
+- **Scheduling / approving**: when the flag trips, the schedule/approve action opens a confirm dialog requiring explicit "Schedule anyway — RAMS missing" override; override reason logged to `job_activity_log`.
+- **Engineer app**: on job open, if RAMS attached but not signed by current user, prompt to sign before "Start job" (soft-block; can dismiss with "Sign later" that re-prompts on Start).
 
-- New columns are additive with defaults, so no data backfill needed.
-- Detection stays in a shared TS file (`_shared/inferJobScope.ts`) so both the email intake and the future manual-paste PO flow use it.
-- The AI-drafter runs at admin-only via edge function JWT check; nothing user-facing exposes `LOVABLE_API_KEY`.
+## Technical file changes
+
+### New files
+- `supabase/migrations/…_rams_library_signoffs.sql` — 3 tables + RLS + GRANTs + `job_categories.rams_required` column + backfill of defaults.
+- `supabase/migrations/…_seed_viva_rams_library.sql` — extraction/seed for org `11111111-…`.
+- `supabase/functions/save-rams-to-library/index.ts` — normalises a whole RAMS into a library payload.
+- `src/pages/RamsLibrary.tsx` — admin CRUD page (Settings route).
+- `src/components/rams/RamsLibraryPicker.tsx` — "Start from library" / "Insert block" pickers.
+- `src/components/rams/RamsReadAndSignSheet.tsx` — mobile read-and-sign UI.
+- `src/components/rams/RamsSignoffBadge.tsx` — n/m badge.
+- `src/components/rams/RamsSignoffsList.tsx` — signature list for PDFs & job tab.
+- `src/hooks/useJobRamsStatus.ts` — shared status hook.
+- `src/hooks/useRamsLibrary.ts` — org library reads + cache.
+
+### Edited files
+- `supabase/functions/ai-rams-autofill/index.ts` — accept library blocks, prefer them.
+- `src/components/AiRamsAutoFill.tsx` — pass library, render attribution chips.
+- `src/pages/RamsEditor.tsx`, `NewRamsPage.tsx`, `GenericRamsPage.tsx` — add library picker + "Save to library" + block insertion.
+- `src/lib/ramsPdf.ts`, `brandedRamsPdf.ts`, `genericRamsPdf.ts` — append signatures section.
+- `src/pages/JobDetail.tsx` — new RAMS card with required warning + sign-off badge + signoffs tab.
+- `src/components/planner/*` — planner-card badge/tooltip when required & missing.
+- Engineer job screen — RAMS section + Start-job gate.
+- Settings pages: Job Categories (rams_required toggle) + nav entry for RAMS Library.
+
+### Non-technical summary
+
+- A reusable RAMS library so engineers/office start from vetted content instead of a blank page.
+- Engineers read and sign RAMS on their phone before starting; office sees who signed and when.
+- Jobs that legally need a RAMS get an amber warning until one is attached and signed.
+
+## Rollout order (single response, small verifications between)
+
+1. Migration (tables, RLS, category flag, defaults).
+2. Library CRUD + hook.
+3. Editor integrations (start-from + insert-block + save-to-library).
+4. AI Auto-Fill composition update.
+5. Sign-off table + mobile sheet + PDF appendix.
+6. Required-flag enforcement (job page, planner, engineer app gate).
+7. Viva backfill seed migration.
+8. Verify: typecheck, targeted RLS check via psql, and a Playwright pass on the admin RAMS Library page and the engineer sign-off sheet.

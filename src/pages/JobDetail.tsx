@@ -81,6 +81,8 @@ const JobDefects = lazy(() => import("@/components/jobs/JobDefects"));
 const JobPartsUsed = lazy(() => import("@/components/jobs/JobPartsUsed"));
 const JobPhotos = lazy(() => import("@/components/jobs/JobPhotos"));
 const JobEmailChain = lazy(() => import("@/components/jobs/JobEmailChain"));
+import RamsRequiredBanner from "@/components/rams/RamsRequiredBanner";
+import { useJobRamsStatus } from "@/hooks/useJobRamsStatus";
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
@@ -110,6 +112,7 @@ export default function JobDetail() {
   const { categories: jobCategories } = useJobCategories();
   const { convert: convertW3W } = useWhat3Words();
   const [job, setJob] = useState<any>(null);
+  const ramsStatus = useJobRamsStatus(id);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const photoCount = useJobPhotoCount(id);
   const [engineers, setEngineers] = useState<{ id: string; name: string }[]>([]);
@@ -1078,6 +1081,7 @@ export default function JobDetail() {
               onDrafted={fetchData}
             />
           )}
+          <RamsRequiredBanner jobId={id!} status={ramsStatus} />
           <JobCompleteAction
             jobId={id!}
             jobStatus={job.status}

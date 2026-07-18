@@ -308,6 +308,15 @@ export default function SettingsPage() {
           <JobTemplateSettings />
           <CategoryDocumentTemplateSettings />
           <RamsTemplateSettings />
+          <Card className="cursor-pointer hover:border-primary transition" onClick={() => navigate("/settings/rams-library")}>
+            <CardHeader>
+              <CardTitle className="text-lg">RAMS Library</CardTitle>
+              <CardDescription>
+                Reusable RAMS templates and content blocks (hazards, controls, method steps) —
+                composed automatically by AI Auto-Fill and available as "Start from library" in new RAMS.
+              </CardDescription>
+            </CardHeader>
+          </Card>
           <EngineerSignatureSettings />
 
           <Card className="cursor-pointer hover:border-primary transition" onClick={() => navigate("/settings/import-historic-reports")}>
