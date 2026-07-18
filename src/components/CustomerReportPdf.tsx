@@ -11,7 +11,8 @@ import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
-import { collectEmbeddedPhotoPaths, loadJobPhotosForPdf } from "@/lib/jobPhotos";
+import { collectEmbeddedPhotoPaths, fetchJobPhotoMeta, loadJobPhotosForPdf } from "@/lib/jobPhotos";
+import { loadPrefs, resolvePhotoSelection } from "@/lib/exportBundleSelection";
 import {
   loadEngineerSignatureLibrary,
   findEngineerSignatureByName,
@@ -62,7 +63,13 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       // Photos tab and every PDF variant agree on what a job's photos are.
       // Excludes photos already embedded inside submitted job-sheet responses.
       const embeddedPaths = collectEmbeddedPhotoPaths((sheetsRes.data || []) as any[], jobId);
-      const loaded = await loadJobPhotosForPdf({ jobId, excludePaths: embeddedPaths });
+      // Honour the user's Export-dialog selections for this job when present;
+      // otherwise apply the same smart defaults (scanned working sheets and
+      // still-to-review email attachments excluded).
+      const savedPrefs = loadPrefs(jobId) ?? { v: 1 as const, photoMode: "auto" as const, photoIds: [], sheetIds: [], includeFilledSheets: true, includePhotos: true, includeFieldReports: true, includeCerts: true };
+      const meta = await fetchJobPhotoMeta(jobId);
+      const includeIds = resolvePhotoSelection(meta, savedPrefs);
+      const loaded = await loadJobPhotosForPdf({ jobId, excludePaths: embeddedPaths, includeIds });
       type PhotoEntry = {
         dataUrl: string;
         format: "JPEG" | "PNG";

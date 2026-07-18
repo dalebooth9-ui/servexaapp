@@ -12,27 +12,29 @@ import type { JobPhoto } from "@/lib/jobPhotos";
 export type PhotoKind = "evidence" | "scanned_sheet" | "email_leftover" | "other";
 
 const SCAN_PATH_RE = /(?:paper[-_]?scans?|batch[-_]?scans?|scan[-_]?batch|ocr[-_]?source|scan_page_)/i;
-const EMAIL_PATH_RE = /(?:^|\/)(?:email|inbound|mailgun|resend)\//i;
-const EMAIL_NAME_RE = /^image0\d{2}\.(?:png|jpe?g|gif)$/i;
+const REVIEW_SUFFIX_RE = / — email attachment, review$/i;
 
 /**
  * Classify a photo so the picker can tick the right things by default.
  * - `evidence`  — App camera / gallery / WhatsApp / checklist / defect photos → default ON.
  * - `scanned_sheet` — page images from paper-scan intake → default OFF, badge "Scanned sheet".
- * - `email_leftover` — inbound email image attachments (signature strips etc.) → default OFF.
- * - `other` — anything else → default ON.
+ * - `email_leftover` — inbound email image attachments still awaiting review
+ *   (filename still carries the "— email attachment, review" suffix) → default OFF.
+ * - `other` — anything else (incl. email attachments whose review flag has
+ *   been cleared) → default ON.
  */
 export function classifyJobPhoto(photo: JobPhoto): PhotoKind {
   const path = (photo.storagePath || "").toLowerCase();
-  const name = (photo.fileName || "").toLowerCase();
+  const name = (photo.fileName || "");
   const caption = (photo.caption || "").toLowerCase();
   const src = photo.source;
 
   if (src === "document") {
-    if (SCAN_PATH_RE.test(path) || SCAN_PATH_RE.test(name) || caption.startsWith("scan")) {
+    if (SCAN_PATH_RE.test(path) || SCAN_PATH_RE.test(name.toLowerCase()) || caption.startsWith("scan")) {
       return "scanned_sheet";
     }
-    if (EMAIL_PATH_RE.test(path) || EMAIL_NAME_RE.test(name)) {
+    // Only default-off when the reviewer hasn't cleared the flag yet.
+    if (REVIEW_SUFFIX_RE.test(name) || REVIEW_SUFFIX_RE.test(caption)) {
       return "email_leftover";
     }
     return "other";
