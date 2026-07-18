@@ -8,6 +8,7 @@ import { renderPdfHeader, type PdfHeaderData, type PdfBranding } from "@/lib/pdf
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText, type PdfSignatureData } from "@/lib/pdfFooter";
 import { loadWatermarkImage } from "@/lib/pdfWatermark";
 import { renderBrandingOverlay } from "@/lib/pdfBranding";
+import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
@@ -158,8 +159,14 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         } catch { /* skip */ }
       }
 
+      // Resolve unified branding profile — header logo and watermark tint
+      // both derive from the same source (template branding > customer logo > default).
+      const brandProfile = await resolveDocumentBrandingProfile({
+        template: null,
+        customer: { name: job.customers?.name, logo_url: job.customers?.logo_url },
+      });
       const branding: PdfBranding = {
-        logo_url: job.customers?.logo_url || undefined,
+        logo_url: brandProfile.logoUrl,
       };
       const headerData: PdfHeaderData = {
         customerName,
@@ -538,6 +545,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       // === WATERMARK + ACCREDITATIONS (unified overlay) ===
       await renderBrandingOverlay(doc, {
         watermark,
+        brandColor: brandProfile.accentColor,
         accredLogos,
         accredFooterY: footerY,
         accredLogoH: PDF_DIMENSIONS.accredLogoH,
