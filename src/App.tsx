@@ -94,8 +94,11 @@ const FleetVehicles = lazy(() => import("@/pages/FleetVehicles"));
 const PlatformOrganisations = lazy(() => import("@/pages/PlatformOrganisations"));
 const PlatformSupportInbox = lazy(() => import("@/pages/PlatformSupportInbox"));
 const MyTickets = lazy(() => import("@/pages/MyTickets"));
+const LandingPage = lazy(() => import("@/pages/LandingPage"));
+const PricingPage = lazy(() => import("@/pages/PricingPage"));
 // Hidden emergency route — no visible entry. Reach via direct URL.
 const StorageMigrationPanel = lazy(() => import("@/components/StorageMigrationPanel"));
+import CookieBanner from "@/components/CookieBanner";
 
 const queryClient = new QueryClient();
 
