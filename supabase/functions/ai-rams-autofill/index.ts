@@ -89,7 +89,7 @@ Category: ${category || "fire_safety"}
 Customer: ${customer || "N/A"}
 Site Address: ${address || "N/A"}
 
-Tailor the method statement, hazards, and control measures specifically for ${ramsTypeLabel[ramsType] || "fire safety"} work in compliance with UK fire safety regulations.`;
+Tailor the method statement, hazards, and control measures specifically for ${ramsTypeLabel[ramsType] || "fire safety"} work in compliance with UK fire safety regulations.${librarySnippet}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
