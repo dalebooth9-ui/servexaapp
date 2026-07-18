@@ -99,6 +99,22 @@ export default function Quotes() {
     toast.success("Quote deleted");
   };
 
+  const handleCreateRemedialJob = async (quote: any) => {
+    setUpdatingId(quote.id);
+    try {
+      const { data, error } = await (supabase as any).rpc("create_remedial_job_from_quote", {
+        _quote_id: quote.id,
+      });
+      if (error) throw error;
+      toast.success("Remedial job created");
+      navigate(`/jobs/${data as string}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create remedial job");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const handleConvertToInvoice = async (quote: any) => {
     setUpdatingId(quote.id);
     try {
