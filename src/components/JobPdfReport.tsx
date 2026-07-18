@@ -1110,6 +1110,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       // Accreditation logos sit just above the footer line drawn at y=286.
       await renderBrandingOverlay(doc, {
         watermark,
+        brandColor: brandProfile.accentColor,
         accredLogos,
         accredFooterY: 286,
         accredLogoH: PDF_DIMENSIONS.accredLogoH,
