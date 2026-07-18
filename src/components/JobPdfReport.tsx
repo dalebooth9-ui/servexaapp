@@ -557,8 +557,8 @@ export default function JobPdfReport({ jobId, job }: Props) {
       // response (photo_gallery columns, photo fields) so the job-level
       // Photos section never duplicates images shown inline elsewhere.
       const embeddedPaths = collectEmbeddedPhotoPaths(sheetResponses, jobId);
-      const jobPhotos: JobPhotoForPdf[] = includePhotos
-        ? await loadJobPhotosForPdf({ jobId, excludePaths: embeddedPaths })
+      const jobPhotos: JobPhotoForPdf[] = includePhotos && selectedPhotoIds.size > 0
+        ? await loadJobPhotosForPdf({ jobId, excludePaths: embeddedPaths, includeIds: selectedPhotoIds })
         : [];
       console.log("[JobPdfReport] job photos", {
         loaded: jobPhotos.length,
