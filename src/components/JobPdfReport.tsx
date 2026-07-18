@@ -10,16 +10,17 @@ import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { PDF_DIMENSIONS, resolveAccredFooterY } from "@/lib/pdfDimensions";
 import { renderPdfHeader } from "@/lib/pdfHeader";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { fetchOrientedImage } from "@/lib/exifOrient";
 import { collectEmbeddedPhotoPaths, loadJobPhotosForPdf, type JobPhotoForPdf } from "@/lib/jobPhotos";
+import ExportBundlePickerDialog, { type ExportBundleSelection } from "@/components/exports/ExportBundlePickerDialog";
+import { generateJobSheetPdf } from "@/components/JobSheetPdfExport";
+import { PDFDocument } from "pdf-lib";
 
 interface Props {
   jobId: string;
   job: any;
 }
+
 
 // ── Table drawing helpers ──────────────────────────────────────────
 
