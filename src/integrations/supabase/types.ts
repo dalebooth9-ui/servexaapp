@@ -2832,11 +2832,14 @@ export type Database = {
           contract_name: string | null
           created_at: string
           created_by: string
+          current_revision_code: string
+          current_revision_number: number
           description: string | null
           emergency_arrangements: string | null
           factors: Json
           id: string
           job_id: string
+          last_issued_at: string | null
           org_id: string
           plant_equipment: Json
           ppe: Json
@@ -2853,11 +2856,14 @@ export type Database = {
           contract_name?: string | null
           created_at?: string
           created_by: string
+          current_revision_code?: string
+          current_revision_number?: number
           description?: string | null
           emergency_arrangements?: string | null
           factors?: Json
           id?: string
           job_id: string
+          last_issued_at?: string | null
           org_id?: string
           plant_equipment?: Json
           ppe?: Json
@@ -2874,11 +2880,14 @@ export type Database = {
           contract_name?: string | null
           created_at?: string
           created_by?: string
+          current_revision_code?: string
+          current_revision_number?: number
           description?: string | null
           emergency_arrangements?: string | null
           factors?: Json
           id?: string
           job_id?: string
+          last_issued_at?: string | null
           org_id?: string
           plant_equipment?: Json
           ppe?: Json
@@ -6535,9 +6544,12 @@ export type Database = {
           client_name: string | null
           created_at: string
           created_by: string
+          current_revision_code: string
+          current_revision_number: number
           factors: Json
           id: string
           job_id: string
+          last_issued_at: string | null
           method_statement: Json
           org_id: string
           reviewed_by: string | null
@@ -6555,9 +6567,12 @@ export type Database = {
           client_name?: string | null
           created_at?: string
           created_by: string
+          current_revision_code?: string
+          current_revision_number?: number
           factors?: Json
           id?: string
           job_id: string
+          last_issued_at?: string | null
           method_statement?: Json
           org_id?: string
           reviewed_by?: string | null
@@ -6575,9 +6590,12 @@ export type Database = {
           client_name?: string | null
           created_at?: string
           created_by?: string
+          current_revision_code?: string
+          current_revision_number?: number
           factors?: Json
           id?: string
           job_id?: string
+          last_issued_at?: string | null
           method_statement?: Json
           org_id?: string
           reviewed_by?: string | null
@@ -6733,6 +6751,185 @@ export type Database = {
           },
         ]
       }
+      rams_feedback_changes: {
+        Row: {
+          after_value: Json | null
+          before_value: Json | null
+          comment_excerpt: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision: string
+          feedback_request_id: string
+          id: string
+          library_item_id: string | null
+          ord: number
+          org_id: string
+          proposed_action: string
+          rationale: string | null
+          saved_as_library_item_id: string | null
+          target_ref: string | null
+          target_section: string
+          updated_at: string
+        }
+        Insert: {
+          after_value?: Json | null
+          before_value?: Json | null
+          comment_excerpt: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string
+          feedback_request_id: string
+          id?: string
+          library_item_id?: string | null
+          ord?: number
+          org_id: string
+          proposed_action: string
+          rationale?: string | null
+          saved_as_library_item_id?: string | null
+          target_ref?: string | null
+          target_section: string
+          updated_at?: string
+        }
+        Update: {
+          after_value?: Json | null
+          before_value?: Json | null
+          comment_excerpt?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string
+          feedback_request_id?: string
+          id?: string
+          library_item_id?: string | null
+          ord?: number
+          org_id?: string
+          proposed_action?: string
+          rationale?: string | null
+          saved_as_library_item_id?: string | null
+          target_ref?: string | null
+          target_section?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rams_feedback_changes_feedback_request_id_fkey"
+            columns: ["feedback_request_id"]
+            isOneToOne: false
+            referencedRelation: "rams_feedback_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_feedback_changes_library_item_id_fkey"
+            columns: ["library_item_id"]
+            isOneToOne: false
+            referencedRelation: "rams_library_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_feedback_changes_saved_as_library_item_id_fkey"
+            columns: ["saved_as_library_item_id"]
+            isOneToOne: false
+            referencedRelation: "rams_library_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rams_feedback_requests: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          issued_revision_id: string | null
+          job_id: string
+          org_id: string
+          rams_id: string
+          rams_kind: string
+          raw_text: string | null
+          source: string
+          source_document_path: string | null
+          source_email_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          issued_revision_id?: string | null
+          job_id: string
+          org_id: string
+          rams_id: string
+          rams_kind: string
+          raw_text?: string | null
+          source: string
+          source_document_path?: string | null
+          source_email_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          issued_revision_id?: string | null
+          job_id?: string
+          org_id?: string
+          rams_id?: string
+          rams_kind?: string
+          raw_text?: string | null
+          source?: string
+          source_document_path?: string | null
+          source_email_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rams_feedback_requests_issued_revision_id_fkey"
+            columns: ["issued_revision_id"]
+            isOneToOne: false
+            referencedRelation: "rams_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_feedback_requests_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_feedback_requests_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_feedback_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_feedback_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_feedback_requests_source_email_id_fkey"
+            columns: ["source_email_id"]
+            isOneToOne: false
+            referencedRelation: "job_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rams_library_items: {
         Row: {
           archived: boolean
@@ -6792,6 +6989,83 @@ export type Database = {
           },
           {
             foreignKeyName: "rams_library_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rams_revisions: {
+        Row: {
+          created_at: string
+          id: string
+          issued_at: string
+          issued_by: string | null
+          job_id: string
+          org_id: string
+          pdf_path: string | null
+          rams_id: string
+          rams_kind: string
+          revision_code: string
+          revision_number: number
+          snapshot: Json
+          summary_of_changes: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          job_id: string
+          org_id: string
+          pdf_path?: string | null
+          rams_id: string
+          rams_kind: string
+          revision_code: string
+          revision_number: number
+          snapshot?: Json
+          summary_of_changes?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          job_id?: string
+          org_id?: string
+          pdf_path?: string | null
+          rams_id?: string
+          rams_kind?: string
+          revision_code?: string
+          revision_number?: number
+          snapshot?: Json
+          summary_of_changes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rams_revisions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_revisions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_revisions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_revisions_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organisations_safe"
