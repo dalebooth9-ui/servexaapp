@@ -15,6 +15,7 @@ import { formatDistanceToNow, startOfWeek, addWeeks, format, startOfMonth, subMo
 import VehicleCheckReviewCard from "@/components/VehicleCheckReviewCard";
 import SetupChecklist from "@/components/SetupChecklist";
 import { toast } from "sonner";
+import RenewalsTile from "@/components/renewals/RenewalsTile";
 
 function reportError(label: string, error: any) {
   console.error(`[DirectorDashboard] ${label}:`, error);

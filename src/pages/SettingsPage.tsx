@@ -308,6 +308,7 @@ export default function SettingsPage() {
           <JobTemplateSettings />
           <CategoryDocumentTemplateSettings />
           <RamsTemplateSettings />
+          <RenewalsSettingsCard />
           <Card className="cursor-pointer hover:border-primary transition" onClick={() => navigate("/settings/rams-library")}>
             <CardHeader>
               <CardTitle className="text-lg">RAMS Library</CardTitle>
