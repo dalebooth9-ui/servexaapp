@@ -567,29 +567,22 @@ export default function JobPdfReport({ jobId, job }: Props) {
       });
 
 
-      // Pre-load company logo — use customer logo if available
+      // Pre-load company logo + resolve unified branding profile so the
+      // header logo, watermark tint, and footer all come from the same source.
+      const brandProfile = await resolveDocumentBrandingProfile({
+        template: null,
+        customer: { name: job.customers?.name, logo_url: job.customers?.logo_url },
+      });
       let logoDataUrl: string | null = null;
       try {
-        const logoUrl = job.customers?.logo_url || "/images/vivafire-logo-new.jpg";
-        const logoResp = await fetch(logoUrl);
+        const logoResp = await fetch(brandProfile.logoUrl);
         const logoBlob = await logoResp.blob();
         logoDataUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
           reader.readAsDataURL(logoBlob);
         });
-      } catch {
-        // Fall back to default if custom logo fails
-        try {
-          const logoResp = await fetch("/images/vivafire-logo-new.jpg");
-          const logoBlob = await logoResp.blob();
-          logoDataUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(logoBlob);
-          });
-        } catch { /* logo unavailable */ }
-      }
+      } catch { /* logo unavailable */ }
 
       const doc = new jsPDF();
       let y = 15;
