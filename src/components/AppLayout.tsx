@@ -48,6 +48,7 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/customers", label: "Customers", icon: Building2, section: "operations", adminOnly: true },
 { to: "/invoices", label: "Invoices", icon: FileText, section: "operations", adminOnly: true },
 { to: "/contracts", label: "Contracts", icon: FileText, section: "operations", adminOnly: true },
+{ to: "/renewals", label: "Renewals", icon: CalendarDays, section: "operations", adminOnly: true },
 { to: "/sites", label: "Sites", icon: MapPin, section: "more", adminOnly: true },
 { to: "/assets", label: "Assets", icon: Package, section: "more", adminOnly: true },
 { to: "/quotes", label: "Quotes", icon: ClipboardList, section: "more", adminOnly: true },
