@@ -63,7 +63,15 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       // Photos tab and every PDF variant agree on what a job's photos are.
       // Excludes photos already embedded inside submitted job-sheet responses.
       const embeddedPaths = collectEmbeddedPhotoPaths((sheetsRes.data || []) as any[], jobId);
-      const loaded = await loadJobPhotosForPdf({ jobId, excludePaths: embeddedPaths });
+      // Honour the user's Export-dialog selections for this job so Send to
+      // Customer sends the same photos they picked (scans excluded by default).
+      const savedPrefs = loadPrefs(jobId);
+      let includeIds: Set<string> | undefined;
+      if (savedPrefs) {
+        const meta = await fetchJobPhotoMeta(jobId);
+        includeIds = resolvePhotoSelection(meta, savedPrefs);
+      }
+      const loaded = await loadJobPhotosForPdf({ jobId, excludePaths: embeddedPaths, includeIds });
       type PhotoEntry = {
         dataUrl: string;
         format: "JPEG" | "PNG";
