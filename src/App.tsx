@@ -255,6 +255,7 @@ const App = () => (
             <OfflineIndicator />
             <PWAPrompts />
             <ConflictResolutionDialog />
+            <CookieBanner />
           </AuthProvider>
         </ErrorBoundary>
       </BrowserRouter>
