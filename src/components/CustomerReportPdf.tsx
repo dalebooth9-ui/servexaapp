@@ -545,6 +545,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       // === WATERMARK + ACCREDITATIONS (unified overlay) ===
       await renderBrandingOverlay(doc, {
         watermark,
+        brandColor: brandProfile.accentColor,
         accredLogos,
         accredFooterY: footerY,
         accredLogoH: PDF_DIMENSIONS.accredLogoH,
