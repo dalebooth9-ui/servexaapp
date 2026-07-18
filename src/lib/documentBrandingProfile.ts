@@ -17,7 +17,7 @@
  * customer isn't branded at all we extract from the org logo as before.
  */
 
-import { getBrandColorFromLogo, type RgbTriple } from "@/lib/extractLogoColors";
+import { getBrandColorFromLogo, extractDominantColor, rgbToHex, type RgbTriple } from "@/lib/extractLogoColors";
 
 const DEFAULT_LOGO_URL = "/images/vivafire-logo-new.png";
 
@@ -93,6 +93,8 @@ export async function resolveDocumentBrandingProfile(
   const templateLogo = input.template?.branding?.logo_url?.trim() || "";
   let customerLogo = input.customer?.logo_url?.trim() || "";
   let customerBrandColour = parseHexColor(input.customer?.brand_colour);
+  let customerIdForBackfill: string | null = null;
+  let brandColourAlreadySet = Boolean(customerBrandColour);
 
   // If caller passed the customer name but not the full branding fields,
   // hydrate them from the DB so every code path gets the same profile
@@ -102,12 +104,14 @@ export async function resolveDocumentBrandingProfile(
       const { supabase } = await import("@/integrations/supabase/client");
       const { data } = await supabase
         .from("customers")
-        .select("logo_url, brand_colour")
+        .select("id, logo_url, brand_colour")
         .ilike("name", input.customer.name)
         .maybeSingle();
       const row = data as any;
       if (!customerLogo && row?.logo_url) customerLogo = String(row.logo_url).trim();
       if (!customerBrandColour) customerBrandColour = parseHexColor(row?.brand_colour);
+      if (row?.id) customerIdForBackfill = String(row.id);
+      brandColourAlreadySet = Boolean(row?.brand_colour) || brandColourAlreadySet;
     } catch { /* fall through to what we have */ }
   }
 
@@ -120,14 +124,39 @@ export async function resolveDocumentBrandingProfile(
   const logoImage = await loadImage(resolvedUrl);
 
   // Colour resolution: explicit brand_colour wins for customer-branded docs.
-  // Otherwise, for the org's own docs we extract from the org logo; for a
-  // customer-branded doc with no brand_colour we use neutral grey rather than
-  // guessing a colour off their logo (which often produced garish tints).
+  // For a customer-branded doc with no brand_colour, try to extract from the
+  // logo pixels (backfill for customers that pre-date the brand_colour field);
+  // if extraction can't find a confident colour, fall back to neutral grey.
+  // For the org's own docs we extract from the org logo as before.
   let accentColor: RgbTriple;
   if (customerBrandColour) {
     accentColor = customerBrandColour;
   } else if (isCustomerBranded) {
-    accentColor = NEUTRAL_GREY;
+    let extracted: RgbTriple | null = null;
+    if (customerLogo && logoImage) {
+      const rgb = extractDominantColor(logoImage);
+      // extractDominantColor returns DEFAULT_NAVY when nothing colourful was
+      // found — treat that as "no confident pick" and stay on neutral grey.
+      if (!(rgb[0] === 33 && rgb[1] === 61 && rgb[2] === 99)) extracted = rgb;
+    }
+    if (extracted) {
+      accentColor = extracted;
+      // Persist so subsequent PDFs are cheaper and the picker in Settings
+      // reflects the auto-pick. Only when we've never had a value stored
+      // — a manual choice is never overwritten from here.
+      if (customerIdForBackfill && !brandColourAlreadySet) {
+        try {
+          const { supabase } = await import("@/integrations/supabase/client");
+          await supabase
+            .from("customers")
+            .update({ brand_colour: rgbToHex(extracted) } as any)
+            .eq("id", customerIdForBackfill)
+            .is("brand_colour", null);
+        } catch { /* non-fatal — colour still applied to this render */ }
+      }
+    } else {
+      accentColor = NEUTRAL_GREY;
+    }
   } else {
     accentColor = getBrandColorFromLogo(logoImage, false);
   }

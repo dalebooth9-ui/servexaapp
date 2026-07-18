@@ -206,7 +206,22 @@ export default function CustomerDetail() {
     const { data: { publicUrl } } = supabase.storage.from("customer-logos").getPublicUrl(path);
     await supabase.from("customers").update({ logo_url: publicUrl } as any).eq("id", id);
     setCustomer((prev) => prev ? { ...prev, logo_url: publicUrl } : prev);
-    toast({ title: "Logo updated" });
+
+    // Auto-pick brand colour from the new logo. A new logo means the brand
+    // has likely changed, so we overwrite any previous auto/manual pick.
+    try {
+      const { extractBrandColorHexFromUrl } = await import("@/lib/extractLogoColors");
+      const hex = await extractBrandColorHexFromUrl(publicUrl);
+      if (hex) {
+        await supabase.from("customers").update({ brand_colour: hex } as any).eq("id", id);
+        setCustomer((prev) => prev ? ({ ...prev, brand_colour: hex } as any) : prev);
+        toast({ title: "Logo updated", description: `Brand colour picked from logo (${hex}) — tap the swatch to change.` });
+      } else {
+        toast({ title: "Logo updated" });
+      }
+    } catch {
+      toast({ title: "Logo updated" });
+    }
     setLogoUploading(false);
     if (logoInputRef.current) logoInputRef.current.value = "";
   };
