@@ -17,7 +17,7 @@
  * customer isn't branded at all we extract from the org logo as before.
  */
 
-import { getBrandColorFromLogo, type RgbTriple } from "@/lib/extractLogoColors";
+import { getBrandColorFromLogo, extractDominantColor, rgbToHex, type RgbTriple } from "@/lib/extractLogoColors";
 
 const DEFAULT_LOGO_URL = "/images/vivafire-logo-new.png";
 
