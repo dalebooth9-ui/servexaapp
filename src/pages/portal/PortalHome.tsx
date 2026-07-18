@@ -9,7 +9,7 @@ import { CalendarClock, MapPin, Send } from "lucide-react";
 import { RequestVisitDialog } from "@/components/portal/RequestVisitDialog";
 
 interface SiteRow { id: string; name: string; address: string | null; }
-interface DueRow { site_id: string; service_type: string; next_due_date: string | null; status: string | null; }
+interface DueRow { site_id: string; work_type: string | null; next_due_date: string | null; }
 interface JobRow { id: string; site_id: string | null; name: string | null; reference_number: string | null; completed_at: string | null; category: string | null; }
 
 export default function PortalHome() {
