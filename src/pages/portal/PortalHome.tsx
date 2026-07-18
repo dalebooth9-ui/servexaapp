@@ -24,7 +24,7 @@ export default function PortalHome() {
     (async () => {
       const [{ data: cs }, { data: dueRows }, { data: jobRows }] = await Promise.all([
         supabase.from("customer_sites").select("site_id, sites:site_id(id,name,address)").eq("customer_id", ctx.customerId),
-        supabase.from("site_service_schedules").select("site_id, service_type, next_due_date, status").eq("customer_id", ctx.customerId).order("next_due_date", { ascending: true }),
+        supabase.from("site_service_schedules").select("site_id, work_type, next_due_date").eq("customer_id", ctx.customerId).order("next_due_date", { ascending: true }),
         supabase.from("customer_job_summary").select("id, site_id, name, reference_number, completed_at, category").order("completed_at", { ascending: false }).limit(50),
       ]);
       setSites((cs || []).map((r: any) => r.sites).filter(Boolean));
