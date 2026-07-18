@@ -62,15 +62,18 @@ export default function PortalHome() {
                   <div className="text-sm text-muted-foreground">No scheduled services on file.</div>
                 ) : (
                   <ul className="text-sm divide-y">
-                    {siteDues.map((d, i) => (
-                      <li key={i} className="py-1.5 flex items-center justify-between">
-                        <span>{d.service_type}</span>
-                        <span className="flex items-center gap-2">
-                          {d.next_due_date && <span className="text-muted-foreground">{new Date(d.next_due_date).toLocaleDateString()}</span>}
-                          {d.status === "overdue" && <Badge variant="destructive">Overdue</Badge>}
-                        </span>
-                      </li>
-                    ))}
+                    {siteDues.map((d, i) => {
+                      const overdue = d.next_due_date ? new Date(d.next_due_date) < new Date() : false;
+                      return (
+                        <li key={i} className="py-1.5 flex items-center justify-between">
+                          <span>{d.work_type || "Scheduled service"}</span>
+                          <span className="flex items-center gap-2">
+                            {d.next_due_date && <span className="text-muted-foreground">{new Date(d.next_due_date).toLocaleDateString()}</span>}
+                            {overdue && <Badge variant="destructive">Overdue</Badge>}
+                          </span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </section>
