@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
       is_active: newUses < inv.max_uses,
     }).eq("id", inv.id);
 
-    // Create org
+    // Create org — persist any founder/promo price locked in by the invite code.
     const baseSlug = slugify(orgName);
     const slug = await uniqueSlug(svc, baseSlug);
     const scanEmail = `${slug}-scan@intake.servexaapp.com`;
@@ -93,6 +93,9 @@ Deno.serve(async (req) => {
       created_by: uid,
       intake_email: intakeEmail,
       scan_intake_email: scanEmail,
+      promo_price_pence: inv.price_override_pence ?? null,
+      promo_price_note: inv.price_override_note ?? null,
+      user_band: "band_1_10",
     }).select("id").single();
     if (orgErr) throw orgErr;
     const orgId = (orgIns as any).id as string;
