@@ -5653,6 +5653,8 @@ export type Database = {
           plan_status: string
           portal_enabled: boolean
           primary_color: string | null
+          promo_price_note: string | null
+          promo_price_pence: number | null
           reactivated_at: string | null
           renewal_reminder_from_name: string | null
           renewal_reminder_template: string | null
@@ -5666,6 +5668,7 @@ export type Database = {
           suspension_reason: string | null
           trial_ends_at: string | null
           updated_at: string
+          user_band: string | null
         }
         Insert: {
           created_at?: string
@@ -5679,6 +5682,8 @@ export type Database = {
           plan_status?: string
           portal_enabled?: boolean
           primary_color?: string | null
+          promo_price_note?: string | null
+          promo_price_pence?: number | null
           reactivated_at?: string | null
           renewal_reminder_from_name?: string | null
           renewal_reminder_template?: string | null
@@ -5692,6 +5697,7 @@ export type Database = {
           suspension_reason?: string | null
           trial_ends_at?: string | null
           updated_at?: string
+          user_band?: string | null
         }
         Update: {
           created_at?: string
@@ -5705,6 +5711,8 @@ export type Database = {
           plan_status?: string
           portal_enabled?: boolean
           primary_color?: string | null
+          promo_price_note?: string | null
+          promo_price_pence?: number | null
           reactivated_at?: string | null
           renewal_reminder_from_name?: string | null
           renewal_reminder_template?: string | null
@@ -5718,6 +5726,7 @@ export type Database = {
           suspension_reason?: string | null
           trial_ends_at?: string | null
           updated_at?: string
+          user_band?: string | null
         }
         Relationships: []
       }
@@ -6142,6 +6151,8 @@ export type Database = {
           is_active: boolean
           max_uses: number
           note: string | null
+          price_override_note: string | null
+          price_override_pence: number | null
           seed_templates_default: boolean
           updated_at: string
           uses: number
@@ -6155,6 +6166,8 @@ export type Database = {
           is_active?: boolean
           max_uses?: number
           note?: string | null
+          price_override_note?: string | null
+          price_override_pence?: number | null
           seed_templates_default?: boolean
           updated_at?: string
           uses?: number
@@ -6168,6 +6181,8 @@ export type Database = {
           is_active?: boolean
           max_uses?: number
           note?: string | null
+          price_override_note?: string | null
+          price_override_pence?: number | null
           seed_templates_default?: boolean
           updated_at?: string
           uses?: number
@@ -9088,6 +9103,7 @@ export type Database = {
           was_new: boolean
         }[]
       }
+      count_org_staff_users: { Args: { _org_id: string }; Returns: number }
       count_seed_test_jobs: {
         Args: never
         Returns: {
@@ -9292,6 +9308,8 @@ export type Database = {
         Args: { _code: string }
         Returns: {
           note: string
+          price_override_note: string
+          price_override_pence: number
           seed_templates_default: boolean
           valid: boolean
         }[]
