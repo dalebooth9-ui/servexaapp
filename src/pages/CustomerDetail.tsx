@@ -1,4 +1,17 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { InviteCustomerPortalDialog } from "@/components/settings/InviteCustomerPortalDialog";
+
+function InvitePortalButton({ customerId, customerName }: { customerId: string; customerName: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <UserPlus className="w-4 h-4 mr-2" />Invite to portal
+      </Button>
+      <InviteCustomerPortalDialog open={open} onOpenChange={setOpen} customerId={customerId} customerName={customerName} />
+    </>
+  );
+}
 import CustomerPaperwork from "@/components/CustomerPaperwork";
 import CustomerAccreditationLogos from "@/components/CustomerAccreditationLogos";
 import { useParams, Link, useNavigate } from "react-router-dom";
@@ -12,7 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw, Plus, FolderInput, Globe, Building, Layers, ExternalLink, X, ImageIcon, ClipboardList, Sparkles } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw, Plus, FolderInput, Globe, Building, Layers, ExternalLink, X, ImageIcon, ClipboardList, Sparkles, UserPlus } from "lucide-react";
 import RichTextEditor from "@/components/RichTextEditor";
 import DOMPurify from "dompurify";
 import { jsPDF } from "jspdf";
@@ -866,6 +879,7 @@ export default function CustomerDetail() {
       {isAdmin && (
         <div className="flex flex-wrap gap-2">
           <CustomerPortalLink customerId={id!} customerEmail={customer.email} customerName={customer.name} />
+          <InvitePortalButton customerId={id!} customerName={customer.name} />
         </div>
       )}
 

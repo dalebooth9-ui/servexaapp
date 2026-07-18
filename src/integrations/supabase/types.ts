@@ -1141,6 +1141,13 @@ export type Database = {
             foreignKeyName: "conformity_certificates_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conformity_certificates_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -1294,6 +1301,13 @@ export type Database = {
             foreignKeyName: "customer_merge_suggestions_related_job_id_fkey"
             columns: ["related_job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_merge_suggestions_related_job_id_fkey"
+            columns: ["related_job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -1332,6 +1346,13 @@ export type Database = {
             foreignKeyName: "customer_notification_log_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_notification_log_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -1362,6 +1383,7 @@ export type Database = {
           id: string
           label: string
           org_id: string
+          shareable_with_customer: boolean
           updated_at: string
           uploaded_by: string
         }
@@ -1375,6 +1397,7 @@ export type Database = {
           id?: string
           label?: string
           org_id?: string
+          shareable_with_customer?: boolean
           updated_at?: string
           uploaded_by: string
         }
@@ -1388,6 +1411,7 @@ export type Database = {
           id?: string
           label?: string
           org_id?: string
+          shareable_with_customer?: boolean
           updated_at?: string
           uploaded_by?: string
         }
@@ -1401,6 +1425,64 @@ export type Database = {
           },
           {
             foreignKeyName: "customer_paperwork_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_portal_invites: {
+        Row: {
+          created_at: string
+          customer_id: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string | null
+          org_id: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          org_id: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          org_id?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_portal_invites_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_portal_invites_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_portal_invites_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organisations_safe"
@@ -1469,6 +1551,70 @@ export type Database = {
           },
         ]
       }
+      customer_portal_users: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          customer_id: string
+          email: string
+          id: string
+          invited_at: string
+          invited_by: string | null
+          is_active: boolean
+          org_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          customer_id: string
+          email: string
+          id?: string
+          invited_at?: string
+          invited_by?: string | null
+          is_active?: boolean
+          org_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          customer_id?: string
+          email?: string
+          id?: string
+          invited_at?: string
+          invited_by?: string | null
+          is_active?: boolean
+          org_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_portal_users_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_portal_users_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_portal_users_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_sign_off_tokens: {
         Row: {
           created_at: string
@@ -1507,6 +1653,13 @@ export type Database = {
           token?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "customer_sign_off_tokens_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "customer_sign_off_tokens_job_id_fkey"
             columns: ["job_id"]
@@ -1750,6 +1903,13 @@ export type Database = {
             foreignKeyName: "defects_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -1772,6 +1932,13 @@ export type Database = {
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_remedial_job_id_fkey"
+            columns: ["remedial_job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
             referencedColumns: ["id"]
           },
           {
@@ -2485,6 +2652,13 @@ export type Database = {
             foreignKeyName: "field_reports_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "field_reports_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -2551,6 +2725,13 @@ export type Database = {
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fire_log_entries_linked_job_id_fkey"
+            columns: ["linked_job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fire_log_entries_linked_job_id_fkey"
             columns: ["linked_job_id"]
@@ -2712,6 +2893,13 @@ export type Database = {
             foreignKeyName: "generic_rams_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generic_rams_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -2786,6 +2974,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handover_tokens_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
             referencedColumns: ["id"]
           },
           {
@@ -2877,6 +3072,7 @@ export type Database = {
           report_date: string | null
           report_type: string | null
           report_type_label: string | null
+          shareable_with_customer: boolean
           site_id: string | null
           storage_path: string
           template_id: string | null
@@ -2899,6 +3095,7 @@ export type Database = {
           report_date?: string | null
           report_type?: string | null
           report_type_label?: string | null
+          shareable_with_customer?: boolean
           site_id?: string | null
           storage_path: string
           template_id?: string | null
@@ -2921,6 +3118,7 @@ export type Database = {
           report_date?: string | null
           report_type?: string | null
           report_type_label?: string | null
+          shareable_with_customer?: boolean
           site_id?: string | null
           storage_path?: string
           template_id?: string | null
@@ -3304,6 +3502,13 @@ export type Database = {
             foreignKeyName: "installation_projects_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installation_projects_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -3517,6 +3722,13 @@ export type Database = {
             foreignKeyName: "invoices_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -3565,6 +3777,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "job_activity_log_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "job_activity_log_job_id_fkey"
             columns: ["job_id"]
@@ -3625,6 +3844,13 @@ export type Database = {
           org_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_job_assignments_job"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fk_job_assignments_job"
             columns: ["job_id"]
@@ -3705,6 +3931,7 @@ export type Database = {
           job_id: string
           label: string
           org_id: string
+          shareable_with_customer: boolean
           source: string
         }
         Insert: {
@@ -3718,6 +3945,7 @@ export type Database = {
           job_id: string
           label?: string
           org_id?: string
+          shareable_with_customer?: boolean
           source?: string
         }
         Update: {
@@ -3731,6 +3959,7 @@ export type Database = {
           job_id?: string
           label?: string
           org_id?: string
+          shareable_with_customer?: boolean
           source?: string
         }
         Relationships: [
@@ -3739,6 +3968,13 @@ export type Database = {
             columns: ["category_template_id"]
             isOneToOne: false
             referencedRelation: "category_document_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_documents_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
             referencedColumns: ["id"]
           },
           {
@@ -3824,6 +4060,13 @@ export type Database = {
             foreignKeyName: "job_emails_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_emails_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -3858,6 +4101,13 @@ export type Database = {
           sender_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "job_messages_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "job_messages_job_id_fkey"
             columns: ["job_id"]
@@ -3928,6 +4178,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "job_parts_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "job_parts_job_id_fkey"
             columns: ["job_id"]
@@ -4019,6 +4276,13 @@ export type Database = {
             foreignKeyName: "job_photo_checklist_responses_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_photo_checklist_responses_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -4070,6 +4334,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "job_photo_checklists_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "job_photo_checklists_job_id_fkey"
             columns: ["job_id"]
@@ -4154,6 +4425,13 @@ export type Database = {
             foreignKeyName: "job_remedial_items_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_remedial_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -4216,6 +4494,13 @@ export type Database = {
             foreignKeyName: "job_schedule_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_schedule_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -4273,6 +4558,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "job_sheet_responses_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "job_sheet_responses_job_id_fkey"
             columns: ["job_id"]
@@ -4408,6 +4700,13 @@ export type Database = {
             foreignKeyName: "job_signatures_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_signatures_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -4468,6 +4767,13 @@ export type Database = {
           what3words?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "job_site_survey_photos_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "job_site_survey_photos_job_id_fkey"
             columns: ["job_id"]
@@ -4549,6 +4855,13 @@ export type Database = {
             foreignKeyName: "job_site_surveys_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: true
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_site_surveys_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -4600,6 +4913,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "job_template_locks_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "job_template_locks_job_id_fkey"
             columns: ["job_id"]
@@ -4737,6 +5057,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "job_visits_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "job_visits_job_id_fkey"
             columns: ["job_id"]
@@ -5023,6 +5350,13 @@ export type Database = {
             foreignKeyName: "notifications_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -5290,6 +5624,7 @@ export type Database = {
           name: string
           plan: string
           plan_status: string
+          portal_enabled: boolean
           primary_color: string | null
           reactivated_at: string | null
           renewal_reminder_from_name: string | null
@@ -5315,6 +5650,7 @@ export type Database = {
           name: string
           plan?: string
           plan_status?: string
+          portal_enabled?: boolean
           primary_color?: string | null
           reactivated_at?: string | null
           renewal_reminder_from_name?: string | null
@@ -5340,6 +5676,7 @@ export type Database = {
           name?: string
           plan?: string
           plan_status?: string
+          portal_enabled?: boolean
           primary_color?: string | null
           reactivated_at?: string | null
           renewal_reminder_from_name?: string | null
@@ -5596,6 +5933,13 @@ export type Database = {
             foreignKeyName: "pending_whatsapp_scans_created_job_id_fkey"
             columns: ["created_job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_whatsapp_scans_created_job_id_fkey"
+            columns: ["created_job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -5782,6 +6126,74 @@ export type Database = {
         }
         Relationships: []
       }
+      portal_visit_requests: {
+        Row: {
+          created_at: string
+          customer_id: string
+          id: string
+          notes: string | null
+          org_id: string
+          preferred_date: string | null
+          requested_by: string
+          site_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          id?: string
+          notes?: string | null
+          org_id: string
+          preferred_date?: string | null
+          requested_by: string
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          id?: string
+          notes?: string | null
+          org_id?: string
+          preferred_date?: string | null
+          requested_by?: string
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_visit_requests_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_visit_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_visit_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_visit_requests_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ppm_schedules: {
         Row: {
           asset_id: string
@@ -5902,6 +6314,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pre_completion_checklist_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pre_completion_checklist_items_job_id_fkey"
             columns: ["job_id"]
@@ -6175,6 +6594,13 @@ export type Database = {
             foreignKeyName: "rams_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -6215,6 +6641,7 @@ export type Database = {
           resources: string | null
           risk_rows: Json | null
           sequence_of_ops: Json | null
+          shareable_with_customer: boolean
           significant_risks: Json | null
           site_location: string | null
           special_training: string | null
@@ -6241,6 +6668,7 @@ export type Database = {
           resources?: string | null
           risk_rows?: Json | null
           sequence_of_ops?: Json | null
+          shareable_with_customer?: boolean
           significant_risks?: Json | null
           site_location?: string | null
           special_training?: string | null
@@ -6267,6 +6695,7 @@ export type Database = {
           resources?: string | null
           risk_rows?: Json | null
           sequence_of_ops?: Json | null
+          shareable_with_customer?: boolean
           significant_risks?: Json | null
           site_location?: string | null
           special_training?: string | null
@@ -6274,6 +6703,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "rams_documents_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "rams_documents_job_id_fkey"
             columns: ["job_id"]
@@ -6410,6 +6846,13 @@ export type Database = {
           user_agent?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "rams_signoffs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "rams_signoffs_job_id_fkey"
             columns: ["job_id"]
@@ -6904,6 +7347,13 @@ export type Database = {
             foreignKeyName: "site_service_schedules_last_job_id_fkey"
             columns: ["last_job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_service_schedules_last_job_id_fkey"
+            columns: ["last_job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -6912,6 +7362,13 @@ export type Database = {
             columns: ["last_response_id"]
             isOneToOne: false
             referencedRelation: "job_sheet_responses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_service_schedules_next_job_id_fkey"
+            columns: ["next_job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
             referencedColumns: ["id"]
           },
           {
@@ -7093,6 +7550,13 @@ export type Database = {
             foreignKeyName: "site_surveys_converted_job_id_fkey"
             columns: ["converted_job_id"]
             isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_surveys_converted_job_id_fkey"
+            columns: ["converted_job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -7245,6 +7709,13 @@ export type Database = {
           van_stock_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "stock_transactions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "stock_transactions_job_id_fkey"
             columns: ["job_id"]
@@ -7428,6 +7899,13 @@ export type Database = {
           whatsapp_message_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "submissions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "submissions_job_id_fkey"
             columns: ["job_id"]
@@ -7952,6 +8430,112 @@ export type Database = {
       }
     }
     Views: {
+      customer_defect_summary: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          job_id: string | null
+          location_on_site: string | null
+          severity: string | null
+          site_id: string | null
+          status: string | null
+          title: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          job_id?: string | null
+          location_on_site?: string | null
+          severity?: string | null
+          site_id?: string | null
+          status?: string | null
+          title?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          job_id?: string | null
+          location_on_site?: string | null
+          severity?: string | null
+          site_id?: string | null
+          status?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "defects_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_job_summary: {
+        Row: {
+          category: string | null
+          completed_at: string | null
+          created_at: string | null
+          customer_id: string | null
+          id: string | null
+          name: string | null
+          reference_number: string | null
+          site_id: string | null
+          status: string | null
+        }
+        Insert: {
+          category?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          id?: string | null
+          name?: string | null
+          reference_number?: string | null
+          site_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          category?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          id?: string | null
+          name?: string | null
+          reference_number?: string | null
+          site_id?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organisations_safe: {
         Row: {
           created_at: string | null
@@ -8152,6 +8736,17 @@ export type Database = {
         Args: { _name: string }
         Returns: boolean
       }
+      customer_user_can_see_job: {
+        Args: { _job_id: string; _uid: string }
+        Returns: boolean
+      }
+      customer_user_can_see_site: {
+        Args: { _site_id: string; _uid: string }
+        Returns: boolean
+      }
+      customer_user_customer_id: { Args: { _uid: string }; Returns: string }
+      customer_user_org_id: { Args: { _uid: string }; Returns: string }
+      customer_user_portal_enabled: { Args: { _uid: string }; Returns: boolean }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -8256,6 +8851,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin_direct: { Args: { _user_id: string }; Returns: boolean }
+      is_customer_user: { Args: { _uid: string }; Returns: boolean }
       is_org_active: { Args: { _org_id: string }; Returns: boolean }
       is_org_admin: { Args: { _org_id: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
@@ -8383,7 +8979,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "engineer" | "platform_admin"
+      app_role: "admin" | "engineer" | "platform_admin" | "customer_user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -8511,7 +9107,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "engineer", "platform_admin"],
+      app_role: ["admin", "engineer", "platform_admin", "customer_user"],
     },
   },
 } as const
