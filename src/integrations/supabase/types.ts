@@ -1683,6 +1683,7 @@ export type Database = {
           resolved_by: string | null
           severity: string
           site_id: string | null
+          source_response_id: string | null
           status: string
           title: string
           updated_at: string
@@ -1707,6 +1708,7 @@ export type Database = {
           resolved_by?: string | null
           severity?: string
           site_id?: string | null
+          source_response_id?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -1731,6 +1733,7 @@ export type Database = {
           resolved_by?: string | null
           severity?: string
           site_id?: string | null
+          source_response_id?: string | null
           status?: string
           title?: string
           updated_at?: string
@@ -1783,6 +1786,13 @@ export type Database = {
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_source_response_id_fkey"
+            columns: ["source_response_id"]
+            isOneToOne: false
+            referencedRelation: "job_sheet_responses"
             referencedColumns: ["id"]
           },
         ]
@@ -5915,6 +5925,66 @@ export type Database = {
           },
         ]
       }
+      price_book_items: {
+        Row: {
+          category: string | null
+          code: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          org_id: string
+          unit: string
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          org_id: string
+          unit?: string
+          unit_price?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          org_id?: string
+          unit?: string
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_book_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_book_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -8019,6 +8089,10 @@ export type Database = {
         Args: { _org_id: string; _reason: string; _source?: string }
         Returns: undefined
       }
+      capture_defects_from_response: {
+        Args: { _response_id: string }
+        Returns: number
+      }
       confirm_paper_scan_job: {
         Args: {
           _batch_item_id?: string
@@ -8058,6 +8132,10 @@ export type Database = {
         Args: { _label: string; _org_id: string; _secret: string }
         Returns: string
       }
+      create_remedial_job_from_quote: {
+        Args: { _quote_id: string }
+        Returns: string
+      }
       current_user_org_status: {
         Args: never
         Returns: {
@@ -8077,6 +8155,10 @@ export type Database = {
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
+      }
+      draft_quote_from_defects: {
+        Args: { _defect_ids: string[] }
+        Returns: string
       }
       email_queue_dispatch: { Args: never; Returns: undefined }
       engineer_can_access_asset: {

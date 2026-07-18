@@ -319,6 +319,14 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
           </Card>
+          <Card className="cursor-pointer hover:border-primary transition" onClick={() => navigate("/settings/price-book")}>
+            <CardHeader>
+              <CardTitle className="text-lg">Price Book</CardTitle>
+              <CardDescription>
+                Common remedial line items with unit prices — used to draft quotes from defects with one click.
+              </CardDescription>
+            </CardHeader>
+          </Card>
           <EngineerSignatureSettings />
 
           <Card className="cursor-pointer hover:border-primary transition" onClick={() => navigate("/settings/import-historic-reports")}>

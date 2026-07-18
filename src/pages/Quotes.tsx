@@ -99,6 +99,22 @@ export default function Quotes() {
     toast.success("Quote deleted");
   };
 
+  const handleCreateRemedialJob = async (quote: any) => {
+    setUpdatingId(quote.id);
+    try {
+      const { data, error } = await (supabase as any).rpc("create_remedial_job_from_quote", {
+        _quote_id: quote.id,
+      });
+      if (error) throw error;
+      toast.success("Remedial job created");
+      navigate(`/jobs/${data as string}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create remedial job");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const handleConvertToInvoice = async (quote: any) => {
     setUpdatingId(quote.id);
     try {
@@ -331,15 +347,26 @@ export default function Quotes() {
                               </>
                             )}
                             {key === "accepted" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 text-[11px] px-2 gap-1 text-primary border-primary/30 hover:bg-primary/10"
-                                disabled={updatingId === q.id}
-                                onClick={() => handleConvertToInvoice(q)}
-                              >
-                                <ArrowRight className="h-3 w-3" /> Convert to Invoice
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[11px] px-2 gap-1 text-primary border-primary/30 hover:bg-primary/10"
+                                  disabled={updatingId === q.id}
+                                  onClick={() => handleConvertToInvoice(q)}
+                                >
+                                  <ArrowRight className="h-3 w-3" /> Convert to Invoice
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[11px] px-2 gap-1"
+                                  disabled={updatingId === q.id}
+                                  onClick={() => handleCreateRemedialJob(q)}
+                                >
+                                  {updatingId === q.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />} Create remedial job
+                                </Button>
+                              </>
                             )}
                             {key === "declined" && (
                               <Button
