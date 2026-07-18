@@ -225,6 +225,12 @@ export default function JobWordReport({ jobId, job }: Props) {
         fetchCustomerAccreditationLogos(custName),
       ]);
 
+      // Honour user's sheet ticks from the picker (empty = none).
+      const filteredSheets = ((sheetsRes.data || []) as any[]).filter((s) =>
+        selectedSheetIds.size === 0 ? false : selectedSheetIds.has(s.id),
+      );
+      const filteredSheetsRes = { data: filteredSheets, error: sheetsRes.error };
+
       const engIds = [...new Set((assignRes.data || []).map((a: any) => a.engineer_id))];
       let engineerNames: string[] = [];
       if (engIds.length > 0) {
