@@ -10,6 +10,7 @@ import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { PDF_DIMENSIONS, resolveAccredFooterY } from "@/lib/pdfDimensions";
 import { renderPdfHeader } from "@/lib/pdfHeader";
+import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
 import { fetchOrientedImage } from "@/lib/exifOrient";
 import { collectEmbeddedPhotoPaths, loadJobPhotosForPdf, type JobPhotoForPdf } from "@/lib/jobPhotos";
 import ExportBundlePickerDialog, { type ExportBundleSelection } from "@/components/exports/ExportBundlePickerDialog";
