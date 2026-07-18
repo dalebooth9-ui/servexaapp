@@ -40,10 +40,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           // Fetch role and profile using setTimeout to avoid deadlock
           setTimeout(async () => {
-            const [roleRes, profileRes] = await Promise.all([
+            let [roleRes, profileRes] = await Promise.all([
               supabase.from("user_roles").select("role").eq("user_id", session.user.id),
               supabase.from("profiles").select("full_name, whatsapp_number, org_id").eq("user_id", session.user.id).maybeSingle(),
             ]);
+            // Auto-provision on first sign-in for invite-code signups
+            const meta = (session.user.user_metadata ?? {}) as Record<string, unknown>;
+            if (!(profileRes.data as any)?.org_id && meta.signup_flow === "invite_code") {
+              try {
+                await supabase.functions.invoke("provision-new-org", { body: {} });
+                profileRes = await supabase.from("profiles").select("full_name, whatsapp_number, org_id").eq("user_id", session.user.id).maybeSingle();
+                roleRes = await supabase.from("user_roles").select("role").eq("user_id", session.user.id);
+              } catch (e) {
+                console.error("Auto-provision failed", e);
+              }
+            }
             const roles = (roleRes.data ?? []).map((r) => r.role);
             setUserRole(roles.includes("admin") ? "admin" : roles.includes("engineer") ? "engineer" : null);
             const prof = profileRes.data as any;

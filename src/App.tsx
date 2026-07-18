@@ -96,6 +96,7 @@ const PlatformSupportInbox = lazy(() => import("@/pages/PlatformSupportInbox"));
 const MyTickets = lazy(() => import("@/pages/MyTickets"));
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const PricingPage = lazy(() => import("@/pages/PricingPage"));
+const SignupPage = lazy(() => import("@/pages/SignupPage"));
 // Hidden emergency route — no visible entry. Reach via direct URL.
 const StorageMigrationPanel = lazy(() => import("@/components/StorageMigrationPanel"));
 import CookieBanner from "@/components/CookieBanner";
@@ -153,9 +154,17 @@ function AuthRoute() {
     if (next && next.startsWith("/") && !next.startsWith("//")) {
       return <Navigate to={next} replace />;
     }
-    return <Navigate to="/" replace />;
+    return <Navigate to="/app" replace />;
   }
   return <Auth />;
+}
+
+// Marketing landing at "/" for signed-out visitors; signed-in users go to dashboard.
+function RootRoute() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
+  if (user) return <ProtectedRoute><Dashboard /></ProtectedRoute>;
+  return <Suspense fallback={<PageFallback />}><LandingPage /></Suspense>;
 }
 
 const App = () => (
@@ -168,11 +177,14 @@ const App = () => (
           <AuthProvider>
             <Routes>
               <Route path="/auth" element={<AuthRoute />} />
+              <Route path="/login" element={<AuthRoute />} />
+              <Route path="/signup" element={<Suspense fallback={<PageFallback />}><SignupPage /></Suspense>} />
               <Route path="/.lovable/oauth/consent" element={<Suspense fallback={<PageFallback />}><OAuthConsent /></Suspense>} />
               <Route path="/offline" element={<Suspense fallback={<PageFallback />}><Offline /></Suspense>} />
-              <Route path="/landing" element={<Suspense fallback={<PageFallback />}><LandingPage /></Suspense>} />
+              <Route path="/landing" element={<Navigate to="/" replace />} />
               <Route path="/pricing" element={<Suspense fallback={<PageFallback />}><PricingPage /></Suspense>} />
-              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/" element={<RootRoute />} />
+              <Route path="/app" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
               <Route path="/my-timesheet" element={<ProtectedRoute><MyTimesheet /></ProtectedRoute>} />
               <Route path="/sync-status" element={<ProtectedRoute><SyncStatus /></ProtectedRoute>} />

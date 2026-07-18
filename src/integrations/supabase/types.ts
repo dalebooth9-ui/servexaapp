@@ -5484,23 +5484,41 @@ export type Database = {
       organisation_billing: {
         Row: {
           created_at: string
+          current_period_end: string | null
+          grace_period_ends_at: string | null
+          last_webhook_event_id: string | null
           org_id: string
+          plan_code: string
           stripe_customer_id: string | null
+          stripe_price_id: string | null
           stripe_subscription_id: string | null
+          subscription_status: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          current_period_end?: string | null
+          grace_period_ends_at?: string | null
+          last_webhook_event_id?: string | null
           org_id: string
+          plan_code?: string
           stripe_customer_id?: string | null
+          stripe_price_id?: string | null
           stripe_subscription_id?: string | null
+          subscription_status?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          current_period_end?: string | null
+          grace_period_ends_at?: string | null
+          last_webhook_event_id?: string | null
           org_id?: string
+          plan_code?: string
           stripe_customer_id?: string | null
+          stripe_price_id?: string | null
           stripe_subscription_id?: string | null
+          subscription_status?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -6113,6 +6131,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_invite_codes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          max_uses: number
+          note: string | null
+          seed_templates_default: boolean
+          updated_at: string
+          uses: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number
+          note?: string | null
+          seed_templates_default?: boolean
+          updated_at?: string
+          uses?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number
+          note?: string | null
+          seed_templates_default?: boolean
+          updated_at?: string
+          uses?: number
+        }
+        Relationships: []
       }
       po_intake_rate_limit: {
         Row: {
@@ -7544,6 +7604,63 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "job_sheet_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signup_intents: {
+        Row: {
+          code: string | null
+          completed_at: string | null
+          created_at: string
+          email: string
+          error_message: string | null
+          id: string
+          org_id: string | null
+          org_name: string | null
+          requested_at: string
+          seed_templates: boolean
+          user_id: string | null
+        }
+        Insert: {
+          code?: string | null
+          completed_at?: string | null
+          created_at?: string
+          email: string
+          error_message?: string | null
+          id?: string
+          org_id?: string | null
+          org_name?: string | null
+          requested_at?: string
+          seed_templates?: boolean
+          user_id?: string | null
+        }
+        Update: {
+          code?: string | null
+          completed_at?: string | null
+          created_at?: string
+          email?: string
+          error_message?: string | null
+          id?: string
+          org_id?: string | null
+          org_name?: string | null
+          requested_at?: string
+          seed_templates?: boolean
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signup_intents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signup_intents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -9169,6 +9286,14 @@ export type Database = {
           org_id: string
           org_name: string
           role: string
+        }[]
+      }
+      preview_signup_code: {
+        Args: { _code: string }
+        Returns: {
+          note: string
+          seed_templates_default: boolean
+          valid: boolean
         }[]
       }
       purge_old_client_errors: { Args: never; Returns: undefined }

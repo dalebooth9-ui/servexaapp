@@ -27,6 +27,7 @@ import { format } from "date-fns";
 import { Navigate } from "react-router-dom";
 import { useOrgStatus } from "@/hooks/useOrgStatus";
 import { PauseCircle, PlayCircle, Shield, History } from "lucide-react";
+import InviteCodesCard from "@/components/platform/InviteCodesCard";
 
 const PLATFORM_ORG_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -148,6 +149,8 @@ export default function PlatformOrganisations() {
         <Shield className="h-5 w-5 text-primary" />
         <h1 className="text-2xl font-semibold">Platform · Organisations</h1>
       </div>
+
+      <InviteCodesCard />
 
       <Card>
         <CardHeader>
