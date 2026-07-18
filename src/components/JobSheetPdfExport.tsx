@@ -12,6 +12,7 @@ import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
+import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
