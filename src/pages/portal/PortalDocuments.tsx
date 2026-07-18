@@ -22,7 +22,7 @@ export default function PortalDocuments() {
     (async () => {
       let q = supabase
         .from("job_documents")
-        .select("id, job_id, document_type, file_name, file_path, storage_bucket, created_at")
+        .select("id, job_id, document_type, file_name, file_url, label, created_at")
         .eq("shareable_with_customer", true)
         .order("created_at", { ascending: false });
       if (jobFilter) q = q.eq("job_id", jobFilter);
@@ -32,10 +32,8 @@ export default function PortalDocuments() {
     })();
   }, [ctx.customerId, jobFilter]);
 
-  async function open(d: DocRow) {
-    if (!d.file_path || !d.storage_bucket) return;
-    const { data } = await supabase.storage.from(d.storage_bucket).createSignedUrl(d.file_path, 300);
-    if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener");
+  function open(d: DocRow) {
+    if (d.file_url) window.open(d.file_url, "_blank", "noopener");
   }
 
   if (loading) return <div className="text-muted-foreground">Loading…</div>;
