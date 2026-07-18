@@ -41,6 +41,7 @@ import {
 } from "@/lib/pdfBody";
 import { fetchCustomerAccreditationLogos } from "@/lib/pdfAccreditations";
 import { getDefaultFooterText } from "@/lib/pdfFooter";
+import ExportBundlePickerDialog, { type ExportBundleSelection } from "@/components/exports/ExportBundlePickerDialog";
 
 interface Props {
   jobId: string;
