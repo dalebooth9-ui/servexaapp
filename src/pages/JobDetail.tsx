@@ -83,6 +83,7 @@ const JobPhotos = lazy(() => import("@/components/jobs/JobPhotos"));
 const JobEmailChain = lazy(() => import("@/components/jobs/JobEmailChain"));
 import RamsRequiredBanner from "@/components/rams/RamsRequiredBanner";
 import { useJobRamsStatus } from "@/hooks/useJobRamsStatus";
+import EngineerNextStepBar from "@/components/engineer/EngineerNextStepBar";
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
@@ -1273,7 +1274,7 @@ export default function JobDetail() {
     )}
 
     {/* Sticky mobile "Complete Job" — visible to admins and assigned engineers */}
-    {job && (
+    {job && userRole !== "engineer" && (
       <JobCompleteAction
         jobId={id!}
         jobStatus={job.status}
@@ -1281,6 +1282,16 @@ export default function JobDetail() {
         isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
         variant="sticky"
         onCompleted={fetchData}
+      />
+    )}
+    {/* Engineer guided next-step bar — one obvious action driven by job state */}
+    {job && userRole === "engineer" && (
+      <EngineerNextStepBar
+        jobId={id!}
+        jobStatus={job.status}
+        isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+        onNavigateTab={(tab) => setActiveTab(tab as JobTab)}
+        onStatusChanged={(s) => setJob((prev: any) => ({ ...prev, status: s }))}
       />
     )}
     <SiteSheetPrintDialog
