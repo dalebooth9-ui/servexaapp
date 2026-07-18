@@ -201,10 +201,15 @@ function buildRepeatingTable(field: any, rowsIn: any[]): (Paragraph | Table)[] {
 
 export default function JobWordReport({ jobId, job }: Props) {
   const [generating, setGenerating] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const generate = async () => {
+  const generate = async (sel: ExportBundleSelection) => {
+    setDialogOpen(false);
     setGenerating(true);
+    const selectedPhotoIds = sel.photoIds;
+    const selectedSheetIds = sel.sheetIds;
+    const includePhotos = sel.includePhotos;
     try {
       const custName = job.customers?.name || job.customer || "";
       const [visitsRes, partsRes, assignRes, sigRes, sheetsRes, subsRes, accredUrls] = await Promise.all([
