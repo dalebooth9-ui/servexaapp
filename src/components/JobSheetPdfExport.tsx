@@ -282,31 +282,37 @@ export async function generateJobSheetPdf(
   const margin = isDryRiser ? DRY_RISER_LAYOUT.page.marginLeftMm : 10;
   const maxWidth = pageWidth - margin * 2;
 
-  // Always do a fresh DB fetch for the customer logo in case jobInfo is stale or missing the join
+  // Always do a fresh DB fetch for the customer branding in case jobInfo is
+  // stale or missing the join. We need logo_url + brand_colour to feed the
+  // single branding profile.
   let customerLogoUrl: string | null = jobInfo?.customers?.logo_url ?? null;
-  if (!customerLogoUrl && isValidUuid) {
+  let customerBrandColour: string | null =
+    (jobInfo?.customers as any)?.brand_colour ?? null;
+  if ((!customerLogoUrl || !customerBrandColour) && isValidUuid) {
     try {
       const { data: freshJob } = await supabase
         .from("jobs")
-        .select("customers(logo_url)")
+        .select("customers(logo_url, brand_colour)")
         .eq("id", jobId)
         .single();
-      customerLogoUrl = (freshJob as any)?.customers?.logo_url || null;
+      const c = (freshJob as any)?.customers;
+      customerLogoUrl = customerLogoUrl || c?.logo_url || null;
+      customerBrandColour = customerBrandColour || c?.brand_colour || null;
     } catch { /* use null */ }
   }
 
   // Resolve ONE branding profile per document — header logo, watermark tint,
-  // and footer all derive from the same source. Prevents mixed branding
-  // (e.g. customer-tinted watermark under a Viva Fire header).
-  const brandProfile = isDryRiser
-    ? await resolveDocumentBrandingProfile({
-        template: { branding: { ...(template.branding || {}), logo_url: "/vivafire-logo.png" } },
-        customer: null,
-      })
-    : await resolveDocumentBrandingProfile({
-        template,
-        customer: { name: jobInfo?.customers?.name, logo_url: customerLogoUrl },
-      });
+  // accreditation strip, and footer all derive from the same source. The
+  // customer's brand_colour tints the standard flame graphic so we don't need
+  // per-customer watermark assets.
+  const brandProfile = await resolveDocumentBrandingProfile({
+    template,
+    customer: {
+      name: jobInfo?.customers?.name,
+      logo_url: customerLogoUrl,
+      brand_colour: customerBrandColour,
+    },
+  });
   const branding = {
     ...(template.branding || {}),
     logo_url: brandProfile.logoUrl,
