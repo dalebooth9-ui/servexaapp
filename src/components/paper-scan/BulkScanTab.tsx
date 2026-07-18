@@ -275,8 +275,14 @@ export default function BulkScanTab({ onClose }: Props) {
       {stage === "upload" && (
         <>
           <div
-            className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/40"
+            role="button"
+            tabIndex={0}
+            aria-label="Choose or drop paper form scans"
+            className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             onClick={() => fileRef.current?.click()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileRef.current?.click(); }
+            }}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
@@ -285,7 +291,7 @@ export default function BulkScanTab({ onClose }: Props) {
           >
             <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
             <p className="mt-2 text-sm">
-              Upload a stack of paper forms — drag & drop, or click to select
+              Drop paper forms here or tap to choose — photos, or a scanner PDF we'll auto-split
             </p>
             <p className="text-xs text-muted-foreground">
               Add photos to group manually — or drop a scanner PDF and we'll split each sheet automatically.
