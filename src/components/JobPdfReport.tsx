@@ -468,18 +468,22 @@ async function renderDwellingAccessLog(
 export default function JobPdfReport({ jobId, job }: Props) {
   const [generating, setGenerating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [includeCerts, setIncludeCerts] = useState(true);
-  const [includePhotos, setIncludePhotos] = useState(true);
-  const [includeFieldReports, setIncludeFieldReports] = useState(true);
-  const [includeJobSheets, setIncludeJobSheets] = useState(true);
   const { toast } = useToast();
 
-  const generate = async () => {
+  const generate = async (sel: ExportBundleSelection) => {
+    const includeCerts = sel.includeCerts;
+    const includePhotos = sel.includePhotos;
+    const includeFieldReports = sel.includeFieldReports;
+    const includeFilledSheets = sel.includeFilledSheets;
+    const selectedPhotoIds = sel.photoIds;
+    const selectedSheetIds = sel.sheetIds;
+
     setDialogOpen(false);
     setGenerating(true);
     // Immediate feedback before the heavy PDF build so the spinner paints.
     toast({ title: "Preparing PDF…", description: "Building the job report — this can take a few seconds." });
     await new Promise((r) => setTimeout(r, 50));
+
     try {
       const [subsRes, reportsRes, visitsRes, partsRes, assignRes, sigRes, siteRes, sheetRespRes, templatesRes] = await Promise.all([
         supabase.from("submissions").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
