@@ -164,6 +164,65 @@ export default function DefectsReview() {
     })
     .sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9));
 
+  // Group by site so quotes drafted from selection all target one site.
+  const grouped = useMemo(() => {
+    const map = new Map<string, { key: string; siteId: string | null; siteName: string; items: Defect[] }>();
+    for (const d of filtered) {
+      const key = d.site_id ?? "__nosite__";
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          siteId: d.site_id,
+          siteName: d.site_id ? (siteLookup[d.site_id] || "Unknown site") : "No site linked",
+          items: [],
+        });
+      }
+      map.get(key)!.items.push(d);
+    }
+    return Array.from(map.values());
+  }, [filtered, siteLookup]);
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllInGroup = (ids: string[]) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const allIn = ids.every((id) => next.has(id));
+      if (allIn) ids.forEach((id) => next.delete(id));
+      else ids.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  // Selection must belong to a single site for the RPC.
+  const selectedIds = Array.from(selected);
+  const selectedDefects = defects.filter((d) => selected.has(d.id));
+  const selectedSiteIds = new Set(selectedDefects.map((d) => d.site_id));
+  const selectionValid = selectedIds.length > 0 && selectedSiteIds.size === 1;
+
+  const draftQuoteFromSelection = async () => {
+    if (!selectionValid) {
+      toast.error("Pick defects that all belong to the same site.");
+      return;
+    }
+    setDraftingQuote(true);
+    const { data, error } = await (supabase as any).rpc("draft_quote_from_defects", {
+      _defect_ids: selectedIds,
+    });
+    setDraftingQuote(false);
+    if (error) return toast.error(error.message);
+    toast.success("Draft quote created");
+    setSelected(new Set());
+    navigate(`/invoices/${data}`);
+  };
+
   return (
     <div className="container max-w-6xl py-6 space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
