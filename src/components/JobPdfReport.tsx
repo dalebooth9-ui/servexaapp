@@ -1134,7 +1134,66 @@ export default function JobPdfReport({ jobId, job }: Props) {
       }
 
 
-      doc.save(`${job.reference_number}-report.pdf`);
+      // ── Prepend filled-in sheet PDFs (same look as customer sheet PDF) ──
+      // We render each selected submitted response via the shared
+      // `generateJobSheetPdf` helper and stitch them in front of the job
+      // report using pdf-lib so the client sees the completed sheet first.
+      let finalBytes: Uint8Array | ArrayBuffer;
+      if (includeFilledSheets && sheetResponses.length > 0) {
+        try {
+          const merged = await PDFDocument.create();
+          const jobInfoForSheet: any = {
+            customer: job.customers?.name || job.customer || "",
+            site_name: site?.name || "",
+            site_address: site?.address || "",
+            po_number: job.customer_po || "",
+            reference_number: job.reference_number || "",
+            date: new Date().toLocaleDateString("en-GB"),
+          };
+          for (const resp of sheetResponses) {
+            const tpl = templateMap[resp.template_id];
+            if (!tpl) continue;
+            const submitterName = resp.submitted_by ? engineerProfileMap[resp.submitted_by] : undefined;
+            try {
+              const { base64 } = await generateJobSheetPdf(
+                tpl,
+                resp.responses || {},
+                jobInfoForSheet,
+                jobId,
+                submitterName,
+                resp.submitted_at || resp.created_at,
+                job.category_name || job.job_category?.name,
+              );
+              const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+              const src = await PDFDocument.load(bytes);
+              const pages = await merged.copyPages(src, src.getPageIndices());
+              pages.forEach((p) => merged.addPage(p));
+            } catch (sheetErr) {
+              console.warn("[JobPdfReport] filled sheet render failed", tpl.name, sheetErr);
+            }
+          }
+          // Append the main job report after the filled sheets.
+          const jobReportBytes = doc.output("arraybuffer");
+          const src = await PDFDocument.load(jobReportBytes);
+          const pages = await merged.copyPages(src, src.getPageIndices());
+          pages.forEach((p) => merged.addPage(p));
+          finalBytes = await merged.save();
+        } catch (mergeErr) {
+          console.warn("[JobPdfReport] pdf-lib merge failed, saving report only", mergeErr);
+          finalBytes = doc.output("arraybuffer");
+        }
+      } else {
+        finalBytes = doc.output("arraybuffer");
+      }
+
+      // Trigger download of the (possibly merged) bytes.
+      const blob = new Blob([finalBytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${job.reference_number}-report.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
       toast({ title: "PDF generated", description: `${job.reference_number}-report.pdf downloaded.` });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -1150,37 +1209,17 @@ export default function JobPdfReport({ jobId, job }: Props) {
         {generating ? "Generating..." : "Export PDF Report"}
       </Button>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Export PDF Report</DialogTitle>
-          </DialogHeader>
-          <div className="py-2 space-y-4">
-            {[
-              { id: "include-photos", label: "Include Photos", desc: "Embed submitted photos in the report", checked: includePhotos, onChange: setIncludePhotos },
-              { id: "include-field-reports", label: "Include Servexa Reports", desc: "Append Servexa report summaries", checked: includeFieldReports, onChange: setIncludeFieldReports },
-              { id: "include-job-sheets", label: "Include Job Sheet Responses", desc: "Include submitted job sheet form data", checked: includeJobSheets, onChange: setIncludeJobSheets },
-              { id: "include-certs", label: "Include Engineer Certificates", desc: "Attach the certificates table to the report", checked: includeCerts, onChange: setIncludeCerts },
-            ].map(({ id, label, desc, checked, onChange }) => (
-              <div key={id} className="flex items-center justify-between gap-4">
-                <div>
-                  <Label htmlFor={id} className="text-sm font-medium">{label}</Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
-                </div>
-                <Switch id={id} checked={checked} onCheckedChange={onChange} />
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={generate} disabled={generating}>
-              {generating ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Generating...</> : <><FileDown className="mr-1.5 h-4 w-4" /> Generate PDF</>}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ExportBundlePickerDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        jobId={jobId}
+        confirmLabel="Generate PDF"
+        generating={generating}
+        onConfirm={generate}
+      />
     </>
   );
+
 }
 
 function extractPath(fileUrl: string): string | null {
