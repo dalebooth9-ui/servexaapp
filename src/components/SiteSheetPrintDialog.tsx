@@ -194,13 +194,20 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
+    // The single "Customer PO / Reference" edit field is treated as a
+    // customer PO when the underlying job actually has one on file; otherwise
+    // we treat the value as the internal reference so the printable header
+    // labels it honestly ("REF:", not "PO NUMBER:").
+    const originalHasCustomerPo = !!((job as any)?.customer_po || "").toString().trim();
+    const editedRef = overrides.refNumber || "";
     return {
       address: overrides.siteAddress || null,
       customer: overrides.customerName || null,
       customers: customer
         ? { name: overrides.customerName || customer.name, logo_url: customer.logo_url || null }
         : (overrides.customerName ? { name: overrides.customerName, logo_url: null } : null),
-      reference_number: overrides.refNumber,
+      customer_po: originalHasCustomerPo ? editedRef : ((job as any)?.customer_po || null),
+      reference_number: originalHasCustomerPo ? ((job as any)?.reference_number || "") : editedRef,
       category: job.category || null,
       name: job.name || null,
       priority: job.priority || null,
