@@ -1,7 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { InviteCustomerPortalDialog } from "@/components/settings/InviteCustomerPortalDialog";
-import { Button } from "@/components/ui/button";
-import { UserPlus } from "lucide-react";
 
 function InvitePortalButton({ customerId, customerName }: { customerId: string; customerName: string }) {
   const [open, setOpen] = useState(false);
