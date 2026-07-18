@@ -12,6 +12,7 @@ import { QRCodeSVG } from "qrcode.react";
 import ComplianceReminderSettings from "@/components/ComplianceReminderSettings";
 import XeroSettings from "@/components/XeroSettings";
 import RamsTemplateSettings from "@/components/RamsTemplateSettings";
+import RenewalsSettingsCard from "@/components/settings/RenewalsSettingsCard";
 import FollowUpReminderSettings from "@/components/FollowUpReminderSettings";
 import EmailDeliveryTestCard from "@/components/EmailDeliveryTestCard";
 // StorageMigrationPanel intentionally not imported — one-off migration completed.
@@ -308,6 +309,7 @@ export default function SettingsPage() {
           <JobTemplateSettings />
           <CategoryDocumentTemplateSettings />
           <RamsTemplateSettings />
+          <RenewalsSettingsCard />
           <Card className="cursor-pointer hover:border-primary transition" onClick={() => navigate("/settings/rams-library")}>
             <CardHeader>
               <CardTitle className="text-lg">RAMS Library</CardTitle>

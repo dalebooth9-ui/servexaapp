@@ -1600,6 +1600,7 @@ export type Database = {
           name: string
           org_id: string | null
           phone: string | null
+          renewal_reminders_opt_out: boolean
           updated_at: string
           xero_contact_id: string | null
         }
@@ -1616,6 +1617,7 @@ export type Database = {
           name: string
           org_id?: string | null
           phone?: string | null
+          renewal_reminders_opt_out?: boolean
           updated_at?: string
           xero_contact_id?: string | null
         }
@@ -1632,6 +1634,7 @@ export type Database = {
           name?: string
           org_id?: string | null
           phone?: string | null
+          renewal_reminders_opt_out?: boolean
           updated_at?: string
           xero_contact_id?: string | null
         }
@@ -5279,6 +5282,9 @@ export type Database = {
           plan_status: string
           primary_color: string | null
           reactivated_at: string | null
+          renewal_reminder_from_name: string | null
+          renewal_reminder_template: string | null
+          renewal_reminders_enabled: boolean
           scan_intake_email: string | null
           slug: string
           status: string
@@ -5301,6 +5307,9 @@ export type Database = {
           plan_status?: string
           primary_color?: string | null
           reactivated_at?: string | null
+          renewal_reminder_from_name?: string | null
+          renewal_reminder_template?: string | null
+          renewal_reminders_enabled?: boolean
           scan_intake_email?: string | null
           slug: string
           status?: string
@@ -5323,6 +5332,9 @@ export type Database = {
           plan_status?: string
           primary_color?: string | null
           reactivated_at?: string | null
+          renewal_reminder_from_name?: string | null
+          renewal_reminder_template?: string | null
+          renewal_reminders_enabled?: boolean
           scan_intake_email?: string | null
           slug?: string
           status?: string
@@ -6351,6 +6363,82 @@ export type Database = {
           },
         ]
       }
+      renewal_reminder_log: {
+        Row: {
+          body_snippet: string | null
+          created_at: string
+          customer_id: string | null
+          error_message: string | null
+          id: string
+          job_id: string | null
+          org_id: string
+          recipient_email: string
+          reminder_kind: string
+          schedule_id: string | null
+          sent_at: string | null
+          sent_by: string | null
+          site_id: string | null
+          status: string
+          subject: string
+        }
+        Insert: {
+          body_snippet?: string | null
+          created_at?: string
+          customer_id?: string | null
+          error_message?: string | null
+          id?: string
+          job_id?: string | null
+          org_id: string
+          recipient_email: string
+          reminder_kind: string
+          schedule_id?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          site_id?: string | null
+          status?: string
+          subject: string
+        }
+        Update: {
+          body_snippet?: string | null
+          created_at?: string
+          customer_id?: string | null
+          error_message?: string | null
+          id?: string
+          job_id?: string | null
+          org_id?: string
+          recipient_email?: string
+          reminder_kind?: string
+          schedule_id?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          site_id?: string | null
+          status?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "renewal_reminder_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_reminder_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_reminder_log_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "site_service_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sensor_readings: {
         Row: {
           asset_id: string
@@ -6608,6 +6696,187 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_intervals: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          interval_months: number
+          org_id: string
+          reminder_lead_weeks: number
+          send_due_date_reminder: boolean
+          template_id: string | null
+          updated_at: string
+          work_type: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          interval_months: number
+          org_id: string
+          reminder_lead_weeks?: number
+          send_due_date_reminder?: boolean
+          template_id?: string | null
+          updated_at?: string
+          work_type?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          interval_months?: number
+          org_id?: string
+          reminder_lead_weeks?: number
+          send_due_date_reminder?: boolean
+          template_id?: string | null
+          updated_at?: string
+          work_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_intervals_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_intervals_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_intervals_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "job_sheet_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_service_schedules: {
+        Row: {
+          active: boolean
+          created_at: string
+          customer_id: string | null
+          id: string
+          interval_months: number
+          last_done_date: string | null
+          last_job_id: string | null
+          last_response_id: string | null
+          next_due_date: string
+          next_job_id: string | null
+          notes: string | null
+          org_id: string
+          reminder_due_sent_at: string | null
+          reminder_lead_sent_at: string | null
+          site_id: string | null
+          template_id: string | null
+          updated_at: string
+          work_type: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          interval_months: number
+          last_done_date?: string | null
+          last_job_id?: string | null
+          last_response_id?: string | null
+          next_due_date: string
+          next_job_id?: string | null
+          notes?: string | null
+          org_id: string
+          reminder_due_sent_at?: string | null
+          reminder_lead_sent_at?: string | null
+          site_id?: string | null
+          template_id?: string | null
+          updated_at?: string
+          work_type?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          interval_months?: number
+          last_done_date?: string | null
+          last_job_id?: string | null
+          last_response_id?: string | null
+          next_due_date?: string
+          next_job_id?: string | null
+          notes?: string | null
+          org_id?: string
+          reminder_due_sent_at?: string | null
+          reminder_lead_sent_at?: string | null
+          site_id?: string | null
+          template_id?: string | null
+          updated_at?: string
+          work_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_service_schedules_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_service_schedules_last_job_id_fkey"
+            columns: ["last_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_service_schedules_last_response_id_fkey"
+            columns: ["last_response_id"]
+            isOneToOne: false
+            referencedRelation: "job_sheet_responses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_service_schedules_next_job_id_fkey"
+            columns: ["next_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_service_schedules_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_service_schedules_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_service_schedules_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_service_schedules_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "job_sheet_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -8012,6 +8281,14 @@ export type Database = {
       sync_asset_from_job_sheet: {
         Args: { _response_id: string }
         Returns: undefined
+      }
+      upsert_service_schedule_from_historic: {
+        Args: { _report_id: string }
+        Returns: string
+      }
+      upsert_service_schedule_from_response: {
+        Args: { _response_id: string }
+        Returns: string
       }
       user_belongs_to_org: { Args: { _org_id: string }; Returns: boolean }
       user_can_access_storage_path: {
