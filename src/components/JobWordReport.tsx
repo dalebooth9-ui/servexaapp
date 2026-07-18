@@ -657,9 +657,19 @@ export default function JobWordReport({ jobId, job }: Props) {
   };
 
   return (
-    <Button size="sm" variant="outline" onClick={generate} disabled={generating}>
-      {generating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileText className="mr-1.5 h-4 w-4" />}
-      Export to Word
-    </Button>
+    <>
+      <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)} disabled={generating}>
+        {generating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileText className="mr-1.5 h-4 w-4" />}
+        Export to Word
+      </Button>
+      <ExportBundlePickerDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        jobId={jobId}
+        confirmLabel="Generate Word"
+        generating={generating}
+        onConfirm={generate}
+      />
+    </>
   );
 }
