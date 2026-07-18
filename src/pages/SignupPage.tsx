@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, Sparkles } from "lucide-react";
+import { LAUNCH_BAND, penceToPoundsDisplay } from "@/lib/planBands";
 import { z } from "zod";
 
 const schema = z.object({
@@ -26,7 +27,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState(params.get("code") || "");
   const [seedTemplates, setSeedTemplates] = useState(true);
-  const [codeStatus, setCodeStatus] = useState<{ valid: boolean; note?: string } | null>(null);
+  const [codeStatus, setCodeStatus] = useState<{ valid: boolean; note?: string; pricePence?: number | null; priceNote?: string | null } | null>(null);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const { toast } = useToast();
@@ -40,7 +41,12 @@ export default function SignupPage() {
       const { data } = await supabase.rpc("preview_signup_code", { _code: trimmed });
       const row = Array.isArray(data) ? data[0] : data;
       if (row?.valid) {
-        setCodeStatus({ valid: true, note: row.note ?? undefined });
+        setCodeStatus({
+          valid: true,
+          note: row.note ?? undefined,
+          pricePence: (row as any).price_override_pence ?? null,
+          priceNote: (row as any).price_override_note ?? null,
+        });
         if (row.seed_templates_default === false) setSeedTemplates(false);
       } else {
         setCodeStatus({ valid: false });
@@ -138,9 +144,26 @@ export default function SignupPage() {
                 <Label htmlFor="code">Invitation code</Label>
                 <Input id="code" value={code} onChange={(e) => setCode(e.target.value)} required placeholder="e.g. FIRETECH-2026" autoComplete="off" />
                 {codeStatus?.valid && (
-                  <p className="text-xs text-primary flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" /> Valid invitation{codeStatus.note ? ` — ${codeStatus.note}` : ""}
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-xs text-primary flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Valid invitation{codeStatus.note ? ` — ${codeStatus.note}` : ""}
+                    </p>
+                    {codeStatus.pricePence ? (
+                      <div className="rounded-md border border-primary/30 bg-primary/5 p-2 text-xs">
+                        <span className="flex items-center gap-1 font-medium text-primary">
+                          <Sparkles className="h-3 w-3" />
+                          {codeStatus.priceNote || "Founder rate"} · {penceToPoundsDisplay(codeStatus.pricePence)}/mo
+                        </span>
+                        <span className="text-muted-foreground block mt-0.5">
+                          Standard price for this band is £{LAUNCH_BAND.monthlyPriceGbp}/mo. This discount is applied automatically at checkout.
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {LAUNCH_BAND.label} · £{LAUNCH_BAND.monthlyPriceGbp}/mo flat — whole team included.
+                      </p>
+                    )}
+                  </div>
                 )}
                 {codeStatus?.valid === false && (
                   <p className="text-xs text-destructive">That code isn't valid or has been used.</p>
