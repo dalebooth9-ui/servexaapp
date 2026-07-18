@@ -502,10 +502,12 @@ export default function JobWordReport({ jobId, job }: Props) {
         }
       }
 
-      // Photos / evidence — attached job photos (Photos tab & per-item)
+      // Photos / evidence — honour picker selection (empty = skip section).
       try {
         const { loadJobPhotosForPdf } = await import("@/lib/jobPhotos");
-        const jobPhotos = await loadJobPhotosForPdf({ jobId });
+        const jobPhotos = includePhotos && selectedPhotoIds.size > 0
+          ? await loadJobPhotosForPdf({ jobId, includeIds: selectedPhotoIds })
+          : [];
         if (jobPhotos.length > 0) {
           children.push(sectionHeading(`Photos / Evidence (${jobPhotos.length})`));
           // 2-column table of images with captions.
