@@ -3641,6 +3641,7 @@ export type Database = {
           id: string
           name: string
           org_id: string
+          rams_required: boolean
           slug: string
           sort_order: number
         }
@@ -3649,6 +3650,7 @@ export type Database = {
           id?: string
           name: string
           org_id?: string
+          rams_required?: boolean
           slug: string
           sort_order?: number
         }
@@ -3657,6 +3659,7 @@ export type Database = {
           id?: string
           name?: string
           org_id?: string
+          rams_required?: boolean
           slug?: string
           sort_order?: number
         }
@@ -6205,6 +6208,142 @@ export type Database = {
           },
           {
             foreignKeyName: "rams_documents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rams_library_items: {
+        Row: {
+          archived: boolean
+          block_type: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          kind: string
+          name: string
+          org_id: string
+          payload: Json
+          source_rams_id: string | null
+          source_rams_kind: string | null
+          updated_at: string
+          work_types: string[]
+        }
+        Insert: {
+          archived?: boolean
+          block_type?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          kind: string
+          name: string
+          org_id: string
+          payload?: Json
+          source_rams_id?: string | null
+          source_rams_kind?: string | null
+          updated_at?: string
+          work_types?: string[]
+        }
+        Update: {
+          archived?: boolean
+          block_type?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          org_id?: string
+          payload?: Json
+          source_rams_id?: string | null
+          source_rams_kind?: string | null
+          updated_at?: string
+          work_types?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rams_library_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_library_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rams_signoffs: {
+        Row: {
+          created_at: string
+          engineer_id: string
+          engineer_name: string | null
+          id: string
+          ip: string | null
+          job_id: string
+          org_id: string
+          rams_id: string
+          rams_kind: string
+          rams_version: number
+          signature_path: string | null
+          signed_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          engineer_id: string
+          engineer_name?: string | null
+          id?: string
+          ip?: string | null
+          job_id: string
+          org_id: string
+          rams_id: string
+          rams_kind: string
+          rams_version?: number
+          signature_path?: string | null
+          signed_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          engineer_id?: string
+          engineer_name?: string | null
+          id?: string
+          ip?: string | null
+          job_id?: string
+          org_id?: string
+          rams_id?: string
+          rams_kind?: string
+          rams_version?: number
+          signature_path?: string | null
+          signed_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rams_signoffs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_signoffs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_signoffs_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organisations_safe"
