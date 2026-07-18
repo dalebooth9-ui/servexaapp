@@ -1054,50 +1054,55 @@ function DocRow({
   const isEmailAttachment = doc.source === "email_po";
 
   return (
-    <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${isCustomerPaperwork ? "bg-primary/5 border-primary/20" : isReference ? "bg-amber-50/60 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900" : "bg-card"}`}>
-      <FileText className={`h-4 w-4 shrink-0 ${isCustomerPaperwork ? "text-primary" : isReference ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`} />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate" title={cleanLabel}>{cleanLabel}</p>
-        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-          {isCustomerPaperwork ? (
-            <Badge variant="outline" className="text-[10px] gap-0.5 border-primary/40 text-primary">
-              <Building2 className="h-2.5 w-2.5" /> Customer Form
-            </Badge>
-          ) : (
-            <Badge variant="secondary" className="text-[10px]">
-              {DOC_TYPE_BADGE[doc.document_type] ?? "File"}
-            </Badge>
-          )}
-          {needsReview && (
-            <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-700 dark:text-amber-300 bg-amber-50/60 dark:bg-amber-950/30">
-              Review
-            </Badge>
-          )}
-          {needsReview && isAdmin && onClearReviewFlag && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-5 text-[10px] px-1.5 gap-1 text-amber-700 dark:text-amber-300"
-              onClick={() => onClearReviewFlag(doc)}
-              disabled={clearingReview}
-              title="Clear the review flag"
-            >
-              {clearingReview ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" />}
-              Looks fine
-            </Button>
-          )}
-          {isUploadSlot && !hasFile && (
-            <span className="text-[10px] text-muted-foreground italic">Awaiting upload</span>
-          )}
+    <div className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-lg border px-3 py-2.5 ${isCustomerPaperwork ? "bg-primary/5 border-primary/20" : isReference ? "bg-amber-50/60 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900" : "bg-card"}`}>
+      <div className="flex items-start gap-3 flex-1 min-w-0 w-full">
+        <FileText className={`h-4 w-4 shrink-0 mt-0.5 ${isCustomerPaperwork ? "text-primary" : isReference ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`} />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium break-words line-clamp-3 sm:line-clamp-2" title={cleanLabel}>{cleanLabel}</p>
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            {isCustomerPaperwork ? (
+              <Badge variant="outline" className="text-[10px] gap-0.5 border-primary/40 text-primary">
+                <Building2 className="h-2.5 w-2.5" /> Customer Form
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-[10px]">
+                {DOC_TYPE_BADGE[doc.document_type] ?? "File"}
+              </Badge>
+            )}
+            {needsReview && (
+              <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-700 dark:text-amber-300 bg-amber-50/60 dark:bg-amber-950/30">
+                Review
+              </Badge>
+            )}
+            {needsReview && isAdmin && onClearReviewFlag && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 text-[10px] px-1.5 gap-1 text-amber-700 dark:text-amber-300"
+                onClick={() => onClearReviewFlag(doc)}
+                disabled={clearingReview}
+                title="Clear the review flag"
+              >
+                {clearingReview ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" />}
+                Looks fine
+              </Button>
+            )}
+            {isUploadSlot && !hasFile && (
+              <span className="text-[10px] text-muted-foreground italic">Awaiting upload</span>
+            )}
+          </div>
+          {/* Exact filename that will be downloaded — shown so engineers can verify before opening */}
+          <p
+            className="text-[10px] font-mono text-muted-foreground break-all line-clamp-2 sm:line-clamp-1 sm:truncate mt-1"
+            title={friendlyName}
+          >
+            📄 {friendlyName}
+          </p>
         </div>
-        {/* Exact filename that will be downloaded — shown so engineers can verify before opening */}
-        <p
-          className="text-[10px] font-mono text-muted-foreground truncate mt-1"
-          title={friendlyName}
-        >
-          📄 {friendlyName}
-        </p>
       </div>
+
+      <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap sm:ml-auto sm:shrink-0 w-full sm:w-auto justify-end">
+
 
 
       {/* Action buttons */}
