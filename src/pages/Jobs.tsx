@@ -1583,26 +1583,43 @@ export default function Jobs() {
                 </div>
               </DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
-                {/* Drag-drop AI extraction zone — multi-file, one job */}
+                {/* Drag-drop AI extraction zone — multi-file, one job.
+                    Mobile has no drag-and-drop, so the whole zone doubles as a
+                    file-picker trigger (tap or keyboard). accept covers PDFs,
+                    Word docs and phone photos (incl. HEIC from iOS Camera). */}
                 <div className="space-y-2">
                   <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Choose or drop purchase order files"
                     onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                     onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); }}
                     onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDialogFileDrop(e); }}
-                    className="flex flex-wrap items-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-3 text-sm text-muted-foreground hover:border-primary/40 hover:bg-primary/5 transition-colors cursor-default"
+                    onClick={(e) => {
+                      // Ignore clicks on inner buttons (Choose / Extract / Clear)
+                      if ((e.target as HTMLElement).closest("button")) return;
+                      dialogFileInputRef.current?.click();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        dialogFileInputRef.current?.click();
+                      }
+                    }}
+                    className="flex flex-wrap items-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-3 text-sm text-muted-foreground hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer"
                   >
                     <Sparkles className="h-4 w-4 shrink-0 text-primary" />
                     <span className="flex-1 min-w-[200px]">
                       {dialogParsedFiles.length === 0
-                        ? "Drop a PDF, Word doc, or photo(s) of a purchase order to auto-fill. Drop multiple files together to combine them into ONE job."
+                        ? "Drop a file here or tap to choose — PDF, Word or photos of a purchase order. Multiple files combine into ONE job."
                         : `${dialogParsedFiles.length} file(s) staged — drag thumbnails to reorder, then Extract.`}
                     </span>
                     <input
                       ref={dialogFileInputRef}
                       type="file"
                       multiple
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.heic,.heif"
+                      accept=".pdf,.doc,.docx,image/*"
                       className="hidden"
                       onChange={(e) => {
                         if (e.target.files) addDialogFiles(Array.from(e.target.files));
