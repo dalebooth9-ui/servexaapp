@@ -370,7 +370,7 @@ async function compressForPdf(
  * Photos with paths present in `excludePaths` are skipped.
  */
 export async function loadJobPhotosForPdf(opts: LoadOpts): Promise<JobPhotoForPdf[]> {
-  const { jobId, excludePaths, maxEdgePx = 1400, quality = 0.72 } = opts;
+  const { jobId, excludePaths, includeIds, maxEdgePx = 1400, quality = 0.72 } = opts;
   const meta = await fetchJobPhotoMeta(jobId);
   if (!meta.length) return [];
 
@@ -392,7 +392,11 @@ export async function loadJobPhotosForPdf(opts: LoadOpts): Promise<JobPhotoForPd
     return false;
   };
 
-  const filtered = meta.filter((m) => !shouldExclude(m.storagePath));
+  const filtered = meta.filter((m) => {
+    if (shouldExclude(m.storagePath)) return false;
+    if (includeIds && !includeIds.has(m.id)) return false;
+    return true;
+  });
 
   const results: JobPhotoForPdf[] = [];
   // Sequential to keep memory pressure sane on jobs with lots of photos.
