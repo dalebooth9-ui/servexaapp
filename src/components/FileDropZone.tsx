@@ -94,13 +94,23 @@ export default function FileDropZone({
   return (
     <div className={cn("space-y-3", className)}>
       <div
+        role="button"
+        tabIndex={uploading ? -1 : 0}
+        aria-label="Choose or drop files to upload"
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         onClick={() => !uploading && fileInputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (uploading) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            fileInputRef.current?.click();
+          }
+        }}
         className={cn(
-          "relative cursor-pointer rounded-lg border-2 border-dashed px-6 py-8 text-center transition-all",
+          "relative cursor-pointer rounded-lg border-2 border-dashed px-6 py-8 text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
           isDragOver
             ? "border-primary bg-primary/5 text-primary"
             : "border-muted-foreground/25 text-muted-foreground hover:border-primary/50 hover:bg-muted/50",
@@ -124,7 +134,7 @@ export default function FileDropZone({
           <div className="flex flex-col items-center gap-2">
             <Upload className="h-8 w-8" />
             <p className="text-sm font-medium">
-              Drag & drop files here, or click to browse
+              Drop files here or tap to choose
             </p>
             <p className="text-xs">
               Supported: PDF, Word, Excel, JPG, PNG • Max {maxSizeMB}MB per file
