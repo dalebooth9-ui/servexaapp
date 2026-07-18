@@ -347,15 +347,26 @@ export default function Quotes() {
                               </>
                             )}
                             {key === "accepted" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 text-[11px] px-2 gap-1 text-primary border-primary/30 hover:bg-primary/10"
-                                disabled={updatingId === q.id}
-                                onClick={() => handleConvertToInvoice(q)}
-                              >
-                                <ArrowRight className="h-3 w-3" /> Convert to Invoice
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[11px] px-2 gap-1 text-primary border-primary/30 hover:bg-primary/10"
+                                  disabled={updatingId === q.id}
+                                  onClick={() => handleConvertToInvoice(q)}
+                                >
+                                  <ArrowRight className="h-3 w-3" /> Convert to Invoice
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[11px] px-2 gap-1"
+                                  disabled={updatingId === q.id}
+                                  onClick={() => handleCreateRemedialJob(q)}
+                                >
+                                  {updatingId === q.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />} Create remedial job
+                                </Button>
+                              </>
                             )}
                             {key === "declined" && (
                               <Button
