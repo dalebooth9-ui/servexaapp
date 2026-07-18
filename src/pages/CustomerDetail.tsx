@@ -1,4 +1,19 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { InviteCustomerPortalDialog } from "@/components/settings/InviteCustomerPortalDialog";
+import { Button } from "@/components/ui/button";
+import { UserPlus } from "lucide-react";
+
+function InvitePortalButton({ customerId, customerName }: { customerId: string; customerName: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <UserPlus className="w-4 h-4 mr-2" />Invite to portal
+      </Button>
+      <InviteCustomerPortalDialog open={open} onOpenChange={setOpen} customerId={customerId} customerName={customerName} />
+    </>
+  );
+}
 import CustomerPaperwork from "@/components/CustomerPaperwork";
 import CustomerAccreditationLogos from "@/components/CustomerAccreditationLogos";
 import { useParams, Link, useNavigate } from "react-router-dom";
