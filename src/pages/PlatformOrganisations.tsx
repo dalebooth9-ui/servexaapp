@@ -40,6 +40,7 @@ type Row = {
   suspension_message: string | null;
   suspended_at: string | null;
   created_at: string;
+  portal_enabled: boolean;
   user_count: number;
   job_count: number;
   last_activity: string;
