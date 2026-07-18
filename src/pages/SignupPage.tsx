@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, Sparkles } from "lucide-react";
+import { LAUNCH_BAND, penceToPoundsDisplay } from "@/lib/planBands";
 import { z } from "zod";
 
 const schema = z.object({
@@ -26,7 +27,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState(params.get("code") || "");
   const [seedTemplates, setSeedTemplates] = useState(true);
-  const [codeStatus, setCodeStatus] = useState<{ valid: boolean; note?: string } | null>(null);
+  const [codeStatus, setCodeStatus] = useState<{ valid: boolean; note?: string; pricePence?: number | null; priceNote?: string | null } | null>(null);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const { toast } = useToast();
@@ -40,7 +41,12 @@ export default function SignupPage() {
       const { data } = await supabase.rpc("preview_signup_code", { _code: trimmed });
       const row = Array.isArray(data) ? data[0] : data;
       if (row?.valid) {
-        setCodeStatus({ valid: true, note: row.note ?? undefined });
+        setCodeStatus({
+          valid: true,
+          note: row.note ?? undefined,
+          pricePence: (row as any).price_override_pence ?? null,
+          priceNote: (row as any).price_override_note ?? null,
+        });
         if (row.seed_templates_default === false) setSeedTemplates(false);
       } else {
         setCodeStatus({ valid: false });
