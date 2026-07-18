@@ -91,8 +91,25 @@ export async function resolveDocumentBrandingProfile(
   input: BrandingInput,
 ): Promise<DocumentBrandingProfile> {
   const templateLogo = input.template?.branding?.logo_url?.trim() || "";
-  const customerLogo = input.customer?.logo_url?.trim() || "";
-  const customerBrandColour = parseHexColor(input.customer?.brand_colour);
+  let customerLogo = input.customer?.logo_url?.trim() || "";
+  let customerBrandColour = parseHexColor(input.customer?.brand_colour);
+
+  // If caller passed the customer name but not the full branding fields,
+  // hydrate them from the DB so every code path gets the same profile
+  // without having to remember to select brand_colour everywhere.
+  if (input.customer?.name && (!customerLogo || !customerBrandColour)) {
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data } = await supabase
+        .from("customers")
+        .select("logo_url, brand_colour")
+        .ilike("name", input.customer.name)
+        .maybeSingle();
+      const row = data as any;
+      if (!customerLogo && row?.logo_url) customerLogo = String(row.logo_url).trim();
+      if (!customerBrandColour) customerBrandColour = parseHexColor(row?.brand_colour);
+    } catch { /* fall through to what we have */ }
+  }
 
   // Template branding wins so customer-branded templates stay consistent
   // even when the customer record has its own (differently sized) logo.
