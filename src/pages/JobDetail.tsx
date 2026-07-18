@@ -112,6 +112,7 @@ export default function JobDetail() {
   const { categories: jobCategories } = useJobCategories();
   const { convert: convertW3W } = useWhat3Words();
   const [job, setJob] = useState<any>(null);
+  const ramsStatus = useJobRamsStatus(id);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const photoCount = useJobPhotoCount(id);
   const [engineers, setEngineers] = useState<{ id: string; name: string }[]>([]);
