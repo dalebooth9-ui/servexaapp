@@ -212,6 +212,7 @@ const App = () => (
               <Route path="/defects/review" element={<AdminRoute><DefectsReview /></AdminRoute>} />
               <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
               <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+              <Route path="/settings/price-book" element={<AdminRoute><PriceBook /></AdminRoute>} />
               <Route path="/settings/import" element={<AdminRoute><ImportWizard /></AdminRoute>} />
               <Route path="/settings/import-historic-reports" element={<AdminRoute><HistoricReportsImport /></AdminRoute>} />
               <Route path="/settings/storage-migration" element={<AdminRoute><div className="p-6"><StorageMigrationPanel /></div></AdminRoute>} />
