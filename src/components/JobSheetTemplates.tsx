@@ -80,6 +80,8 @@ type Response = {
   submitted_by: string;
   status: string;
   submitted_at: string | null;
+  last_amended_at?: string | null;
+  last_amended_by?: string | null;
   created_at: string;
 };
 
