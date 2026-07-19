@@ -202,6 +202,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Resolve the org name for header/footer branding (avoids hard-coded Viva
+    // strings when this cron runs for a different organisation).
+    let orgName = "Servexa";
+    try {
+      const firstProfile = adminProfiles[0];
+      if (firstProfile?.org_id) {
+        const { data: org } = await supabase
+          .from("organisations").select("name").eq("id", firstProfile.org_id).maybeSingle();
+        if ((org as any)?.name) orgName = (org as any).name;
+      }
+    } catch (_) { /* keep default */ }
+
     // ── Build HTML email ──
     const completionRate = jobCount > 0 ? Math.round((completedCount / jobCount) * 100) : 0;
 
@@ -246,7 +258,7 @@ Deno.serve(async (req) => {
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td>
-                  <div style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">Viva Fire &amp; Protection</div>
+                  <div style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">${orgName}</div>
                   <div style="color:rgba(255,255,255,0.8);font-size:12px;margin-top:2px;">Weekly Management Report</div>
                 </td>
                 <td align="right">
@@ -338,7 +350,7 @@ Deno.serve(async (req) => {
         <!-- FOOTER -->
         <tr>
           <td style="background:${BRAND_LIGHT};border:1px solid ${BRAND_BORDER};border-top:none;border-radius:0 0 10px 10px;padding:16px 28px;text-align:center;">
-            <p style="margin:0;font-size:11px;color:${BRAND_GRAY};">Viva Fire &amp; Protection Ltd &nbsp;·&nbsp; Weekly report auto-generated every Monday at 08:00 UTC</p>
+            <p style="margin:0;font-size:11px;color:${BRAND_GRAY};">${orgName} &nbsp;·&nbsp; Weekly report auto-generated every Monday at 08:00 UTC</p>
             <p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">You're receiving this because you have admin access to the platform.</p>
           </td>
         </tr>

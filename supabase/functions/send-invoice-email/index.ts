@@ -74,7 +74,7 @@ serve(async (req) => {
       <p>Dear ${customerName || "Customer"},</p>
       <p>Please find attached your invoice <strong>${invoiceNumber}</strong> for <strong>£${Number(total || 0).toFixed(2)}</strong>.</p>
       <p>Any questions about this invoice, just reply to this email or give us a call.</p>
-      <p>Kind regards,<br/>Viva Fire Protection</p>
+      <p>Kind regards,<br/>${branding.company_name}</p>
     `;
     const html = wrapCustomerEmail(branding, { previewText: subject, bodyHtml: body });
 

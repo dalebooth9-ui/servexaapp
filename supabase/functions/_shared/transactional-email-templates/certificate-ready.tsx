@@ -9,6 +9,8 @@ interface CertificateReadyProps {
   job_reference?: string
   job_category?: string
   site_address?: string
+  company_name?: string
+  company_footer?: string
 }
 
 const CertificateReadyEmail = ({
@@ -16,6 +18,8 @@ const CertificateReadyEmail = ({
   job_reference = '',
   job_category = 'fire protection works',
   site_address = 'your site',
+  company_name = 'Your fire protection provider',
+  company_footer,
 }: CertificateReadyProps) => (
   <Html lang="en" dir="ltr">
     <Head />
@@ -32,14 +36,12 @@ const CertificateReadyEmail = ({
         </Text>
         <Section style={signoff}>
           <Text style={text}>Best regards,</Text>
-          <Text style={textBold}>Viva Fire Protection Ltd</Text>
+          <Text style={textBold}>{company_name}</Text>
         </Section>
         <Hr style={hr} />
         <Text style={footer}>
-          Viva Fire Protection Ltd — BAFE registered (SP203-1, SP101).
-          Works carried out in accordance with BS 5306-3, BS 9990 and EN 12845
-          where applicable. This email and any attachments are confidential and
-          intended solely for the addressee.
+          {company_footer ??
+            `${company_name} — works carried out in accordance with applicable British Standards. This email and any attachments are confidential and intended solely for the addressee.`}
         </Text>
       </Container>
     </Body>
@@ -56,6 +58,7 @@ export const template = {
     job_reference: 'VFP-001234',
     job_category: '6-monthly sprinkler service',
     site_address: 'Acme Warehouse, Unit 4, Manchester M1 2AB',
+    company_name: 'Your fire protection provider',
   },
 } satisfies TemplateEntry
 

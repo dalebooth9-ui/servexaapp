@@ -29,20 +29,23 @@ interface BrandingRow {
   sign_off_text: string;
 }
 
+// Neutral defaults for the settings form. Every field starts BLANK — the
+// generating org populates its own identity. We never seed another org's
+// branding (e.g. Viva Fire) as a starting point; that would leak claims of
+// certification and impersonate a real company on outbound customer email.
 const DEFAULTS: BrandingRow = {
-  from_name: "Viva Fire Protection",
-  from_address: "service@vivafire.co.uk",
-  reply_to: "service@vivafire.co.uk",
+  from_name: "",
+  from_address: "",
+  reply_to: "",
   logo_url: null,
   brand_color: "#1e40af",
-  company_name: "Viva Fire Protection Ltd",
-  strapline: "Wet & Dry Riser Specialists",
-  phone: "0845 269 8482",
-  website: "https://www.vivafire.co.uk",
-  address: "Unit 1 Lady Road, St Johns Industrial Estate, Lees, Oldham, OL4 3DZ",
+  company_name: "",
+  strapline: null,
+  phone: null,
+  website: null,
+  address: null,
   signature_html: null,
-  footer_note:
-    "This is an automated email from Viva Fire Protection. Reply to this message to contact us directly.",
+  footer_note: null,
   accreditation_logo_urls: [],
   sign_off_text: "Kind regards,",
 };
@@ -153,6 +156,29 @@ export default function EmailBrandingSettings() {
         toast.error(`Failed to load branding: ${error.message}`);
       } else if (data) {
         setRow({ ...DEFAULTS, ...(data as any) });
+      } else {
+        // No row yet — prefill company_name and sender fields from the
+        // caller's own organisation so the form never shows another org's
+        // branding as a starting point.
+        try {
+          const { data: sess } = await supabase.auth.getUser();
+          const uid = sess.user?.id;
+          if (uid) {
+            const { data: prof } = await supabase
+              .from("profiles").select("org_id, full_name").eq("user_id", uid).maybeSingle();
+            const orgId = (prof as any)?.org_id;
+            if (orgId) {
+              const { data: org } = await supabase
+                .from("organisations").select("name").eq("id", orgId).maybeSingle();
+              const name = (org as any)?.name || "";
+              setRow((prev) => ({
+                ...prev,
+                from_name: name,
+                company_name: name,
+              }));
+            }
+          }
+        } catch (_) { /* leave defaults blank */ }
       }
       setLoading(false);
     })();
@@ -317,16 +343,16 @@ export default function EmailBrandingSettings() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label>From name</Label>
-              <Input value={row.from_name} onChange={(e) => update("from_name", e.target.value)} placeholder="Viva Fire Protection" />
+              <Input value={row.from_name} onChange={(e) => update("from_name", e.target.value)} placeholder="Your company name" />
             </div>
             <div className="space-y-1">
               <Label>From address</Label>
-              <Input value={row.from_address} onChange={(e) => update("from_address", e.target.value)} placeholder="service@vivafire.co.uk" />
+              <Input value={row.from_address} onChange={(e) => update("from_address", e.target.value)} placeholder="service@yourdomain.com" />
               <p className="text-[11px] text-muted-foreground">Must be on a domain verified in Resend.</p>
             </div>
             <div className="space-y-1 sm:col-span-2">
               <Label>Reply-to</Label>
-              <Input value={row.reply_to} onChange={(e) => update("reply_to", e.target.value)} placeholder="service@vivafire.co.uk" />
+              <Input value={row.reply_to} onChange={(e) => update("reply_to", e.target.value)} placeholder="service@yourdomain.com" />
               <p className="text-[11px] text-muted-foreground">Customer replies to automated emails land here.</p>
             </div>
           </div>
@@ -400,7 +426,7 @@ export default function EmailBrandingSettings() {
             </div>
             <div className="space-y-1">
               <Label>Website</Label>
-              <Input value={row.website ?? ""} onChange={(e) => update("website", e.target.value || null)} placeholder="https://www.vivafire.co.uk" />
+              <Input value={row.website ?? ""} onChange={(e) => update("website", e.target.value || null)} placeholder="https://www.yourdomain.com" />
             </div>
             <div className="space-y-1 sm:col-span-2">
               <Label>Address</Label>

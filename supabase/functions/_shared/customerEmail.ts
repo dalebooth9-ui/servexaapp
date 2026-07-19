@@ -25,8 +25,20 @@ export interface EmailBranding {
 
 const VIVA_ORG_ID = "11111111-1111-1111-1111-111111111111";
 
-const DEFAULT_BRANDING: EmailBranding = {
-  org_id: null,
+// Fallback sender for orgs that haven't configured their own email_branding
+// row. NEVER falls back to Viva Fire's identity — that would be a cross-tenant
+// branding leak on outbound customer email. Servexa's neutral notify address
+// is the last resort so a genuinely mis-configured org fails visibly rather
+// than silently impersonating Viva.
+const NEUTRAL_FROM_NAME = "Servexa";
+const NEUTRAL_FROM_ADDRESS =
+  Deno.env.get("SERVEXA_FALLBACK_FROM_ADDRESS") ?? "no-reply@notify.servexaapp.com";
+
+// Viva's own branding — used ONLY when getEmailBranding is called for the
+// canonical Viva org and their row is missing (should never happen; belt &
+// braces). All other orgs get neutral defaults + their own company name.
+const VIVA_BRANDING: EmailBranding = {
+  org_id: VIVA_ORG_ID,
   from_name: "Viva Fire Protection",
   from_address: "service@vivafire.co.uk",
   reply_to: "service@vivafire.co.uk",
@@ -44,6 +56,26 @@ const DEFAULT_BRANDING: EmailBranding = {
     "This is an automated email from Viva Fire Protection. Reply to this message to contact us directly.",
 };
 
+function neutralBranding(orgId: string | null, companyName: string | null): EmailBranding {
+  return {
+    org_id: orgId,
+    from_name: companyName || NEUTRAL_FROM_NAME,
+    from_address: NEUTRAL_FROM_ADDRESS,
+    reply_to: NEUTRAL_FROM_ADDRESS,
+    logo_url: null,
+    brand_color: "#1e40af",
+    company_name: companyName || NEUTRAL_FROM_NAME,
+    strapline: null,
+    phone: null,
+    website: null,
+    address: null,
+    signature_html: null,
+    accreditation_logo_urls: [],
+    sign_off_text: "Kind regards,",
+    footer_note: null,
+  };
+}
+
 function serviceClient(): SupabaseClient {
   return createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -55,23 +87,38 @@ export async function getEmailBranding(
   orgId?: string | null,
   client?: SupabaseClient,
 ): Promise<EmailBranding> {
-  try {
-    const sb = client ?? serviceClient();
-    const targetOrg = orgId || VIVA_ORG_ID;
-    const { data } = await sb
-      .from("email_branding")
-      .select("*")
-      .eq("org_id", targetOrg)
-      .limit(1);
-    if (data && data.length) return { ...DEFAULT_BRANDING, ...(data[0] as any) };
+  const sb = client ?? serviceClient();
 
-    // Fallback — pick any row rather than sending with hardcoded defaults.
-    const { data: any1 } = await sb.from("email_branding").select("*").limit(1);
-    if (any1 && any1.length) return { ...DEFAULT_BRANDING, ...(any1[0] as any) };
+  // Resolve the org's own name up-front so a missing email_branding row still
+  // produces a sensible signature that says the correct company name.
+  let companyName: string | null = null;
+  if (orgId) {
+    try {
+      const { data: org } = await sb
+        .from("organisations").select("name").eq("id", orgId).maybeSingle();
+      companyName = ((org as any)?.name ?? null) || null;
+    } catch (_) { /* ignore */ }
+  }
+
+  try {
+    if (orgId) {
+      const { data } = await sb
+        .from("email_branding").select("*").eq("org_id", orgId).limit(1);
+      if (data && data.length) {
+        const base = orgId === VIVA_ORG_ID
+          ? VIVA_BRANDING
+          : neutralBranding(orgId, companyName);
+        return { ...base, ...(data[0] as any) };
+      }
+    }
   } catch (err) {
     console.error("[customerEmail] getEmailBranding failed:", err);
   }
-  return DEFAULT_BRANDING;
+
+  // No row for this org — return neutral defaults with the org's own name.
+  // NEVER fall back to another org's email_branding row (cross-tenant leak).
+  if (orgId === VIVA_ORG_ID) return VIVA_BRANDING;
+  return neutralBranding(orgId ?? null, companyName);
 }
 
 export function getSendIdentity(b: EmailBranding): { from: string; reply_to: string } {

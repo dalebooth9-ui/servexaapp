@@ -102,7 +102,7 @@ serve(async (req) => {
     const { error: emailError } = await resend.emails.send({
       from: await getFromAddress("password_reset"),
       to: [email],
-      subject: "Reset your VivaFire password",
+      subject: "Reset your Servexa password",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h1 style="color: #333; font-size: 24px;">Password Reset</h1>

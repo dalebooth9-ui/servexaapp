@@ -10,7 +10,9 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getEmailBranding, getSendIdentity } from "./customerEmail.ts";
 
-const FALLBACK_FROM = "Viva Fire Protection <service@vivafire.co.uk>";
+const FALLBACK_FROM =
+  Deno.env.get("SERVEXA_FALLBACK_FROM") ??
+  "Servexa <no-reply@notify.servexaapp.com>";
 
 function buildFrom(name: string | null | undefined, address: string): string {
   const addr = (address || "").trim();
