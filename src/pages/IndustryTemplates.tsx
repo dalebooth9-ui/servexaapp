@@ -1080,6 +1080,8 @@ export default function IndustryTemplates() {
     job_category?: string | null; branding?: Record<string, any>;
   } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+
   const [bulkExporting, setBulkExporting] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
   const [bulkTotal, setBulkTotal] = useState(0);
