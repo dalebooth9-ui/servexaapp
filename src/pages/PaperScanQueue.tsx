@@ -48,11 +48,14 @@ type Item = {
   created_at: string;
   created_job_id: string | null;
   matched_existing_job?: boolean | null;
+  mode?: "job" | "archive" | null;
+  archived_document_id?: string | null;
   template_name?: string | null;
   customer_name?: string | null;
   site_name?: string | null;
   created_job_ref?: string | null;
 };
+
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Queued",
