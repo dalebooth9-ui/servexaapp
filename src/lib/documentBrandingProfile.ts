@@ -163,12 +163,15 @@ export async function resolveDocumentBrandingProfile(
     accentColor = getBrandColorFromLogo(logoImage, false);
   }
 
+  // Company-name fallback for the text-only header (no logo case): show the
+  // generating org's own name so PDFs never appear anonymous.
+  const gen = await getGeneratingOrgBranding();
   return {
     logoUrl: resolvedUrl,
     logoImage,
     accentColor,
     isCustomerBranded,
-    companyName: input.template?.branding?.company_name,
+    companyName: input.template?.branding?.company_name ?? gen.name ?? undefined,
     companySubtitle: input.template?.branding?.company_subtitle,
     footerText: input.template?.branding?.footer_text,
   };
