@@ -470,15 +470,20 @@ export async function generateRamsPdf(
   doc.setTextColor(33, 61, 99);
   doc.text(coverTitles.subtitle, PAGE_W / 2, y, { align: "center" });
   y += 8;
-  doc.setFontSize(22);
-  doc.text("VIVA FIRE", PAGE_W / 2, y, { align: "center" });
-  y += 8;
+  if (brand.companyUpper) {
+    doc.setFontSize(22);
+    doc.text(brand.companyUpper, PAGE_W / 2, y, { align: "center" });
+    y += 8;
+  }
   doc.setFontSize(13);
   doc.text("Method Statement & Risk Assessment", PAGE_W / 2, y, { align: "center" });
   y += 7;
-  doc.setFontSize(12);
-  doc.text("Fire Protection Ltd", PAGE_W / 2, y, { align: "center" });
-  y += 12;
+  if (brand.companyTagLine) {
+    doc.setFontSize(12);
+    doc.text(brand.companyTagLine, PAGE_W / 2, y, { align: "center" });
+    y += 5;
+  }
+  y += 7;
   doc.setTextColor(0, 0, 0);
   hr(doc, y, 60);
   y += 8;
