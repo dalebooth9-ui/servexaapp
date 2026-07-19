@@ -4611,11 +4611,60 @@ export type Database = {
           },
         ]
       }
+      job_sheet_response_edits: {
+        Row: {
+          edited_at: string
+          editor_id: string
+          field_id: string
+          field_label: string | null
+          id: string
+          job_id: string
+          new_value: Json | null
+          old_value: Json | null
+          response_id: string
+          was_signed_at_time: boolean
+        }
+        Insert: {
+          edited_at?: string
+          editor_id: string
+          field_id: string
+          field_label?: string | null
+          id?: string
+          job_id: string
+          new_value?: Json | null
+          old_value?: Json | null
+          response_id: string
+          was_signed_at_time?: boolean
+        }
+        Update: {
+          edited_at?: string
+          editor_id?: string
+          field_id?: string
+          field_label?: string | null
+          id?: string
+          job_id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          response_id?: string
+          was_signed_at_time?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_sheet_response_edits_response_id_fkey"
+            columns: ["response_id"]
+            isOneToOne: false
+            referencedRelation: "job_sheet_responses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_sheet_responses: {
         Row: {
           created_at: string
           id: string
           job_id: string
+          last_amended_at: string | null
+          last_amended_by: string | null
           org_id: string
           responses: Json
           status: string
@@ -4628,6 +4677,8 @@ export type Database = {
           created_at?: string
           id?: string
           job_id: string
+          last_amended_at?: string | null
+          last_amended_by?: string | null
           org_id?: string
           responses?: Json
           status?: string
@@ -4640,6 +4691,8 @@ export type Database = {
           created_at?: string
           id?: string
           job_id?: string
+          last_amended_at?: string | null
+          last_amended_by?: string | null
           org_id?: string
           responses?: Json
           status?: string

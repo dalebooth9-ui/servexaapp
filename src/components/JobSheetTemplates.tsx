@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { deriveScopeFromTemplateName } from "@/lib/jobSheetPrefill";
+import { logReportEdits, jobHasSignatures } from "@/lib/logReportEdits";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,6 +80,8 @@ type Response = {
   submitted_by: string;
   status: string;
   submitted_at: string | null;
+  last_amended_at?: string | null;
+  last_amended_by?: string | null;
   created_at: string;
 };
 
@@ -1021,9 +1024,35 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         sitePhotoCaptions: Array.isArray(payload._site_photo_captions) ? payload._site_photo_captions.length : 0,
       });
       if (activeResponse) {
+        const wasSubmitted = activeResponse.status === "submitted";
+        const previousResponses = (activeResponse.responses as Record<string, any>) || {};
         await supabase.from("job_sheet_responses").update({
           responses: payload as any,
         } as any).eq("id", activeResponse.id);
+        // Office edit audit trail — only when amending an already-submitted report.
+        if (wasSubmitted && user?.id) {
+          try {
+            const hasSigs = await jobHasSignatures(jobId);
+            const changed = await logReportEdits({
+              responseId: activeResponse.id,
+              jobId,
+              editorId: user.id,
+              fields: (activeTemplate.fields || []).map((f: any) => ({ id: f.id, label: f.label })),
+              oldValues: previousResponses,
+              newValues: payload as Record<string, any>,
+              hasSignatures: hasSigs,
+            });
+            if (changed > 0) {
+              toast({
+                title: hasSigs ? "Amendment logged (after signature)" : "Amendment logged",
+                description: `${changed} field${changed === 1 ? "" : "s"} recorded in job history.`,
+              });
+            }
+          } catch (auditErr) {
+            console.error("[JobSheetTemplates] audit log failed", auditErr);
+            toast({ title: "Warning: audit trail not saved", description: "Edit saved but the audit trail entry failed.", variant: "destructive" });
+          }
+        }
       } else {
         const { data } = await supabase.from("job_sheet_responses").insert({
           job_id: jobId,
@@ -1385,7 +1414,9 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                 <div className="rounded-md border divide-y">
                   {completedResps.map((resp) => {
                     const tpl = allTemplates.find((t) => t.id === resp.template_id);
-                    const canEdit = userRole === "admin" || resp.submitted_by === user?.id;
+                    // Submitted reports: only office admins can amend after submission.
+                    // Engineers cannot re-edit their own once submitted — office reviews and edits.
+                    const canEdit = userRole === "admin";
                     return (
                       <div key={resp.id} className="flex items-center justify-between px-3 py-2 min-h-[38px]">
                         <div className="flex items-center gap-2 min-w-0">
@@ -1732,6 +1763,14 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             </div>
           </DialogHeader>
           <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
+            {activeResponse?.status === "submitted" && userRole === "admin" && (
+              <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-[11px] text-amber-900 flex items-start gap-2">
+                <Pencil className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>
+                  <strong>Office amendment mode.</strong> This report has already been submitted. Every field change you save is logged to the job history (who, when, old &amp; new value){activeResponse.last_amended_at ? ` — last amended ${new Date(activeResponse.last_amended_at as any).toLocaleString("en-GB")}` : ""}.
+                </span>
+              </div>
+            )}
             {sections.map((section) => {
               const omitted = isSectionOmitted(section);
               return (
