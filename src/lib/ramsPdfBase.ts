@@ -612,7 +612,12 @@ export async function buildSignOffPage(
   doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(33, 61, 99);
   doc.text("Method Statement", PAGE_W / 2, y, { align: "center" }); y += 6;
   doc.setFontSize(10);
-  doc.text(`VIVA Fire Protection Ltd – ${serviceTitle}`, PAGE_W / 2, y, { align: "center" });
+  const brand = getCachedRamsBrand();
+  if (brand?.companyName) {
+    doc.text(`${brand.companyName} – ${serviceTitle}`, PAGE_W / 2, y, { align: "center" });
+  } else {
+    doc.text(serviceTitle, PAGE_W / 2, y, { align: "center" });
+  }
   doc.setTextColor(0, 0, 0); y += 8;
 
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("1.3 Confirmation of operatives briefing.", ML, y); y += 4;
