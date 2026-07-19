@@ -60,6 +60,7 @@ Deno.serve(async (req) => {
           grace_period_ends_at: null,
           last_webhook_event_id: event.id,
         }, { onConflict: "org_id" });
+        await svc.from("organisations").update({ plan_status: "active", grace_period_ends_at: null }).eq("id", orgId);
         await svc.rpc("reactivate_organisation", { _org_id: orgId, _source: "billing", _reason: "subscription_started" });
         break;
       }
@@ -73,6 +74,7 @@ Deno.serve(async (req) => {
           grace_period_ends_at: null,
           last_webhook_event_id: event.id,
         }).eq("org_id", orgId);
+        await svc.from("organisations").update({ plan_status: "active", grace_period_ends_at: null }).eq("id", orgId);
         await svc.rpc("reactivate_organisation", { _org_id: orgId, _source: "billing", _reason: "payment_succeeded" }).then(() => {}, () => {});
         break;
       }
@@ -88,6 +90,7 @@ Deno.serve(async (req) => {
           grace_period_ends_at: grace,
           last_webhook_event_id: event.id,
         }).eq("org_id", orgId);
+        await svc.from("organisations").update({ plan_status: "past_due", grace_period_ends_at: grace }).eq("id", orgId);
         // Do NOT suspend yet — cron job enforce-billing-grace handles it after grace expires.
         break;
       }
@@ -102,6 +105,7 @@ Deno.serve(async (req) => {
           current_period_end: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
           last_webhook_event_id: event.id,
         }).eq("org_id", orgId);
+        await svc.from("organisations").update({ plan_status: sub.status }).eq("id", orgId);
         break;
       }
       case "customer.subscription.deleted": {
@@ -113,6 +117,7 @@ Deno.serve(async (req) => {
           grace_period_ends_at: null,
           last_webhook_event_id: event.id,
         }).eq("org_id", orgId);
+        await svc.from("organisations").update({ plan_status: "canceled", grace_period_ends_at: null }).eq("id", orgId);
         await svc.rpc("suspend_organisation", {
           _org_id: orgId,
           _reason: "subscription_cancelled",

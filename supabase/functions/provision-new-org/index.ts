@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
     await svc.from("organisation_members").insert({
       org_id: orgId, user_id: uid, role: "admin", status: "active", invited_email: userRes.user.email,
     });
-    await svc.from("user_roles").insert({ user_id: uid, role: "admin" }).then(() => {}, () => {});
+    await svc.from("user_roles").insert({ user_id: uid, role: "admin", org_id: orgId }).then(() => {}, () => {});
 
     // Empty billing shell
     await svc.from("organisation_billing").upsert({
@@ -124,17 +124,19 @@ Deno.serve(async (req) => {
     let seededCount = 0;
     if (seed) {
       const { data: templates } = await svc.from("job_sheet_templates")
-        .select("id,name,category,job_category,fields,sections,is_active")
+        .select("id,name,description,category,job_category,fields,footer_text,status")
         .eq("org_id", CANONICAL_SEED_ORG)
-        .eq("is_active", true);
+        .eq("status", "published");
       const rows = ((templates as any[]) ?? []).map((t) => ({
         org_id: orgId,
         name: t.name,
+        description: t.description,
         category: t.category,
         job_category: t.job_category,
         fields: t.fields,
-        sections: t.sections,
-        is_active: false, // land as drafts for review
+        branding: {},
+        footer_text: t.footer_text,
+        status: "draft", // land as drafts for review
       }));
       if (rows.length) {
         const { error: seedErr } = await svc.from("job_sheet_templates").insert(rows);

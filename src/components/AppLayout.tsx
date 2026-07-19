@@ -8,7 +8,7 @@ import { useOrgStatus } from "@/hooks/useOrgStatus";
 import AccountPaused from "@/components/AccountPaused";
 import { ROUTE_TO_SLUG } from "@/lib/engineerPages";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History, Truck, CloudUpload, Rocket, LifeBuoy, Bug } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History, Truck, CloudUpload, Rocket, LifeBuoy, Bug, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
@@ -21,6 +21,7 @@ import UndoButton from "@/components/UndoButton";
 import KeyboardShortcutsHelp from "@/components/KeyboardShortcutsHelp";
 import SetupSpotlightBanner from "@/components/SetupSpotlightBanner";
 import PlanBandBanner from "@/components/billing/PlanBandBanner";
+import SubscriptionActivationBanner from "@/components/billing/SubscriptionActivationBanner";
 import ReportProblemDialog from "@/components/ReportProblemDialog";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { supabase } from "@/integrations/supabase/client";
@@ -67,6 +68,7 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/reports/engineers", label: "Performance", icon: TrendingUp, section: "admin", adminOnly: true },
 { to: "/audit-log", label: "Audit Log", icon: History, section: "admin", adminOnly: true },
 { to: "/engineers", label: "Engineers", icon: Users, section: "admin", adminOnly: true },
+{ to: "/billing", label: "Billing", icon: CreditCard, section: "admin", adminOnly: true },
 { to: "/setup", label: "Setup guide", icon: Rocket, section: "admin", adminOnly: true },
 { to: "/support/my-tickets", label: "My tickets", icon: LifeBuoy, section: "more" },
 { to: "/admin/support-tickets", label: "Org support tickets", icon: LifeBuoy, section: "admin", adminOnly: true },
@@ -189,14 +191,15 @@ function SortableNavItem({
 
 export default function AppLayout({ children }: {children: ReactNode;}) {
   const { user, userRole, profile, signOut } = useAuth();
+  const location = useLocation();
   useEngineerLocation();
   const { hasAccess } = useEngineerPageAccess();
   const orgStatus = useOrgStatus();
-  const isPlatformRoute = typeof window !== "undefined" && window.location.pathname.startsWith("/platform");
-  if (!orgStatus.loading && orgStatus.status && orgStatus.status !== "active" && !orgStatus.is_platform_admin && !isPlatformRoute) {
+  const isPlatformRoute = location.pathname.startsWith("/platform");
+  const isBillingRoute = location.pathname === "/billing" || location.pathname === "/settings/billing";
+  if (!orgStatus.loading && orgStatus.status && orgStatus.status !== "active" && !orgStatus.is_platform_admin && !isPlatformRoute && !isBillingRoute) {
     return <AccountPaused orgStatus={orgStatus} />;
   }
-  const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopExpanded, setDesktopExpanded] = useReactState(true);
   // Sidebar is always expanded on desktop — remove auto-collapse on mouse leave
@@ -557,6 +560,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
         <div className="hidden lg:block h-0.5 w-full bg-gradient-to-r from-[hsl(25,95%,53%)] via-[hsl(213,51%,35%)] to-transparent shrink-0" />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[hsl(210,22%,96%)]">
           <PlanBandBanner />
+          <SubscriptionActivationBanner />
           {userRole === "admin" && <SetupSpotlightBanner />}
           {children}
         </main>
