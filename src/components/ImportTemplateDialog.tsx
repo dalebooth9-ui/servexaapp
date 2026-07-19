@@ -1,397 +1,316 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Loader2, X, Plus, GripVertical } from "lucide-react";
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { Upload, Loader2, AlertTriangle, FileText, Sparkles, CheckCircle2 } from "lucide-react";
 
-type TemplateField = {
+export type ImportedDraftInfo = {
   id: string;
-  label: string;
-  type: "text" | "number" | "date" | "checkbox" | "select" | "textarea" | "photo";
-  required: boolean;
-  section: string;
-  options?: string[];
-  placeholder?: string;
+  name: string;
+  description: string | null;
+  fields: any[];
+  category: string | null;
+  job_category: string | null;
+  branding: Record<string, any>;
+  footer_text: string | null;
 };
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated: () => void;
+  /**
+   * Called after the imported draft is created. If the parent provides a
+   * handler that accepts a draft, it can open the existing template editor
+   * immediately. If it accepts no argument, it should refetch its template
+   * list.
+   */
+  onCreated: (draft?: ImportedDraftInfo) => void;
 };
 
-const FIELD_TYPE_LABELS: Record<string, string> = {
-  text: "Short Text",
-  number: "Number",
-  date: "Date",
-  checkbox: "Checkbox",
-  pass_fail: "Pass/Fail",
-  select: "Dropdown",
-  textarea: "Long Text",
-  photo: "Photo",
-  repeating_table: "Repeating Table",
+const MAX_BYTES = 20 * 1024 * 1024;
+
+type Field = {
+  id: string;
+  label: string;
+  type: string;
+  required?: boolean;
+  section?: string;
+  options?: string[];
+  placeholder?: string;
 };
 
-function SortableFieldRow({ field, idx, onFieldChange, onRemove }: {
-  field: TemplateField;
-  idx: number;
-  onFieldChange: (idx: number, key: keyof TemplateField, value: any) => void;
-  onRemove: (idx: number) => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
-  const [showOptions, setShowOptions] = useState(false);
-  const [newOption, setNewOption] = useState("");
+function sanitiseFields(raw: any[]): Field[] {
+  const used = new Set<string>();
+  return raw
+    .filter((f) => f && typeof f === "object")
+    .map((f, i) => {
+      let id = String(f.id || f.label || `field_${i + 1}`)
+        .toLowerCase()
+        .replace(/[^a-z0-9_]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .slice(0, 64) || `field_${i + 1}`;
+      let unique = id;
+      let n = 2;
+      while (used.has(unique)) unique = `${id}_${n++}`;
+      used.add(unique);
+      const type = String(f.type || "text").toLowerCase();
+      const allowed = new Set([
+        "text", "number", "date", "checkbox", "pass_fail",
+        "select", "textarea", "photo", "signature",
+      ]);
+      return {
+        id: unique,
+        label: String(f.label || `Field ${i + 1}`).slice(0, 200),
+        type: allowed.has(type) ? type : "text",
+        required: !!f.required,
+        section: (f.section && String(f.section).trim()) || "General",
+        options: Array.isArray(f.options) ? f.options.map(String) : undefined,
+        placeholder: f.placeholder ? String(f.placeholder) : undefined,
+      };
+    });
+}
 
-  const isDropdown = field.type === "select";
-  const options = field.options || [];
-
-  const addOption = () => {
-    if (!newOption.trim()) return;
-    onFieldChange(idx, "options", [...options, newOption.trim()]);
-    setNewOption("");
-  };
-
-  const removeOption = (optIdx: number) => {
-    onFieldChange(idx, "options", options.filter((_, i) => i !== optIdx));
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} className="rounded hover:bg-muted/50 group">
-      <div className="flex items-center gap-2 py-1.5 px-2">
-        <button type="button" {...attributes} {...listeners} className="cursor-grab touch-none shrink-0">
-          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
-        </button>
-        <Input value={field.label} onChange={(e) => onFieldChange(idx, "label", e.target.value)} className="h-7 text-sm flex-1" />
-        <select value={field.type} onChange={(e) => onFieldChange(idx, "type", e.target.value)} className="h-7 text-xs border rounded px-1.5 bg-background">
-          {Object.entries(FIELD_TYPE_LABELS).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
-        </select>
-        {isDropdown && (
-          <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => setShowOptions(!showOptions)}>
-            {options.length} opt{options.length !== 1 ? "s" : ""}
-          </Button>
-        )}
-        <label className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
-          <input type="checkbox" checked={field.required} onChange={(e) => onFieldChange(idx, "required", e.target.checked)} />
-          Req
-        </label>
-        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => onRemove(idx)}>
-          <X className="h-3 w-3" />
-        </Button>
-      </div>
-      {isDropdown && showOptions && (
-        <div className="ml-8 mr-2 mb-2 p-2 border rounded bg-background space-y-1.5">
-          {options.length === 0 && (
-            <p className="text-[10px] text-muted-foreground">No options yet. Add some below.</p>
-          )}
-          {options.map((opt, optIdx) => (
-            <div key={optIdx} className="flex items-center gap-1.5">
-              <Badge variant="secondary" className="text-[10px] gap-1">
-                {opt}
-                <button type="button" onClick={() => removeOption(optIdx)} className="hover:text-destructive">
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              </Badge>
-            </div>
-          ))}
-          <div className="flex items-center gap-1.5 mt-1">
-            <Input
-              value={newOption}
-              onChange={(e) => setNewOption(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addOption(); } }}
-              placeholder="Add option..."
-              className="h-6 text-xs flex-1"
-            />
-            <Button variant="outline" size="sm" className="h-6 text-xs px-2" onClick={addOption} disabled={!newOption.trim()}>
-              <Plus className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+function buildFallbackFields(rawText: string, fileName: string): Field[] {
+  const trimmed = (rawText || "").trim();
+  const preview = trimmed.slice(0, 8000);
+  return [
+    {
+      id: "imported_content",
+      label: `Imported content from ${fileName}`,
+      type: "textarea",
+      required: false,
+      section: "Imported document",
+      placeholder: preview || "Add your form fields here — this template was imported without recognisable structure.",
+    },
+  ];
 }
 
 export default function ImportTemplateDialog({ open, onOpenChange, onCreated }: Props) {
-  const { user } = useAuth();
+  const { user, orgId } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState<"upload" | "review">("upload");
-  const [parsing, setParsing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [templateName, setTemplateName] = useState("");
-  const [templateDesc, setTemplateDesc] = useState("");
-  const [fields, setFields] = useState<TemplateField[]>([]);
+
+  const [phase, setPhase] = useState<"idle" | "uploading" | "converting" | "saving" | "done">("idle");
   const [fileName, setFileName] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor)
-  );
-
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      setFields((prev) => {
-        const oldIndex = prev.findIndex((f) => f.id === active.id);
-        const newIndex = prev.findIndex((f) => f.id === over.id);
-        const reordered = arrayMove(prev, oldIndex, newIndex);
-        // Update moved field's section to match its new neighbour
-        const movedField = reordered[newIndex];
-        const neighbour = reordered[newIndex > 0 ? newIndex - 1 : newIndex + 1];
-        if (neighbour && neighbour.section !== movedField.section) {
-          reordered[newIndex] = { ...movedField, section: neighbour.section };
-        }
-        return reordered;
-      });
-    }
-  }, []);
-
-  const resetState = () => {
-    setStep("upload");
-    setParsing(false);
-    setSaving(false);
-    setTemplateName("");
-    setTemplateDesc("");
-    setFields([]);
+  const reset = () => {
+    setPhase("idle");
     setFileName("");
+    setError(null);
   };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const handleFile = async (file: File) => {
+    setError(null);
     const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
-    if (![".pdf", ".docx", ".doc"].includes(ext)) {
-      toast({ title: "Unsupported file", description: "Please upload a PDF or Word document.", variant: "destructive" });
+    if (![".docx", ".pdf"].includes(ext)) {
+      setError("Only .docx (recommended) and .pdf are supported.");
       return;
     }
-    if (file.size > 20 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Maximum 20MB.", variant: "destructive" });
+    if (file.size > MAX_BYTES) {
+      setError("File is larger than 20 MB. Please upload a smaller document.");
+      return;
+    }
+    if (!user) {
+      setError("You must be signed in.");
       return;
     }
 
     setFileName(file.name);
-    setTemplateName(file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " "));
-    setParsing(true);
+    setPhase("uploading");
 
     try {
-      const reader = new FileReader();
+      // Read file as base64
       const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
         reader.onload = () => {
           const result = reader.result as string;
-          resolve(result.split(",")[1]);
+          resolve(result.split(",")[1] || "");
         };
-        reader.onerror = reject;
+        reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(file);
       });
 
-      const { data, error } = await supabase.functions.invoke("parse-template-document", {
+      setPhase("converting");
+      const { data, error: fnError } = await supabase.functions.invoke("parse-template-document", {
         body: { file_base64: base64, file_name: file.name },
       });
-
-      if (error) throw error;
+      if (fnError) throw fnError;
       if (data?.error) throw new Error(data.error);
 
-      const parsed = (data.fields || []) as TemplateField[];
-      if (parsed.length === 0) {
-        toast({ title: "No fields found", description: "AI couldn't extract form fields from this document.", variant: "destructive" });
-        setParsing(false);
-        return;
+      const rawFields = Array.isArray(data?.fields) ? data.fields : [];
+      const rawText: string = typeof data?.raw_text === "string" ? data.raw_text : "";
+      let fields = sanitiseFields(rawFields);
+      let usedFallback = false;
+      if (fields.length === 0) {
+        fields = buildFallbackFields(rawText, file.name);
+        usedFallback = true;
       }
 
-      setFields(parsed);
-      setStep("review");
-    } catch (err: any) {
-      toast({ title: "Parse failed", description: err.message || "Could not parse document.", variant: "destructive" });
-    } finally {
-      setParsing(false);
-    }
-  };
+      setPhase("saving");
+      const baseName = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() || "Imported template";
+      const importedAt = new Date().toISOString();
+      const insertRow: Record<string, any> = {
+        name: baseName,
+        description: `Imported from ${file.name}`,
+        fields: fields as any,
+        created_by: user.id,
+        status: "draft",
+        branding: {
+          imported: {
+            source_file: file.name,
+            imported_at: importedAt,
+            used_fallback: usedFallback,
+          },
+        },
+      };
+      // Set org_id explicitly for tenant orgs so RLS accepts the write.
+      // Platform-admin (Viva) global templates keep org_id NULL.
+      if (orgId) insertRow.org_id = orgId;
 
-  const handleRemoveField = (idx: number) => {
-    setFields((prev) => prev.filter((_, i) => i !== idx));
-  };
+      const { data: created, error: insertError } = await supabase
+        .from("job_sheet_templates")
+        .insert(insertRow as any)
+        .select("id, name, description, fields, category, job_category, branding, footer_text")
+        .single();
 
-  const handleFieldChange = (idx: number, key: keyof TemplateField, value: any) => {
-    setFields((prev) => prev.map((f, i) => (i === idx ? { ...f, [key]: value } : f)));
-  };
+      if (insertError || !created) {
+        throw new Error(insertError?.message || "Could not save the imported template.");
+      }
 
-  const handleAddField = () => {
-    setFields((prev) => [
-      ...prev,
-      {
-        id: `custom_field_${Date.now()}`,
-        label: "New Field",
-        type: "text",
-        required: false,
-        section: prev.length > 0 ? prev[prev.length - 1].section : "General",
-      },
-    ]);
-  };
+      setPhase("done");
+      toast({
+        title: usedFallback ? "Imported as blank draft" : "Template imported",
+        description: usedFallback
+          ? "We couldn't detect form fields — a starter draft is open for you to shape."
+          : `Extracted ${fields.length} field${fields.length === 1 ? "" : "s"}. Review and save the draft.`,
+      });
 
-  const handleSave = async () => {
-    if (!templateName.trim()) {
-      toast({ title: "Name required", variant: "destructive" });
-      return;
-    }
-    if (fields.length === 0) {
-      toast({ title: "No fields", description: "Add at least one field.", variant: "destructive" });
-      return;
-    }
+      const draft: ImportedDraftInfo = {
+        id: (created as any).id,
+        name: (created as any).name,
+        description: (created as any).description ?? null,
+        fields: (created as any).fields ?? fields,
+        category: (created as any).category ?? null,
+        job_category: (created as any).job_category ?? null,
+        branding: (created as any).branding ?? {},
+        footer_text: (created as any).footer_text ?? null,
+      };
 
-    setSaving(true);
-    const { error } = await supabase.from("job_sheet_templates").insert({
-      name: templateName.trim(),
-      description: templateDesc.trim() || null,
-      fields: fields as any,
-      created_by: user?.id,
-    } as any);
-
-    if (error) {
-      toast({ title: "Error", description: "Failed to save template.", variant: "destructive" });
-    } else {
-      toast({ title: "Template saved" });
-      onCreated();
+      onCreated(draft);
       onOpenChange(false);
-      resetState();
+      reset();
+    } catch (err: any) {
+      console.error("Template import failed:", err);
+      setError(err?.message || "Something went wrong while importing.");
+      setPhase("idle");
     }
-    setSaving(false);
   };
 
-  
+  const onSelectFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+    // Reset input so the same file can be re-selected after an error.
+    e.target.value = "";
+  };
+
+  const isBusy = phase === "uploading" || phase === "converting" || phase === "saving";
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) resetState(); onOpenChange(v); }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (isBusy) return; // don't allow closing mid-import
+        if (!v) reset();
+        onOpenChange(v);
+      }}
+    >
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            {step === "upload" ? "Import Job Sheet Template" : "Review & Edit Template Fields"}
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            Import from document
           </DialogTitle>
         </DialogHeader>
 
-        {step === "upload" && (
-          <div className="flex flex-col items-center gap-4 py-8">
-            <div className="text-center space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Upload a PDF or Word document containing your job sheet or report template.
-                AI will extract the form fields for engineers to complete on-site.
-              </p>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Upload an existing form and we'll convert it into a <strong>draft template</strong> in your organisation.
+            You'll be dropped straight into the editor to tidy up field types and add sections before publishing.
+          </p>
+
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-900 dark:text-amber-200 flex gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p><strong>.docx</strong> gives the best results (headings, tables and Yes/No patterns are detected).</p>
+              <p><strong>.pdf</strong> is accepted but the conversion will be rougher — expect to spend more time editing the draft.</p>
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.docx,.doc"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".docx,.pdf"
+            className="hidden"
+            onChange={onSelectFile}
+          />
+
+          {phase === "idle" && (
             <Button
-              variant="outline"
               size="lg"
+              className="w-full gap-2"
               onClick={() => fileInputRef.current?.click()}
-              disabled={parsing}
-              className="gap-2"
+              disabled={!user}
             >
-              {parsing ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Analysing {fileName}...
-                </>
-              ) : (
-                <>
-                  <Upload className="h-4 w-4" />
-                  Choose File
-                </>
-              )}
+              <Upload className="h-4 w-4" />
+              Choose a .docx or .pdf
             </Button>
-            {parsing && (
-              <p className="text-xs text-muted-foreground">
-                AI is extracting form fields from your document...
-              </p>
-            )}
-          </div>
-        )}
+          )}
 
-        {step === "review" && (
-          <div className="flex flex-col flex-1 min-h-0 gap-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <Label>Template Name</Label>
-                <Input
-                  value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
-                  placeholder="e.g. Gas Safety Inspection"
-                />
+          {phase !== "idle" && (
+            <div className="rounded-md border p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span className="truncate font-medium">{fileName || "document"}</span>
               </div>
-              <div>
-                <Label>Description (optional)</Label>
-                <Input
-                  value={templateDesc}
-                  onChange={(e) => setTemplateDesc(e.target.value)}
-                  placeholder="Brief description"
-                />
-              </div>
+              <ol className="space-y-1.5 text-sm">
+                <StepRow label="Uploading document" done={phase !== "uploading"} active={phase === "uploading"} />
+                <StepRow label="Converting with AI (this can take ~20s)" done={phase === "saving" || phase === "done"} active={phase === "converting"} />
+                <StepRow label="Saving draft template" done={phase === "done"} active={phase === "saving"} />
+              </ol>
             </div>
+          )}
 
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {fields.length} field{fields.length !== 1 ? "s" : ""} extracted from <span className="font-medium">{fileName}</span>
-              </p>
-              <Button variant="outline" size="sm" onClick={handleAddField}>
-                <Plus className="h-3 w-3 mr-1" /> Add Field
-              </Button>
+          {error && (
+            <div className="text-sm text-destructive border border-destructive/40 rounded-md p-2">
+              {error}
             </div>
+          )}
 
-            <div className="overflow-y-auto border rounded-md" style={{ maxHeight: "calc(90vh - 280px)" }}>
-              <div className="p-3 space-y-1">
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                  <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                    {fields.map((field, idx) => {
-                      const section = field.section || "General";
-                      const prevSection = idx > 0 ? (fields[idx - 1].section || "General") : null;
-                      const showHeader = section !== prevSection;
-                      return (
-                        <div key={field.id}>
-                          {showHeader && (
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-3 mb-1 first:mt-0">
-                              {section}
-                            </p>
-                          )}
-                          <SortableFieldRow
-                            field={field}
-                            idx={idx}
-                            onFieldChange={handleFieldChange}
-                            onRemove={handleRemoveField}
-                          />
-                        </div>
-                      );
-                    })}
-                  </SortableContext>
-                </DndContext>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => { resetState(); }}>Cancel</Button>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                Save Template
-              </Button>
-            </DialogFooter>
-          </div>
-        )}
+          <p className="text-[11px] text-muted-foreground">
+            Max 20 MB. Imported drafts are private to your organisation and never auto-published.
+          </p>
+        </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function StepRow({ label, done, active }: { label: string; done: boolean; active: boolean }) {
+  return (
+    <li className="flex items-center gap-2">
+      {done ? (
+        <CheckCircle2 className="h-4 w-4 text-primary" />
+      ) : active ? (
+        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+      ) : (
+        <span className="h-4 w-4 rounded-full border border-muted-foreground/30" />
+      )}
+      <span className={done ? "text-muted-foreground line-through" : active ? "text-foreground" : "text-muted-foreground"}>
+        {label}
+      </span>
+    </li>
   );
 }

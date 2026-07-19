@@ -6,7 +6,9 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { Search, Download, Plus, CheckCircle2, Flame, Droplets, Wrench, Shield, Zap, Wind, AlertTriangle, Eye, FileText, Pencil, Loader2, FileArchive } from "lucide-react";
+import { Search, Download, Plus, CheckCircle2, Flame, Droplets, Wrench, Shield, Zap, Wind, AlertTriangle, Eye, FileText, Pencil, Loader2, FileArchive, Upload } from "lucide-react";
+import ImportTemplateDialog, { type ImportedDraftInfo } from "@/components/ImportTemplateDialog";
+
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
 import BlankTemplateWordExport, { buildBlankTemplateDoc, blankTemplateFileSlug } from "@/components/BlankTemplateWordExport";
 import BlankTemplateActions from "@/components/BlankTemplateActions";
@@ -1078,6 +1080,8 @@ export default function IndustryTemplates() {
     job_category?: string | null; branding?: Record<string, any>;
   } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+
   const [bulkExporting, setBulkExporting] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
   const [bulkTotal, setBulkTotal] = useState(0);
@@ -1399,6 +1403,17 @@ export default function IndustryTemplates() {
           <Button
             variant="outline"
             size="sm"
+            className="gap-1.5"
+            disabled={!user}
+            onClick={() => setImportOpen(true)}
+            title="Convert your existing form (.docx or .pdf) into an editable template"
+          >
+            <Upload className="h-4 w-4" /> Import from document
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleExportAllToWord}
             disabled={bulkExporting || filtered.length === 0}
             className="gap-1.5"
@@ -1607,6 +1622,26 @@ export default function IndustryTemplates() {
           setEditOpen(false);
         }}
       />
+
+      <ImportTemplateDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onCreated={(draft?: ImportedDraftInfo) => {
+          if (!draft) return;
+          setEditingTemplate({
+            id: draft.id,
+            name: draft.name,
+            description: draft.description,
+            fields: Array.isArray(draft.fields) ? draft.fields : [],
+            category: draft.category || "",
+            job_category: draft.job_category || "",
+            branding: draft.branding || {},
+            footer_text: draft.footer_text || null,
+          } as any);
+          setEditOpen(true);
+        }}
+      />
+
     </div>
   );
 }
