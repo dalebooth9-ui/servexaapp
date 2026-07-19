@@ -85,6 +85,8 @@ import RamsRequiredBanner from "@/components/rams/RamsRequiredBanner";
 import { useJobRamsStatus } from "@/hooks/useJobRamsStatus";
 import EngineerNextStepBar from "@/components/engineer/EngineerNextStepBar";
 import EngineerJobHero from "@/components/engineer/EngineerJobHero";
+import EngineerCompletionGate from "@/components/engineer/EngineerCompletionGate";
+import JobCompletionFlagsBadge from "@/components/jobs/JobCompletionFlagsBadge";
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
