@@ -458,9 +458,10 @@ export async function buildCoverPage(
     }
   }
 
+  const brand = getCachedRamsBrand();
   const engineerNames = operatives.length > 0
     ? operatives.map((o) => o.name).filter(Boolean).join(", ")
-    : "Viva Fire Operatives";
+    : (brand?.operativesDefault ?? "Assigned Operatives");
 
   let y = 20;
 
@@ -470,15 +471,19 @@ export async function buildCoverPage(
   doc.setTextColor(33, 61, 99);
   doc.text(opts.title1, PAGE_W / 2, y, { align: "center" });
   y += 8;
-  doc.setFontSize(22);
-  doc.text("VIVA FIRE", PAGE_W / 2, y, { align: "center" });
-  y += 8;
+  if (brand?.companyUpper) {
+    doc.setFontSize(22);
+    doc.text(brand.companyUpper, PAGE_W / 2, y, { align: "center" });
+    y += 8;
+  }
   doc.setFontSize(13);
   doc.text("Method Statement & Risk Assessment", PAGE_W / 2, y, { align: "center" });
   y += 7;
-  doc.setFontSize(14);
-  doc.text("Fire Protection Ltd", PAGE_W / 2, y, { align: "center" });
-  y += 7;
+  if (brand?.companyTagLine) {
+    doc.setFontSize(14);
+    doc.text(brand.companyTagLine, PAGE_W / 2, y, { align: "center" });
+    y += 7;
+  }
   doc.setFontSize(13);
   doc.text(opts.title2, PAGE_W / 2, y, { align: "center" });
   y += 12;
