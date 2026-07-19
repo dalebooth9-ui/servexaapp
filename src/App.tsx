@@ -200,6 +200,8 @@ const App = () => (
               <Route path="/support/my-tickets" element={<ProtectedRoute><MyTickets /></ProtectedRoute>} />
 
               <Route path="/paper-scan-queue" element={<AdminRoute><Suspense fallback={<PageFallback />}><PaperScanQueue /></Suspense></AdminRoute>} />
+              <Route path="/archive" element={<AdminRoute><Suspense fallback={<PageFallback />}><ArchivedDocuments /></Suspense></AdminRoute>} />
+
               <Route path="/jobs" element={<AccessRoute pageSlug="jobs"><Jobs /></AccessRoute>} />
               <Route path="/jobs/:id" element={<AccessRoute pageSlug="jobs"><JobDetail /></AccessRoute>} />
               <Route path="/jobs/:jobId/rams" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />
