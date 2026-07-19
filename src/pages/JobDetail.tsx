@@ -84,6 +84,7 @@ const JobEmailChain = lazy(() => import("@/components/jobs/JobEmailChain"));
 import RamsRequiredBanner from "@/components/rams/RamsRequiredBanner";
 import { useJobRamsStatus } from "@/hooks/useJobRamsStatus";
 import EngineerNextStepBar from "@/components/engineer/EngineerNextStepBar";
+import EngineerJobHero from "@/components/engineer/EngineerJobHero";
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
@@ -603,6 +604,14 @@ export default function JobDetail() {
 
 
       {activeTab === "overview" && (<>
+      {!!user && assignedEngineerIds.includes(user.id) && userRole !== "admin" && (
+        <EngineerJobHero
+          jobId={id!}
+          jobOrgId={job.org_id}
+          isRemedial={!!job.is_remedial}
+          onNavigateTab={(t) => setActiveTab(t as JobTab)}
+        />
+      )}
       {/* Editable Job Details */}
       <Collapsible defaultOpen className="mb-6">
 
@@ -890,14 +899,17 @@ export default function JobDetail() {
             </div>
           </div>
         )}
-        <JobRemedialChecklist
-          jobId={id!}
-          jobOrgId={job.org_id}
-          isRemedial={!!job.is_remedial}
-          isAdmin={userRole === "admin"}
-          isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
-          forceShow={showChecklistOptIn}
-        />
+        {/* Engineers get the checklist inside <EngineerJobHero> above; skip here to avoid duplication. */}
+        {!(userRole !== "admin" && !!user && assignedEngineerIds.includes(user.id)) && (
+          <JobRemedialChecklist
+            jobId={id!}
+            jobOrgId={job.org_id}
+            isRemedial={!!job.is_remedial}
+            isAdmin={userRole === "admin"}
+            isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+            forceShow={showChecklistOptIn}
+          />
+        )}
       </>)}
 
 
