@@ -536,7 +536,7 @@ export async function buildCoverPage(
   }
   ry += rowGap;
   if (scopeParts) ry += rowGap;
-  if (engineerNames && engineerNames !== "Viva Fire Operatives") {
+  if (engineerNames && engineerNames !== brand?.operativesDefault) {
     const engLines = doc.splitTextToSize(engineerNames, CONTENT_W - 3 - 52);
     ry += Math.max(rowGap, engLines.length * (9 * 0.352778 + 1.2));
   }
