@@ -33,7 +33,7 @@ Please could you confirm access arrangements for our engineer to attend on or ar
 Any questions, just give us a call or drop us an email.
 
 Kind regards,
-Viva Fire & Protection`,
+{{company_name}}`,
 };
 
 export default function FollowUpReminderSettings() {
