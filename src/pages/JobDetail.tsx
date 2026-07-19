@@ -439,6 +439,7 @@ export default function JobDetail() {
         {/* Row 2: primary + Actions menu */}
         {userRole === "admin" ? (
           <div className="flex flex-wrap items-center gap-2">
+            <JobCompletionFlagsBadge jobId={id!} isAdmin={userRole === "admin"} />
             <SendToCustomerMenu jobId={id!} job={job} customerEmail={customerEmail} />
             <Popover>
               <PopoverTrigger asChild>
