@@ -9,6 +9,7 @@ import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
+import { primeRamsBrand, getCachedRamsBrand, rewriteRamsBrand } from "@/lib/ramsBrand";
 
 export type RamsFormData = Record<string, any>;
 
