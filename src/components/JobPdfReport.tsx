@@ -602,7 +602,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       y = await renderPdfHeader(
         doc,
         "JOB REPORT",
-        { logo_url: logoDataUrl || "/images/vivafire-logo-new.jpg" },
+        { logo_url: logoDataUrl || "" },
         {
           customerName: "",
           siteName: "",
