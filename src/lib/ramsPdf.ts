@@ -418,7 +418,7 @@ export async function generateRamsPdf(
   const taskSpecificOps: string[]  = formData["_taskSpecificOps"]  || [];
   const location: string           = formData["_location"]         || siteLocation || "All areas / locations";
   const resources: string          = formData["_resources"]        || "Minimum of: 2 Operatives";
-  const personnel: string          = formData["_personnel"]        || "Dale Booth";
+  const personnel: string          = formData["_personnel"]        || brand.writerName || "";
   const plantAndEquipment: string[]= formData["_plantAndEquipment"]|| [];
   const significantRisks: string[] = formData["_significantRisks"] || [];
   const specialTraining: string    = formData["_specialTraining"]  || "All operatives hold current CSCS cards.";
