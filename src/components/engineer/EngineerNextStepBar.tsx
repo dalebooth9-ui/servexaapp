@@ -156,11 +156,11 @@ export default function EngineerNextStepBar({
         return;
       case "remedial":
         onNavigateTab?.("overview");
-        setTimeout(() => scrollToId("remedial-checklist"), 100);
+        setTimeout(() => scrollToId("engineer-remedial-hero"), 100);
         return;
       case "sheet":
         onNavigateTab?.("overview");
-        setTimeout(() => scrollToId("job-sheets-section"), 100);
+        setTimeout(() => scrollToId("engineer-job-hero"), 100);
         return;
       case "photos":
         onNavigateTab?.("photos");
