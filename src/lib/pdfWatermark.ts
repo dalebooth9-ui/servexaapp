@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import type { RgbTriple } from "@/lib/extractLogoColors";
+import { getGeneratingOrgWatermarkUrl } from "@/lib/generatingOrgBranding";
 
 /** Shared watermark opacity values — accreditation logos use the same scale
  *  so they blend identically to the Viva Flame watermark on every template. */
