@@ -84,6 +84,9 @@ export async function generateBrandedRamsPdf(data: BrandedRamsData): Promise<{ b
   const margin = 36;
 
   const logo = await loadLogo();
+  const { getGeneratingOrgBranding } = await import("@/lib/generatingOrgBranding");
+  const g = await getGeneratingOrgBranding();
+  const headerName = g.isViva ? "VIVA FIRE PROTECTION" : (g.name ?? "").toUpperCase();
 
   // ── HEADER ──
   // Red brand bar
@@ -92,11 +95,11 @@ export async function generateBrandedRamsPdf(data: BrandedRamsData): Promise<{ b
 
   if (logo) {
     try { doc.addImage(logo, "JPEG", margin, 14, 110, 36); } catch { /* ignore */ }
-  } else {
+  } else if (headerName) {
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.text("VIVA FIRE PROTECTION", margin, 38);
+    doc.text(headerName, margin, 38);
   }
 
   doc.setTextColor(255, 255, 255);
