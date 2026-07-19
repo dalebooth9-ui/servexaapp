@@ -44,13 +44,18 @@ let cachedWatermark: HTMLImageElement | null = null;
 
 export async function loadWatermarkImage(): Promise<HTMLImageElement | null> {
   if (cachedWatermark) return cachedWatermark;
+  // The flame is Viva Fire's brand mark — never render it on another org's
+  // documents. Non-Viva orgs get NO watermark image (their PDFs are simply
+  // watermark-free until they upload their own brand assets).
+  const url = await getGeneratingOrgWatermarkUrl();
+  if (!url) return null;
   try {
     const img = new Image();
     img.crossOrigin = "anonymous";
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
       img.onerror = () => reject();
-      img.src = "/images/viva-watermark.png?v=4";
+      img.src = url;
     });
     cachedWatermark = img;
     return img;
