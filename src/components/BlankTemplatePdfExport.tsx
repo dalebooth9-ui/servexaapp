@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { loadWatermarkSettings } from "@/hooks/useWatermarkSettings";
 import jsPDF from "jspdf";
 import { loadWatermarkImage } from "@/lib/pdfWatermark";
+import { getGeneratingOrgFallbackLogoUrl, getGeneratingOrgWatermarkUrl } from "@/lib/generatingOrgBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { renderBrandingOverlay, type WatermarkOverride } from "@/lib/pdfBranding";
 import { renderPdfHeader } from "@/lib/pdfHeader";
