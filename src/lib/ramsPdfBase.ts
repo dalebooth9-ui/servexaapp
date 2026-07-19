@@ -392,15 +392,19 @@ export function signatureRow(
 /* ─────────────────────────────────────── logo loader ── */
 
 export async function loadLogoImage(_customerLogoUrl?: string | null): Promise<HTMLImageElement | null> {
-  // RAMS always use Viva Fire branding — customer logos are NEVER applied here
-  const url = `/images/vivafire-logo-new.jpg?v=${Date.now()}`;
+  // RAMS logo is the GENERATING org's brand mark. Viva → their logo;
+  // other orgs → their own uploaded logo, or "" (text-only header).
+  await primeRamsBrand();
+  const brand = getCachedRamsBrand();
+  const url = brand?.logoUrl;
+  if (!url) return null;
   try {
     const img = new Image();
     img.crossOrigin = "anonymous";
     await new Promise<void>((res, rej) => {
       img.onload = () => res();
       img.onerror = () => rej();
-      img.src = url;
+      img.src = `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
     });
     return img;
   } catch {
