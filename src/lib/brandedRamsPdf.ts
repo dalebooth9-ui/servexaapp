@@ -53,7 +53,10 @@ const BRAND = {
 
 async function loadLogo(): Promise<string | null> {
   try {
-    const res = await fetch("/images/vivafire-logo-new.jpg");
+    const { getGeneratingOrgFallbackLogoUrl } = await import("@/lib/generatingOrgBranding");
+    const url = await getGeneratingOrgFallbackLogoUrl();
+    if (!url) return null;
+    const res = await fetch(url);
     if (!res.ok) return null;
     const blob = await res.blob();
     return await new Promise<string>((resolve) => {
