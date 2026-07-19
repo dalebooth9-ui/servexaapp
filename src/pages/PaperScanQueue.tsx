@@ -441,16 +441,24 @@ export default function PaperScanQueue() {
                               <ExternalLink className="mr-1 h-3.5 w-3.5" /> Open job
                             </Link>
                           </Button>
+                        ) : i.status === "confirmed" && i.archived_document_id ? (
+                          <Button size="sm" variant="outline" asChild>
+                            <Link to={`/archive?doc=${i.archived_document_id}`}>
+                              <ExternalLink className="mr-1 h-3.5 w-3.5" /> Open in archive
+                            </Link>
+                          </Button>
                         ) : i.status === "rejected" ? (
                           <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
                             <XCircle className="h-3 w-3" /> Discarded
                           </span>
                         ) : (i.status === "ready" ||
                             i.status === "low_confidence") &&
-                          i.detected_template_id ? (
+                          ((i.mode || "job") === "archive" ||
+                            i.detected_template_id) ? (
                           <Button size="sm" onClick={() => openReview(i)}>
                             <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Review
                           </Button>
+
                         ) : i.status === "processing" ||
                           i.status === "pending" ? (
                           <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
