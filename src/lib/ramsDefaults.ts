@@ -42,12 +42,22 @@ const COMMON_SEQUENCE = [
   "All deliveries of materials must be pre-booked with Principal Contractor with 48 hours' notice.",
 ];
 
+// COMMON_PLANT is spread into every trade's plantAndEquipment. It must only
+// contain items that are genuinely universal across all fire-protection
+// trades. Trade-specific tools (pipe wrenches, pressure test gauges,
+// multimeters, etc.) leaked into unrelated RAMS (e.g. fire door inspection
+// listing pipe wrenches) and were moved into per-trade lists below.
 const COMMON_PLANT = [
-  "Hand tools and pipe wrenches",
-  "Pressure test gauge (calibrated)",
-  "Multimeter / continuity tester",
+  "Hand tools appropriate to task",
   "PPE kit (hard hat, high-vis vest, steel toe cap boots, gloves, safety glasses)",
 ];
+
+// Kept as named constants so each trade that needs them can add them
+// explicitly. This preserves the tool listings for water-carrying and
+// electrical systems (where they were already present via COMMON_PLANT)
+// without re-introducing them where they don't belong.
+const PRESSURE_TEST_GAUGE = "Pressure test gauge (calibrated)";
+const MULTIMETER = "Multimeter / continuity tester";
 
 const COMMON_PPE = [
   "Hard Hat EN397", "High Visibility Vest EN471",
@@ -85,8 +95,10 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
     personnel: "",
     plantAndEquipment: [
       ...COMMON_PLANT,
+      PRESSURE_TEST_GAUGE,
       "Pressure test pump (manual or motorised)",
       "Dry riser test kit (hoses, adaptors)",
+      "Pipe wrenches and spanners",
     ],
     significantRisks: [
       "Water discharge / flooding", "High pressure water", "Working at height",
@@ -132,8 +144,10 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
     personnel: "",
     plantAndEquipment: [
       ...COMMON_PLANT,
+      PRESSURE_TEST_GAUGE,
       "Pressure test pump (manual or motorised)",
       "Dry riser test kit (hoses, adaptors)",
+      "Pipe wrenches and spanners",
       "Pipe cutting and threading equipment",
       "Angle grinder with metal cutting/grinding disc (EN 13236 compliant)",
       "Spark guards / fire blankets",
@@ -189,6 +203,7 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
       ...COMMON_PLANT,
       "Pressure gauges (calibrated)",
       "Wet riser test equipment (hoses, flow meter, adaptors)",
+      "Pipe wrenches and valve keys",
     ],
     significantRisks: [
       "High pressure water", "Water discharge / flooding", "Working at height",
@@ -231,10 +246,11 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
     personnel: "",
     plantAndEquipment: [
       ...COMMON_PLANT,
+      PRESSURE_TEST_GAUGE,
       "Pitot tube and flow measuring equipment",
       "Replacement sprinkler heads and spanner",
       "Portable pressure pump (if required)",
-      "PPE kit including face shield for head work",
+      "Face shield for head work",
     ],
     significantRisks: [
       "Water discharge / flooding", "High pressure water", "Working at height",
@@ -358,6 +374,7 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
     personnel: "",
     plantAndEquipment: [
       ...COMMON_PLANT,
+      MULTIMETER,
       "Smoke detector test aerosol / heat gun",
       "Detector testing pole and head",
       "Programming laptop / access codes",
@@ -401,6 +418,7 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
     personnel: "",
     plantAndEquipment: [
       ...COMMON_PLANT,
+      MULTIMETER,
       "Lux meter (calibrated)",
       "Replacement lamps, drivers, and batteries",
       "Emergency lighting test kit / inhibit key",
@@ -443,6 +461,7 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
     personnel: "",
     plantAndEquipment: [
       ...COMMON_PLANT,
+      MULTIMETER,
       "Smoke machine / test aerosol",
       "Anemometer (for extract systems)",
       "Pressure differential meter",
