@@ -387,17 +387,20 @@ export async function generateRamsPdf(
 ): Promise<{ base64: string; fileName: string }> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
 
+  const brand = await primeRamsBrand();
   let logoImg: HTMLImageElement | null = null;
-  try {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    await new Promise<void>((res, rej) => {
-      img.onload = () => res();
-      img.onerror = () => rej();
-      img.src = `/images/vivafire-logo-new.jpg?v=${Date.now()}`;
-    });
-    logoImg = img;
-  } catch { /* no logo */ }
+  if (brand.logoUrl) {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise<void>((res, rej) => {
+        img.onload = () => res();
+        img.onerror = () => rej();
+        img.src = `${brand.logoUrl}${brand.logoUrl.includes("?") ? "&" : "?"}v=${Date.now()}`;
+      });
+      logoImg = img;
+    } catch { /* no logo */ }
+  }
 
   // ── Resolve all dynamic content from formData (editor-saved fields) ──
   const contractName = formData["rams_contract_job_name"] || jobInfo?.name || "";
