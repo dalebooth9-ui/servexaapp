@@ -250,10 +250,14 @@ export default function JobWordReport({ jobId, job }: Props) {
         });
       }
 
-      // Logo (customer brand > default Viva).
-      const logoUrl = job?.customers?.logo_url || "/vivafire-logo.png";
-      const logoBuf = await urlToArrayBuffer(logoUrl);
-      const logoFmt = detectImgFormat(logoUrl);
+      // Logo: customer brand > generating-org fallback (Viva only for
+      // Viva-org exports). Never hardcode Viva's asset here or every other
+      // tenant's Word report will leak Viva branding.
+      const { getGeneratingOrgFallbackLogoUrl } = await import("@/lib/generatingOrgBranding");
+      const orgFallback = await getGeneratingOrgFallbackLogoUrl();
+      const logoUrl = job?.customers?.logo_url || orgFallback || "";
+      const logoBuf = logoUrl ? await urlToArrayBuffer(logoUrl) : null;
+      const logoFmt = logoUrl ? detectImgFormat(logoUrl) : "png";
 
       // Accreditation logos → ArrayBuffer for footer strip.
       const accredEntries = await Promise.all(
