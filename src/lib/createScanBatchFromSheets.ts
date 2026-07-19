@@ -73,8 +73,10 @@ export async function createScanBatchFromSheets(params: {
       .filter(Boolean),
     detected_template_id: s.template_id,
     confidence: s.confidence,
+    mode,
     // status left at default so the processor picks it up
   }));
+
 
   const { error: itemsErr } = await supabase
     .from("paper_scan_batch_items")
