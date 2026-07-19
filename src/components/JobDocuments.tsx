@@ -1123,14 +1123,18 @@ function DocRow({
       )}
       {isBlankSheet && matchedTemplate && jobInfo && (isAdmin || ((matchedTemplate as any).status ?? "published") === "published") && (
         <>
-          <Button
-            variant="default"
-            size="sm"
-            className="h-7 text-xs px-2 gap-1 shrink-0"
-            onClick={() => onFillOnline?.((matchedTemplate as any).id)}
-          >
-            Fill In Online
-          </Button>
+          {/* Engineers get the primary "Fill in" from EngineerJobHero on the Overview tab;
+              suppress the DocRow duplicate for them to avoid two competing entry points. */}
+          {isAdmin && (
+            <Button
+              variant="default"
+              size="sm"
+              className="h-7 text-xs px-2 gap-1 shrink-0"
+              onClick={() => onFillOnline?.((matchedTemplate as any).id)}
+            >
+              Fill In Online
+            </Button>
+          )}
           <BlankTemplatePdfExport template={matchedTemplate} jobInfo={jobInfo} />
         </>
       )}
