@@ -609,7 +609,7 @@ export default function JobDetail() {
           jobId={id!}
           jobOrgId={job.org_id}
           isRemedial={!!job.is_remedial}
-          onNavigateTab={setActiveTab}
+          onNavigateTab={(t) => setActiveTab(t as JobTab)}
         />
       )}
       {/* Editable Job Details */}
