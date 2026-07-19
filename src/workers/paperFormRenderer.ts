@@ -426,13 +426,8 @@ export function renderPaperFormPage(
   // count everything up-front.
   type BodyItem =
     | { kind: "section"; label: string }
-    | { kind: "row"; field: PdfTemplateField; attachOutlets: boolean };
+    | { kind: "row"; field: PdfTemplateField };
   const items: BodyItem[] = [];
-  // Detect the outlets field on this template so we can inline it into the
-  // landing-valve row (paper-form convention).
-  const outletsField = template.fields.find(
-    (f) => f.id.toLowerCase() === "no_of_outlets" || /number\s+of\s+outlets/i.test(f.label),
-  );
 
   for (const sec of sectionOrder) {
     const fields = bySection.get(sec)!;
@@ -441,7 +436,7 @@ export function renderPaperFormPage(
     const secLabel = sec.toUpperCase() + (/visual|pressure test|test/i.test(template.name) && !/:/.test(sec) ? `: ${/pressure/i.test(template.name) ? "PRESSURE TEST" : "VISUAL"}` : "");
     items.push({ kind: "section", label: secLabel });
     for (const f of fields) {
-      items.push({ kind: "row", field: f, attachOutlets: !!outletsField && isLandingValveRow(f) });
+      items.push({ kind: "row", field: f });
     }
   }
 
