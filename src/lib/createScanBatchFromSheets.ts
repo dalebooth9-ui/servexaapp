@@ -37,11 +37,13 @@ export async function createScanBatchFromSheets(params: {
       status: "processing",
       total_items: sheets.length,
       processed_items: 0,
+      mode,
     } as any)
     .select("id")
     .single();
   if (batchErr) throw batchErr;
   const batchId = (batch as any).id as string;
+
 
   // 2. Upload every page once, remember its stored path.
   const stamp = Date.now();
