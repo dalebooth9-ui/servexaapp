@@ -144,8 +144,10 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
     personnel: "",
     plantAndEquipment: [
       ...COMMON_PLANT,
+      PRESSURE_TEST_GAUGE,
       "Pressure test pump (manual or motorised)",
       "Dry riser test kit (hoses, adaptors)",
+      "Pipe wrenches and spanners",
       "Pipe cutting and threading equipment",
       "Angle grinder with metal cutting/grinding disc (EN 13236 compliant)",
       "Spark guards / fire blankets",
