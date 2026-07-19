@@ -1309,6 +1309,17 @@ export default function JobDetail() {
         onStatusChanged={(s) => setJob((prev: any) => ({ ...prev, status: s }))}
       />
     )}
+    {/* Soft completion gate — engineer-only interstitial when moving on
+        from a job while others they've started remain incomplete. */}
+    {job && userRole === "engineer" && id && (
+      <EngineerCompletionGate
+        currentJobId={id}
+        currentJobStatus={job.status}
+        currentJobOrgId={job.org_id}
+        isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+        isAdmin={userRole !== "engineer"}
+      />
+    )}
     <SiteSheetPrintDialog
       jobId={id || null}
       open={siteSheetOpen}
