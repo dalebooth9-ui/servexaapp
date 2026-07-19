@@ -343,16 +343,16 @@ export default function EmailBrandingSettings() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label>From name</Label>
-              <Input value={row.from_name} onChange={(e) => update("from_name", e.target.value)} placeholder="Viva Fire Protection" />
+              <Input value={row.from_name} onChange={(e) => update("from_name", e.target.value)} placeholder="Your company name" />
             </div>
             <div className="space-y-1">
               <Label>From address</Label>
-              <Input value={row.from_address} onChange={(e) => update("from_address", e.target.value)} placeholder="service@vivafire.co.uk" />
+              <Input value={row.from_address} onChange={(e) => update("from_address", e.target.value)} placeholder="service@yourdomain.com" />
               <p className="text-[11px] text-muted-foreground">Must be on a domain verified in Resend.</p>
             </div>
             <div className="space-y-1 sm:col-span-2">
               <Label>Reply-to</Label>
-              <Input value={row.reply_to} onChange={(e) => update("reply_to", e.target.value)} placeholder="service@vivafire.co.uk" />
+              <Input value={row.reply_to} onChange={(e) => update("reply_to", e.target.value)} placeholder="service@yourdomain.com" />
               <p className="text-[11px] text-muted-foreground">Customer replies to automated emails land here.</p>
             </div>
           </div>
@@ -426,7 +426,7 @@ export default function EmailBrandingSettings() {
             </div>
             <div className="space-y-1">
               <Label>Website</Label>
-              <Input value={row.website ?? ""} onChange={(e) => update("website", e.target.value || null)} placeholder="https://www.vivafire.co.uk" />
+              <Input value={row.website ?? ""} onChange={(e) => update("website", e.target.value || null)} placeholder="https://www.yourdomain.com" />
             </div>
             <div className="space-y-1 sm:col-span-2">
               <Label>Address</Label>
