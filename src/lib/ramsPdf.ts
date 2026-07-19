@@ -570,8 +570,8 @@ export async function generateRamsPdf(
   doc.text(reviewLines, ML + 3, ry2);
   ry2 += reviewLines.length * (8.5 * 0.352778 + 1.2) + 2;
   doc.setFontSize(9);
-  labelValue(doc, "Method Statement Written by:", "Dale Booth", ML + 3, ry2); ry2 += rowGap;
-  labelValue(doc, "Method Statement Approved by:", "Dale Booth", ML + 3, ry2);
+  labelValue(doc, "Method Statement Written by:", brand.writerName || "", ML + 3, ry2); ry2 += rowGap;
+  labelValue(doc, "Method Statement Approved by:", "", ML + 3, ry2);
 
   y = boxY + detailBoxH + 8;
 
@@ -859,8 +859,8 @@ export async function generateRamsPdf(
     labelValue(doc, "Employees at Risk:", engineerNames, ML, ry3, 32); ry3 += 4.5;
     labelValue(doc, "Location/Area:", siteLocTrunc2, ML, ry3, 26); ry3 += 4.5;
     labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, ry3, 36); ry3 += 4.5;
-    labelValue(doc, "Assessor:", "Dale Booth", ML, ry3, 18); ry3 += 4.5;
-    labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, ry3, 46); ry3 += 6;
+    labelValue(doc, "Assessor:", brand.writerName || "", ML, ry3, 18); ry3 += 4.5;
+    labelValue(doc, "Key Responsible Personnel:", brand.writerName || "", ML, ry3, 46); ry3 += 6;
 
     ry3 = riskTableHeader(doc, rC, ry3);
 
@@ -887,8 +887,8 @@ export async function generateRamsPdf(
         labelValue(doc, "Employees at Risk:", engineerNames, ML, ry3, 32); ry3 += 4.5;
         labelValue(doc, "Location/Area:", siteLocTrunc2, ML, ry3, 26); ry3 += 4.5;
         labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, ry3, 36); ry3 += 4.5;
-        labelValue(doc, "Assessor:", "Dale Booth", ML, ry3, 18); ry3 += 4.5;
-        labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, ry3, 46); ry3 += 6;
+        labelValue(doc, "Assessor:", brand.writerName || "", ML, ry3, 18); ry3 += 4.5;
+        labelValue(doc, "Key Responsible Personnel:", brand.writerName || "", ML, ry3, 46); ry3 += 6;
         ry3 = riskTableHeader(doc, rC, ry3);
       }
 
@@ -941,7 +941,7 @@ export async function generateRamsPdf(
   doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(33, 61, 99);
   doc.text("Method Statement", PAGE_W / 2, spy, { align: "center" }); spy += 6;
   doc.setFontSize(10);
-  doc.text("VIVA Fire Protection Ltd – Fire Protection Specialist", PAGE_W / 2, spy, { align: "center" });
+  doc.text(brand.companyName ? `${brand.companyName} – Fire Protection Specialist` : "Fire Protection Specialist", PAGE_W / 2, spy, { align: "center" });
   doc.setTextColor(0, 0, 0); spy += 8;
 
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("1.3 Confirmation of operatives briefing.", ML, spy); spy += 4;
