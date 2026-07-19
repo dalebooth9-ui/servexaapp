@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { CreditCard, ExternalLink, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
+import { PLAN_BANDS, penceToPoundsDisplay } from "@/lib/planBands";
 
 type Billing = {
   plan_code: string | null;
@@ -14,6 +15,12 @@ type Billing = {
   current_period_end: string | null;
   grace_period_ends_at: string | null;
   stripe_customer_id: string | null;
+};
+
+type OrgBillingDisplay = {
+  user_band: string | null;
+  promo_price_pence: number | null;
+  promo_price_note: string | null;
 };
 
 const STATUS_LABEL: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -28,14 +35,19 @@ const STATUS_LABEL: Record<string, { label: string; variant: "default" | "second
 export default function BillingCard() {
   const { orgId, userRole } = useAuth();
   const [billing, setBilling] = useState<Billing | null>(null);
+  const [orgDisplay, setOrgDisplay] = useState<OrgBillingDisplay | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!orgId) return;
     (async () => {
-      const { data } = await supabase.from("organisation_billing").select("*").eq("org_id", orgId).maybeSingle();
-      setBilling((data as any) ?? null);
+      const [{ data: billingData }, { data: orgData }] = await Promise.all([
+        supabase.from("organisation_billing").select("*").eq("org_id", orgId).maybeSingle(),
+        supabase.from("organisations").select("user_band, promo_price_pence, promo_price_note").eq("id", orgId).maybeSingle(),
+      ]);
+      setBilling((billingData as any) ?? null);
+      setOrgDisplay((orgData as OrgBillingDisplay | null) ?? null);
       setLoading(false);
     })();
   }, [orgId]);
@@ -45,6 +57,12 @@ export default function BillingCard() {
   const status = billing?.subscription_status ?? "incomplete";
   const info = STATUS_LABEL[status] ?? { label: status, variant: "outline" as const };
   const hasSub = !!billing?.stripe_customer_id && status !== "incomplete";
+  const band = PLAN_BANDS.find((b) => b.code === orgDisplay?.user_band) ?? PLAN_BANDS[0];
+  const priceLabel = orgDisplay?.promo_price_pence
+    ? `${penceToPoundsDisplay(orgDisplay.promo_price_pence)}/mo`
+    : band.monthlyPriceGbp
+      ? `£${band.monthlyPriceGbp}/mo`
+      : "Contact us";
 
   const startCheckout = async () => {
     setBusy(true);
@@ -86,7 +104,14 @@ export default function BillingCard() {
           <p className="text-muted-foreground">Loading…</p>
         ) : (
           <>
-            <div className="flex justify-between"><span className="text-muted-foreground">Plan</span><span className="font-medium">{billing?.plan_code ?? "—"}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Plan</span><span className="font-medium">{band.label}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Price</span><span className="font-medium">{priceLabel}</span></div>
+            {orgDisplay?.promo_price_note && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs">
+                <span className="font-medium text-primary">Founder rate applied</span>
+                <span className="mt-1 block text-muted-foreground">{orgDisplay.promo_price_note}</span>
+              </div>
+            )}
             {billing?.current_period_end && (
               <div className="flex justify-between"><span className="text-muted-foreground">Renews</span><span>{format(new Date(billing.current_period_end), "d MMM yyyy")}</span></div>
             )}

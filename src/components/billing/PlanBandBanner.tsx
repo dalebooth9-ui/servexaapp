@@ -37,7 +37,7 @@ export default function PlanBandBanner() {
           </span>
         </div>
         <Link
-          to="/settings?billing=upgrade"
+          to="/billing"
           className="hidden sm:inline-flex items-center gap-1 rounded-md bg-amber-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-amber-700"
         >
           Upgrade <ArrowUpRight className="h-3 w-3" />

@@ -1,14 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { AlertOctagon } from "lucide-react";
+import { AlertOctagon, CreditCard } from "lucide-react";
 import { OrgStatus } from "@/hooks/useOrgStatus";
+import { Link } from "react-router-dom";
 
 interface Props {
   orgStatus: OrgStatus;
 }
 
 export default function AccountPaused({ orgStatus }: Props) {
-  const { signOut } = useAuth();
+  const { signOut, userRole } = useAuth();
   const isCancelled = orgStatus.status === "cancelled";
 
   return (
@@ -48,7 +49,14 @@ export default function AccountPaused({ orgStatus }: Props) {
           </a>
         </div>
 
-        <div className="pt-2">
+        <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-center">
+          {userRole === "admin" && (
+            <Button asChild>
+              <Link to="/billing">
+                <CreditCard className="mr-2 h-4 w-4" /> Open billing
+              </Link>
+            </Button>
+          )}
           <Button variant="outline" onClick={signOut}>
             Sign out
           </Button>

@@ -76,11 +76,11 @@ Deno.serve(async (req) => {
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${APP_PUBLIC_URL}/settings?billing=success`,
-      cancel_url: `${APP_PUBLIC_URL}/settings?billing=cancelled`,
+      success_url: `${APP_PUBLIC_URL}/billing?billing=success`,
+      cancel_url: `${APP_PUBLIC_URL}/billing?billing=cancelled`,
       allow_promotion_codes: true,
       subscription_data: { metadata: { org_id: orgId } },
-      metadata: { org_id: orgId },
+      metadata: { org_id: orgId, price_id: priceId },
     });
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

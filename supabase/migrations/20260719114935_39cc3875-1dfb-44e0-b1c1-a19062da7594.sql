@@ -1,0 +1,1 @@
+GRANT SELECT (promo_price_pence, promo_price_note, user_band, grace_period_ends_at, status) ON public.organisations TO authenticated;

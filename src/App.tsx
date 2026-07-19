@@ -29,6 +29,7 @@ const Engineers = lazy(() => import("@/pages/Engineers"));
 const Customers = lazy(() => import("@/pages/Customers"));
 const CustomerDetail = lazy(() => import("@/pages/CustomerDetail"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const BillingPage = lazy(() => import("@/pages/BillingPage"));
 const WeeklyPlanner = lazy(() => import("@/pages/WeeklyPlanner"));
 const Sites = lazy(() => import("@/pages/Sites"));
 const Assets = lazy(() => import("@/pages/Assets"));
@@ -233,6 +234,8 @@ const App = () => (
               <Route path="/defects/review" element={<AdminRoute><DefectsReview /></AdminRoute>} />
               <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
               <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+              <Route path="/billing" element={<AdminRoute><BillingPage /></AdminRoute>} />
+              <Route path="/settings/billing" element={<AdminRoute><BillingPage /></AdminRoute>} />
               <Route path="/settings/price-book" element={<AdminRoute><PriceBook /></AdminRoute>} />
               <Route path="/settings/import" element={<AdminRoute><ImportWizard /></AdminRoute>} />
               <Route path="/settings/import-historic-reports" element={<AdminRoute><HistoricReportsImport /></AdminRoute>} />
