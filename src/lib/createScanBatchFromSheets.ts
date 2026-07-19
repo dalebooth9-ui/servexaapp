@@ -20,11 +20,13 @@ export async function createScanBatchFromSheets(params: {
   pageFiles: File[]; // ordered by page index
   sheets: DetectedSheet[];
   sourceLabel?: string;
+  mode?: "job" | "archive";
 }): Promise<string> {
-  const { orgId, userId, pageFiles, sheets, sourceLabel } = params;
+  const { orgId, userId, pageFiles, sheets, sourceLabel, mode = "job" } = params;
   if (!orgId || pageFiles.length === 0 || sheets.length === 0) {
     throw new Error("Nothing to batch.");
   }
+
 
   // 1. Create batch row.
   const { data: batch, error: batchErr } = await supabase
@@ -35,11 +37,13 @@ export async function createScanBatchFromSheets(params: {
       status: "processing",
       total_items: sheets.length,
       processed_items: 0,
+      mode,
     } as any)
     .select("id")
     .single();
   if (batchErr) throw batchErr;
   const batchId = (batch as any).id as string;
+
 
   // 2. Upload every page once, remember its stored path.
   const stamp = Date.now();
@@ -69,8 +73,10 @@ export async function createScanBatchFromSheets(params: {
       .filter(Boolean),
     detected_template_id: s.template_id,
     confidence: s.confidence,
+    mode,
     // status left at default so the processor picks it up
   }));
+
 
   const { error: itemsErr } = await supabase
     .from("paper_scan_batch_items")

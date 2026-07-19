@@ -42,6 +42,8 @@ const Quotes = lazy(() => import("@/pages/Quotes"));
 const ServiceContracts = lazy(() => import("@/pages/ServiceContracts"));
 const ServiceContractDetail = lazy(() => import("@/pages/ServiceContractDetail"));
 const PaperScanQueue = lazy(() => import("@/pages/PaperScanQueue"));
+const ArchivedDocuments = lazy(() => import("@/pages/ArchivedDocuments"));
+
 const PartsLibrary = lazy(() => import("@/pages/PartsLibrary"));
 const VanStock = lazy(() => import("@/pages/VanStock"));
 const IndustryTemplates = lazy(() => import("@/pages/IndustryTemplates"));
@@ -198,6 +200,8 @@ const App = () => (
               <Route path="/support/my-tickets" element={<ProtectedRoute><MyTickets /></ProtectedRoute>} />
 
               <Route path="/paper-scan-queue" element={<AdminRoute><Suspense fallback={<PageFallback />}><PaperScanQueue /></Suspense></AdminRoute>} />
+              <Route path="/archive" element={<AdminRoute><Suspense fallback={<PageFallback />}><ArchivedDocuments /></Suspense></AdminRoute>} />
+
               <Route path="/jobs" element={<AccessRoute pageSlug="jobs"><Jobs /></AccessRoute>} />
               <Route path="/jobs/:id" element={<AccessRoute pageSlug="jobs"><JobDetail /></AccessRoute>} />
               <Route path="/jobs/:jobId/rams" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />

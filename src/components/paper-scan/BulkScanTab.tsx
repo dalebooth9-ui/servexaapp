@@ -14,11 +14,13 @@ import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 interface Props {
   onClose: () => void;
+  mode?: "job" | "archive";
 }
 
 type Stage = "upload" | "uploading" | "processing";
 
-export default function BulkScanTab({ onClose }: Props) {
+export default function BulkScanTab({ onClose, mode = "job" }: Props) {
+
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -99,15 +101,17 @@ export default function BulkScanTab({ onClose }: Props) {
           userId: user.id,
           pageFiles,
           sheets,
-          sourceLabel: "manual_bulk_pdf",
+          sourceLabel: mode === "archive" ? "archive_bulk_pdf" : "manual_bulk_pdf",
+          mode,
         });
         toast({
           title: `${sheets.length} sheets detected`,
           description: `Batch created with ${pageFiles.length} pages. Opening review queue…`,
         });
         onClose();
-        navigate(`/paper-scan-queue?batch=${batchId}`);
+        navigate(`/paper-scan-queue?batch=${batchId}${mode === "archive" ? "&mode=archive" : ""}`);
         return;
+
       } catch (e: any) {
         toast({
           title: "PDF split failed",
@@ -203,18 +207,22 @@ export default function BulkScanTab({ onClose }: Props) {
           status: "processing",
           total_items: groups.length,
           processed_items: 0,
+          mode,
         } as any)
         .select("id")
         .single();
       if (batchErr) throw batchErr;
       const bId = (batch as any).id as string;
 
+
       // Upload each photo, group by group
       const itemRows: {
         batch_id: string;
         org_id: string;
         image_paths: string[];
+        mode: "job" | "archive";
       }[] = [];
+
 
       for (let gi = 0; gi < groups.length; gi++) {
         const grp = groups[gi];
@@ -234,13 +242,14 @@ export default function BulkScanTab({ onClose }: Props) {
           if (upErr) throw upErr;
           paths.push(path);
         }
-        itemRows.push({ batch_id: bId, org_id: orgId, image_paths: paths });
+        itemRows.push({ batch_id: bId, org_id: orgId, image_paths: paths, mode });
       }
 
       const { error: itemsErr } = await supabase
         .from("paper_scan_batch_items")
         .insert(itemRows as any);
       if (itemsErr) throw itemsErr;
+
 
       setBatchId(bId);
       setStage("processing");

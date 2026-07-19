@@ -26,6 +26,10 @@ import {
 import ScanCompletedJobDialog, {
   type QueueItemInput,
 } from "@/components/ScanCompletedJobDialog";
+import ArchiveReviewDialog, {
+  type ArchiveQueueItemInput,
+} from "@/components/paper-scan/ArchiveReviewDialog";
+
 
 type Item = {
   id: string;
@@ -44,11 +48,14 @@ type Item = {
   created_at: string;
   created_job_id: string | null;
   matched_existing_job?: boolean | null;
+  mode?: "job" | "archive" | null;
+  archived_document_id?: string | null;
   template_name?: string | null;
   customer_name?: string | null;
   site_name?: string | null;
   created_job_ref?: string | null;
 };
+
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Queued",
@@ -78,19 +85,24 @@ export default function PaperScanQueue() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"pending" | "all">("pending");
+  const [modeTab, setModeTab] = useState<"job" | "archive">("job");
   const [openItem, setOpenItem] = useState<QueueItemInput | null>(null);
+  const [openArchiveItem, setOpenArchiveItem] =
+    useState<ArchiveQueueItemInput | null>(null);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
+
 
   const isAdmin = userRole === "admin";
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("paper_scan_batch_items")
       .select(
-        "id, batch_id, status, confidence, detected_template_id, candidate_matches, extracted, header_data, guess_customer_id, guess_site_id, guess_date, image_paths, error, created_at, created_job_id, matched_existing_job",
+        "id, batch_id, status, confidence, detected_template_id, candidate_matches, extracted, header_data, guess_customer_id, guess_site_id, guess_date, image_paths, error, created_at, created_job_id, matched_existing_job, mode, archived_document_id",
       )
       .order("created_at", { ascending: false })
+
       .limit(200);
     const rows = (data as any as Item[]) || [];
 
@@ -189,13 +201,17 @@ export default function PaperScanQueue() {
   }, [items, thumbs]);
 
   const filtered = useMemo(() => {
-    if (filter === "all") return items;
-    return items.filter((i) =>
+    const modeFiltered = items.filter(
+      (i) => (i.mode || "job") === modeTab,
+    );
+    if (filter === "all") return modeFiltered;
+    return modeFiltered.filter((i) =>
       ["pending", "processing", "ready", "low_confidence", "failed"].includes(
         i.status,
       ),
     );
-  }, [items, filter]);
+  }, [items, filter, modeTab]);
+
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
@@ -206,6 +222,22 @@ export default function PaperScanQueue() {
   }, [items]);
 
   const openReview = (i: Item) => {
+    if ((i.mode || "job") === "archive") {
+      setOpenArchiveItem({
+        itemId: i.id,
+        batchId: i.batch_id,
+        templateId: i.detected_template_id,
+        templateName: i.template_name || null,
+        documentType: (i.header_data?.document_type as string) || null,
+        extracted: i.extracted || {},
+        header: i.header_data || {},
+        imagePaths: i.image_paths || [],
+        guessCustomerId: i.guess_customer_id,
+        guessSiteId: i.guess_site_id,
+        guessDate: i.guess_date,
+      });
+      return;
+    }
     if (!i.detected_template_id) return;
     setOpenItem({
       itemId: i.id,
@@ -222,6 +254,7 @@ export default function PaperScanQueue() {
         : [],
     });
   };
+
 
   if (!isAdmin) {
     return (
@@ -264,7 +297,23 @@ export default function PaperScanQueue() {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-1 rounded-md border p-0.5">
+            <Button
+              size="sm"
+              variant={modeTab === "job" ? "default" : "ghost"}
+              onClick={() => setModeTab("job")}
+            >
+              Job scans
+            </Button>
+            <Button
+              size="sm"
+              variant={modeTab === "archive" ? "default" : "ghost"}
+              onClick={() => setModeTab("archive")}
+            >
+              Archive scans
+            </Button>
+          </div>
           <Button
             size="sm"
             variant={filter === "pending" ? "default" : "outline"}
@@ -280,6 +329,7 @@ export default function PaperScanQueue() {
             All (last 200)
           </Button>
         </div>
+
 
         <Card>
           {loading ? (
@@ -391,16 +441,24 @@ export default function PaperScanQueue() {
                               <ExternalLink className="mr-1 h-3.5 w-3.5" /> Open job
                             </Link>
                           </Button>
+                        ) : i.status === "confirmed" && i.archived_document_id ? (
+                          <Button size="sm" variant="outline" asChild>
+                            <Link to={`/archive?doc=${i.archived_document_id}`}>
+                              <ExternalLink className="mr-1 h-3.5 w-3.5" /> Open in archive
+                            </Link>
+                          </Button>
                         ) : i.status === "rejected" ? (
                           <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
                             <XCircle className="h-3 w-3" /> Discarded
                           </span>
                         ) : (i.status === "ready" ||
                             i.status === "low_confidence") &&
-                          i.detected_template_id ? (
+                          ((i.mode || "job") === "archive" ||
+                            i.detected_template_id) ? (
                           <Button size="sm" onClick={() => openReview(i)}>
                             <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Review
                           </Button>
+
                         ) : i.status === "processing" ||
                           i.status === "pending" ? (
                           <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
@@ -435,6 +493,18 @@ export default function PaperScanQueue() {
           }}
         />
       )}
+      <ArchiveReviewDialog
+        open={!!openArchiveItem}
+        onOpenChange={(o) => {
+          if (!o) setOpenArchiveItem(null);
+        }}
+        item={openArchiveItem}
+        onResolved={() => {
+          setOpenArchiveItem(null);
+          load();
+        }}
+      />
+
     </AppLayout>
   );
 }
