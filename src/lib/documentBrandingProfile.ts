@@ -116,11 +116,14 @@ export async function resolveDocumentBrandingProfile(
 
   // Template branding wins so customer-branded templates stay consistent
   // even when the customer record has its own (differently sized) logo.
-  const resolvedUrl = templateLogo || customerLogo || DEFAULT_LOGO_URL;
+  // Org-level fallback: Viva → Viva logo; any other org → its own uploaded
+  // logo (or blank text-only header). Never leak Viva's logo cross-tenant.
+  const orgFallbackLogo = await getGeneratingOrgFallbackLogoUrl();
+  const resolvedUrl = templateLogo || customerLogo || orgFallbackLogo;
   const isCustomerBranded =
     Boolean(templateLogo || customerLogo) || Boolean(customerBrandColour);
 
-  const logoImage = await loadImage(resolvedUrl);
+  const logoImage = resolvedUrl ? await loadImage(resolvedUrl) : null;
 
   // Colour resolution: explicit brand_colour wins for customer-branded docs.
   // For a customer-branded doc with no brand_colour, try to extract from the
