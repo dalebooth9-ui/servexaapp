@@ -126,16 +126,17 @@ function pageFooter(doc: jsPDF, pageNum: number, total: number): void {
 }
 
 async function pageHeader(doc: jsPDF, logoImg: HTMLImageElement | null, title: string, y: number): Promise<number> {
+  const brand = getCachedRamsBrand();
   if (logoImg) {
     const lh = 14;
     const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
     const lw = Math.min(lh * aspect, 50);
     doc.addImage(logoImg, "JPEG", ML, y, lw, lh);
-  } else {
+  } else if (brand?.companyUpper) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(33, 61, 99);
-    doc.text("VIVA FIRE PROTECTION LTD", ML, y + 8);
+    doc.text(brand.companyUpper, ML, y + 8);
     doc.setTextColor(0, 0, 0);
   }
   doc.setFont("helvetica", "bold");
@@ -143,9 +144,11 @@ async function pageHeader(doc: jsPDF, logoImg: HTMLImageElement | null, title: s
   doc.setTextColor(33, 61, 99);
   const headerSubtitle = title || "Method Statement & Risk Assessment";
   doc.text(headerSubtitle, PAGE_W - MR, y + 6, { align: "right" });
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.text("VIVA Fire Protection Ltd", PAGE_W - MR, y + 11, { align: "right" });
+  if (brand?.companyName) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(brand.companyName, PAGE_W - MR, y + 11, { align: "right" });
+  }
   doc.setTextColor(0, 0, 0);
   hr(doc, y + 17, 60);
   return y + 21;
