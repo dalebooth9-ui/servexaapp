@@ -3931,6 +3931,85 @@ export type Database = {
           },
         ]
       }
+      job_completion_flags: {
+        Row: {
+          created_at: string
+          engineer_id: string
+          id: string
+          job_id: string
+          moved_to_job_id: string | null
+          note: string | null
+          org_id: string
+          reason: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          engineer_id: string
+          id?: string
+          job_id: string
+          moved_to_job_id?: string | null
+          note?: string | null
+          org_id: string
+          reason: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          engineer_id?: string
+          id?: string
+          job_id?: string
+          moved_to_job_id?: string | null
+          note?: string | null
+          org_id?: string
+          reason?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_completion_flags_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_completion_flags_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_completion_flags_moved_to_job_id_fkey"
+            columns: ["moved_to_job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_completion_flags_moved_to_job_id_fkey"
+            columns: ["moved_to_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_completion_flags_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_completion_flags_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_documents: {
         Row: {
           category_template_id: string | null
@@ -5133,6 +5212,7 @@ export type Database = {
           mismatch_approved_at: string | null
           mismatch_approved_by: string | null
           mismatch_approved_reason: string | null
+          multi_day_flagged_at: string | null
           name: string
           org_id: string | null
           other_qty: number
@@ -5186,6 +5266,7 @@ export type Database = {
           mismatch_approved_at?: string | null
           mismatch_approved_by?: string | null
           mismatch_approved_reason?: string | null
+          multi_day_flagged_at?: string | null
           name: string
           org_id?: string | null
           other_qty?: number
@@ -5239,6 +5320,7 @@ export type Database = {
           mismatch_approved_at?: string | null
           mismatch_approved_by?: string | null
           mismatch_approved_reason?: string | null
+          multi_day_flagged_at?: string | null
           name?: string
           org_id?: string | null
           other_qty?: number
