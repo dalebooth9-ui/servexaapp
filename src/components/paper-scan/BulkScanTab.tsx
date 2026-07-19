@@ -240,13 +240,14 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
           if (upErr) throw upErr;
           paths.push(path);
         }
-        itemRows.push({ batch_id: bId, org_id: orgId, image_paths: paths });
+        itemRows.push({ batch_id: bId, org_id: orgId, image_paths: paths, mode });
       }
 
       const { error: itemsErr } = await supabase
         .from("paper_scan_batch_items")
         .insert(itemRows as any);
       if (itemsErr) throw itemsErr;
+
 
       setBatchId(bId);
       setStage("processing");
