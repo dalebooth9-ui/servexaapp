@@ -494,7 +494,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
         supabase.from("job_assignments").select("engineer_id").eq("job_id", jobId),
         supabase.from("job_signatures" as any).select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
         job.site_id ? supabase.from("sites").select("name, address, postcode, contact_name, contact_phone, contact_email").eq("id", job.site_id).single() : Promise.resolve({ data: null }),
-        supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).eq("status", "submitted").order("created_at", { ascending: true }),
+        supabase.from("job_sheet_responses").select("*, last_amended_at, last_amended_by").eq("job_id", jobId).eq("status", "submitted").order("created_at", { ascending: true }),
         supabase.from("job_sheet_templates").select("*"),
       ]);
 
