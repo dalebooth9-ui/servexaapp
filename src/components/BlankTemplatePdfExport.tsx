@@ -114,6 +114,12 @@ type BlankTemplatePdfWorkerPayload = {
   categoryName: string;
   accentColor: [number, number, number];
   accreditationLogoUrls: string[];
+  /** Fallback logo when no template/customer logo is set. Only ever the
+   * generating org's own asset (or blank for un-branded tenants). */
+  orgFallbackLogoUrl: string | null;
+  /** Watermark image URL for the generating org (Viva only today; null for
+   * every other tenant, so their PDFs render without the flame). */
+  orgWatermarkUrl: string | null;
   copiesOverride?: number | null;
 };
 
