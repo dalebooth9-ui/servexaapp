@@ -2,14 +2,7 @@ import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { WATERMARK_OPACITY } from "@/lib/pdfWatermark";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
-
-/** Default Viva Fire accreditation logos used as fallback */
-const DEFAULT_ACCREDITATION_LOGOS = [
-  "/accreditation/smas-logo.png",
-  "/accreditation/constructionline-logo.png",
-  "/accreditation/iso-9001-logo.jpg",
-  "/accreditation/bafe-logo.jpeg",
-];
+import { getGeneratingOrgFallbackAccreditations } from "@/lib/generatingOrgBranding";
 
 /**
  * Fetch accreditation logo URLs for a customer's PDF pack.
@@ -17,14 +10,15 @@ const DEFAULT_ACCREDITATION_LOGOS = [
  * Branding rule: accreditations are CLAIMS held by whoever's brand is on the
  * document. If the customer is branded (has a logo, brand_colour, or any
  * accreditation_logos of their own) we render ONLY their accreditations —
- * an empty list means no strip at all. Viva's badges must never appear on
- * another company's paperwork. If the customer has no branding whatsoever
- * we fall back to Viva Fire's own accreditation logos.
+ * an empty list means no strip at all. If the customer has no branding at
+ * all we fall back to the GENERATING org's accreditations — Viva shows its
+ * four badges; any other org shows [] until it configures its own. Viva's
+ * badges MUST never appear on another organisation's paperwork.
  */
 export async function fetchCustomerAccreditationLogos(
   customerName?: string | null
 ): Promise<string[]> {
-  if (!customerName) return DEFAULT_ACCREDITATION_LOGOS;
+  if (!customerName) return getGeneratingOrgFallbackAccreditations();
   try {
     const { data } = await supabase
       .from("customers")
@@ -35,9 +29,9 @@ export async function fetchCustomerAccreditationLogos(
     const logos = (row?.accreditation_logos as string[] | undefined) || [];
     const isCustomerBranded = Boolean(row?.logo_url) || Boolean(row?.brand_colour) || logos.length > 0;
     if (isCustomerBranded) return logos; // may be []; suppress org accreditations
-    return DEFAULT_ACCREDITATION_LOGOS;
+    return getGeneratingOrgFallbackAccreditations();
   } catch {
-    return DEFAULT_ACCREDITATION_LOGOS;
+    return getGeneratingOrgFallbackAccreditations();
   }
 }
 
