@@ -1022,9 +1022,35 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         sitePhotoCaptions: Array.isArray(payload._site_photo_captions) ? payload._site_photo_captions.length : 0,
       });
       if (activeResponse) {
+        const wasSubmitted = activeResponse.status === "submitted";
+        const previousResponses = (activeResponse.responses as Record<string, any>) || {};
         await supabase.from("job_sheet_responses").update({
           responses: payload as any,
         } as any).eq("id", activeResponse.id);
+        // Office edit audit trail — only when amending an already-submitted report.
+        if (wasSubmitted && user?.id) {
+          try {
+            const hasSigs = await jobHasSignatures(jobId);
+            const changed = await logReportEdits({
+              responseId: activeResponse.id,
+              jobId,
+              editorId: user.id,
+              fields: (activeTemplate.fields || []).map((f: any) => ({ id: f.id, label: f.label })),
+              oldValues: previousResponses,
+              newValues: payload as Record<string, any>,
+              hasSignatures: hasSigs,
+            });
+            if (changed > 0) {
+              toast({
+                title: hasSigs ? "Amendment logged (after signature)" : "Amendment logged",
+                description: `${changed} field${changed === 1 ? "" : "s"} recorded in job history.`,
+              });
+            }
+          } catch (auditErr) {
+            console.error("[JobSheetTemplates] audit log failed", auditErr);
+            toast({ title: "Warning: audit trail not saved", description: "Edit saved but the audit trail entry failed.", variant: "destructive" });
+          }
+        }
       } else {
         const { data } = await supabase.from("job_sheet_responses").insert({
           job_id: jobId,
