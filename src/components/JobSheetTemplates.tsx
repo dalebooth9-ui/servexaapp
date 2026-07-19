@@ -1761,6 +1761,14 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             </div>
           </DialogHeader>
           <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
+            {activeResponse?.status === "submitted" && userRole === "admin" && (
+              <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-[11px] text-amber-900 flex items-start gap-2">
+                <Pencil className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>
+                  <strong>Office amendment mode.</strong> This report has already been submitted. Every field change you save is logged to the job history (who, when, old &amp; new value){activeResponse.last_amended_at ? ` — last amended ${new Date(activeResponse.last_amended_at as any).toLocaleString("en-GB")}` : ""}.
+                </span>
+              </div>
+            )}
             {sections.map((section) => {
               const omitted = isSectionOmitted(section);
               return (
