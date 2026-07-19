@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { loadWatermarkSettings } from "@/hooks/useWatermarkSettings";
 import jsPDF from "jspdf";
 import { loadWatermarkImage } from "@/lib/pdfWatermark";
+import { getGeneratingOrgFallbackLogoUrl, getGeneratingOrgWatermarkUrl } from "@/lib/generatingOrgBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { renderBrandingOverlay, type WatermarkOverride } from "@/lib/pdfBranding";
 import { renderPdfHeader } from "@/lib/pdfHeader";
@@ -114,6 +115,12 @@ type BlankTemplatePdfWorkerPayload = {
   categoryName: string;
   accentColor: [number, number, number];
   accreditationLogoUrls: string[];
+  /** Fallback logo when no template/customer logo is set. Only ever the
+   * generating org's own asset (or blank for un-branded tenants). */
+  orgFallbackLogoUrl: string | null;
+  /** Watermark image URL for the generating org (Viva only today; null for
+   * every other tenant, so their PDFs render without the flame). */
+  orgWatermarkUrl: string | null;
   copiesOverride?: number | null;
 };
 
@@ -370,9 +377,11 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         } catch { /* use default colour */ }
       }
       const accentColor = (isDryRiser ? DRY_RISER_LAYOUT.header.brandBlueRgb : getBrandColorFromLogo(brandLogoImg, !!customerLogoUrl)) as [number, number, number];
-      const [watermarkSettings, accreditationLogoUrls] = await Promise.all([
+      const [watermarkSettings, accreditationLogoUrls, orgFallbackLogoUrl, orgWatermarkUrl] = await Promise.all([
         loadWatermarkSettings(),
         fetchCustomerAccreditationLogos(customerName),
+        getGeneratingOrgFallbackLogoUrl(),
+        getGeneratingOrgWatermarkUrl(),
       ]);
 
       const label = `BlankTemplatePdfWorker:${template.id || template.name}:${handfill ? "handfill" : "standard"}`;
@@ -386,6 +395,8 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         categoryName,
         accentColor,
         accreditationLogoUrls,
+        orgFallbackLogoUrl: orgFallbackLogoUrl || null,
+        orgWatermarkUrl,
         copiesOverride,
       });
       console.timeEnd(label);
@@ -430,13 +441,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       {
       const systemQty = getSystemQty(template.name, jobInfo);
       const customerLogoUrl = jobInfo?.customers?.logo_url || null;
-      // Wet/Dry Riser worksheets: force Viva Fire branding regardless of customer logo
-      const isDryRiser = /dry\s*riser/i.test(template.name || "");
-      const isWetRiser = /wet\s*riser/i.test(template.name || "");
-      const isRiserTemplate = isDryRiser || isWetRiser;
-      const branding = isRiserTemplate
-        ? { ...(template.branding || {}), logo_url: "/vivafire-logo.png" }
-        : { ...(template.branding || {}), ...(customerLogoUrl ? { logo_url: customerLogoUrl } : {}) };
+      // NOTE: dry/wet riser worksheets previously hardcoded the Viva Fire
+      // logo "regardless of customer logo". That leaked Viva branding onto
+      // other orgs' PDFs. Branding now flows through the standard resolver
+      // so the generating org's own assets (or a neutral text header) are
+      // used when no customer logo is set.
+      const branding = { ...(template.branding || {}), ...(customerLogoUrl ? { logo_url: customerLogoUrl } : {}) };
       const footerText = getDefaultFooterText(template.name, branding, template.footer_text);
       const categoryName = jobCategories.find(c => c.slug === jobInfo?.category)?.name
         || (jobInfo?.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");

@@ -137,6 +137,13 @@ type WorkerPayload = {
   categoryName: string;
   accentColor: RgbTriple;
   accreditationLogoUrls: string[];
+  /** Generating-org fallback logo URL. Empty string when the org has no
+   * uploaded logo — the header falls back to text. NEVER hardcode a
+   * specific tenant's asset in this worker. */
+  orgFallbackLogoUrl: string | null;
+  /** Watermark URL for the generating org. Null → no watermark on this
+   * tenant's paperwork (only Viva ships a bundled flame). */
+  orgWatermarkUrl: string | null;
   /** When set, overrides the auto-derived number of System N of M copies. */
   copiesOverride?: number | null;
 };
@@ -148,13 +155,6 @@ type LoadedImage = {
   format: "PNG" | "JPEG";
   bitmap?: ImageBitmap;
 };
-
-const DEFAULT_LOGOS = [
-  "/accreditation/smas-logo.png",
-  "/accreditation/constructionline-logo.png",
-  "/accreditation/iso-9001-logo.jpg",
-  "/accreditation/bafe-logo.jpeg",
-];
 
 function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined): number {
   if (!jobInfo) return 1;
@@ -441,11 +441,15 @@ async function buildPdf(payload: WorkerPayload) {
   // identity only so the scanner classifier still locks on cleanly.
   const cleanTemplateName = stripTemplateStatusSuffix(template.name);
   const isDryRiser = /dry\s*riser/i.test(cleanTemplateName || "");
-  const isWetRiser = /wet\s*riser/i.test(cleanTemplateName || "");
-  const isRiserTemplate = isDryRiser || isWetRiser;
-  const branding = isRiserTemplate
-    ? { ...(template.branding || {}), logo_url: "/vivafire-logo.png" }
-    : { ...(template.branding || {}), ...(customerLogoUrl ? { logo_url: customerLogoUrl } : {}) };
+  // Cross-tenant branding rule: NEVER hardcode Viva assets here. Template
+  // branding wins, then customer logo, then whatever the generating org
+  // supplied. If nothing resolves, `branding.logo_url` is empty and the
+  // header renderer falls through to a text-only mark.
+  const orgFallback = (payload.orgFallbackLogoUrl || "").trim();
+  const resolvedHeaderLogo = (template.branding?.logo_url as string | undefined)
+    || customerLogoUrl
+    || (orgFallback || "");
+  const branding = { ...(template.branding || {}), logo_url: resolvedHeaderLogo };
   const footerText = getDefaultFooterText(cleanTemplateName, branding, template.footer_text);
   const autoVals = getAutoPopulatedValues(cleanTemplateName, template.fields, jobInfo ? { ...jobInfo, categoryName } : jobInfo);
   const customerName = jobInfo?.customers?.name || jobInfo?.customer || "";
@@ -471,9 +475,9 @@ async function buildPdf(payload: WorkerPayload) {
   const engineerList = (jobInfo?.engineers || []).join(", ");
 
   const [logoImage, watermark, accreditationLogos] = await Promise.all([
-    loadImage(branding.logo_url || "/images/vivafire-logo-new.png"),
-    loadImage("/images/viva-watermark.png?v=4"),
-    Promise.all((payload.accreditationLogoUrls?.length ? payload.accreditationLogoUrls : DEFAULT_LOGOS).map(loadImage)),
+    loadImage(resolvedHeaderLogo || null),
+    loadImage(payload.orgWatermarkUrl || null),
+    Promise.all((payload.accreditationLogoUrls || []).map(loadImage)),
   ]);
 
   const doc = new jsPDF();

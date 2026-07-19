@@ -486,7 +486,7 @@ export async function generateConformityPdfBase64(
   let y = await renderPdfHeader(
     doc,
     "", // title text unused — replaced by titleBands
-    { logo_url: `${window.location.origin}/images/vivafire-logo-new.jpg` },
+    { logo_url: await (await import("@/lib/generatingOrgBranding")).getGeneratingOrgFallbackLogoUrl() },
     {
       customerName: "",
       siteName: "",

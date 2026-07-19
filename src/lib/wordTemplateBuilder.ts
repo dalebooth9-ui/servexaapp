@@ -552,13 +552,24 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const resolvedCustomLogo = customLogoUrl
     ? (await (await import("@/lib/durableStorageRef")).resolveToSignedUrl(customLogoUrl, "submissions").catch(() => null)) || customLogoUrl
     : "";
-  const headerLogoUrl =
-    resolvedCustomLogo && resolvedCustomLogo.length > 0 ? resolvedCustomLogo : "/images/vivafire-logo-new.png";
-  const watermarkUrl = "/images/viva-watermark.png";
+  // Cross-tenant branding rule: never leak Viva's assets onto other orgs'
+  // Word exports. Fall back only to the generating org's own logo / flame
+  // / accreditations. Non-Viva orgs render text-only headers and no
+  // accreditation strip until they upload their own assets.
+  const { getGeneratingOrgFallbackLogoUrl, getGeneratingOrgWatermarkUrl, getGeneratingOrgFallbackAccreditations } =
+    await import("@/lib/generatingOrgBranding");
+  const [orgFallbackLogo, orgWatermark, orgAccred] = await Promise.all([
+    getGeneratingOrgFallbackLogoUrl(),
+    getGeneratingOrgWatermarkUrl(),
+    getGeneratingOrgFallbackAccreditations(),
+  ]);
+  const headerLogoUrl = resolvedCustomLogo && resolvedCustomLogo.length > 0
+    ? resolvedCustomLogo
+    : (orgFallbackLogo || "");
   const [headerLogo, watermark, ...accredLogos] = await Promise.all([
-    fetchImageBytes(headerLogoUrl),
-    fetchImageBytes(watermarkUrl),
-    ...DEFAULT_ACCREDITATION_LOGOS.map((u) => fetchImageBytes(u)),
+    headerLogoUrl ? fetchImageBytes(headerLogoUrl) : Promise.resolve(null as any),
+    orgWatermark ? fetchImageBytes(orgWatermark) : Promise.resolve(null as any),
+    ...orgAccred.map((u) => fetchImageBytes(u)),
   ]);
   // Match the PDF: every Dry/Wet Riser template gets the BS 9990:2015
   // declaration in a bordered box, even if `getDefaultFooterText` would

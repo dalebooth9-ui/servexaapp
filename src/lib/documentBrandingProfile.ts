@@ -18,8 +18,7 @@
  */
 
 import { getBrandColorFromLogo, extractDominantColor, rgbToHex, type RgbTriple } from "@/lib/extractLogoColors";
-
-const DEFAULT_LOGO_URL = "/images/vivafire-logo-new.png";
+import { getGeneratingOrgFallbackLogoUrl, getGeneratingOrgBranding } from "@/lib/generatingOrgBranding";
 
 export type DocumentBrandingProfile = {
   /** Logo shown in the PDF header — same source as the accent colour. */
@@ -117,11 +116,14 @@ export async function resolveDocumentBrandingProfile(
 
   // Template branding wins so customer-branded templates stay consistent
   // even when the customer record has its own (differently sized) logo.
-  const resolvedUrl = templateLogo || customerLogo || DEFAULT_LOGO_URL;
+  // Org-level fallback: Viva → Viva logo; any other org → its own uploaded
+  // logo (or blank text-only header). Never leak Viva's logo cross-tenant.
+  const orgFallbackLogo = await getGeneratingOrgFallbackLogoUrl();
+  const resolvedUrl = templateLogo || customerLogo || orgFallbackLogo;
   const isCustomerBranded =
     Boolean(templateLogo || customerLogo) || Boolean(customerBrandColour);
 
-  const logoImage = await loadImage(resolvedUrl);
+  const logoImage = resolvedUrl ? await loadImage(resolvedUrl) : null;
 
   // Colour resolution: explicit brand_colour wins for customer-branded docs.
   // For a customer-branded doc with no brand_colour, try to extract from the
@@ -161,12 +163,15 @@ export async function resolveDocumentBrandingProfile(
     accentColor = getBrandColorFromLogo(logoImage, false);
   }
 
+  // Company-name fallback for the text-only header (no logo case): show the
+  // generating org's own name so PDFs never appear anonymous.
+  const gen = await getGeneratingOrgBranding();
   return {
     logoUrl: resolvedUrl,
     logoImage,
     accentColor,
     isCustomerBranded,
-    companyName: input.template?.branding?.company_name,
+    companyName: input.template?.branding?.company_name ?? gen.name ?? undefined,
     companySubtitle: input.template?.branding?.company_subtitle,
     footerText: input.template?.branding?.footer_text,
   };
