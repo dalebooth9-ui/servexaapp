@@ -1622,6 +1622,26 @@ export default function IndustryTemplates() {
           setEditOpen(false);
         }}
       />
+
+      <ImportTemplateDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onCreated={(draft?: ImportedDraftInfo) => {
+          if (!draft) return;
+          setEditingTemplate({
+            id: draft.id,
+            name: draft.name,
+            description: draft.description,
+            fields: Array.isArray(draft.fields) ? draft.fields : [],
+            category: draft.category || "",
+            job_category: draft.job_category || "",
+            branding: draft.branding || {},
+            footer_text: draft.footer_text || null,
+          } as any);
+          setEditOpen(true);
+        }}
+      />
+
     </div>
   );
 }
