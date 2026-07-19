@@ -1399,6 +1399,17 @@ export default function IndustryTemplates() {
           <Button
             variant="outline"
             size="sm"
+            className="gap-1.5"
+            disabled={!user}
+            onClick={() => setImportOpen(true)}
+            title="Convert your existing form (.docx or .pdf) into an editable template"
+          >
+            <Upload className="h-4 w-4" /> Import from document
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleExportAllToWord}
             disabled={bulkExporting || filtered.length === 0}
             className="gap-1.5"
