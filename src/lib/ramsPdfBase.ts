@@ -157,7 +157,7 @@ export async function pageHeader(
     const lh = 14;
     const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
     const lw = Math.min(lh * aspect, 50);
-    doc.addImage(logoImg, "JPEG", ML, y, lw, lh);
+    doc.addImage(logoImg, (logoImg.src.toLowerCase().includes(".png") ? "PNG" : "JPEG"), ML, y, lw, lh);
   } else if (brand?.companyUpper) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
