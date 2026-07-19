@@ -96,12 +96,13 @@ export default function PaperScanQueue() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("paper_scan_batch_items")
       .select(
-        "id, batch_id, status, confidence, detected_template_id, candidate_matches, extracted, header_data, guess_customer_id, guess_site_id, guess_date, image_paths, error, created_at, created_job_id, matched_existing_job",
+        "id, batch_id, status, confidence, detected_template_id, candidate_matches, extracted, header_data, guess_customer_id, guess_site_id, guess_date, image_paths, error, created_at, created_job_id, matched_existing_job, mode, archived_document_id",
       )
       .order("created_at", { ascending: false })
+
       .limit(200);
     const rows = (data as any as Item[]) || [];
 
