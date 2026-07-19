@@ -70,9 +70,10 @@ export async function generatePreStartChecklistPdf(
   // with every other Servexa PDF.
   const ref = jobInfo?.reference_number || "";
   const contractName = jobInfo?.customers?.name || jobInfo?.customer || jobInfo?.name || "";
+  const { getGeneratingOrgFallbackLogoUrl } = await import("@/lib/generatingOrgBranding");
   const logoUrl = jobInfo?.customers?.logo_url
     ? jobInfo.customers.logo_url
-    : `${window.location.origin}/images/vivafire-logo-new.jpg`;
+    : (await getGeneratingOrgFallbackLogoUrl()) || "";
 
   let y = await renderPdfHeader(
     doc,
