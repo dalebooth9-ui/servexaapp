@@ -503,11 +503,10 @@ export default function JobDetail() {
             </Popover>
           </div>
         ) : (
-          <div className="flex items-center gap-2 flex-wrap">
+          <div>
             <Badge variant="secondary" className={job.status === "active" ? "bg-accent/10 text-accent" : "bg-muted text-muted-foreground"}>
               {job.status}
             </Badge>
-            <JobCompletionFlagsBadge jobId={id!} isAdmin={userRole === "admin"} />
           </div>
         )}
 
