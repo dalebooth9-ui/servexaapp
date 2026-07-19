@@ -201,13 +201,17 @@ export default function PaperScanQueue() {
   }, [items, thumbs]);
 
   const filtered = useMemo(() => {
-    if (filter === "all") return items;
-    return items.filter((i) =>
+    const modeFiltered = items.filter(
+      (i) => (i.mode || "job") === modeTab,
+    );
+    if (filter === "all") return modeFiltered;
+    return modeFiltered.filter((i) =>
       ["pending", "processing", "ready", "low_confidence", "failed"].includes(
         i.status,
       ),
     );
-  }, [items, filter]);
+  }, [items, filter, modeTab]);
+
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
