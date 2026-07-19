@@ -241,7 +241,7 @@ export async function generateBrandedRamsPdf(data: BrandedRamsData): Promise<{ b
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(100);
-    doc.text(`Viva Fire Protection · RAMS v${data.version ?? 1}`, margin, pageH - 16);
+    doc.text(`${g.isViva ? "Viva Fire Protection" : (g.name ?? "")} · RAMS v${data.version ?? 1}`, margin, pageH - 16);
     doc.text(`${(data.status || "Draft").toUpperCase()}`, pageW / 2, pageH - 16, { align: "center" });
     doc.text(`Page ${i} of ${pages}`, pageW - margin, pageH - 16, { align: "right" });
   }
