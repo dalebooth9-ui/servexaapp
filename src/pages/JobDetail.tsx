@@ -85,6 +85,8 @@ import RamsRequiredBanner from "@/components/rams/RamsRequiredBanner";
 import { useJobRamsStatus } from "@/hooks/useJobRamsStatus";
 import EngineerNextStepBar from "@/components/engineer/EngineerNextStepBar";
 import EngineerJobHero from "@/components/engineer/EngineerJobHero";
+import EngineerCompletionGate from "@/components/engineer/EngineerCompletionGate";
+import JobCompletionFlagsBadge from "@/components/jobs/JobCompletionFlagsBadge";
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
@@ -437,6 +439,7 @@ export default function JobDetail() {
         {/* Row 2: primary + Actions menu */}
         {userRole === "admin" ? (
           <div className="flex flex-wrap items-center gap-2">
+            <JobCompletionFlagsBadge jobId={id!} isAdmin={userRole === "admin"} />
             <SendToCustomerMenu jobId={id!} job={job} customerEmail={customerEmail} />
             <Popover>
               <PopoverTrigger asChild>
@@ -1304,6 +1307,17 @@ export default function JobDetail() {
         isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
         onNavigateTab={(tab) => setActiveTab(tab as JobTab)}
         onStatusChanged={(s) => setJob((prev: any) => ({ ...prev, status: s }))}
+      />
+    )}
+    {/* Soft completion gate — engineer-only interstitial when moving on
+        from a job while others they've started remain incomplete. */}
+    {job && userRole === "engineer" && id && (
+      <EngineerCompletionGate
+        currentJobId={id}
+        currentJobStatus={job.status}
+        currentJobOrgId={job.org_id}
+        isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+        isAdmin={userRole !== "engineer"}
       />
     )}
     <SiteSheetPrintDialog
