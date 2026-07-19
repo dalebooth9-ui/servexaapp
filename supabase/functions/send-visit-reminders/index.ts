@@ -67,7 +67,7 @@ serve(async (req) => {
           ${job.address ? `<p style="margin:0;"><strong>Location:</strong> ${job.address}</p>` : ""}
         </div>
         <p>If you have any questions or need to reschedule, just reply to this email.</p>
-        <p>Kind regards,<br/>Viva Fire Protection</p>
+        <p>Kind regards,<br/>${branding.company_name}</p>
       `;
 
       const result = await sendViaResend({
