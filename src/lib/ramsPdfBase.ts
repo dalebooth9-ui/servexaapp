@@ -814,8 +814,8 @@ export async function buildSharedMethodSections(
     ML, y, CONTENT_W);
   y += 1.5;
   doc.setFontSize(8.5); doc.setFont("helvetica", "normal");
-  doc.text("Name: Dale Booth   Mob: 07801269206   Email: sales@vivafire.co.uk", ML, y); y += 4;
-  doc.text("Name: Martin Whatmough   Mob: 07989436509   Email: martin.whatmough@vivafire.co.uk", ML, y); y += 4;
+  doc.text(rewriteRamsBrand("Name: Dale Booth   Mob: 07801269206   Email: sales@vivafire.co.uk"), ML, y); y += 4;
+  doc.text(rewriteRamsBrand("Name: Martin Whatmough   Mob: 07989436509   Email: martin.whatmough@vivafire.co.uk"), ML, y); y += 4;
 
   // ─── 2.2 Sequence ───
   y = await checkPageBreak(doc, y, 15, logoImg, currentPageRef, totalPages);
