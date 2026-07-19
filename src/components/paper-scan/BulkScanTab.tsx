@@ -14,11 +14,13 @@ import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 interface Props {
   onClose: () => void;
+  mode?: "job" | "archive";
 }
 
 type Stage = "upload" | "uploading" | "processing";
 
-export default function BulkScanTab({ onClose }: Props) {
+export default function BulkScanTab({ onClose, mode = "job" }: Props) {
+
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
