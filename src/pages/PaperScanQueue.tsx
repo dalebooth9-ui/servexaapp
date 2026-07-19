@@ -222,6 +222,22 @@ export default function PaperScanQueue() {
   }, [items]);
 
   const openReview = (i: Item) => {
+    if ((i.mode || "job") === "archive") {
+      setOpenArchiveItem({
+        itemId: i.id,
+        batchId: i.batch_id,
+        templateId: i.detected_template_id,
+        templateName: i.template_name || null,
+        documentType: (i.header_data?.document_type as string) || null,
+        extracted: i.extracted || {},
+        header: i.header_data || {},
+        imagePaths: i.image_paths || [],
+        guessCustomerId: i.guess_customer_id,
+        guessSiteId: i.guess_site_id,
+        guessDate: i.guess_date,
+      });
+      return;
+    }
     if (!i.detected_template_id) return;
     setOpenItem({
       itemId: i.id,
@@ -238,6 +254,7 @@ export default function PaperScanQueue() {
         : [],
     });
   };
+
 
   if (!isAdmin) {
     return (
