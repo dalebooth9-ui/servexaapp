@@ -5,6 +5,7 @@ import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/p
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { RAMS_FOOTER_TOP, categoryToScopeLabel } from "@/lib/ramsPdfBase";
+import { primeRamsBrand, getCachedRamsBrand, rewriteRamsBrand } from "@/lib/ramsBrand";
 
 export type RamsFormData = Record<string, any>;
 
