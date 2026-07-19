@@ -95,6 +95,93 @@ export type Database = {
           },
         ]
       }
+      archived_documents: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          document_date: string | null
+          document_type: string | null
+          extracted: Json
+          file_paths: string[]
+          filed_at: string
+          filed_by: string | null
+          header_data: Json
+          id: string
+          notes: string | null
+          org_id: string
+          page_count: number
+          site_id: string | null
+          source_batch_id: string | null
+          source_item_id: string | null
+          status: string
+          template_id: string | null
+          template_name: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          document_date?: string | null
+          document_type?: string | null
+          extracted?: Json
+          file_paths?: string[]
+          filed_at?: string
+          filed_by?: string | null
+          header_data?: Json
+          id?: string
+          notes?: string | null
+          org_id: string
+          page_count?: number
+          site_id?: string | null
+          source_batch_id?: string | null
+          source_item_id?: string | null
+          status?: string
+          template_id?: string | null
+          template_name?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          document_date?: string | null
+          document_type?: string | null
+          extracted?: Json
+          file_paths?: string[]
+          filed_at?: string
+          filed_by?: string | null
+          header_data?: Json
+          id?: string
+          notes?: string | null
+          org_id?: string
+          page_count?: number
+          site_id?: string | null
+          source_batch_id?: string | null
+          source_item_id?: string | null
+          status?: string
+          template_id?: string | null
+          template_name?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "archived_documents_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "archived_documents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asset_categories: {
         Row: {
           created_at: string
@@ -5870,6 +5957,7 @@ export type Database = {
       }
       paper_scan_batch_items: {
         Row: {
+          archived_document_id: string | null
           batch_id: string
           candidate_matches: Json | null
           confidence: number | null
@@ -5885,6 +5973,7 @@ export type Database = {
           id: string
           image_paths: string[]
           matched_existing_job: boolean
+          mode: string
           org_id: string
           reviewed_at: string | null
           reviewed_by: string | null
@@ -5892,6 +5981,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_document_id?: string | null
           batch_id: string
           candidate_matches?: Json | null
           confidence?: number | null
@@ -5907,6 +5997,7 @@ export type Database = {
           id?: string
           image_paths: string[]
           matched_existing_job?: boolean
+          mode?: string
           org_id: string
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -5914,6 +6005,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_document_id?: string | null
           batch_id?: string
           candidate_matches?: Json | null
           confidence?: number | null
@@ -5929,6 +6021,7 @@ export type Database = {
           id?: string
           image_paths?: string[]
           matched_existing_job?: boolean
+          mode?: string
           org_id?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -5950,6 +6043,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          mode: string
           note: string | null
           org_id: string
           processed_items: number
@@ -5961,6 +6055,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          mode?: string
           note?: string | null
           org_id: string
           processed_items?: number
@@ -5972,6 +6067,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          mode?: string
           note?: string | null
           org_id?: string
           processed_items?: number
