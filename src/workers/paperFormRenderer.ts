@@ -551,12 +551,7 @@ export function renderPaperFormPage(
         y = margin;
       }
       const label = it.field.label;
-      let ans = handfill ? "" : answerCellText(it.field);
-      if (it.attachOutlets && outletsField) {
-        // Inline "NO OF OUTLETS: ____" callout in the answer cell.
-        const suffix = "   NO OF OUTLETS: ______";
-        ans = ans ? ans + suffix : suffix.trimStart();
-      }
+      const ans = handfill ? "" : answerCellText(it.field);
       drawCell(label, ans, y, fit.rowH, false, it.field);
       y += fit.rowH;
     }
