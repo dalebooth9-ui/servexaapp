@@ -20,11 +20,13 @@ export async function createScanBatchFromSheets(params: {
   pageFiles: File[]; // ordered by page index
   sheets: DetectedSheet[];
   sourceLabel?: string;
+  mode?: "job" | "archive";
 }): Promise<string> {
-  const { orgId, userId, pageFiles, sheets, sourceLabel } = params;
+  const { orgId, userId, pageFiles, sheets, sourceLabel, mode = "job" } = params;
   if (!orgId || pageFiles.length === 0 || sheets.length === 0) {
     throw new Error("Nothing to batch.");
   }
+
 
   // 1. Create batch row.
   const { data: batch, error: batchErr } = await supabase
