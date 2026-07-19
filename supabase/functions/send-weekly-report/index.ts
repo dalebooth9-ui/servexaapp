@@ -350,7 +350,7 @@ Deno.serve(async (req) => {
         <!-- FOOTER -->
         <tr>
           <td style="background:${BRAND_LIGHT};border:1px solid ${BRAND_BORDER};border-top:none;border-radius:0 0 10px 10px;padding:16px 28px;text-align:center;">
-            <p style="margin:0;font-size:11px;color:${BRAND_GRAY};">Viva Fire &amp; Protection Ltd &nbsp;·&nbsp; Weekly report auto-generated every Monday at 08:00 UTC</p>
+            <p style="margin:0;font-size:11px;color:${BRAND_GRAY};">${orgName} &nbsp;·&nbsp; Weekly report auto-generated every Monday at 08:00 UTC</p>
             <p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">You're receiving this because you have admin access to the platform.</p>
           </td>
         </tr>
