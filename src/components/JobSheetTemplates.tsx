@@ -1412,7 +1412,9 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                 <div className="rounded-md border divide-y">
                   {completedResps.map((resp) => {
                     const tpl = allTemplates.find((t) => t.id === resp.template_id);
-                    const canEdit = userRole === "admin" || resp.submitted_by === user?.id;
+                    // Submitted reports: only office admins can amend after submission.
+                    // Engineers cannot re-edit their own once submitted — office reviews and edits.
+                    const canEdit = userRole === "admin";
                     return (
                       <div key={resp.id} className="flex items-center justify-between px-3 py-2 min-h-[38px]">
                         <div className="flex items-center gap-2 min-w-0">
