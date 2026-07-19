@@ -258,7 +258,7 @@ Deno.serve(async (req) => {
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td>
-                  <div style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">Viva Fire &amp; Protection</div>
+                  <div style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">${orgName}</div>
                   <div style="color:rgba(255,255,255,0.8);font-size:12px;margin-top:2px;">Weekly Management Report</div>
                 </td>
                 <td align="right">
