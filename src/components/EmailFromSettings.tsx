@@ -1,20 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mail, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-const AVAILABLE_MAILBOXES = [
-  "dale@vivafire.co.uk",
-  "service@vivafire.co.uk",
-  "chloe@vivafire.co.uk",
-  "info@vivafire.co.uk",
-  "sales@vivafire.co.uk",
-];
+// Sender addresses are per-tenant. We DO NOT ship a hard-coded list of
+// mailboxes here — that previously leaked Viva Fire's addresses to every
+// other organisation. Suggestions are derived from the org's own configured
+// email_branding.from_address (its verified sending domain).
 
 const EMAIL_TYPES: { key: string; label: string; description: string }[] = [
   { key: "default",        label: "Default (fallback)",     description: "Used when a specific type below isn't configured." },
@@ -43,9 +39,46 @@ export default function EmailFromSettings() {
   const [rows, setRows] = useState<Record<string, Row>>({});
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [orgName, setOrgName] = useState<string>("Servexa");
+  const [senderDomain, setSenderDomain] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
+      // Discover the org's own verified sending domain from its email_branding
+      // row. Anything else is a leak.
+      let domain: string | null = null;
+      let brandingFromName: string | null = null;
+      let brandingFromAddress: string | null = null;
+      try {
+        const { data: brand } = await supabase
+          .from("email_branding").select("from_name, from_address").limit(1).maybeSingle();
+        if ((brand as any)?.from_address) {
+          brandingFromAddress = (brand as any).from_address;
+          const at = brandingFromAddress!.indexOf("@");
+          if (at > 0) domain = brandingFromAddress!.slice(at + 1);
+        }
+        if ((brand as any)?.from_name) brandingFromName = (brand as any).from_name;
+      } catch (_) { /* empty */ }
+      setSenderDomain(domain);
+
+      try {
+        const { data: sess } = await supabase.auth.getUser();
+        const uid = sess.user?.id;
+        if (uid) {
+          const { data: prof } = await supabase
+            .from("profiles").select("org_id").eq("user_id", uid).maybeSingle();
+          const orgId = (prof as any)?.org_id;
+          if (orgId) {
+            const { data: org } = await supabase
+              .from("organisations").select("name").eq("id", orgId).maybeSingle();
+            if ((org as any)?.name) setOrgName((org as any).name);
+          }
+        }
+      } catch (_) { /* empty */ }
+
+      const defaultName = brandingFromName || orgName;
+      const defaultAddress = brandingFromAddress || "";
+
       const { data, error } = await supabase
         .from("email_from_settings")
         .select("email_type, from_name, from_address");
@@ -54,17 +87,28 @@ export default function EmailFromSettings() {
       } else {
         const map: Record<string, Row> = {};
         (data ?? []).forEach((r: any) => { map[r.email_type] = r; });
-        // Ensure each known type has a draft row
         EMAIL_TYPES.forEach(t => {
           if (!map[t.key]) {
-            map[t.key] = { email_type: t.key, from_name: "Servexa", from_address: AVAILABLE_MAILBOXES[1] };
+            map[t.key] = {
+              email_type: t.key,
+              from_name: defaultName,
+              from_address: defaultAddress,
+            };
           }
         });
         setRows(map);
       }
       setLoading(false);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const mailboxSuggestions = useMemo(() => {
+    if (!senderDomain) return [] as string[];
+    return ["service", "info", "sales", "hello", "no-reply"].map(
+      (local) => `${local}@${senderDomain}`,
+    );
+  }, [senderDomain]);
 
   const update = (key: string, patch: Partial<Row>) => {
     setRows(prev => ({ ...prev, [key]: { ...prev[key], ...patch } }));
@@ -73,7 +117,7 @@ export default function EmailFromSettings() {
   const save = async (key: string) => {
     const row = rows[key];
     if (!row?.from_address) {
-      toast.error("Pick a mailbox before saving.");
+      toast.error("Enter a sender address before saving.");
       return;
     }
     setSavingKey(key);
@@ -81,7 +125,7 @@ export default function EmailFromSettings() {
       .from("email_from_settings")
       .upsert({
         email_type: key,
-        from_name: row.from_name?.trim() || "Servexa",
+        from_name: row.from_name?.trim() || orgName,
         from_address: row.from_address.trim(),
         updated_at: new Date().toISOString(),
       }, { onConflict: "org_id,email_type" });
@@ -98,8 +142,11 @@ export default function EmailFromSettings() {
           <CardTitle className="text-lg">Sender Addresses (FROM)</CardTitle>
         </div>
         <CardDescription>
-          Choose which mailbox each type of outgoing email is sent from. Only addresses on your verified
-          sending domain (<code className="font-mono">vivafire.co.uk</code>) are listed.
+          Choose which address each type of outgoing email is sent from. Use addresses on your
+          verified sending domain
+          {senderDomain
+            ? <> (<code className="font-mono">{senderDomain}</code>).</>
+            : <>. Configure your sending domain in Email Branding first.</>}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -110,6 +157,7 @@ export default function EmailFromSettings() {
         ) : (
           EMAIL_TYPES.map(t => {
             const row = rows[t.key];
+            const listId = `mailbox-suggest-${t.key}`;
             return (
               <div key={t.key} className="rounded-lg border p-3 space-y-2">
                 <div>
@@ -122,22 +170,23 @@ export default function EmailFromSettings() {
                     <Input
                       value={row?.from_name ?? ""}
                       onChange={e => update(t.key, { from_name: e.target.value })}
-                      placeholder="Servexa"
+                      placeholder={orgName}
                     />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Mailbox</Label>
-                    <Select
-                      value={row?.from_address}
-                      onValueChange={v => update(t.key, { from_address: v })}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Pick a mailbox" /></SelectTrigger>
-                      <SelectContent>
-                        {AVAILABLE_MAILBOXES.map(m => (
-                          <SelectItem key={m} value={m}>{m}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      type="email"
+                      value={row?.from_address ?? ""}
+                      onChange={e => update(t.key, { from_address: e.target.value })}
+                      placeholder={senderDomain ? `service@${senderDomain}` : "service@yourdomain.com"}
+                      list={mailboxSuggestions.length ? listId : undefined}
+                    />
+                    {mailboxSuggestions.length > 0 && (
+                      <datalist id={listId}>
+                        {mailboxSuggestions.map(m => <option key={m} value={m} />)}
+                      </datalist>
+                    )}
                   </div>
                   <div className="flex items-end">
                     <Button
