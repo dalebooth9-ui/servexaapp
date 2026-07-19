@@ -18,8 +18,7 @@
  */
 
 import { getBrandColorFromLogo, extractDominantColor, rgbToHex, type RgbTriple } from "@/lib/extractLogoColors";
-
-const DEFAULT_LOGO_URL = "/images/vivafire-logo-new.png";
+import { getGeneratingOrgFallbackLogoUrl, getGeneratingOrgBranding } from "@/lib/generatingOrgBranding";
 
 export type DocumentBrandingProfile = {
   /** Logo shown in the PDF header — same source as the accent colour. */
