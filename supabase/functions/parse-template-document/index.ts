@@ -183,25 +183,22 @@ Guidelines:
     const content = aiData.choices?.[0]?.message?.content || "[]";
     const jsonStr = content.replace(/```json?\s*/g, "").replace(/```\s*/g, "").trim();
 
-    let fields;
+    let fields: any[] = [];
     try {
-      fields = JSON.parse(jsonStr);
+      const parsed = JSON.parse(jsonStr);
+      fields = Array.isArray(parsed) ? parsed : [parsed];
     } catch {
       console.error("Failed to parse AI response:", content);
-      return new Response(JSON.stringify({ error: "Could not extract form fields from document" }), {
-        status: 422,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      // Graceful fallback rather than 422 — hand back raw text so the caller
+      // can still build a draft the admin can shape in the editor.
+      fields = [];
     }
 
-    if (!Array.isArray(fields)) {
-      fields = [fields];
-    }
-
-    return new Response(JSON.stringify({ fields }), {
+    return new Response(JSON.stringify({ fields, raw_text: extractedText }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (err) {
     console.error("Error:", err);
     return new Response(JSON.stringify({ error: err.message }), {
