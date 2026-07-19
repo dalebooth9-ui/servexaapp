@@ -26,6 +26,10 @@ import {
 import ScanCompletedJobDialog, {
   type QueueItemInput,
 } from "@/components/ScanCompletedJobDialog";
+import ArchiveReviewDialog, {
+  type ArchiveQueueItemInput,
+} from "@/components/paper-scan/ArchiveReviewDialog";
+
 
 type Item = {
   id: string;
