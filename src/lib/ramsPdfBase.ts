@@ -687,8 +687,9 @@ export async function buildRiskPage(
     labelValue(doc, "Employees at Risk:", data.engineerNames, ML, hy, 32); hy += 4.5;
     labelValue(doc, "Location/Area:", data.siteLocTrunc, ML, hy, 26); hy += 4.5;
     labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, hy, 36); hy += 4.5;
-    labelValue(doc, "Assessor:", "Dale Booth", ML, hy, 18); hy += 4.5;
-    labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, hy, 46); hy += 6;
+    const _b = getCachedRamsBrand();
+    labelValue(doc, "Assessor:", _b?.writerName ?? "", ML, hy, 18); hy += 4.5;
+    labelValue(doc, "Key Responsible Personnel:", _b?.writerName ?? "", ML, hy, 46); hy += 6;
     return riskTableHeader(doc, rC, hy);
   };
 
