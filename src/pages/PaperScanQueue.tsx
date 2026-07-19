@@ -493,6 +493,18 @@ export default function PaperScanQueue() {
           }}
         />
       )}
+      <ArchiveReviewDialog
+        open={!!openArchiveItem}
+        onOpenChange={(o) => {
+          if (!o) setOpenArchiveItem(null);
+        }}
+        item={openArchiveItem}
+        onResolved={() => {
+          setOpenArchiveItem(null);
+          load();
+        }}
+      />
+
     </AppLayout>
   );
 }
