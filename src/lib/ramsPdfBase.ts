@@ -98,7 +98,7 @@ export function labelValue(doc: jsPDF, label: string, value: string, x: number, 
 export function para(doc: jsPDF, text: string, x: number, y: number, maxW: number, size = 8.5): number {
   doc.setFontSize(size);
   doc.setFont("helvetica", "normal");
-  const lines = doc.splitTextToSize(text, maxW);
+  const lines = doc.splitTextToSize(rewriteRamsBrand(text), maxW);
   doc.text(lines, x, y);
   return y + lines.length * (size * 0.352778 + 1.2);
 }
@@ -107,7 +107,7 @@ export function sectionHeading(doc: jsPDF, text: string, y: number): number {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(33, 61, 99);
-  doc.text(text, ML, y);
+  doc.text(rewriteRamsBrand(text), ML, y);
   doc.setTextColor(0, 0, 0);
   hr(doc, y + 1.5, 100);
   return y + 6;
@@ -119,7 +119,7 @@ export function numberedList(doc: jsPDF, items: string[], x: number, y: number, 
   for (let i = 0; i < items.length; i++) {
     const num = `${i + 1}.`;
     doc.text(num, x, y);
-    const lines = doc.splitTextToSize(items[i], maxW - 6);
+    const lines = doc.splitTextToSize(rewriteRamsBrand(items[i]), maxW - 6);
     doc.text(lines, x + 6, y);
     y += lines.length * (size * 0.352778 + 1.2);
   }
@@ -131,7 +131,7 @@ export function bulletList(doc: jsPDF, items: string[], x: number, y: number, ma
   doc.setFont("helvetica", "normal");
   for (const item of items) {
     doc.text("•", x, y);
-    const lines = doc.splitTextToSize(item, maxW - 5);
+    const lines = doc.splitTextToSize(rewriteRamsBrand(item), maxW - 5);
     doc.text(lines, x + 5, y);
     y += lines.length * (size * 0.352778 + 1.2);
   }
