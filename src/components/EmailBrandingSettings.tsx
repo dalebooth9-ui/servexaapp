@@ -156,6 +156,29 @@ export default function EmailBrandingSettings() {
         toast.error(`Failed to load branding: ${error.message}`);
       } else if (data) {
         setRow({ ...DEFAULTS, ...(data as any) });
+      } else {
+        // No row yet — prefill company_name and sender fields from the
+        // caller's own organisation so the form never shows another org's
+        // branding as a starting point.
+        try {
+          const { data: sess } = await supabase.auth.getUser();
+          const uid = sess.user?.id;
+          if (uid) {
+            const { data: prof } = await supabase
+              .from("profiles").select("org_id, full_name").eq("user_id", uid).maybeSingle();
+            const orgId = (prof as any)?.org_id;
+            if (orgId) {
+              const { data: org } = await supabase
+                .from("organisations").select("name").eq("id", orgId).maybeSingle();
+              const name = (org as any)?.name || "";
+              setRow((prev) => ({
+                ...prev,
+                from_name: name,
+                company_name: name,
+              }));
+            }
+          }
+        } catch (_) { /* leave defaults blank */ }
       }
       setLoading(false);
     })();
