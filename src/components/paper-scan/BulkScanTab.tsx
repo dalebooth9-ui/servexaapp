@@ -220,7 +220,9 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
         batch_id: string;
         org_id: string;
         image_paths: string[];
+        mode: "job" | "archive";
       }[] = [];
+
 
       for (let gi = 0; gi < groups.length; gi++) {
         const grp = groups[gi];
