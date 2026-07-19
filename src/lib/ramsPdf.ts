@@ -441,9 +441,10 @@ export async function generateRamsPdf(
       if (n || s || d) operatives.push({ name: n, sig: s, date: d });
     }
   }
+  const operativesDefault = brand.operativesDefault || "Assigned Operatives";
   const engineerNames = operatives.length > 0
     ? operatives.map((o) => o.name).filter(Boolean).join(", ")
-    : "Viva Fire Operatives";
+    : operativesDefault;
 
   // Scope line for cover page — fall back to a category-derived label so the
   // row never renders empty when the job has no PT/Visual/Other quantities.
