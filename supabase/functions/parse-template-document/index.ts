@@ -65,6 +65,7 @@ serve(async (req) => {
     const fileBytes = Uint8Array.from(atob(file_base64), c => c.charCodeAt(0));
 
     let userContent: any[];
+    let extractedText = "";
 
     if (ext === ".pdf") {
       userContent = [
@@ -72,27 +73,38 @@ serve(async (req) => {
         { type: "image_url", image_url: { url: `data:application/pdf;base64,${file_base64}` } },
       ];
     } else {
-      let extractedText = "";
       try {
         const { ZipReader, BlobReader, TextWriter } = await import("https://deno.land/x/zipjs@v2.7.34/index.js");
         const reader = new ZipReader(new BlobReader(new Blob([fileBytes])));
         const entries = await reader.getEntries();
         for (const entry of entries) {
           if (entry.filename === "word/document.xml") {
-            extractedText = await entry.getData!(new TextWriter());
+            const rawXml: string = await entry.getData!(new TextWriter());
+            // Preserve paragraph boundaries so downstream fallback keeps structure.
+            extractedText = rawXml
+              .replace(/<w:p[ >][^]*?<\/w:p>/g, (m) => m.replace(/<[^>]+>/g, "") + "\n")
+              .replace(/<[^>]+>/g, " ")
+              .replace(/[ \t]+/g, " ")
+              .replace(/\n{3,}/g, "\n\n")
+              .trim();
             break;
           }
         }
         await reader.close();
-        extractedText = extractedText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
       } catch (e) {
         console.error("Failed to extract text from docx:", e);
-        extractedText = `[Could not extract text from ${file_name}]`;
       }
 
+      // Graceful fallback: if we couldn't get useful text, still return an
+      // empty-fields payload with the filename as raw_text so the caller can
+      // create a single-section draft rather than showing a hard error.
       if (!extractedText || extractedText.length < 10) {
-        return new Response(JSON.stringify({ error: "Could not extract readable text from document" }), {
-          status: 422,
+        return new Response(JSON.stringify({
+          fields: [],
+          raw_text: "",
+          notice: "Could not extract readable text from this document. A blank draft has been created for you to build from.",
+        }), {
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -101,6 +113,7 @@ serve(async (req) => {
         { type: "text", text: `Analyze this job sheet / report template document (${file_name}). The document text content is:\n\n${extractedText}\n\nExtract all form fields that an engineer would need to fill in on-site. Return a JSON array of field objects.` },
       ];
     }
+
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
