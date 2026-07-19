@@ -207,11 +207,13 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
           status: "processing",
           total_items: groups.length,
           processed_items: 0,
+          mode,
         } as any)
         .select("id")
         .single();
       if (batchErr) throw batchErr;
       const bId = (batch as any).id as string;
+
 
       // Upload each photo, group by group
       const itemRows: {
