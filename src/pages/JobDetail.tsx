@@ -604,6 +604,14 @@ export default function JobDetail() {
 
 
       {activeTab === "overview" && (<>
+      {!!user && assignedEngineerIds.includes(user.id) && userRole !== "admin" && (
+        <EngineerJobHero
+          jobId={id!}
+          jobOrgId={job.org_id}
+          isRemedial={!!job.is_remedial}
+          onNavigateTab={setActiveTab}
+        />
+      )}
       {/* Editable Job Details */}
       <Collapsible defaultOpen className="mb-6">
 
