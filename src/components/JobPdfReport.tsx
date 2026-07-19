@@ -1117,6 +1117,24 @@ export default function JobPdfReport({ jobId, job }: Props) {
       });
 
       // ── FOOTER on every page ──
+      // If any submitted sheet was amended by the office after submission,
+      // record that alongside signature timestamps so the customer PDF makes
+      // it obvious the values may differ from what the signatories saw.
+      const amendedAts = sheetResponses
+        .map((r: any) => r.last_amended_at)
+        .filter(Boolean)
+        .sort();
+      const latestAmendment = amendedAts[amendedAts.length - 1];
+      const latestSignature = signatures.length > 0
+        ? signatures.map((s: any) => s.created_at).sort().slice(-1)[0]
+        : null;
+      const fmt = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      const amendmentNote = latestAmendment
+        ? (latestSignature
+            ? `Amended by office ${fmt(latestAmendment)} — after signature (${fmt(latestSignature)})`
+            : `Amended by office ${fmt(latestAmendment)}`)
+        : null;
+
       const pageCount = doc.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
@@ -1124,6 +1142,12 @@ export default function JobPdfReport({ jobId, job }: Props) {
         doc.setFont("helvetica", "normal");
         doc.setTextColor(150, 150, 150);
         doc.text(`${job.reference_number}  —  Page ${i} of ${pageCount}`, pageWidth / 2, 290, { align: "center" });
+        if (amendmentNote) {
+          doc.setFontSize(7);
+          doc.setTextColor(170, 120, 60);
+          doc.text(amendmentNote, pageWidth / 2, 294, { align: "center" });
+          doc.setTextColor(150, 150, 150);
+        }
         doc.setDrawColor(200, 200, 200);
         doc.line(margin, 286, pageWidth - margin, 286);
       }
