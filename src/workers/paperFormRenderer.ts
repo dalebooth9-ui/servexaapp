@@ -83,7 +83,8 @@ function skipInBody(field: PdfTemplateField): boolean {
   if (label === "comments" || label.includes("comments") || label.includes("defects") || label.includes("issues found") || label.includes("recommendation") || label === "priority") return true;
   if (label.includes("customer signature") || label.includes("engineer signature") || label.includes("technician signature")) return true;
   if (field.type === "signature") return true;
-  if (id === "no_of_outlets" || /number\s+of\s+outlets/i.test(label)) return true; // inline in landing valve row
+  // Note: "number of outlets" used to be inlined into the landing valve row.
+  // It now renders as its own dedicated body row (paper form parity request).
   return false;
 }
 
@@ -425,13 +426,8 @@ export function renderPaperFormPage(
   // count everything up-front.
   type BodyItem =
     | { kind: "section"; label: string }
-    | { kind: "row"; field: PdfTemplateField; attachOutlets: boolean };
+    | { kind: "row"; field: PdfTemplateField };
   const items: BodyItem[] = [];
-  // Detect the outlets field on this template so we can inline it into the
-  // landing-valve row (paper-form convention).
-  const outletsField = template.fields.find(
-    (f) => f.id.toLowerCase() === "no_of_outlets" || /number\s+of\s+outlets/i.test(f.label),
-  );
 
   for (const sec of sectionOrder) {
     const fields = bySection.get(sec)!;
@@ -440,7 +436,7 @@ export function renderPaperFormPage(
     const secLabel = sec.toUpperCase() + (/visual|pressure test|test/i.test(template.name) && !/:/.test(sec) ? `: ${/pressure/i.test(template.name) ? "PRESSURE TEST" : "VISUAL"}` : "");
     items.push({ kind: "section", label: secLabel });
     for (const f of fields) {
-      items.push({ kind: "row", field: f, attachOutlets: !!outletsField && isLandingValveRow(f) });
+      items.push({ kind: "row", field: f });
     }
   }
 
@@ -555,12 +551,7 @@ export function renderPaperFormPage(
         y = margin;
       }
       const label = it.field.label;
-      let ans = handfill ? "" : answerCellText(it.field);
-      if (it.attachOutlets && outletsField) {
-        // Inline "NO OF OUTLETS: ____" callout in the answer cell.
-        const suffix = "   NO OF OUTLETS: ______";
-        ans = ans ? ans + suffix : suffix.trimStart();
-      }
+      const ans = handfill ? "" : answerCellText(it.field);
       drawCell(label, ans, y, fit.rowH, false, it.field);
       y += fit.rowH;
     }
