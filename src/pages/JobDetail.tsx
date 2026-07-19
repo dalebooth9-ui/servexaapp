@@ -899,14 +899,17 @@ export default function JobDetail() {
             </div>
           </div>
         )}
-        <JobRemedialChecklist
-          jobId={id!}
-          jobOrgId={job.org_id}
-          isRemedial={!!job.is_remedial}
-          isAdmin={userRole === "admin"}
-          isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
-          forceShow={showChecklistOptIn}
-        />
+        {/* Engineers get the checklist inside <EngineerJobHero> above; skip here to avoid duplication. */}
+        {!(userRole !== "admin" && !!user && assignedEngineerIds.includes(user.id)) && (
+          <JobRemedialChecklist
+            jobId={id!}
+            jobOrgId={job.org_id}
+            isRemedial={!!job.is_remedial}
+            isAdmin={userRole === "admin"}
+            isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+            forceShow={showChecklistOptIn}
+          />
+        )}
       </>)}
 
 
