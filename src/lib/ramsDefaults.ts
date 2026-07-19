@@ -461,6 +461,7 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
     personnel: "",
     plantAndEquipment: [
       ...COMMON_PLANT,
+      MULTIMETER,
       "Smoke machine / test aerosol",
       "Anemometer (for extract systems)",
       "Pressure differential meter",
