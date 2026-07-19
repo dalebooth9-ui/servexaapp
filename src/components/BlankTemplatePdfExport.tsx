@@ -430,13 +430,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       {
       const systemQty = getSystemQty(template.name, jobInfo);
       const customerLogoUrl = jobInfo?.customers?.logo_url || null;
-      // Wet/Dry Riser worksheets: force Viva Fire branding regardless of customer logo
-      const isDryRiser = /dry\s*riser/i.test(template.name || "");
-      const isWetRiser = /wet\s*riser/i.test(template.name || "");
-      const isRiserTemplate = isDryRiser || isWetRiser;
-      const branding = isRiserTemplate
-        ? { ...(template.branding || {}), logo_url: "/vivafire-logo.png" }
-        : { ...(template.branding || {}), ...(customerLogoUrl ? { logo_url: customerLogoUrl } : {}) };
+      // NOTE: dry/wet riser worksheets previously hardcoded the Viva Fire
+      // logo "regardless of customer logo". That leaked Viva branding onto
+      // other orgs' PDFs. Branding now flows through the standard resolver
+      // so the generating org's own assets (or a neutral text header) are
+      // used when no customer logo is set.
+      const branding = { ...(template.branding || {}), ...(customerLogoUrl ? { logo_url: customerLogoUrl } : {}) };
       const footerText = getDefaultFooterText(template.name, branding, template.footer_text);
       const categoryName = jobCategories.find(c => c.slug === jobInfo?.category)?.name
         || (jobInfo?.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
