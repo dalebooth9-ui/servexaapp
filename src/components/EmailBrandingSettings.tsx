@@ -29,20 +29,23 @@ interface BrandingRow {
   sign_off_text: string;
 }
 
+// Neutral defaults for the settings form. Every field starts BLANK — the
+// generating org populates its own identity. We never seed another org's
+// branding (e.g. Viva Fire) as a starting point; that would leak claims of
+// certification and impersonate a real company on outbound customer email.
 const DEFAULTS: BrandingRow = {
-  from_name: "Viva Fire Protection",
-  from_address: "service@vivafire.co.uk",
-  reply_to: "service@vivafire.co.uk",
+  from_name: "",
+  from_address: "",
+  reply_to: "",
   logo_url: null,
   brand_color: "#1e40af",
-  company_name: "Viva Fire Protection Ltd",
-  strapline: "Wet & Dry Riser Specialists",
-  phone: "0845 269 8482",
-  website: "https://www.vivafire.co.uk",
-  address: "Unit 1 Lady Road, St Johns Industrial Estate, Lees, Oldham, OL4 3DZ",
+  company_name: "",
+  strapline: null,
+  phone: null,
+  website: null,
+  address: null,
   signature_html: null,
-  footer_note:
-    "This is an automated email from Viva Fire Protection. Reply to this message to contact us directly.",
+  footer_note: null,
   accreditation_logo_urls: [],
   sign_off_text: "Kind regards,",
 };
