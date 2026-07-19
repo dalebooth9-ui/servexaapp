@@ -84,6 +84,7 @@ const JobEmailChain = lazy(() => import("@/components/jobs/JobEmailChain"));
 import RamsRequiredBanner from "@/components/rams/RamsRequiredBanner";
 import { useJobRamsStatus } from "@/hooks/useJobRamsStatus";
 import EngineerNextStepBar from "@/components/engineer/EngineerNextStepBar";
+import EngineerJobHero from "@/components/engineer/EngineerJobHero";
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
