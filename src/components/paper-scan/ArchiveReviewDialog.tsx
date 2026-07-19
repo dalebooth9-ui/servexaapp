@@ -91,13 +91,14 @@ export default function ArchiveReviewDialog({
       return;
     }
     (async () => {
-      const { data: ss } = await supabase
+      const { data: ss } = await (supabase as any)
         .from("sites")
         .select("id, name, address, postcode")
         .eq("customer_id", customerId)
         .order("name");
       setSites((ss as any) || []);
     })();
+
   }, [open, customerId]);
 
   useEffect(() => {
