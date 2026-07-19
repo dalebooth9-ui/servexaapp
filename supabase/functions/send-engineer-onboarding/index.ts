@@ -164,7 +164,7 @@ serve(async (req) => {
 
     const from = await getFromAddress(
       "engineer_onboarding",
-      "Viva Fire Service <service@vivafire.co.uk>",
+      undefined,
       supabaseAdmin,
     );
 
@@ -178,7 +178,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from,
         to: [to_email],
-        reply_to: ["service@vivafire.co.uk"],
+        reply_to: [from.replace(/^[^<]*<|>$/g, "").trim() || from],
         subject: "Install the Servexa app on your phone",
         html,
       }),
