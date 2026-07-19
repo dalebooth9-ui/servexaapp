@@ -83,7 +83,8 @@ function skipInBody(field: PdfTemplateField): boolean {
   if (label === "comments" || label.includes("comments") || label.includes("defects") || label.includes("issues found") || label.includes("recommendation") || label === "priority") return true;
   if (label.includes("customer signature") || label.includes("engineer signature") || label.includes("technician signature")) return true;
   if (field.type === "signature") return true;
-  if (id === "no_of_outlets" || /number\s+of\s+outlets/i.test(label)) return true; // inline in landing valve row
+  // Note: "number of outlets" used to be inlined into the landing valve row.
+  // It now renders as its own dedicated body row (paper form parity request).
   return false;
 }
 
