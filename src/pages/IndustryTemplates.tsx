@@ -6,7 +6,9 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { Search, Download, Plus, CheckCircle2, Flame, Droplets, Wrench, Shield, Zap, Wind, AlertTriangle, Eye, FileText, Pencil, Loader2, FileArchive } from "lucide-react";
+import { Search, Download, Plus, CheckCircle2, Flame, Droplets, Wrench, Shield, Zap, Wind, AlertTriangle, Eye, FileText, Pencil, Loader2, FileArchive, Upload } from "lucide-react";
+import ImportTemplateDialog, { type ImportedDraftInfo } from "@/components/ImportTemplateDialog";
+
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
 import BlankTemplateWordExport, { buildBlankTemplateDoc, blankTemplateFileSlug } from "@/components/BlankTemplateWordExport";
 import BlankTemplateActions from "@/components/BlankTemplateActions";
