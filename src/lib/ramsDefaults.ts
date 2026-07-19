@@ -42,12 +42,22 @@ const COMMON_SEQUENCE = [
   "All deliveries of materials must be pre-booked with Principal Contractor with 48 hours' notice.",
 ];
 
+// COMMON_PLANT is spread into every trade's plantAndEquipment. It must only
+// contain items that are genuinely universal across all fire-protection
+// trades. Trade-specific tools (pipe wrenches, pressure test gauges,
+// multimeters, etc.) leaked into unrelated RAMS (e.g. fire door inspection
+// listing pipe wrenches) and were moved into per-trade lists below.
 const COMMON_PLANT = [
-  "Hand tools and pipe wrenches",
-  "Pressure test gauge (calibrated)",
-  "Multimeter / continuity tester",
+  "Hand tools appropriate to task",
   "PPE kit (hard hat, high-vis vest, steel toe cap boots, gloves, safety glasses)",
 ];
+
+// Kept as named constants so each trade that needs them can add them
+// explicitly. This preserves the tool listings for water-carrying and
+// electrical systems (where they were already present via COMMON_PLANT)
+// without re-introducing them where they don't belong.
+const PRESSURE_TEST_GAUGE = "Pressure test gauge (calibrated)";
+const MULTIMETER = "Multimeter / continuity tester";
 
 const COMMON_PPE = [
   "Hard Hat EN397", "High Visibility Vest EN471",
