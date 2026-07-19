@@ -246,10 +246,11 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
     personnel: "",
     plantAndEquipment: [
       ...COMMON_PLANT,
+      PRESSURE_TEST_GAUGE,
       "Pitot tube and flow measuring equipment",
       "Replacement sprinkler heads and spanner",
       "Portable pressure pump (if required)",
-      "PPE kit including face shield for head work",
+      "Face shield for head work",
     ],
     significantRisks: [
       "Water discharge / flooding", "High pressure water", "Working at height",
