@@ -5,6 +5,7 @@ import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/p
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { RAMS_FOOTER_TOP, categoryToScopeLabel } from "@/lib/ramsPdfBase";
+import { primeRamsBrand, getCachedRamsBrand, rewriteRamsBrand } from "@/lib/ramsBrand";
 
 export type RamsFormData = Record<string, any>;
 
@@ -76,7 +77,7 @@ function labelValue(doc: jsPDF, label: string, value: string, x: number, y: numb
 function para(doc: jsPDF, text: string, x: number, y: number, maxW: number, size = 8.5): number {
   doc.setFontSize(size);
   doc.setFont("helvetica", "normal");
-  const lines = doc.splitTextToSize(text, maxW);
+  const lines = doc.splitTextToSize(rewriteRamsBrand(text), maxW);
   doc.text(lines, x, y);
   return y + lines.length * (size * 0.352778 + 1.2);
 }
@@ -85,7 +86,7 @@ function sectionHeading(doc: jsPDF, text: string, y: number): number {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(33, 61, 99);
-  doc.text(text, ML, y);
+  doc.text(rewriteRamsBrand(text), ML, y);
   doc.setTextColor(0, 0, 0);
   hr(doc, y + 1.5, 100);
   return y + 6;
@@ -97,7 +98,7 @@ function numberedList(doc: jsPDF, items: string[], x: number, y: number, maxW: n
   for (let i = 0; i < items.length; i++) {
     const num = `${i + 1}.`;
     doc.text(num, x, y);
-    const lines = doc.splitTextToSize(items[i], maxW - 6);
+    const lines = doc.splitTextToSize(rewriteRamsBrand(items[i]), maxW - 6);
     doc.text(lines, x + 6, y);
     y += lines.length * (size * 0.352778 + 1.2);
   }
@@ -109,7 +110,7 @@ function bulletList(doc: jsPDF, items: string[], x: number, y: number, maxW: num
   doc.setFont("helvetica", "normal");
   for (const item of items) {
     doc.text("•", x, y);
-    const lines = doc.splitTextToSize(item, maxW - 5);
+    const lines = doc.splitTextToSize(rewriteRamsBrand(item), maxW - 5);
     doc.text(lines, x + 5, y);
     y += lines.length * (size * 0.352778 + 1.2);
   }
@@ -125,16 +126,17 @@ function pageFooter(doc: jsPDF, pageNum: number, total: number): void {
 }
 
 async function pageHeader(doc: jsPDF, logoImg: HTMLImageElement | null, title: string, y: number): Promise<number> {
+  const brand = getCachedRamsBrand();
   if (logoImg) {
     const lh = 14;
     const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
     const lw = Math.min(lh * aspect, 50);
-    doc.addImage(logoImg, "JPEG", ML, y, lw, lh);
-  } else {
+    doc.addImage(logoImg, (logoImg.src.toLowerCase().includes(".png") ? "PNG" : "JPEG"), ML, y, lw, lh);
+  } else if (brand?.companyUpper) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(33, 61, 99);
-    doc.text("VIVA FIRE PROTECTION LTD", ML, y + 8);
+    doc.text(brand.companyUpper, ML, y + 8);
     doc.setTextColor(0, 0, 0);
   }
   doc.setFont("helvetica", "bold");
@@ -142,9 +144,11 @@ async function pageHeader(doc: jsPDF, logoImg: HTMLImageElement | null, title: s
   doc.setTextColor(33, 61, 99);
   const headerSubtitle = title || "Method Statement & Risk Assessment";
   doc.text(headerSubtitle, PAGE_W - MR, y + 6, { align: "right" });
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.text("VIVA Fire Protection Ltd", PAGE_W - MR, y + 11, { align: "right" });
+  if (brand?.companyName) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(brand.companyName, PAGE_W - MR, y + 11, { align: "right" });
+  }
   doc.setTextColor(0, 0, 0);
   hr(doc, y + 17, 60);
   return y + 21;
@@ -383,17 +387,20 @@ export async function generateRamsPdf(
 ): Promise<{ base64: string; fileName: string }> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
 
+  const brand = await primeRamsBrand();
   let logoImg: HTMLImageElement | null = null;
-  try {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    await new Promise<void>((res, rej) => {
-      img.onload = () => res();
-      img.onerror = () => rej();
-      img.src = `/images/vivafire-logo-new.jpg?v=${Date.now()}`;
-    });
-    logoImg = img;
-  } catch { /* no logo */ }
+  if (brand.logoUrl) {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise<void>((res, rej) => {
+        img.onload = () => res();
+        img.onerror = () => rej();
+        img.src = `${brand.logoUrl}${brand.logoUrl.includes("?") ? "&" : "?"}v=${Date.now()}`;
+      });
+      logoImg = img;
+    } catch { /* no logo */ }
+  }
 
   // ── Resolve all dynamic content from formData (editor-saved fields) ──
   const contractName = formData["rams_contract_job_name"] || jobInfo?.name || "";
@@ -411,7 +418,7 @@ export async function generateRamsPdf(
   const taskSpecificOps: string[]  = formData["_taskSpecificOps"]  || [];
   const location: string           = formData["_location"]         || siteLocation || "All areas / locations";
   const resources: string          = formData["_resources"]        || "Minimum of: 2 Operatives";
-  const personnel: string          = formData["_personnel"]        || "Dale Booth";
+  const personnel: string          = formData["_personnel"]        || brand.writerName || "";
   const plantAndEquipment: string[]= formData["_plantAndEquipment"]|| [];
   const significantRisks: string[] = formData["_significantRisks"] || [];
   const specialTraining: string    = formData["_specialTraining"]  || "All operatives hold current CSCS cards.";
@@ -434,9 +441,10 @@ export async function generateRamsPdf(
       if (n || s || d) operatives.push({ name: n, sig: s, date: d });
     }
   }
+  const operativesDefault = brand.operativesDefault || "Assigned Operatives";
   const engineerNames = operatives.length > 0
     ? operatives.map((o) => o.name).filter(Boolean).join(", ")
-    : "Viva Fire Operatives";
+    : operativesDefault;
 
   // Scope line for cover page — fall back to a category-derived label so the
   // row never renders empty when the job has no PT/Visual/Other quantities.
@@ -462,15 +470,20 @@ export async function generateRamsPdf(
   doc.setTextColor(33, 61, 99);
   doc.text(coverTitles.subtitle, PAGE_W / 2, y, { align: "center" });
   y += 8;
-  doc.setFontSize(22);
-  doc.text("VIVA FIRE", PAGE_W / 2, y, { align: "center" });
-  y += 8;
+  if (brand.companyUpper) {
+    doc.setFontSize(22);
+    doc.text(brand.companyUpper, PAGE_W / 2, y, { align: "center" });
+    y += 8;
+  }
   doc.setFontSize(13);
   doc.text("Method Statement & Risk Assessment", PAGE_W / 2, y, { align: "center" });
   y += 7;
-  doc.setFontSize(12);
-  doc.text("Fire Protection Ltd", PAGE_W / 2, y, { align: "center" });
-  y += 12;
+  if (brand.companyTagLine) {
+    doc.setFontSize(12);
+    doc.text(brand.companyTagLine, PAGE_W / 2, y, { align: "center" });
+    y += 5;
+  }
+  y += 7;
   doc.setTextColor(0, 0, 0);
   hr(doc, y, 60);
   y += 8;
@@ -502,7 +515,7 @@ export async function generateRamsPdf(
   }
   ry += rowGap;
   if (scopeParts) ry += rowGap;
-  if (engineerNames && engineerNames !== "Viva Fire Operatives") {
+  if (engineerNames && engineerNames !== operativesDefault) {
     const engLines = doc.splitTextToSize(engineerNames, CONTENT_W - 3 - 52);
     ry += Math.max(rowGap, engLines.length * (9 * 0.352778 + 1.2));
   }
@@ -545,7 +558,7 @@ export async function generateRamsPdf(
   if (scopeParts) {
     labelValue(doc, "Service Scope:", scopeParts, ML + 3, ry2); ry2 += rowGap;
   }
-  if (engineerNames && engineerNames !== "Viva Fire Operatives") {
+  if (engineerNames && engineerNames !== operativesDefault) {
     doc.setFont("helvetica", "bold"); doc.setFontSize(9);
     doc.text("Assigned Engineers:", ML + 3, ry2);
     doc.setFont("helvetica", "normal");
@@ -557,8 +570,8 @@ export async function generateRamsPdf(
   doc.text(reviewLines, ML + 3, ry2);
   ry2 += reviewLines.length * (8.5 * 0.352778 + 1.2) + 2;
   doc.setFontSize(9);
-  labelValue(doc, "Method Statement Written by:", "Dale Booth", ML + 3, ry2); ry2 += rowGap;
-  labelValue(doc, "Method Statement Approved by:", "Dale Booth", ML + 3, ry2);
+  labelValue(doc, "Method Statement Written by:", brand.writerName || "", ML + 3, ry2); ry2 += rowGap;
+  labelValue(doc, "Method Statement Approved by:", "", ML + 3, ry2);
 
   y = boxY + detailBoxH + 8;
 
@@ -846,8 +859,8 @@ export async function generateRamsPdf(
     labelValue(doc, "Employees at Risk:", engineerNames, ML, ry3, 32); ry3 += 4.5;
     labelValue(doc, "Location/Area:", siteLocTrunc2, ML, ry3, 26); ry3 += 4.5;
     labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, ry3, 36); ry3 += 4.5;
-    labelValue(doc, "Assessor:", "Dale Booth", ML, ry3, 18); ry3 += 4.5;
-    labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, ry3, 46); ry3 += 6;
+    labelValue(doc, "Assessor:", brand.writerName || "", ML, ry3, 18); ry3 += 4.5;
+    labelValue(doc, "Key Responsible Personnel:", brand.writerName || "", ML, ry3, 46); ry3 += 6;
 
     ry3 = riskTableHeader(doc, rC, ry3);
 
@@ -874,8 +887,8 @@ export async function generateRamsPdf(
         labelValue(doc, "Employees at Risk:", engineerNames, ML, ry3, 32); ry3 += 4.5;
         labelValue(doc, "Location/Area:", siteLocTrunc2, ML, ry3, 26); ry3 += 4.5;
         labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, ry3, 36); ry3 += 4.5;
-        labelValue(doc, "Assessor:", "Dale Booth", ML, ry3, 18); ry3 += 4.5;
-        labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, ry3, 46); ry3 += 6;
+        labelValue(doc, "Assessor:", brand.writerName || "", ML, ry3, 18); ry3 += 4.5;
+        labelValue(doc, "Key Responsible Personnel:", brand.writerName || "", ML, ry3, 46); ry3 += 6;
         ry3 = riskTableHeader(doc, rC, ry3);
       }
 
@@ -928,7 +941,7 @@ export async function generateRamsPdf(
   doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(33, 61, 99);
   doc.text("Method Statement", PAGE_W / 2, spy, { align: "center" }); spy += 6;
   doc.setFontSize(10);
-  doc.text("VIVA Fire Protection Ltd – Fire Protection Specialist", PAGE_W / 2, spy, { align: "center" });
+  doc.text(brand.companyName ? `${brand.companyName} – Fire Protection Specialist` : "Fire Protection Specialist", PAGE_W / 2, spy, { align: "center" });
   doc.setTextColor(0, 0, 0); spy += 8;
 
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("1.3 Confirmation of operatives briefing.", ML, spy); spy += 4;

@@ -53,7 +53,10 @@ const BRAND = {
 
 async function loadLogo(): Promise<string | null> {
   try {
-    const res = await fetch("/images/vivafire-logo-new.jpg");
+    const { getGeneratingOrgFallbackLogoUrl } = await import("@/lib/generatingOrgBranding");
+    const url = await getGeneratingOrgFallbackLogoUrl();
+    if (!url) return null;
+    const res = await fetch(url);
     if (!res.ok) return null;
     const blob = await res.blob();
     return await new Promise<string>((resolve) => {
@@ -81,6 +84,9 @@ export async function generateBrandedRamsPdf(data: BrandedRamsData): Promise<{ b
   const margin = 36;
 
   const logo = await loadLogo();
+  const { getGeneratingOrgBranding } = await import("@/lib/generatingOrgBranding");
+  const g = await getGeneratingOrgBranding();
+  const headerName = g.isViva ? "VIVA FIRE PROTECTION" : (g.name ?? "").toUpperCase();
 
   // ── HEADER ──
   // Red brand bar
@@ -89,11 +95,11 @@ export async function generateBrandedRamsPdf(data: BrandedRamsData): Promise<{ b
 
   if (logo) {
     try { doc.addImage(logo, "JPEG", margin, 14, 110, 36); } catch { /* ignore */ }
-  } else {
+  } else if (headerName) {
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.text("VIVA FIRE PROTECTION", margin, 38);
+    doc.text(headerName, margin, 38);
   }
 
   doc.setTextColor(255, 255, 255);
@@ -235,7 +241,7 @@ export async function generateBrandedRamsPdf(data: BrandedRamsData): Promise<{ b
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(100);
-    doc.text(`Viva Fire Protection · RAMS v${data.version ?? 1}`, margin, pageH - 16);
+    doc.text(`${g.isViva ? "Viva Fire Protection" : (g.name ?? "")} · RAMS v${data.version ?? 1}`, margin, pageH - 16);
     doc.text(`${(data.status || "Draft").toUpperCase()}`, pageW / 2, pageH - 16, { align: "center" });
     doc.text(`Page ${i} of ${pages}`, pageW - margin, pageH - 16, { align: "right" });
   }
