@@ -202,6 +202,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Resolve the org name for header/footer branding (avoids hard-coded Viva
+    // strings when this cron runs for a different organisation).
+    let orgName = "Servexa";
+    try {
+      const firstProfile = adminProfiles[0];
+      if (firstProfile?.org_id) {
+        const { data: org } = await supabase
+          .from("organisations").select("name").eq("id", firstProfile.org_id).maybeSingle();
+        if ((org as any)?.name) orgName = (org as any).name;
+      }
+    } catch (_) { /* keep default */ }
+
     // ── Build HTML email ──
     const completionRate = jobCount > 0 ? Math.round((completedCount / jobCount) * 100) : 0;
 
