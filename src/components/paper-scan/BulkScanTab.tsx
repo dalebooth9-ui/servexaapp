@@ -101,15 +101,17 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
           userId: user.id,
           pageFiles,
           sheets,
-          sourceLabel: "manual_bulk_pdf",
+          sourceLabel: mode === "archive" ? "archive_bulk_pdf" : "manual_bulk_pdf",
+          mode,
         });
         toast({
           title: `${sheets.length} sheets detected`,
           description: `Batch created with ${pageFiles.length} pages. Opening review queue…`,
         });
         onClose();
-        navigate(`/paper-scan-queue?batch=${batchId}`);
+        navigate(`/paper-scan-queue?batch=${batchId}${mode === "archive" ? "&mode=archive" : ""}`);
         return;
+
       } catch (e: any) {
         toast({
           title: "PDF split failed",
