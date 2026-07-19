@@ -297,7 +297,23 @@ export default function PaperScanQueue() {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-1 rounded-md border p-0.5">
+            <Button
+              size="sm"
+              variant={modeTab === "job" ? "default" : "ghost"}
+              onClick={() => setModeTab("job")}
+            >
+              Job scans
+            </Button>
+            <Button
+              size="sm"
+              variant={modeTab === "archive" ? "default" : "ghost"}
+              onClick={() => setModeTab("archive")}
+            >
+              Archive scans
+            </Button>
+          </div>
           <Button
             size="sm"
             variant={filter === "pending" ? "default" : "outline"}
@@ -313,6 +329,7 @@ export default function PaperScanQueue() {
             All (last 200)
           </Button>
         </div>
+
 
         <Card>
           {loading ? (
