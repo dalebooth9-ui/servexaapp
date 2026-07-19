@@ -515,7 +515,7 @@ export async function generateRamsPdf(
   }
   ry += rowGap;
   if (scopeParts) ry += rowGap;
-  if (engineerNames && engineerNames !== "Viva Fire Operatives") {
+  if (engineerNames && engineerNames !== operativesDefault) {
     const engLines = doc.splitTextToSize(engineerNames, CONTENT_W - 3 - 52);
     ry += Math.max(rowGap, engLines.length * (9 * 0.352778 + 1.2));
   }
@@ -558,7 +558,7 @@ export async function generateRamsPdf(
   if (scopeParts) {
     labelValue(doc, "Service Scope:", scopeParts, ML + 3, ry2); ry2 += rowGap;
   }
-  if (engineerNames && engineerNames !== "Viva Fire Operatives") {
+  if (engineerNames && engineerNames !== operativesDefault) {
     doc.setFont("helvetica", "bold"); doc.setFontSize(9);
     doc.text("Assigned Engineers:", ML + 3, ry2);
     doc.setFont("helvetica", "normal");
