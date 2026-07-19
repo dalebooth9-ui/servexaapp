@@ -376,9 +376,11 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         } catch { /* use default colour */ }
       }
       const accentColor = (isDryRiser ? DRY_RISER_LAYOUT.header.brandBlueRgb : getBrandColorFromLogo(brandLogoImg, !!customerLogoUrl)) as [number, number, number];
-      const [watermarkSettings, accreditationLogoUrls] = await Promise.all([
+      const [watermarkSettings, accreditationLogoUrls, orgFallbackLogoUrl, orgWatermarkUrl] = await Promise.all([
         loadWatermarkSettings(),
         fetchCustomerAccreditationLogos(customerName),
+        getGeneratingOrgFallbackLogoUrl(),
+        getGeneratingOrgWatermarkUrl(),
       ]);
 
       const label = `BlankTemplatePdfWorker:${template.id || template.name}:${handfill ? "handfill" : "standard"}`;
@@ -392,6 +394,8 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         categoryName,
         accentColor,
         accreditationLogoUrls,
+        orgFallbackLogoUrl: orgFallbackLogoUrl || null,
+        orgWatermarkUrl,
         copiesOverride,
       });
       console.timeEnd(label);
