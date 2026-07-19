@@ -137,6 +137,13 @@ type WorkerPayload = {
   categoryName: string;
   accentColor: RgbTriple;
   accreditationLogoUrls: string[];
+  /** Generating-org fallback logo URL. Empty string when the org has no
+   * uploaded logo — the header falls back to text. NEVER hardcode a
+   * specific tenant's asset in this worker. */
+  orgFallbackLogoUrl: string | null;
+  /** Watermark URL for the generating org. Null → no watermark on this
+   * tenant's paperwork (only Viva ships a bundled flame). */
+  orgWatermarkUrl: string | null;
   /** When set, overrides the auto-derived number of System N of M copies. */
   copiesOverride?: number | null;
 };
@@ -148,13 +155,6 @@ type LoadedImage = {
   format: "PNG" | "JPEG";
   bitmap?: ImageBitmap;
 };
-
-const DEFAULT_LOGOS = [
-  "/accreditation/smas-logo.png",
-  "/accreditation/constructionline-logo.png",
-  "/accreditation/iso-9001-logo.jpg",
-  "/accreditation/bafe-logo.jpeg",
-];
 
 function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined): number {
   if (!jobInfo) return 1;
