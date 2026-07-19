@@ -203,6 +203,7 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
       ...COMMON_PLANT,
       "Pressure gauges (calibrated)",
       "Wet riser test equipment (hoses, flow meter, adaptors)",
+      "Pipe wrenches and valve keys",
     ],
     significantRisks: [
       "High pressure water", "Water discharge / flooding", "Working at height",
