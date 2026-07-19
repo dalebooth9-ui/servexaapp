@@ -418,6 +418,7 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
     personnel: "",
     plantAndEquipment: [
       ...COMMON_PLANT,
+      MULTIMETER,
       "Lux meter (calibrated)",
       "Replacement lamps, drivers, and batteries",
       "Emergency lighting test kit / inhibit key",
