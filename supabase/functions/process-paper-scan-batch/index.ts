@@ -17,7 +17,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const CHUNK_SIZE = 3;
+const CHUNK_SIZE = 1;
 const BUCKET = "submissions";
 const CONFIDENCE_READY_THRESHOLD = 0.7;
 
@@ -156,10 +156,20 @@ serve(async (req) => {
     });
   }
 
+  let batchId: string;
   try {
     const body = await req.json();
-    const batchId: string = body.batch_id;
+    batchId = body.batch_id;
     if (!batchId) throw new Error("batch_id required");
+  } catch (e: any) {
+    return new Response(
+      JSON.stringify({ error: e?.message || "bad request" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  const work = (async () => {
+    try {
 
     // Verify caller is admin in the batch's org
     const { data: batch } = await service
@@ -202,10 +212,7 @@ serve(async (req) => {
           .update({ status: "complete" })
           .eq("id", batchId);
       }
-      return new Response(
-        JSON.stringify({ ok: true, processed: 0, done: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return;
     }
 
     for (const item of items) {
@@ -395,19 +402,16 @@ serve(async (req) => {
         .update({ status: "complete" })
         .eq("id", batchId);
     }
+    } catch (e: any) {
+      console.error("process-paper-scan-batch bg error:", e);
+    }
+  })();
 
-    return new Response(
-      JSON.stringify({ ok: true, processed: items.length }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
-  } catch (e: any) {
-    console.error("process-paper-scan-batch error:", e);
-    return new Response(
-      JSON.stringify({ error: e?.message || "Unknown error" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
-  }
+  // @ts-ignore EdgeRuntime is provided by supabase edge runtime
+  try { EdgeRuntime.waitUntil(work); } catch { work.catch(() => {}); }
+
+  return new Response(
+    JSON.stringify({ ok: true, accepted: true }),
+    { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
 });
