@@ -515,6 +515,54 @@ export default function ArchiveReviewDialog({
                 />
               </div>
               <div className="space-y-1.5 md:col-span-2">
+                <Label>
+                  Technician signature{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (applies this engineer's stored profile signature to the
+                    electronic report — the scanned original bears their
+                    handwritten signature)
+                  </span>
+                </Label>
+                <Select
+                  value={technicianUserId || "__none__"}
+                  onValueChange={(v) =>
+                    setTechnicianUserId(v === "__none__" ? "" : v)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="No signature applied" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">
+                      No signature applied (leave blank)
+                    </SelectItem>
+                    {engineers.map((e) => (
+                      <SelectItem key={e.user_id} value={e.user_id}>
+                        {e.full_name}
+                        {!e.has_signature ? " — no stored signature" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {(() => {
+                  const rawTech = String(
+                    (item.header as any)?.engineer || "",
+                  ).trim();
+                  const chosen = engineers.find(
+                    (e) => e.user_id === technicianUserId,
+                  );
+                  if (!rawTech) return null;
+                  return (
+                    <p className="text-xs text-muted-foreground">
+                      Scan reads &quot;{rawTech}&quot;
+                      {chosen
+                        ? ` → matched to ${chosen.full_name}${chosen.has_signature ? "" : " (no signature on file)"}`
+                        : " → no engineer matched. Pick one to stamp their signature."}
+                    </p>
+                  );
+                })()}
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
                 <Label>Title</Label>
                 <Input
                   value={title}
