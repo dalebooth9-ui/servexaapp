@@ -53,7 +53,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { resolveSubmissionsSignedUrls, resolveSubmissionsSignedUrl } from "@/lib/resolveSubmissionsPath";
 import { useToast } from "@/hooks/use-toast";
 import { deleteArchivedDocument } from "@/lib/deleteArchivedDocument";
-import { convertArchivedDocument } from "@/lib/convertArchivedDocument";
+import {
+  archiveConversionQueue,
+  useArchiveConversionEntry,
+  useArchiveConversionSummary,
+} from "@/lib/archiveConversionQueue";
 
 type ArchivedDoc = {
   id: string;
@@ -194,33 +198,40 @@ export default function ArchivedDocuments() {
     });
   }, [docs, q, statusFilter, typeFilter, customerFilter, customers, sites]);
 
-  const handleConvert = async (d: ArchivedDoc) => {
-    setBusyId(d.id);
-    try {
-      const res = await convertArchivedDocument(d.id);
-      if (!res.ok) {
-        toast({
-          title: "Couldn't convert",
-          description: (res as { ok: false; reason: string }).reason,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Converted",
-          description: `Electronic report generated from ${res.templateName}.`,
-        });
-        await load();
+  // Reload the document list whenever the conversion queue reports a
+  // successful conversion, so newly-generated report_pdf_path values
+  // surface as "Electronic" chips without a manual refresh.
+  useEffect(() => {
+    let doneIds = new Set<string>();
+    const unsub = archiveConversionQueue.subscribe(() => {
+      const snap = archiveConversionQueue.snapshot();
+      const nowDone = snap.filter((e) => e.state === "done").map((e) => e.id);
+      const newlyDone = nowDone.filter((id) => !doneIds.has(id));
+      if (newlyDone.length > 0) {
+        doneIds = new Set(nowDone);
+        load();
+        // Drop them out of the queue so the chip disappears once the
+        // reloaded row shows the real "Electronic" state.
+        for (const id of newlyDone) archiveConversionQueue.clear(id);
       }
-    } catch (e: any) {
-      toast({
-        title: "Convert failed",
-        description: e?.message,
-        variant: "destructive",
-      });
-    } finally {
-      setBusyId(null);
-    }
+    });
+    return unsub;
+  }, []);
+
+  const handleConvert = (d: ArchivedDoc) => {
+    archiveConversionQueue.enqueue([d.id]);
   };
+
+  const convertibleIds = useMemo(
+    () =>
+      filtered
+        .filter((d) => !d.report_pdf_path && d.file_paths?.length > 0)
+        .map((d) => d.id),
+    [filtered],
+  );
+  const [confirmBulk, setConfirmBulk] = useState(false);
+
+  const summary = useArchiveConversionSummary();
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
@@ -306,7 +317,71 @@ export default function ArchivedDocuments() {
               ))}
             </SelectContent>
           </Select>
+          <div className="ml-auto flex items-center gap-2">
+            {(summary.queued > 0 || summary.converting > 0 || summary.failed > 0) && (
+              <span className="text-xs text-muted-foreground">
+                {summary.converting > 0 && (
+                  <>
+                    <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
+                    {summary.converting} converting
+                  </>
+                )}
+                {summary.queued > 0 && (
+                  <span className="ml-2">{summary.queued} queued</span>
+                )}
+                {summary.failed > 0 && (
+                  <span className="ml-2 text-destructive">
+                    {summary.failed} failed
+                  </span>
+                )}
+              </span>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setConfirmBulk(true)}
+              disabled={convertibleIds.length === 0}
+              title="Queue every scan-only row in the current filter for AI conversion"
+            >
+              <Wand2 className="mr-1.5 h-3.5 w-3.5" />
+              Convert all scan-only ({convertibleIds.length})
+            </Button>
+          </div>
         </Card>
+
+        <AlertDialog open={confirmBulk} onOpenChange={setConfirmBulk}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Queue {convertibleIds.length} conversion
+                {convertibleIds.length === 1 ? "" : "s"}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Each scan-only document will be classified against a matching
+                template, its handwritten answers extracted, and a filled
+                electronic report generated. Conversions run 2 at a time in
+                the background — you can keep browsing while they finish.
+                Failed rows keep their Retry button.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  archiveConversionQueue.enqueue(convertibleIds);
+                  setConfirmBulk(false);
+                  toast({
+                    title: `Queued ${convertibleIds.length} conversion${convertibleIds.length === 1 ? "" : "s"}`,
+                    description: "Running 2 at a time in the background.",
+                  });
+                }}
+              >
+                Queue conversions
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
 
         <Card>
           {loading ? (
@@ -378,21 +453,7 @@ export default function ArchivedDocuments() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           {canConvert && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleConvert(d)}
-                              disabled={busyId === d.id}
-                              title="Run AI extraction and generate a filled electronic report"
-                            >
-                              {busyId === d.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <>
-                                  <Wand2 className="mr-1 h-3.5 w-3.5" /> Convert
-                                </>
-                              )}
-                            </Button>
+                            <ConvertCell doc={d} onConvert={handleConvert} />
                           )}
                           <Button
                             size="sm"
@@ -567,3 +628,56 @@ export default function ArchivedDocuments() {
     </AppLayout>
   );
 }
+
+/**
+ * Per-row convert cell — subscribes to the shared conversion queue so its
+ * chip updates whether the enqueue was triggered from this button, the
+ * bulk action, or a background refresh-resume.
+ */
+function ConvertCell({
+  doc,
+  onConvert,
+}: {
+  doc: ArchivedDoc;
+  onConvert: (d: ArchivedDoc) => void;
+}) {
+  const entry = useArchiveConversionEntry(doc.id);
+  if (entry?.state === "queued") {
+    return (
+      <Badge variant="outline" className="gap-1 h-7 px-2">
+        <Loader2 className="h-3 w-3 animate-spin" /> Queued
+      </Badge>
+    );
+  }
+  if (entry?.state === "converting") {
+    return (
+      <Badge variant="secondary" className="gap-1 h-7 px-2">
+        <Loader2 className="h-3 w-3 animate-spin" /> Converting…
+      </Badge>
+    );
+  }
+  if (entry?.state === "failed") {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => onConvert(doc)}
+        title={entry.reason || "Conversion failed"}
+        className="text-destructive border-destructive/40 hover:text-destructive"
+      >
+        <AlertTriangle className="mr-1 h-3.5 w-3.5" /> Retry
+      </Button>
+    );
+  }
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={() => onConvert(doc)}
+      title="Run AI extraction and generate a filled electronic report"
+    >
+      <Wand2 className="mr-1 h-3.5 w-3.5" /> Convert
+    </Button>
+  );
+}
+
