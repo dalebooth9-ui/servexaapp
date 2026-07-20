@@ -32,6 +32,13 @@ export type ArchiveScanConfirmInput = {
    * electronic PDF report is rendered and attached.
    */
   templateFields?: any[] | null;
+  /**
+   * Full name of the org engineer whose stored profile signature should be
+   * stamped as the technician signature on the generated electronic report.
+   * Set when the office confirms (via the review dialog) that the scanned
+   * original bears this engineer's handwritten signature.
+   */
+  technicianName?: string | null;
 };
 
 export async function archiveScanConfirm(
