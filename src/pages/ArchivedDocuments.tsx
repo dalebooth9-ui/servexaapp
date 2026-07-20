@@ -147,7 +147,7 @@ export default function ArchivedDocuments() {
         .toLowerCase();
       return hay.includes(term);
     });
-  }, [docs, q, statusFilter, typeFilter, customers, sites]);
+  }, [docs, q, statusFilter, typeFilter, customerFilter, customers, sites]);
 
   if (!isAdmin) {
     return (
