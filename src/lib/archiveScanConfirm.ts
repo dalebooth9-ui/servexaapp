@@ -62,7 +62,19 @@ export async function archiveScanConfirm(
     storagePhotoPaths,
     status = "filed",
     templateFields,
+    technicianName,
   } = input;
+
+  // Append an auditable trail to notes when a signature is being applied
+  // from an engineer's profile on the basis of the signed original scan.
+  const notesWithSigTrail = technicianName
+    ? [
+        notes,
+        `Technician signature applied from ${technicianName}'s employee profile on the basis of the signed original scan.`,
+      ]
+        .filter(Boolean)
+        .join("\n\n")
+    : notes;
 
   // 1. Copy the source scan pages into an archive-scoped folder so deleting
   //    the batch never orphans the filed document.
