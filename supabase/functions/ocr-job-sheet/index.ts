@@ -380,6 +380,7 @@ RULES:
 2. The template name "${templateName}" is for context only — NEVER use it as a field value.
 3. Only map values that actually appear in the extracted text. If a field has no data, OMIT it.
 4. HEADER vs SIGNATURE BLOCK: "Customer:" in HEADER = COMPANY name. "Customer:" in SIGNATURE BLOCK = PERSON's name.
+4b. LETTERHEAD / PAPERWORK OWNER: The company whose LOGO or NAME appears at the very TOP of the sheet (the letterhead / branding block) is the paperwork_owner_company — put it in header.paperwork_owner_company. This is often DIFFERENT from the 'Customer:' field. On subcontractor jobs the details box may only contain a site address and NO customer name — that is expected; leave header.customer blank in that case rather than guessing.
 5. SITE ADDRESS: Look for "Site:", "Site Address:", "Address:", "Location:" in the text. Include the FULL address with street, town/city, and postcode. Do NOT omit any part of the address.
 6. YES/NO INTERPRETATION — be very flexible with how technicians mark answers:
    a) CIRCLING: If "YES" or "NO" is circled, looped, underlined, or highlighted → that is the answer. OCR may render circles as "$", "©", "()", or other artifacts — ignore those symbols and focus on which word is marked.
