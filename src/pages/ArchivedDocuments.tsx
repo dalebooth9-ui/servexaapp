@@ -453,21 +453,7 @@ export default function ArchivedDocuments() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           {canConvert && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleConvert(d)}
-                              disabled={busyId === d.id}
-                              title="Run AI extraction and generate a filled electronic report"
-                            >
-                              {busyId === d.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <>
-                                  <Wand2 className="mr-1 h-3.5 w-3.5" /> Convert
-                                </>
-                              )}
-                            </Button>
+                            <ConvertCell doc={d} onConvert={handleConvert} />
                           )}
                           <Button
                             size="sm"
