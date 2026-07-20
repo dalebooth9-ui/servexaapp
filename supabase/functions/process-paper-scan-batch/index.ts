@@ -17,7 +17,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const CHUNK_SIZE = 3;
+const CHUNK_SIZE = 1;
 const BUCKET = "submissions";
 const CONFIDENCE_READY_THRESHOLD = 0.7;
 
