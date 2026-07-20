@@ -61,7 +61,9 @@ export async function createScanBatchFromSheets(params: {
         contentType: f.type || "image/jpeg",
       });
     if (upErr) throw upErr;
-    uploadedPaths.push(rel);
+    // Persist the FULL storage path (org-prefixed) so downstream readers
+    // don't have to guess where the object lives.
+    uploadedPaths.push(fullPath);
   }
 
   // 3. Create one item per detected sheet, referencing its page paths.

@@ -303,14 +303,15 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
             p.file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ||
             "jpg";
           const path = `paper-batches/${bId}/form-${gi + 1}-page-${pi + 1}-${Date.now()}.${ext}`;
+          const fullPath = await buildOrgPathAsync(path);
           const { error: upErr } = await supabase.storage
             .from("submissions")
-            .upload(await buildOrgPathAsync(path), p.file, {
+            .upload(fullPath, p.file, {
               upsert: true,
               contentType: p.file.type || "image/jpeg",
             });
           if (upErr) throw upErr;
-          paths.push(path);
+          paths.push(fullPath);
         }
         itemRows.push({ batch_id: bId, org_id: orgId, image_paths: paths, mode });
       }
