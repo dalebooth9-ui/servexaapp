@@ -8,6 +8,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { generateJobSheetPdf } from "@/components/JobSheetPdfExport";
+import { cropSignatureFromScan } from "@/lib/archiveSignatureCrop";
 
 export type ArchivePdfInput = {
   archivedId: string;
@@ -20,6 +21,20 @@ export type ArchivePdfInput = {
     branding?: any;
   };
   responses: Record<string, any>;
+  /**
+   * Header metadata extracted by the OCR pass (paperwork_owner_company,
+   * riser_location, number_of_outlets, cabinet_keys, date, po_ref,
+   * engineer, customer_signed_name, customer_sign_date, and the signature
+   * bounding boxes). Seeded into responses so header fields render on the
+   * electronic report.
+   */
+  header?: Record<string, any> | null;
+  /**
+   * Source scan page paths (submissions bucket) — used to crop the customer
+   * / engineer signature regions from the original scan so the electronic
+   * report carries across the real ink instead of dropping the signature.
+   */
+  sourcePaths?: string[] | null;
   customerId: string | null;
   siteId: string | null;
   documentDate: string | null; // yyyy-mm-dd
@@ -33,11 +48,68 @@ export type ArchivePdfInput = {
   technicianName?: string | null;
 };
 
+// Well-known header keys → label fragments used on printed sheets. When any
+// template field's label matches a fragment, we seed the field with the
+// header value so the electronic render fills that row.
+const HEADER_FIELD_ALIASES: Array<{ headerKey: string; labelFragments: string[] }> = [
+  { headerKey: "riser_location", labelFragments: ["riser location", "location of riser"] },
+  { headerKey: "number_of_outlets", labelFragments: ["number of outlets", "no of outlets", "no. of outlets", "outlets"] },
+  { headerKey: "cabinet_keys", labelFragments: ["cabinet keys", "keys held", "key holder"] },
+  { headerKey: "po_ref", labelFragments: ["po number", "p.o. number", "purchase order", "reference number", "ref no", "job ref"] },
+  { headerKey: "date", labelFragments: ["date"] },
+];
+
+function labelMatches(label: string, fragments: string[]): boolean {
+  const l = label.toLowerCase();
+  return fragments.some((f) => l.includes(f));
+}
+
+function seedHeaderIntoResponses(
+  responses: Record<string, any>,
+  header: Record<string, any> | null | undefined,
+  fields: any[],
+): Record<string, any> {
+  if (!header) return responses;
+  const next = { ...responses };
+  // Top-level aliases the PDF generator already reads directly.
+  if (header.customer_signed_name && !next._customer_signed_name) {
+    next._customer_signed_name = header.customer_signed_name;
+  }
+  if (header.customer_sign_date && !next._customer_sign_date) {
+    next._customer_sign_date = header.customer_sign_date;
+  }
+  if (header.number_of_outlets != null && !next._number_of_outlets) {
+    next._number_of_outlets = header.number_of_outlets;
+  }
+  // Map header values onto template field ids by label match.
+  for (const alias of HEADER_FIELD_ALIASES) {
+    const val = header[alias.headerKey];
+    if (val == null || val === "") continue;
+    for (const f of fields) {
+      if (!f?.label) continue;
+      if (!labelMatches(String(f.label), alias.labelFragments)) continue;
+      if (next[f.id] === undefined || next[f.id] === null || next[f.id] === "") {
+        next[f.id] = val;
+      }
+    }
+  }
+  return next;
+}
+
 export async function generateAndUploadArchivePdf(
   input: ArchivePdfInput,
 ): Promise<{ path: string }> {
-  const { archivedId, template, responses, customerId, siteId, documentDate, technicianName } =
-    input;
+  const {
+    archivedId,
+    template,
+    responses,
+    header,
+    sourcePaths,
+    customerId,
+    siteId,
+    documentDate,
+    technicianName,
+  } = input;
 
   // Hydrate the same shape a job PDF would receive.
   let customer: any = null;
@@ -73,7 +145,14 @@ export async function generateAndUploadArchivePdf(
     site: site ? { name: site.name, address: site.address } : null,
   } as any;
 
-  const responsesWithDate = { ...responses };
+  // Seed header extractions into responses so riser location, outlet count,
+  // cabinet keys, PO ref, date, etc. render on the electronic report.
+  let responsesWithDate = seedHeaderIntoResponses(
+    { ...responses },
+    header,
+    Array.isArray(template.fields) ? template.fields : [],
+  );
+
   if (documentDate && !responsesWithDate.date) {
     // format as dd/mm/yyyy for the header renderer's fallback picker
     const m = documentDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -84,6 +163,51 @@ export async function generateAndUploadArchivePdf(
   // has no explicit "technician name" field.
   if (technicianName && !responsesWithDate.technician_name) {
     responsesWithDate.technician_name = technicianName;
+  }
+
+  // Crop signature regions from the source scan so the real customer /
+  // engineer ink carries across to the electronic report. Policy: never
+  // fabricate — only carry across when the OCR pass returned a bbox
+  // pointing at an actual signature on the scan.
+  const sigImages: Record<string, HTMLImageElement> = {};
+  let customerSig: any = undefined;
+  let engineerSigOverride: any = undefined;
+  let customerSourceNote: string | null = null;
+  let technicianSourceNote: string | null = null;
+
+  const paths = Array.isArray(sourcePaths) ? sourcePaths : [];
+  if (paths.length > 0 && header) {
+    if (header.customer_signature_bbox) {
+      const img = await cropSignatureFromScan(paths, header.customer_signature_bbox);
+      if (img) {
+        const id = `archive-cust-${archivedId}`;
+        sigImages[id] = img;
+        customerSig = {
+          id,
+          signer_name: header.customer_signed_name || "",
+          signer_role: "customer",
+          signer_position: null,
+        };
+        customerSourceNote = "Signature carried from original scan";
+      }
+    }
+    // Only crop the engineer signature from the scan when we DON'T have a
+    // profile signature to apply — otherwise the shared generator's
+    // profile-signature stamping wins (correct provenance).
+    if (!technicianName && header.engineer_signature_bbox) {
+      const img = await cropSignatureFromScan(paths, header.engineer_signature_bbox);
+      if (img) {
+        const id = `archive-eng-${archivedId}`;
+        sigImages[id] = img;
+        engineerSigOverride = {
+          id,
+          signer_name: header.engineer || "",
+          signer_role: "engineer",
+          signer_position: null,
+        };
+        technicianSourceNote = "Signature carried from original scan";
+      }
+    }
   }
 
   // Non-UUID jobId => generator skips DB-driven signature / assignment / job
@@ -100,6 +224,15 @@ export async function generateAndUploadArchivePdf(
     technicianName || undefined,
     documentDate || null,
     undefined,
+    (customerSig || engineerSigOverride)
+      ? {
+          customerSig,
+          engineerSig: engineerSigOverride,
+          sigImages,
+          customerSourceNote,
+          technicianSourceNote,
+        }
+      : undefined,
   );
 
   const bin = atob(base64);
