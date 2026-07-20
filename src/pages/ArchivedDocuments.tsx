@@ -27,9 +27,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Archive, ScanLine, Loader2 } from "lucide-react";
+import { Archive, ScanLine, Loader2, AlertTriangle } from "lucide-react";
 import ArchiveScanDialog from "@/components/paper-scan/ArchiveScanDialog";
 import { useAuth } from "@/hooks/useAuth";
+import { resolveSubmissionsSignedUrls } from "@/lib/resolveSubmissionsPath";
 
 type ArchivedDoc = {
   id: string;
@@ -64,6 +65,8 @@ export default function ArchivedDocuments() {
   const [scanOpen, setScanOpen] = useState(false);
   const [openDoc, setOpenDoc] = useState<ArchivedDoc | null>(null);
   const [openUrls, setOpenUrls] = useState<string[]>([]);
+  const [openFailed, setOpenFailed] = useState<string[]>([]);
+  const [openLoading, setOpenLoading] = useState(false);
 
   const isAdmin = userRole === "admin";
 
@@ -110,14 +113,20 @@ export default function ArchivedDocuments() {
 
   const openView = async (d: ArchivedDoc) => {
     setOpenDoc(d);
-    const urls: string[] = [];
-    for (const p of d.file_paths || []) {
-      const { data } = await supabase.storage
-        .from("submissions")
-        .createSignedUrl(p, 60 * 60);
-      if (data?.signedUrl) urls.push(data.signedUrl);
+    setOpenUrls([]);
+    setOpenFailed([]);
+    setOpenLoading(true);
+    const { urls, failed } = await resolveSubmissionsSignedUrls(d.file_paths);
+    if (failed.length) {
+      console.error(
+        "[archive] unresolved page paths for doc",
+        d.id,
+        failed,
+      );
     }
-    setOpenUrls(urls);
+    setOpenUrls(urls.map((u) => u.signedUrl));
+    setOpenFailed(failed);
+    setOpenLoading(false);
   };
 
   const types = useMemo(() => {
@@ -294,6 +303,7 @@ export default function ArchivedDocuments() {
           if (!o) {
             setOpenDoc(null);
             setOpenUrls([]);
+            setOpenFailed([]);
             if (params.get("doc")) {
               params.delete("doc");
               setParams(params, { replace: true });
@@ -318,6 +328,25 @@ export default function ArchivedDocuments() {
                 <p className="text-sm whitespace-pre-line">{openDoc.notes}</p>
               )}
               <div className="space-y-2">
+                {openLoading && (
+                  <div className="py-6 text-center text-sm text-muted-foreground">
+                    <Loader2 className="mx-auto h-4 w-4 animate-spin mb-1" />
+                    Loading pages…
+                  </div>
+                )}
+                {!openLoading && openUrls.length === 0 && (
+                  <div className="rounded border border-amber-300 bg-amber-50 text-amber-900 text-sm p-3 flex gap-2">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <div>
+                      <div className="font-medium">Pages unavailable</div>
+                      <div className="text-xs mt-1">
+                        {openDoc.file_paths?.length
+                          ? `Couldn't load ${openFailed.length} page${openFailed.length === 1 ? "" : "s"} from storage. The file may have been moved or deleted.`
+                          : "This archived document has no page images attached."}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {openUrls.map((u, i) => (
                   <img
                     key={i}
@@ -326,6 +355,12 @@ export default function ArchivedDocuments() {
                     className="w-full rounded border"
                   />
                 ))}
+                {!openLoading && openFailed.length > 0 && openUrls.length > 0 && (
+                  <p className="text-xs text-amber-700">
+                    {openFailed.length} page
+                    {openFailed.length === 1 ? "" : "s"} could not be loaded.
+                  </p>
+                )}
               </div>
             </div>
           )}

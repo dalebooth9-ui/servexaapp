@@ -2,6 +2,7 @@
 // NO visit, NO planner entry. Used by the digitise-only "Archive scan" flow.
 import { supabase } from "@/integrations/supabase/client";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { resolveSubmissionsSignedUrl } from "@/lib/resolveSubmissionsPath";
 
 export type ArchiveScanConfirmInput = {
   userId: string;
@@ -49,7 +50,11 @@ export async function archiveScanConfirm(
   const destPaths: string[] = [];
   const stamp = Date.now();
   for (let i = 0; i < storagePhotoPaths.length; i++) {
-    const src = storagePhotoPaths[i];
+    const rawSrc = storagePhotoPaths[i];
+    // Resolve the real object path first — legacy batch items may have stored
+    // an un-prefixed path while the physical object lives under <orgId>/...
+    const resolved = await resolveSubmissionsSignedUrl(rawSrc);
+    const src = resolved?.path || rawSrc;
     const ext =
       src.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
     const relDest = `archive/${orgId}/${stamp}-${itemId}-page-${i + 1}.${ext}`;
@@ -58,7 +63,8 @@ export async function archiveScanConfirm(
       .from("submissions")
       .copy(src, dest);
     if (copyErr) {
-      // Fall back: keep the source path so the archive row still shows it.
+      // Fall back: keep the RESOLVED source path (verified readable) so the
+      // archive row always previews, even if copy fails.
       console.error("archive copy failed", src, copyErr);
       destPaths.push(src);
     } else {

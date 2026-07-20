@@ -12,7 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Archive, ExternalLink, FileText, Loader2 } from "lucide-react";
+import { Archive, ExternalLink, FileText, Loader2, AlertTriangle } from "lucide-react";
+import { resolveSubmissionsSignedUrls } from "@/lib/resolveSubmissionsPath";
 
 type ArchivedDoc = {
   id: string;
@@ -40,6 +41,8 @@ export default function CustomerArchivedDocumentsCard({ customerId }: Props) {
   const [q, setQ] = useState("");
   const [openDoc, setOpenDoc] = useState<ArchivedDoc | null>(null);
   const [openUrls, setOpenUrls] = useState<string[]>([]);
+  const [openFailed, setOpenFailed] = useState<string[]>([]);
+  const [openLoading, setOpenLoading] = useState(false);
 
   useEffect(() => {
     if (!isAdmin || !customerId) {
@@ -82,14 +85,16 @@ export default function CustomerArchivedDocumentsCard({ customerId }: Props) {
 
   const openView = async (d: ArchivedDoc) => {
     setOpenDoc(d);
-    const urls: string[] = [];
-    for (const p of d.file_paths || []) {
-      const { data } = await supabase.storage
-        .from("submissions")
-        .createSignedUrl(p, 60 * 60);
-      if (data?.signedUrl) urls.push(data.signedUrl);
+    setOpenUrls([]);
+    setOpenFailed([]);
+    setOpenLoading(true);
+    const { urls, failed } = await resolveSubmissionsSignedUrls(d.file_paths);
+    if (failed.length) {
+      console.error("[archive-card] unresolved pages", d.id, failed);
     }
-    setOpenUrls(urls);
+    setOpenUrls(urls.map((u) => u.signedUrl));
+    setOpenFailed(failed);
+    setOpenLoading(false);
   };
 
   if (!isAdmin) return null;
@@ -180,6 +185,7 @@ export default function CustomerArchivedDocumentsCard({ customerId }: Props) {
           if (!o) {
             setOpenDoc(null);
             setOpenUrls([]);
+            setOpenFailed([]);
           }
         }}
       >
@@ -200,6 +206,25 @@ export default function CustomerArchivedDocumentsCard({ customerId }: Props) {
                 <p className="text-sm whitespace-pre-line">{openDoc.notes}</p>
               )}
               <div className="space-y-2">
+                {openLoading && (
+                  <div className="py-6 text-center text-sm text-muted-foreground">
+                    <Loader2 className="mx-auto h-4 w-4 animate-spin mb-1" />
+                    Loading pages…
+                  </div>
+                )}
+                {!openLoading && openUrls.length === 0 && (
+                  <div className="rounded border border-amber-300 bg-amber-50 text-amber-900 text-sm p-3 flex gap-2">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <div>
+                      <div className="font-medium">Pages unavailable</div>
+                      <div className="text-xs mt-1">
+                        {openDoc.file_paths?.length
+                          ? `Couldn't load ${openFailed.length} page${openFailed.length === 1 ? "" : "s"} from storage.`
+                          : "This archived document has no page images attached."}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {openUrls.map((u, i) => (
                   <img
                     key={i}
