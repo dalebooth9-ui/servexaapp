@@ -113,7 +113,7 @@ serve(async (req) => {
     }
 
     // Add a small selection of "core" articles so cross-topic questions still work.
-    const coreSlugs = ["dashboard", "jobs", "jobs.create", "planner", "settings"];
+    const coreSlugs = ["dashboard", "jobs", "jobs.create", "planner", "settings", "archive", "billing"];
     const { data: core } = await supabaseSvc.from("help_articles").select("*").in("slug", coreSlugs);
 
     const seen = new Set<string>();

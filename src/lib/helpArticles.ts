@@ -48,6 +48,8 @@ const RULES: SlugRule[] = [
   { test: (p) => p.startsWith("/fire-log/"), slug: "fire-log" },
   { test: (p) => p === "/sign-off", slug: "sign-off" },
   { test: (p) => p === "/admin/support-tickets", slug: "support-tickets" },
+  { test: (p) => p === "/archive" || p.startsWith("/archive/"), slug: "archive" },
+  { test: (p) => p === "/billing", slug: "billing" },
 ];
 
 export function resolveHelpSlug(pathname: string): string | null {
