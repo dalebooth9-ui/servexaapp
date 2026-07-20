@@ -22,7 +22,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
+  RotateCw,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import ScanCompletedJobDialog, {
   type QueueItemInput,
 } from "@/components/ScanCompletedJobDialog";
