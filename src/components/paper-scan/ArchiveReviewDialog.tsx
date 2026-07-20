@@ -36,6 +36,12 @@ import CustomerCombobox, {
 import SiteCombobox, { type SiteOption } from "@/components/SiteCombobox";
 import { archiveScanConfirm } from "@/lib/archiveScanConfirm";
 import { fuzzyMatchEngineer } from "@/lib/fuzzyEngineerMatch";
+import {
+  proposeDefectsFromExtraction,
+  createArchiveSourcedDefects,
+  type ProposedDefect,
+} from "@/lib/proposeArchiveDefects";
+import ProposedDefectsSection from "@/components/paper-scan/ProposedDefectsSection";
 
 // A single queue item filed as a standalone archived document (no job).
 export type ArchiveQueueItemInput = {
