@@ -551,19 +551,25 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Mobile header */}
         <header className="flex h-14 items-center border-b bg-gradient-to-r from-[hsl(213,51%,16%)] to-[hsl(213,51%,20%)] px-4 lg:hidden shadow-sm">
-          <button onClick={() => setMobileOpen(true)} className="text-white">
+          <button onClick={() => setMobileOpen(true)} className="text-white" aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
-          <img src={servexaLogo} alt="Servexa logo" className="ml-3 h-7 w-auto object-contain" />
+          <BackButton tone="dark" className="ml-2" />
+          <img src={servexaLogo} alt="Servexa logo" className="ml-auto h-7 w-auto object-contain" />
         </header>
         {/* Top accent bar on desktop — gives the content area a branded edge */}
         <div className="hidden lg:block h-0.5 w-full bg-gradient-to-r from-[hsl(25,95%,53%)] via-[hsl(213,51%,35%)] to-transparent shrink-0" />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[hsl(210,22%,96%)]">
+          {/* Desktop back affordance — sits above content so page titles are undisturbed. */}
+          <div className="hidden lg:block -mt-1 mb-2">
+            <BackButton />
+          </div>
           <PlanBandBanner />
           <SubscriptionActivationBanner />
           {userRole === "admin" && <SetupSpotlightBanner />}
           {children}
         </main>
+
       </div>
       {userRole === "admin" && <CommandPalette />}
       {userRole === "admin" && <div data-tour="ai-help"><AiHelpWizard /></div>}
