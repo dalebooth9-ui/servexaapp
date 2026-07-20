@@ -92,9 +92,31 @@ export default function PaperScanQueue() {
   const [openArchiveItem, setOpenArchiveItem] =
     useState<ArchiveQueueItemInput | null>(null);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  const [retrying, setRetrying] = useState<Record<string, boolean>>({});
+  const { toast } = useToast();
 
 
   const isAdmin = userRole === "admin";
+
+  const retryItem = useCallback(async (item: Item) => {
+    setRetrying((r) => ({ ...r, [item.id]: true }));
+    try {
+      const { error } = await (supabase as any)
+        .from("paper_scan_batch_items")
+        .update({ status: "pending", error: null })
+        .eq("id", item.id);
+      if (error) throw error;
+      await supabase.functions.invoke("process-paper-scan-batch", {
+        body: { batch_id: item.batch_id },
+      });
+      toast({ title: "Retrying", description: "The item is being reprocessed." });
+    } catch (e: any) {
+      toast({ title: "Retry failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setRetrying((r) => ({ ...r, [item.id]: false }));
+    }
+  }, [toast]);
+
 
   const load = useCallback(async () => {
     setLoading(true);
