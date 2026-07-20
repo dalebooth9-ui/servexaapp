@@ -18,6 +18,7 @@
 // gets re-queued on return — the archived_documents row stays in its
 // pre-convert state so a retry is safe and idempotent.
 import { convertArchivedDocument } from "@/lib/convertArchivedDocument";
+import type { ProposedDefect } from "@/lib/proposeArchiveDefects";
 
 export type QueueState = "queued" | "converting" | "done" | "failed";
 
@@ -28,6 +29,11 @@ export interface QueueEntry {
   reason?: string;
   /** Template name populated after successful convert. */
   templateName?: string;
+  /** Defect proposals surfaced for office review after a successful convert. */
+  proposedDefects?: ProposedDefect[];
+  customerId?: string | null;
+  siteId?: string | null;
+  documentDate?: string | null;
 }
 
 const STORAGE_KEY = "servexa:archiveConversionQueue:v1";
@@ -152,6 +158,10 @@ class ArchiveConversionQueue {
         entry.state = "done";
         entry.templateName = res.templateName;
         entry.reason = undefined;
+        entry.proposedDefects = res.proposedDefects;
+        entry.customerId = res.customerId;
+        entry.siteId = res.siteId;
+        entry.documentDate = res.documentDate;
       } else {
         entry.state = "failed";
         entry.reason = (res as { ok: false; reason: string }).reason;

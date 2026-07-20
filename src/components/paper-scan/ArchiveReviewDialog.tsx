@@ -36,6 +36,15 @@ import CustomerCombobox, {
 import SiteCombobox, { type SiteOption } from "@/components/SiteCombobox";
 import { archiveScanConfirm } from "@/lib/archiveScanConfirm";
 import { fuzzyMatchEngineer } from "@/lib/fuzzyEngineerMatch";
+import {
+  proposeDefectsFromExtraction,
+  createArchiveSourcedDefects,
+  type ProposedDefect,
+} from "@/lib/proposeArchiveDefects";
+import ProposedDefectsSection from "@/components/paper-scan/ProposedDefectsSection";
+
+const createDefectSuffix = (n: number) =>
+  n > 0 ? ` · ${n} defect${n === 1 ? "" : "s"} logged` : "";
 
 // A single queue item filed as a standalone archived document (no job).
 export type ArchiveQueueItemInput = {
@@ -99,6 +108,11 @@ export default function ArchiveReviewDialog({
   >([]);
   const [technicianUserId, setTechnicianUserId] = useState<string>("");
 
+  // Proposed defects derived from the extracted answers. Office reviews the
+  // ticklist before anything is written to the defects table.
+  const [defectSelection, setDefectSelection] = useState<Record<string, boolean>>({});
+  const [defectOverrides, setDefectOverrides] = useState<Record<string, Partial<ProposedDefect>>>({});
+
   useEffect(() => {
     if (!open || !item) return;
     setCustomerId(item.guessCustomerId || "");
@@ -109,6 +123,8 @@ export default function ArchiveReviewDialog({
     setNotes("");
     setAnswers({ ...(item.extracted || {}) });
     setTemplateFields([]);
+    setDefectSelection({});
+    setDefectOverrides({});
   }, [open, item]);
 
   // Load full template fields for the editable answers panel
@@ -227,6 +243,15 @@ export default function ArchiveReviewDialog({
     }
     return Array.from(map.entries());
   }, [templateFields]);
+
+  const proposedDefects = useMemo(() => {
+    if (!item) return [] as ProposedDefect[];
+    return proposeDefectsFromExtraction(
+      templateFields as any,
+      answers,
+      (item.header || {}) as any,
+    );
+  }, [item, templateFields, answers]);
 
   const renderFieldInput = (field: TemplateField) => {
     const value = answers[field.id];
@@ -367,12 +392,43 @@ export default function ArchiveReviewDialog({
           return e && e.has_signature ? e.full_name : null;
         })(),
       });
+
+      // Create confirmed defect proposals AFTER the archive row exists,
+      // linked to it as source. Never linked to a job. Only when filed
+      // properly (not as "Unmatched") since defects need a customer/site.
+      let createdDefectCount = 0;
+      if (!asUnmatched && proposedDefects.length > 0 && (result as any).archivedId) {
+        const confirmed = proposedDefects
+          .filter((p) => defectSelection[p.key] !== false)
+          .map((p) => ({ ...p, ...(defectOverrides[p.key] || {}) }));
+        if (confirmed.length > 0) {
+          try {
+            const created = await createArchiveSourcedDefects({
+              userId: user.id,
+              archivedId: (result as any).archivedId,
+              customerId: customerId || null,
+              siteId: siteId || null,
+              documentDate: docDate || null,
+              templateName: title || item.templateName || null,
+              proposals: confirmed,
+            });
+            createdDefectCount = created.length;
+          } catch (defectErr: any) {
+            console.error("[archive] defect create failed", defectErr);
+            toast({
+              title: "Filed, but defects failed",
+              description: defectErr?.message || "Defects couldn't be created — open them from the Defects page.",
+              variant: "destructive",
+            });
+          }
+        }
+      }
       toast({
         title: asUnmatched
           ? "Filed as Unmatched"
           : result.reportPdfPath
-            ? "Filed with electronic report"
-            : "Filed to archive (scan only)",
+            ? `Filed with electronic report${createDefectSuffix(createdDefectCount)}`
+            : `Filed to archive (scan only)${createDefectSuffix(createdDefectCount)}`,
       });
       onResolved();
       onOpenChange(false);
@@ -585,6 +641,18 @@ export default function ArchiveReviewDialog({
                 />
               </div>
             </div>
+
+            {proposedDefects.length > 0 && (
+              <ProposedDefectsSection
+                proposals={proposedDefects}
+                selection={defectSelection}
+                onSelectionChange={setDefectSelection}
+                overrides={defectOverrides}
+                onOverridesChange={setDefectOverrides}
+              />
+            )}
+
+
 
             {hasTemplate && (
               <div className="rounded border bg-muted/30 p-3 space-y-3">

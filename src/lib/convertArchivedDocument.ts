@@ -38,8 +38,20 @@ async function pathToPayload(
   }
 }
 
+import { proposeDefectsFromExtraction, type ProposedDefect } from "@/lib/proposeArchiveDefects";
+
 export type ConvertResult =
-  | { ok: true; archivedId: string; reportPdfPath: string; templateName: string }
+  | {
+      ok: true;
+      archivedId: string;
+      reportPdfPath: string;
+      templateName: string;
+      /** Defect proposals derived from OCR — surfaced for office review. Never auto-created. */
+      proposedDefects: ProposedDefect[];
+      customerId: string | null;
+      siteId: string | null;
+      documentDate: string | null;
+    }
   | { ok: false; reason: string };
 
 export async function convertArchivedDocument(
@@ -176,10 +188,20 @@ export async function convertArchivedDocument(
     })
     .eq("id", archivedId);
 
+  const proposedDefects = proposeDefectsFromExtraction(
+    fields as any,
+    extracted as any,
+    (header || {}) as any,
+  );
+
   return {
     ok: true,
     archivedId,
     reportPdfPath: path,
     templateName: (tpl as any).name,
+    proposedDefects,
+    customerId: (doc as any).customer_id ?? null,
+    siteId: (doc as any).site_id ?? null,
+    documentDate: (doc as any).document_date ?? null,
   };
 }

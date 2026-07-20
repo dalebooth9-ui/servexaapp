@@ -42,6 +42,8 @@ type Defect = {
   resolution_notes: string | null;
   resolved_at: string | null;
   created_at: string;
+  source_kind?: string | null;
+  source_archived_document_id?: string | null;
 };
 
 const SEVERITY_BADGE: Record<string, string> = {
@@ -91,6 +93,9 @@ export default function Defects() {
   const [severityFilter, setSeverityFilter] = useState("all");
   const [quotedFilter, setQuotedFilter] = useState<"all" | "unquoted" | "quoted">(
     searchParams.get("filter") === "unquoted" ? "unquoted" : "all"
+  );
+  const [sourceFilter, setSourceFilter] = useState<"all" | "job" | "archive">(
+    searchParams.get("source") === "archive" ? "archive" : "all"
   );
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -292,6 +297,8 @@ export default function Defects() {
     if (severityFilter !== "all" && d.severity !== severityFilter) return false;
     if (quotedFilter === "unquoted" && d.quote_id) return false;
     if (quotedFilter === "quoted" && !d.quote_id) return false;
+    if (sourceFilter === "archive" && d.source_kind !== "archive") return false;
+    if (sourceFilter === "job" && d.source_kind === "archive") return false;
     if (search) {
       const s = search.toLowerCase();
       return d.title.toLowerCase().includes(s) || (d.description || "").toLowerCase().includes(s);
@@ -393,6 +400,14 @@ export default function Defects() {
             <SelectItem value="quoted">Quoted</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={sourceFilter} onValueChange={(v: any) => setSourceFilter(v)}>
+          <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Sources</SelectItem>
+            <SelectItem value="job">From jobs</SelectItem>
+            <SelectItem value="archive">From archive</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Table */}
@@ -428,6 +443,11 @@ export default function Defects() {
                       <p className="font-medium text-sm">{d.title}</p>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {d.category && <Badge variant="outline" className="text-[10px] capitalize">{d.category.replace("_", " ")}</Badge>}
+                        {d.source_kind === "archive" && (
+                          <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30" title="Raised from a historic archived report">
+                            From archive
+                          </Badge>
+                        )}
                         {d.location_on_site && <span className="text-[10px] text-muted-foreground">{d.location_on_site}</span>}
                       </div>
                       {d.description && <p className="text-xs text-muted-foreground line-clamp-1">{d.description}</p>}
