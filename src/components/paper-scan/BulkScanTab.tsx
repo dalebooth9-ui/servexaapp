@@ -57,9 +57,84 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
     if (pdfs.length > 0 && user) {
       setExpanding(true);
       try {
-        const { expandDropToPageFiles } = await import("@/lib/pdfToImages");
-        const pageFiles = await expandDropToPageFiles(pdfs);
-        if (pageFiles.length === 0) throw new Error("No pages could be rendered from the PDF.");
+        const { expandDropToPageFilesDetailed } = await import("@/lib/pdfToImages");
+        const rep = await expandDropToPageFilesDetailed(pdfs);
+        const pageFiles = rep.pages;
+
+        // Resolve org up-front — needed for both happy and fallback paths.
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("org_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        const orgId = (profile as any)?.org_id;
+        if (!orgId) throw new Error("Your account has no organisation.");
+
+        // Graceful degrade: if NOTHING rendered but we're in archive mode,
+        // file each un-splittable PDF as a single archived document instead
+        // of dead-ending the batch. Scanner-native formats (CCITT G4/JBIG2)
+        // frequently hit this path.
+        if (pageFiles.length === 0) {
+          console.error("[BulkScanTab] no pages rendered", {
+            unrenderable: rep.unrenderable.map((u) => ({
+              name: u.file.name,
+              size: u.file.size,
+              reason: u.reason,
+            })),
+            errors: rep.errors,
+          });
+
+          if (mode === "archive" && rep.unrenderable.length > 0) {
+            const filedIds: string[] = [];
+            for (const u of rep.unrenderable) {
+              const path = `paper-batches/unsplit/${Date.now()}-${u.file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+              const storagePath = await buildOrgPathAsync(path);
+              const { error: upErr } = await supabase.storage
+                .from("submissions")
+                .upload(storagePath, u.file, {
+                  upsert: true,
+                  contentType: "application/pdf",
+                });
+              if (upErr) throw upErr;
+              const { data: row, error: insErr } = await supabase
+                .from("archived_documents")
+                .insert({
+                  org_id: orgId,
+                  title: u.file.name.replace(/\.pdf$/i, ""),
+                  notes:
+                    `Filed as single PDF — could not split into individual sheets.\n` +
+                    `Reason: ${u.reason}`,
+                  file_paths: [path],
+                  page_count: 0,
+                  status: "unmatched",
+                  filed_by: user.id,
+                } as any)
+                .select("id")
+                .single();
+              if (insErr) throw insErr;
+              filedIds.push((row as any).id);
+            }
+            toast({
+              title: "Filed as single PDF",
+              description: `This scanner format couldn't be split page-by-page (likely CCITT G4 / JBIG2 fax compression). ${filedIds.length} file(s) filed to the archive as unmatched — open them from the archive to tag customer/site.`,
+            });
+            onClose();
+            navigate(`/archive?doc=${filedIds[0]}`);
+            return;
+          }
+
+          throw new Error(
+            "This scanner format isn't supported for auto-split (looks like CCITT G4 or JBIG2 fax compression). " +
+              "Try re-scanning as an 'image PDF' / colour PDF, or drop photos of each sheet instead.",
+          );
+        }
+
+        if (rep.unrenderable.length > 0) {
+          console.warn(
+            "[BulkScanTab] some PDFs partially failed",
+            rep.unrenderable.map((u) => `${u.file.name}: ${u.reason}`),
+          );
+        }
 
         // Ask the splitter to segment pages into sheets.
         const payloads = await Promise.all(
@@ -85,14 +160,6 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
         const sheets = Array.isArray(splitData?.sheets) ? splitData.sheets : [];
         if (sheets.length === 0) throw new Error("Couldn't detect any sheets.");
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("org_id")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        const orgId = (profile as any)?.org_id;
-        if (!orgId) throw new Error("Your account has no organisation.");
-
         const { createScanBatchFromSheets } = await import(
           "@/lib/createScanBatchFromSheets"
         );
@@ -113,9 +180,12 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
         return;
 
       } catch (e: any) {
+        console.error("[BulkScanTab] PDF split failed", e);
         toast({
           title: "PDF split failed",
-          description: e?.message,
+          description:
+            e?.message ||
+            "Something went wrong rendering this PDF. Try photos of each sheet, or re-scan as an image PDF.",
           variant: "destructive",
         });
       } finally {
