@@ -317,7 +317,71 @@ export default function ArchivedDocuments() {
               ))}
             </SelectContent>
           </Select>
+          <div className="ml-auto flex items-center gap-2">
+            {(summary.queued > 0 || summary.converting > 0 || summary.failed > 0) && (
+              <span className="text-xs text-muted-foreground">
+                {summary.converting > 0 && (
+                  <>
+                    <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
+                    {summary.converting} converting
+                  </>
+                )}
+                {summary.queued > 0 && (
+                  <span className="ml-2">{summary.queued} queued</span>
+                )}
+                {summary.failed > 0 && (
+                  <span className="ml-2 text-destructive">
+                    {summary.failed} failed
+                  </span>
+                )}
+              </span>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setConfirmBulk(true)}
+              disabled={convertibleIds.length === 0}
+              title="Queue every scan-only row in the current filter for AI conversion"
+            >
+              <Wand2 className="mr-1.5 h-3.5 w-3.5" />
+              Convert all scan-only ({convertibleIds.length})
+            </Button>
+          </div>
         </Card>
+
+        <AlertDialog open={confirmBulk} onOpenChange={setConfirmBulk}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Queue {convertibleIds.length} conversion
+                {convertibleIds.length === 1 ? "" : "s"}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Each scan-only document will be classified against a matching
+                template, its handwritten answers extracted, and a filled
+                electronic report generated. Conversions run 2 at a time in
+                the background — you can keep browsing while they finish.
+                Failed rows keep their Retry button.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  archiveConversionQueue.enqueue(convertibleIds);
+                  setConfirmBulk(false);
+                  toast({
+                    title: `Queued ${convertibleIds.length} conversion${convertibleIds.length === 1 ? "" : "s"}`,
+                    description: "Running 2 at a time in the background.",
+                  });
+                }}
+              >
+                Queue conversions
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
 
         <Card>
           {loading ? (
