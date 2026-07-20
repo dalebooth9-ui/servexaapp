@@ -400,6 +400,14 @@ export default function Defects() {
             <SelectItem value="quoted">Quoted</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={sourceFilter} onValueChange={(v: any) => setSourceFilter(v)}>
+          <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Sources</SelectItem>
+            <SelectItem value="job">From jobs</SelectItem>
+            <SelectItem value="archive">From archive</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Table */}
