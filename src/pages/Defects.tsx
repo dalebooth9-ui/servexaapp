@@ -443,6 +443,11 @@ export default function Defects() {
                       <p className="font-medium text-sm">{d.title}</p>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {d.category && <Badge variant="outline" className="text-[10px] capitalize">{d.category.replace("_", " ")}</Badge>}
+                        {d.source_kind === "archive" && (
+                          <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30" title="Raised from a historic archived report">
+                            From archive
+                          </Badge>
+                        )}
                         {d.location_on_site && <span className="text-[10px] text-muted-foreground">{d.location_on_site}</span>}
                       </div>
                       {d.description && <p className="text-xs text-muted-foreground line-clamp-1">{d.description}</p>}
