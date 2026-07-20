@@ -110,6 +110,7 @@ export type Database = {
           notes: string | null
           org_id: string
           page_count: number
+          report_pdf_path: string | null
           site_id: string | null
           source_batch_id: string | null
           source_item_id: string | null
@@ -133,6 +134,7 @@ export type Database = {
           notes?: string | null
           org_id: string
           page_count?: number
+          report_pdf_path?: string | null
           site_id?: string | null
           source_batch_id?: string | null
           source_item_id?: string | null
@@ -156,6 +158,7 @@ export type Database = {
           notes?: string | null
           org_id?: string
           page_count?: number
+          report_pdf_path?: string | null
           site_id?: string | null
           source_batch_id?: string | null
           source_item_id?: string | null

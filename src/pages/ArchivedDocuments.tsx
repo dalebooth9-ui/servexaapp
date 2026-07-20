@@ -27,10 +27,33 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Archive, ScanLine, Loader2, AlertTriangle } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Archive,
+  ScanLine,
+  Loader2,
+  AlertTriangle,
+  Trash2,
+  Wand2,
+  FileText,
+  Images,
+  Download,
+} from "lucide-react";
 import ArchiveScanDialog from "@/components/paper-scan/ArchiveScanDialog";
 import { useAuth } from "@/hooks/useAuth";
-import { resolveSubmissionsSignedUrls } from "@/lib/resolveSubmissionsPath";
+import { resolveSubmissionsSignedUrls, resolveSubmissionsSignedUrl } from "@/lib/resolveSubmissionsPath";
+import { useToast } from "@/hooks/use-toast";
+import { deleteArchivedDocument } from "@/lib/deleteArchivedDocument";
+import { convertArchivedDocument } from "@/lib/convertArchivedDocument";
 
 type ArchivedDoc = {
   id: string;
@@ -38,10 +61,12 @@ type ArchivedDoc = {
   site_id: string | null;
   document_date: string | null;
   document_type: string | null;
+  template_id: string | null;
   template_name: string | null;
   title: string | null;
   notes: string | null;
   file_paths: string[];
+  report_pdf_path: string | null;
   page_count: number;
   status: "filed" | "unmatched";
   created_at: string;
@@ -50,6 +75,7 @@ type ArchivedDoc = {
 export default function ArchivedDocuments() {
   const [params, setParams] = useSearchParams();
   const { userRole } = useAuth();
+  const { toast } = useToast();
   const [docs, setDocs] = useState<ArchivedDoc[]>([]);
   const [customers, setCustomers] = useState<Record<string, string>>({});
   const [sites, setSites] = useState<Record<string, string>>({});
@@ -66,7 +92,11 @@ export default function ArchivedDocuments() {
   const [openDoc, setOpenDoc] = useState<ArchivedDoc | null>(null);
   const [openUrls, setOpenUrls] = useState<string[]>([]);
   const [openFailed, setOpenFailed] = useState<string[]>([]);
+  const [openPdfUrl, setOpenPdfUrl] = useState<string | null>(null);
+  const [openView, setOpenView] = useState<"pdf" | "scan">("pdf");
   const [openLoading, setOpenLoading] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<ArchivedDoc | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const isAdmin = userRole === "admin";
 
@@ -75,7 +105,7 @@ export default function ArchivedDocuments() {
     const { data } = await (supabase as any)
       .from("archived_documents")
       .select(
-        "id, customer_id, site_id, document_date, document_type, template_name, title, notes, file_paths, page_count, status, created_at",
+        "id, customer_id, site_id, document_date, document_type, template_id, template_name, title, notes, file_paths, report_pdf_path, page_count, status, created_at",
       )
       .order("document_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
@@ -106,16 +136,22 @@ export default function ArchivedDocuments() {
     const docId = params.get("doc");
     if (docId && docs.length) {
       const d = docs.find((x) => x.id === docId);
-      if (d) openView(d);
+      if (d) openViewDialog(d);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docs, params]);
 
-  const openView = async (d: ArchivedDoc) => {
+  const openViewDialog = async (d: ArchivedDoc) => {
     setOpenDoc(d);
     setOpenUrls([]);
     setOpenFailed([]);
+    setOpenPdfUrl(null);
+    setOpenView(d.report_pdf_path ? "pdf" : "scan");
     setOpenLoading(true);
+    if (d.report_pdf_path) {
+      const pdf = await resolveSubmissionsSignedUrl(d.report_pdf_path);
+      setOpenPdfUrl(pdf?.signedUrl || null);
+    }
     const { urls, failed } = await resolveSubmissionsSignedUrls(d.file_paths);
     if (failed.length) {
       console.error(
@@ -157,6 +193,55 @@ export default function ArchivedDocuments() {
       return hay.includes(term);
     });
   }, [docs, q, statusFilter, typeFilter, customerFilter, customers, sites]);
+
+  const handleConvert = async (d: ArchivedDoc) => {
+    setBusyId(d.id);
+    try {
+      const res = await convertArchivedDocument(d.id);
+      if (!res.ok) {
+        toast({
+          title: "Couldn't convert",
+          description: (res as { ok: false; reason: string }).reason,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Converted",
+          description: `Electronic report generated from ${res.templateName}.`,
+        });
+        await load();
+      }
+    } catch (e: any) {
+      toast({
+        title: "Convert failed",
+        description: e?.message,
+        variant: "destructive",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    const id = confirmDelete.id;
+    setBusyId(id);
+    try {
+      await deleteArchivedDocument(id);
+      toast({ title: "Archived document deleted" });
+      setConfirmDelete(null);
+      if (openDoc?.id === id) setOpenDoc(null);
+      await load();
+    } catch (e: any) {
+      toast({
+        title: "Delete failed",
+        description: e?.message,
+        variant: "destructive",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   if (!isAdmin) {
     return (
@@ -240,55 +325,97 @@ export default function ArchivedDocuments() {
                   <TableHead>Customer / Site</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead>Pages</TableHead>
+                  <TableHead>Format</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((d) => (
-                  <TableRow key={d.id}>
-                    <TableCell className="text-sm">
-                      <div>
-                        {d.customer_id
-                          ? customers[d.customer_id] || "—"
-                          : (
-                            <span className="text-muted-foreground italic">
-                              Unmatched
-                            </span>
+                {filtered.map((d) => {
+                  const canConvert = !d.report_pdf_path && d.file_paths?.length > 0;
+                  return (
+                    <TableRow key={d.id}>
+                      <TableCell className="text-sm">
+                        <div>
+                          {d.customer_id
+                            ? customers[d.customer_id] || "—"
+                            : (
+                              <span className="text-muted-foreground italic">
+                                Unmatched
+                              </span>
+                            )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {d.site_id ? sites[d.site_id] || "" : ""}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {d.document_type || d.template_name || "—"}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {d.document_date || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {d.report_pdf_path ? (
+                          <Badge variant="secondary" className="gap-1">
+                            <FileText className="h-3 w-3" /> Electronic
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="gap-1">
+                            <Images className="h-3 w-3" /> Scan only
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={d.status === "unmatched" ? "outline" : "secondary"}
+                        >
+                          {d.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          {canConvert && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleConvert(d)}
+                              disabled={busyId === d.id}
+                              title="Run AI extraction and generate a filled electronic report"
+                            >
+                              {busyId === d.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <>
+                                  <Wand2 className="mr-1 h-3.5 w-3.5" /> Convert
+                                </>
+                              )}
+                            </Button>
                           )}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {d.site_id ? sites[d.site_id] || "" : ""}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {d.document_type || d.template_name || "—"}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {d.document_date || (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm">{d.page_count}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={d.status === "unmatched" ? "outline" : "secondary"}
-                      >
-                        {d.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openView(d)}
-                      >
-                        Open
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openViewDialog(d)}
+                          >
+                            Open
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setConfirmDelete(d)}
+                            disabled={busyId === d.id}
+                            title="Delete archived document"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -304,6 +431,7 @@ export default function ArchivedDocuments() {
             setOpenDoc(null);
             setOpenUrls([]);
             setOpenFailed([]);
+            setOpenPdfUrl(null);
             if (params.get("doc")) {
               params.delete("doc");
               setParams(params, { replace: true });
@@ -311,7 +439,7 @@ export default function ArchivedDocuments() {
           }
         }}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {openDoc?.title || openDoc?.document_type || "Archived document"}
@@ -327,45 +455,115 @@ export default function ArchivedDocuments() {
               {openDoc.notes && (
                 <p className="text-sm whitespace-pre-line">{openDoc.notes}</p>
               )}
-              <div className="space-y-2">
-                {openLoading && (
-                  <div className="py-6 text-center text-sm text-muted-foreground">
-                    <Loader2 className="mx-auto h-4 w-4 animate-spin mb-1" />
-                    Loading pages…
+
+              {openDoc.report_pdf_path && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="inline-flex rounded-md border p-0.5 bg-muted/40">
+                    <Button
+                      size="sm"
+                      variant={openView === "pdf" ? "default" : "ghost"}
+                      className="h-7 px-2"
+                      onClick={() => setOpenView("pdf")}
+                    >
+                      <FileText className="h-3.5 w-3.5 mr-1" /> Electronic report
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={openView === "scan" ? "default" : "ghost"}
+                      className="h-7 px-2"
+                      onClick={() => setOpenView("scan")}
+                    >
+                      <Images className="h-3.5 w-3.5 mr-1" /> Original scan
+                    </Button>
                   </div>
-                )}
-                {!openLoading && openUrls.length === 0 && (
-                  <div className="rounded border border-amber-300 bg-amber-50 text-amber-900 text-sm p-3 flex gap-2">
-                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                    <div>
-                      <div className="font-medium">Pages unavailable</div>
-                      <div className="text-xs mt-1">
-                        {openDoc.file_paths?.length
-                          ? `Couldn't load ${openFailed.length} page${openFailed.length === 1 ? "" : "s"} from storage. The file may have been moved or deleted.`
-                          : "This archived document has no page images attached."}
+                  {openPdfUrl && openView === "pdf" && (
+                    <a
+                      href={openPdfUrl}
+                      download
+                      className="inline-flex items-center text-sm text-primary hover:underline"
+                    >
+                      <Download className="h-3.5 w-3.5 mr-1" /> Download PDF
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {openLoading && (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  <Loader2 className="mx-auto h-4 w-4 animate-spin mb-1" />
+                  Loading…
+                </div>
+              )}
+
+              {!openLoading && openView === "pdf" && openPdfUrl && (
+                <iframe
+                  src={openPdfUrl}
+                  title="Electronic report"
+                  className="w-full h-[70vh] rounded border bg-white"
+                />
+              )}
+
+              {!openLoading && openView === "scan" && (
+                <div className="space-y-2">
+                  {openUrls.length === 0 && (
+                    <div className="rounded border border-amber-300 bg-amber-50 text-amber-900 text-sm p-3 flex gap-2">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div>
+                        <div className="font-medium">Pages unavailable</div>
+                        <div className="text-xs mt-1">
+                          {openDoc.file_paths?.length
+                            ? `Couldn't load ${openFailed.length} page${openFailed.length === 1 ? "" : "s"} from storage. The file may have been moved or deleted.`
+                            : "This archived document has no page images attached."}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-                {openUrls.map((u, i) => (
-                  <img
-                    key={i}
-                    src={u}
-                    alt={`Page ${i + 1}`}
-                    className="w-full rounded border"
-                  />
-                ))}
-                {!openLoading && openFailed.length > 0 && openUrls.length > 0 && (
-                  <p className="text-xs text-amber-700">
-                    {openFailed.length} page
-                    {openFailed.length === 1 ? "" : "s"} could not be loaded.
-                  </p>
-                )}
-              </div>
+                  )}
+                  {openUrls.map((u, i) => (
+                    <img
+                      key={i}
+                      src={u}
+                      alt={`Page ${i + 1}`}
+                      className="w-full rounded border"
+                    />
+                  ))}
+                  {openFailed.length > 0 && openUrls.length > 0 && (
+                    <p className="text-xs text-amber-700">
+                      {openFailed.length} page
+                      {openFailed.length === 1 ? "" : "s"} could not be loaded.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!confirmDelete}
+        onOpenChange={(o) => !o && setConfirmDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete archived document?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the archived record and its stored pages
+              {confirmDelete?.report_pdf_path ? " and electronic report" : ""}.
+              The original scan-batch files in your review queue are not
+              affected. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
