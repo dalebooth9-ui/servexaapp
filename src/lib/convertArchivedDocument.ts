@@ -7,6 +7,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { resolveSubmissionsSignedUrl } from "@/lib/resolveSubmissionsPath";
 import { generateAndUploadArchivePdf } from "@/lib/archivePdfBuilder";
+import { fuzzyMatchEngineer } from "@/lib/fuzzyEngineerMatch";
 
 async function pathToPayload(
   path: string,
@@ -113,6 +114,39 @@ export async function convertArchivedDocument(
   const extracted = ocrData?.extracted || {};
   const header = ocrData?.header || {};
 
+  // Best-effort: match the OCR'd technician name against an org engineer
+  // profile so their stored signature (profiles.signature_data) stamps
+  // onto the electronic report. Retro-convert has no review step, so this
+  // is silent — the office can re-run if the guess is wrong.
+  let technicianName: string | null = null;
+  const rawTech: string =
+    (header as any)?.engineer ||
+    (extracted as any)?.technician_name ||
+    (extracted as any)?.engineer ||
+    "";
+  if (rawTech && (doc as any).org_id) {
+    const { data: engs } = await supabase
+      .from("profiles")
+      .select("user_id, full_name, signature_data")
+      .eq("org_id", (doc as any).org_id);
+    const withSig = ((engs as any[]) || []).filter(
+      (e) => e.full_name && e.signature_data,
+    );
+    if (withSig.length > 0) {
+      const matched = fuzzyMatchEngineer(
+        rawTech,
+        withSig.map((e) => ({ user_id: e.user_id, full_name: e.full_name })),
+      );
+      if (matched && matched.toUpperCase() !== rawTech.trim().toUpperCase()) {
+        technicianName = matched;
+      } else if (
+        withSig.some((e) => e.full_name.toUpperCase() === matched.toUpperCase())
+      ) {
+        technicianName = matched;
+      }
+    }
+  }
+
   const { path } = await generateAndUploadArchivePdf({
     archivedId,
     template: {
@@ -124,6 +158,7 @@ export async function convertArchivedDocument(
     customerId: (doc as any).customer_id,
     siteId: (doc as any).site_id,
     documentDate: (doc as any).document_date,
+    technicianName,
   });
 
   await (supabase as any)

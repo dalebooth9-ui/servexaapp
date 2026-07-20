@@ -32,6 +32,13 @@ export type ArchiveScanConfirmInput = {
    * electronic PDF report is rendered and attached.
    */
   templateFields?: any[] | null;
+  /**
+   * Full name of the org engineer whose stored profile signature should be
+   * stamped as the technician signature on the generated electronic report.
+   * Set when the office confirms (via the review dialog) that the scanned
+   * original bears this engineer's handwritten signature.
+   */
+  technicianName?: string | null;
 };
 
 export async function archiveScanConfirm(
@@ -55,7 +62,19 @@ export async function archiveScanConfirm(
     storagePhotoPaths,
     status = "filed",
     templateFields,
+    technicianName,
   } = input;
+
+  // Append an auditable trail to notes when a signature is being applied
+  // from an engineer's profile on the basis of the signed original scan.
+  const notesWithSigTrail = technicianName
+    ? [
+        notes,
+        `Technician signature applied from ${technicianName}'s employee profile on the basis of the signed original scan.`,
+      ]
+        .filter(Boolean)
+        .join("\n\n")
+    : notes;
 
   // 1. Copy the source scan pages into an archive-scoped folder so deleting
   //    the batch never orphans the filed document.
@@ -92,7 +111,7 @@ export async function archiveScanConfirm(
       template_id: templateId,
       template_name: templateName,
       title,
-      notes,
+      notes: notesWithSigTrail,
       extracted,
       header_data: header,
       file_paths: destPaths,
@@ -130,6 +149,7 @@ export async function archiveScanConfirm(
         customerId,
         siteId,
         documentDate,
+        technicianName,
       });
       reportPdfPath = path;
       await (supabase as any)

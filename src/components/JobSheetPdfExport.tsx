@@ -1005,10 +1005,13 @@ export async function generateJobSheetPdf(
   }
 
 
-  // Signature section flows naturally after content; only force a new page if
-  // remaining vertical space is less than ~120 px (42 mm).
+  // Signature section flows naturally after content. The signature block
+  // itself only needs ~15mm — logos + declaration footer are anchored at the
+  // bottom regardless. Only force a new page when there's literally no room
+  // to draw the sig block above the accreditation strip. This prevents an
+  // orphan trailing page that would otherwise contain only the sig/footer.
   const remainingSpaceForSig = pageHeight - y - footerSpace;
-  if (remainingSpaceForSig < 42) {
+  if (remainingSpaceForSig < 15) {
     doc.addPage();
     y = margin;
   }

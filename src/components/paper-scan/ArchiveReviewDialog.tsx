@@ -35,6 +35,7 @@ import CustomerCombobox, {
 } from "@/components/CustomerCombobox";
 import SiteCombobox, { type SiteOption } from "@/components/SiteCombobox";
 import { archiveScanConfirm } from "@/lib/archiveScanConfirm";
+import { fuzzyMatchEngineer } from "@/lib/fuzzyEngineerMatch";
 
 // A single queue item filed as a standalone archived document (no job).
 export type ArchiveQueueItemInput = {
@@ -89,6 +90,14 @@ export default function ArchiveReviewDialog({
   const [templateFields, setTemplateFields] = useState<TemplateField[]>([]);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [loadingTemplate, setLoadingTemplate] = useState(false);
+  // Engineer signature matching — office confirms which employee profile's
+  // stored signature to stamp as the technician signature on the electronic
+  // report, on the basis that the scanned original bears their handwritten
+  // signature. "" = no signature applied; UUID = user_id of matched engineer.
+  const [engineers, setEngineers] = useState<
+    { user_id: string; full_name: string; has_signature: boolean }[]
+  >([]);
+  const [technicianUserId, setTechnicianUserId] = useState<string>("");
 
   useEffect(() => {
     if (!open || !item) return;
@@ -130,6 +139,38 @@ export default function ArchiveReviewDialog({
       setCustomers((cs as any) || []);
     })();
   }, [open]);
+
+  // Load org engineers (with signature_data flag) and prefill the technician
+  // dropdown by fuzzy-matching the OCR'd engineer name.
+  useEffect(() => {
+    if (!open || !item) return;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, signature_data");
+      const list = ((data as any[]) || [])
+        .filter((p) => p.full_name)
+        .map((p) => ({
+          user_id: p.user_id as string,
+          full_name: p.full_name as string,
+          has_signature: !!p.signature_data,
+        }));
+      setEngineers(list);
+      const raw = String((item.header as any)?.engineer || "").trim();
+      if (raw && list.length > 0) {
+        // Prefer engineers with a stored signature, then broaden.
+        const withSig = list.filter((e) => e.has_signature);
+        const pool = withSig.length > 0 ? withSig : list;
+        const matched = fuzzyMatchEngineer(raw, pool);
+        const found = pool.find(
+          (e) => e.full_name.toUpperCase() === matched.toUpperCase(),
+        );
+        setTechnicianUserId(found ? found.user_id : "");
+      } else {
+        setTechnicianUserId("");
+      }
+    })();
+  }, [open, item]);
 
   useEffect(() => {
     if (!open) return;
@@ -320,6 +361,11 @@ export default function ArchiveReviewDialog({
         storagePhotoPaths: item.imagePaths || [],
         status: asUnmatched ? "unmatched" : "filed",
         templateFields: asUnmatched ? null : templateFields,
+        technicianName: (() => {
+          if (asUnmatched) return null;
+          const e = engineers.find((x) => x.user_id === technicianUserId);
+          return e && e.has_signature ? e.full_name : null;
+        })(),
       });
       toast({
         title: asUnmatched
@@ -472,6 +518,54 @@ export default function ArchiveReviewDialog({
                   onChange={(e) => setDocType(e.target.value)}
                   placeholder="e.g. Dry Riser Annual"
                 />
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <Label>
+                  Technician signature{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (applies this engineer's stored profile signature to the
+                    electronic report — the scanned original bears their
+                    handwritten signature)
+                  </span>
+                </Label>
+                <Select
+                  value={technicianUserId || "__none__"}
+                  onValueChange={(v) =>
+                    setTechnicianUserId(v === "__none__" ? "" : v)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="No signature applied" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">
+                      No signature applied (leave blank)
+                    </SelectItem>
+                    {engineers.map((e) => (
+                      <SelectItem key={e.user_id} value={e.user_id}>
+                        {e.full_name}
+                        {!e.has_signature ? " — no stored signature" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {(() => {
+                  const rawTech = String(
+                    (item.header as any)?.engineer || "",
+                  ).trim();
+                  const chosen = engineers.find(
+                    (e) => e.user_id === technicianUserId,
+                  );
+                  if (!rawTech) return null;
+                  return (
+                    <p className="text-xs text-muted-foreground">
+                      Scan reads &quot;{rawTech}&quot;
+                      {chosen
+                        ? ` → matched to ${chosen.full_name}${chosen.has_signature ? "" : " (no signature on file)"}`
+                        : " → no engineer matched. Pick one to stamp their signature."}
+                    </p>
+                  );
+                })()}
               </div>
               <div className="space-y-1.5 md:col-span-2">
                 <Label>Title</Label>
