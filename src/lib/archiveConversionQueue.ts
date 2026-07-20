@@ -158,6 +158,10 @@ class ArchiveConversionQueue {
         entry.state = "done";
         entry.templateName = res.templateName;
         entry.reason = undefined;
+        entry.proposedDefects = res.proposedDefects;
+        entry.customerId = res.customerId;
+        entry.siteId = res.siteId;
+        entry.documentDate = res.documentDate;
       } else {
         entry.state = "failed";
         entry.reason = (res as { ok: false; reason: string }).reason;
