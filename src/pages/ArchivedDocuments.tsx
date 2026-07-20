@@ -628,3 +628,56 @@ export default function ArchivedDocuments() {
     </AppLayout>
   );
 }
+
+/**
+ * Per-row convert cell — subscribes to the shared conversion queue so its
+ * chip updates whether the enqueue was triggered from this button, the
+ * bulk action, or a background refresh-resume.
+ */
+function ConvertCell({
+  doc,
+  onConvert,
+}: {
+  doc: ArchivedDoc;
+  onConvert: (d: ArchivedDoc) => void;
+}) {
+  const entry = useArchiveConversionEntry(doc.id);
+  if (entry?.state === "queued") {
+    return (
+      <Badge variant="outline" className="gap-1 h-7 px-2">
+        <Loader2 className="h-3 w-3 animate-spin" /> Queued
+      </Badge>
+    );
+  }
+  if (entry?.state === "converting") {
+    return (
+      <Badge variant="secondary" className="gap-1 h-7 px-2">
+        <Loader2 className="h-3 w-3 animate-spin" /> Converting…
+      </Badge>
+    );
+  }
+  if (entry?.state === "failed") {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => onConvert(doc)}
+        title={entry.reason || "Conversion failed"}
+        className="text-destructive border-destructive/40 hover:text-destructive"
+      >
+        <AlertTriangle className="mr-1 h-3.5 w-3.5" /> Retry
+      </Button>
+    );
+  }
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={() => onConvert(doc)}
+      title="Run AI extraction and generate a filled electronic report"
+    >
+      <Wand2 className="mr-1 h-3.5 w-3.5" /> Convert
+    </Button>
+  );
+}
+
