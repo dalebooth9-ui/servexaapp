@@ -36,7 +36,7 @@ export type ArchivePdfInput = {
 export async function generateAndUploadArchivePdf(
   input: ArchivePdfInput,
 ): Promise<{ path: string }> {
-  const { archivedId, template, responses, customerId, siteId, documentDate } =
+  const { archivedId, template, responses, customerId, siteId, documentDate, technicianName } =
     input;
 
   // Hydrate the same shape a job PDF would receive.
@@ -79,6 +79,12 @@ export async function generateAndUploadArchivePdf(
     const m = documentDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
     responsesWithDate.date = m ? `${m[3]}/${m[2]}/${m[1]}` : documentDate;
   }
+  // Seed the technician name into the response payload so the job PDF
+  // generator's tech-name resolution picks it up even when the template
+  // has no explicit "technician name" field.
+  if (technicianName && !responsesWithDate.technician_name) {
+    responsesWithDate.technician_name = technicianName;
+  }
 
   // Non-UUID jobId => generator skips DB-driven signature / assignment / job
   // lookups and relies purely on the jobInfo we pass in.
@@ -89,7 +95,9 @@ export async function generateAndUploadArchivePdf(
     responsesWithDate,
     jobInfo,
     fakeJobId,
-    undefined,
+    // submittedBy → generator ilike-matches profiles.full_name and applies
+    // the stored profile signature as the technician signature.
+    technicianName || undefined,
     documentDate || null,
     undefined,
   );
