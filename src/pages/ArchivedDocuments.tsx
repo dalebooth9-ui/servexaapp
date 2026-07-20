@@ -58,6 +58,9 @@ export default function ArchivedDocuments() {
     "all",
   );
   const [typeFilter, setTypeFilter] = useState("all");
+  const [customerFilter, setCustomerFilter] = useState<string>(
+    params.get("customer") || "all",
+  );
   const [scanOpen, setScanOpen] = useState(false);
   const [openDoc, setOpenDoc] = useState<ArchivedDoc | null>(null);
   const [openUrls, setOpenUrls] = useState<string[]>([]);
@@ -128,6 +131,7 @@ export default function ArchivedDocuments() {
     return docs.filter((d) => {
       if (statusFilter !== "all" && d.status !== statusFilter) return false;
       if (typeFilter !== "all" && d.document_type !== typeFilter) return false;
+      if (customerFilter !== "all" && d.customer_id !== customerFilter) return false;
       if (!term) return true;
       const hay = [
         d.title,
@@ -143,7 +147,7 @@ export default function ArchivedDocuments() {
         .toLowerCase();
       return hay.includes(term);
     });
-  }, [docs, q, statusFilter, typeFilter, customers, sites]);
+  }, [docs, q, statusFilter, typeFilter, customerFilter, customers, sites]);
 
   if (!isAdmin) {
     return (

@@ -13,6 +13,7 @@ function InvitePortalButton({ customerId, customerName }: { customerId: string; 
   );
 }
 import CustomerPaperwork from "@/components/CustomerPaperwork";
+import CustomerArchivedDocumentsCard from "@/components/customers/CustomerArchivedDocumentsCard";
 import CustomerAccreditationLogos from "@/components/CustomerAccreditationLogos";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -1147,6 +1148,9 @@ export default function CustomerDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Archived Documents Section */}
+      {id && <CustomerArchivedDocumentsCard customerId={id} />}
 
       {/* Linked Sites Section */}
       <div className="mb-6">
