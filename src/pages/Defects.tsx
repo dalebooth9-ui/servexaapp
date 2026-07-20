@@ -42,6 +42,8 @@ type Defect = {
   resolution_notes: string | null;
   resolved_at: string | null;
   created_at: string;
+  source_kind?: string | null;
+  source_archived_document_id?: string | null;
 };
 
 const SEVERITY_BADGE: Record<string, string> = {
