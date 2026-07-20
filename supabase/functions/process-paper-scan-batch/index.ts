@@ -381,12 +381,20 @@ serve(async (req) => {
         const extracted = ocrJson.extracted || {};
         const header = ocrJson.header || {};
 
-        // Guess customer/site
-        const { customerId, siteId } = await fuzzyGuessSite(
-          service,
-          orgId,
-          header,
-        );
+        // Guess customer/site (letterhead wins over form 'Customer:' field)
+        const { customerId, siteId, paperworkOwnerMatchedCustomerId } =
+          await fuzzyGuessSite(service, orgId, header);
+        // Stamp match diagnostics onto header so the review UI can surface a
+        // "Detected letterhead: X — no matching customer" banner when the
+        // paperwork owner was recognised but doesn't match any customer.
+        const paperworkOwner = String(
+          (header as any).paperwork_owner_company || "",
+        ).trim();
+        if (paperworkOwner) {
+          (header as any).paperwork_owner_matched_customer_id =
+            paperworkOwnerMatchedCustomerId;
+        }
+
 
         // Guess date
         let guessDate: string | null = null;
