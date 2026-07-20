@@ -212,10 +212,7 @@ serve(async (req) => {
           .update({ status: "complete" })
           .eq("id", batchId);
       }
-      return new Response(
-        JSON.stringify({ ok: true, processed: 0, done: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return;
     }
 
     for (const item of items) {
