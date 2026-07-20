@@ -111,7 +111,7 @@ export async function archiveScanConfirm(
       template_id: templateId,
       template_name: templateName,
       title,
-      notes,
+      notes: notesWithSigTrail,
       extracted,
       header_data: header,
       file_paths: destPaths,
