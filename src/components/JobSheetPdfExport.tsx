@@ -124,7 +124,7 @@ export async function generateJobSheetPdf(
   submittedBy?: string,
   submittedAt?: string | null,
   categoryName?: string,
-  preloadedSignatures?: { engineerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string }; customerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string }; sigImages?: Record<string, HTMLImageElement> },
+  preloadedSignatures?: { engineerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string }; customerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string }; sigImages?: Record<string, HTMLImageElement>; technicianSourceNote?: string | null; customerSourceNote?: string | null },
 ): Promise<{ base64: string; fileName: string }> {
   // Resolve scope/category fields in formData using the human-readable category name
   const resolvedFormData = { ...formData };
@@ -1070,6 +1070,8 @@ export async function generateJobSheetPdf(
     sigImages,
     engineerSig,
     customerSig,
+    technicianSourceNote: preloadedSignatures?.technicianSourceNote ?? null,
+    customerSourceNote: preloadedSignatures?.customerSourceNote ?? null,
   });
 
   renderPdfFooter(doc, declarationFooterY, footerText);

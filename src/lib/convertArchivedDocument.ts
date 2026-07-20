@@ -155,6 +155,8 @@ export async function convertArchivedDocument(
       fields,
     },
     responses: extracted,
+    header: header || null,
+    sourcePaths: paths,
     customerId: (doc as any).customer_id,
     siteId: (doc as any).site_id,
     documentDate: (doc as any).document_date,
