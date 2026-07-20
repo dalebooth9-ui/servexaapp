@@ -27,9 +27,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Archive, ScanLine, Loader2 } from "lucide-react";
+import { Archive, ScanLine, Loader2, AlertTriangle } from "lucide-react";
 import ArchiveScanDialog from "@/components/paper-scan/ArchiveScanDialog";
 import { useAuth } from "@/hooks/useAuth";
+import { resolveSubmissionsSignedUrls } from "@/lib/resolveSubmissionsPath";
 
 type ArchivedDoc = {
   id: string;
@@ -64,6 +65,8 @@ export default function ArchivedDocuments() {
   const [scanOpen, setScanOpen] = useState(false);
   const [openDoc, setOpenDoc] = useState<ArchivedDoc | null>(null);
   const [openUrls, setOpenUrls] = useState<string[]>([]);
+  const [openFailed, setOpenFailed] = useState<string[]>([]);
+  const [openLoading, setOpenLoading] = useState(false);
 
   const isAdmin = userRole === "admin";
 
@@ -110,14 +113,20 @@ export default function ArchivedDocuments() {
 
   const openView = async (d: ArchivedDoc) => {
     setOpenDoc(d);
-    const urls: string[] = [];
-    for (const p of d.file_paths || []) {
-      const { data } = await supabase.storage
-        .from("submissions")
-        .createSignedUrl(p, 60 * 60);
-      if (data?.signedUrl) urls.push(data.signedUrl);
+    setOpenUrls([]);
+    setOpenFailed([]);
+    setOpenLoading(true);
+    const { urls, failed } = await resolveSubmissionsSignedUrls(d.file_paths);
+    if (failed.length) {
+      console.error(
+        "[archive] unresolved page paths for doc",
+        d.id,
+        failed,
+      );
     }
-    setOpenUrls(urls);
+    setOpenUrls(urls.map((u) => u.signedUrl));
+    setOpenFailed(failed);
+    setOpenLoading(false);
   };
 
   const types = useMemo(() => {
