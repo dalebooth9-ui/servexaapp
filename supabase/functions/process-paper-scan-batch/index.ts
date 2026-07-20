@@ -77,18 +77,81 @@ async function pathToBase64(
   return { error: `${path}: ${lastErr}` };
 }
 
+// Loose company-name normaliser for fuzzy matching. Strips company suffixes,
+// punctuation and collapses whitespace so "BESSEGES" matches
+// "Besseges Fire Protection Ltd." and "SAFELY COMPLY" matches "Safely Comply".
+function normaliseCompany(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[.,&/'"`()]/g, " ")
+    .replace(/\b(ltd|limited|plc|llp|inc|co|company|uk|group|holdings|services|fire|protection|systems|solutions)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function fuzzyMatchCustomer(
+  supabase: ReturnType<typeof createClient>,
+  orgId: string,
+  name: string,
+): Promise<string | null> {
+  const raw = name.trim();
+  if (raw.length < 2) return null;
+  // Exact-ish first
+  const { data: exact } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("org_id", orgId)
+    .ilike("name", `%${raw.substring(0, 40)}%`)
+    .limit(1)
+    .maybeSingle();
+  if (exact) return (exact as any).id;
+
+  // Fuzzy by normalised token overlap
+  const target = normaliseCompany(raw);
+  if (!target) return null;
+  const { data: all } = await supabase
+    .from("customers")
+    .select("id, name")
+    .eq("org_id", orgId);
+  const rows = (all as any[]) || [];
+  let best: { id: string; score: number } | null = null;
+  for (const r of rows) {
+    const cand = normaliseCompany(String(r.name || ""));
+    if (!cand) continue;
+    if (cand === target || cand.includes(target) || target.includes(cand)) {
+      const score = Math.min(cand.length, target.length) /
+        Math.max(cand.length, target.length);
+      if (!best || score > best.score) best = { id: r.id, score };
+    }
+  }
+  return best && best.score >= 0.4 ? best.id : null;
+}
+
 async function fuzzyGuessSite(
   supabase: ReturnType<typeof createClient>,
   orgId: string,
   header: Record<string, unknown> | null,
-): Promise<{ customerId: string | null; siteId: string | null }> {
-  if (!header) return { customerId: null, siteId: null };
+): Promise<{
+  customerId: string | null;
+  siteId: string | null;
+  paperworkOwnerMatchedCustomerId: string | null;
+}> {
+  if (!header) {
+    return {
+      customerId: null,
+      siteId: null,
+      paperworkOwnerMatchedCustomerId: null,
+    };
+  }
   const siteName = String(header.site || header.site_name || "").trim();
-  const customerName = String(header.customer || header.customer_name || "")
-    .trim();
+  const customerFieldName = String(
+    header.customer || header.customer_name || "",
+  ).trim();
+  const paperworkOwner = String(header.paperwork_owner_company || "").trim();
 
   let siteId: string | null = null;
   let customerId: string | null = null;
+  let paperworkOwnerMatchedCustomerId: string | null = null;
 
   if (siteName.length >= 3) {
     const { data } = await supabase
@@ -101,15 +164,21 @@ async function fuzzyGuessSite(
     if (data) siteId = (data as any).id;
   }
 
-  if (customerName.length >= 3) {
-    const { data } = await supabase
-      .from("customers")
-      .select("id")
-      .eq("org_id", orgId)
-      .ilike("name", `%${customerName.substring(0, 40)}%`)
-      .limit(1)
-      .maybeSingle();
-    if (data) customerId = (data as any).id;
+  // Letterhead WINS as the paperwork owner / customer guess (per spec).
+  if (paperworkOwner.length >= 2) {
+    paperworkOwnerMatchedCustomerId = await fuzzyMatchCustomer(
+      supabase,
+      orgId,
+      paperworkOwner,
+    );
+    if (paperworkOwnerMatchedCustomerId) {
+      customerId = paperworkOwnerMatchedCustomerId;
+    }
+  }
+
+  // Fallback to the 'Customer:' field if letterhead didn't produce a match.
+  if (!customerId && customerFieldName.length >= 3) {
+    customerId = await fuzzyMatchCustomer(supabase, orgId, customerFieldName);
   }
 
   if (siteId && !customerId) {
@@ -122,8 +191,9 @@ async function fuzzyGuessSite(
     if (data) customerId = (data as any).customer_id;
   }
 
-  return { customerId, siteId };
+  return { customerId, siteId, paperworkOwnerMatchedCustomerId };
 }
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
