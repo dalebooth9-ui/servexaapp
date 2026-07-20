@@ -14,7 +14,22 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Archive, XCircle, AlertTriangle, Building2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Loader2,
+  Archive,
+  XCircle,
+  AlertTriangle,
+  Building2,
+  FileText,
+} from "lucide-react";
 import CustomerCombobox, {
   type CustomerOption,
 } from "@/components/CustomerCombobox";
@@ -34,6 +49,15 @@ export type ArchiveQueueItemInput = {
   guessCustomerId: string | null;
   guessSiteId: string | null;
   guessDate: string | null;
+};
+
+type TemplateField = {
+  id: string;
+  label: string;
+  type: string;
+  section?: string;
+  options?: string[];
+  required?: boolean;
 };
 
 interface Props {
@@ -62,6 +86,9 @@ export default function ArchiveReviewDialog({
   const [notes, setNotes] = useState("");
   const [thumbs, setThumbs] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [templateFields, setTemplateFields] = useState<TemplateField[]>([]);
+  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
 
   useEffect(() => {
     if (!open || !item) return;
@@ -71,7 +98,27 @@ export default function ArchiveReviewDialog({
     setDocType(item.documentType || item.templateName || "");
     setTitle(item.templateName || "");
     setNotes("");
+    setAnswers({ ...(item.extracted || {}) });
+    setTemplateFields([]);
   }, [open, item]);
+
+  // Load full template fields for the editable answers panel
+  useEffect(() => {
+    if (!open || !item?.templateId) return;
+    setLoadingTemplate(true);
+    (async () => {
+      const { data } = await supabase
+        .from("job_sheet_templates")
+        .select("fields")
+        .eq("id", item.templateId!)
+        .maybeSingle();
+      const raw = Array.isArray((data as any)?.fields)
+        ? ((data as any).fields as any[])
+        : [];
+      setTemplateFields(raw as TemplateField[]);
+      setLoadingTemplate(false);
+    })();
+  }, [open, item?.templateId]);
 
   useEffect(() => {
     if (!open) return;
@@ -98,7 +145,6 @@ export default function ArchiveReviewDialog({
         .order("name");
       setSites((ss as any) || []);
     })();
-
   }, [open, customerId]);
 
   useEffect(() => {
@@ -128,6 +174,116 @@ export default function ArchiveReviewDialog({
     return (data as any)?.org_id || null;
   }, [user]);
 
+  const updateAnswer = (id: string, value: any) =>
+    setAnswers((prev) => ({ ...prev, [id]: value }));
+
+  const sections = useMemo(() => {
+    const map = new Map<string, TemplateField[]>();
+    for (const f of templateFields) {
+      const s = f.section || "Answers";
+      if (!map.has(s)) map.set(s, []);
+      map.get(s)!.push(f);
+    }
+    return Array.from(map.entries());
+  }, [templateFields]);
+
+  const renderFieldInput = (field: TemplateField) => {
+    const value = answers[field.id];
+    switch (field.type) {
+      case "textarea":
+        return (
+          <Textarea
+            rows={2}
+            value={value ?? ""}
+            onChange={(e) => updateAnswer(field.id, e.target.value)}
+          />
+        );
+      case "select":
+      case "dropdown":
+        return (
+          <Select
+            value={value ?? ""}
+            onValueChange={(v) => updateAnswer(field.id, v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select…" />
+            </SelectTrigger>
+            <SelectContent>
+              {(field.options || []).map((o) => (
+                <SelectItem key={o} value={o}>
+                  {o}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      case "radio":
+      case "pass_fail":
+      case "yes_no":
+      case "multiple_choice": {
+        const opts =
+          field.options && field.options.length > 0
+            ? field.options
+            : field.type === "yes_no"
+              ? ["Yes", "No"]
+              : field.type === "pass_fail"
+                ? ["Pass", "Fail"]
+                : [];
+        return (
+          <div className="flex flex-wrap gap-1.5">
+            {opts.map((o) => (
+              <Button
+                key={o}
+                type="button"
+                size="sm"
+                variant={value === o ? "default" : "outline"}
+                onClick={() => updateAnswer(field.id, o)}
+              >
+                {o}
+              </Button>
+            ))}
+          </div>
+        );
+      }
+      case "checkbox":
+      case "boolean":
+        return (
+          <Checkbox
+            checked={!!value}
+            onCheckedChange={(c) => updateAnswer(field.id, !!c)}
+          />
+        );
+      case "number":
+        return (
+          <Input
+            type="number"
+            value={value ?? ""}
+            onChange={(e) =>
+              updateAnswer(
+                field.id,
+                e.target.value === "" ? "" : Number(e.target.value),
+              )
+            }
+          />
+        );
+      case "date":
+        return (
+          <Input
+            type="date"
+            value={value ?? ""}
+            onChange={(e) => updateAnswer(field.id, e.target.value)}
+          />
+        );
+      default:
+        return (
+          <Input
+            value={value ?? ""}
+            onChange={(e) => updateAnswer(field.id, e.target.value)}
+          />
+        );
+    }
+  };
+
   const fileIt = async (asUnmatched = false) => {
     if (!user || !item) return;
     const orgId = await orgIdPromise;
@@ -146,7 +302,7 @@ export default function ArchiveReviewDialog({
     }
     setSaving(true);
     try {
-      await archiveScanConfirm({
+      const result = await archiveScanConfirm({
         userId: user.id,
         orgId,
         itemId: item.itemId,
@@ -159,13 +315,18 @@ export default function ArchiveReviewDialog({
         documentDate: docDate || null,
         title: title || null,
         notes: notes || null,
-        extracted: item.extracted || {},
+        extracted: answers || {},
         header: item.header || {},
         storagePhotoPaths: item.imagePaths || [],
         status: asUnmatched ? "unmatched" : "filed",
+        templateFields: asUnmatched ? null : templateFields,
       });
       toast({
-        title: asUnmatched ? "Filed as Unmatched" : "Filed to archive",
+        title: asUnmatched
+          ? "Filed as Unmatched"
+          : result.reportPdfPath
+            ? "Filed with electronic report"
+            : "Filed to archive (scan only)",
       });
       onResolved();
       onOpenChange(false);
@@ -200,6 +361,8 @@ export default function ArchiveReviewDialog({
     }
   };
 
+  const hasTemplate = !!item?.templateId;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -209,7 +372,9 @@ export default function ArchiveReviewDialog({
           </DialogTitle>
           <DialogDescription>
             Archive-only — no job is created. Confirm or correct the filing
-            details, then file this document to the archive library.
+            details and extracted answers, then file. If a template was
+            matched, we'll also generate a clean electronic report as the
+            primary document.
           </DialogDescription>
         </DialogHeader>
 
@@ -228,11 +393,13 @@ export default function ArchiveReviewDialog({
               </div>
             )}
 
-            <div className="text-xs flex gap-2 items-center">
+            <div className="text-xs flex gap-2 items-center flex-wrap">
               {item.templateName ? (
                 <Badge variant="secondary">Template: {item.templateName}</Badge>
               ) : (
-                <Badge variant="outline">No template matched</Badge>
+                <Badge variant="outline">
+                  No template matched — will file as scan-only
+                </Badge>
               )}
               <span className="text-muted-foreground">
                 {item.imagePaths.length} page
@@ -252,8 +419,8 @@ export default function ArchiveReviewDialog({
                   <div className="rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200 px-3 py-2 text-sm flex items-start gap-2">
                     <Building2 className="h-4 w-4 mt-0.5 shrink-0" />
                     <span>
-                      Detected letterhead:{" "}
-                      <strong>{owner}</strong> — matched to selected customer.
+                      Detected letterhead: <strong>{owner}</strong> — matched to
+                      selected customer.
                     </span>
                   </div>
                 );
@@ -325,6 +492,39 @@ export default function ArchiveReviewDialog({
               </div>
             </div>
 
+            {hasTemplate && (
+              <div className="rounded border bg-muted/30 p-3 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <FileText className="h-4 w-4" />
+                  Extracted answers
+                  {loadingTemplate && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+                {!loadingTemplate && templateFields.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Template has no fields — the electronic report will still
+                    render with header data only.
+                  </p>
+                )}
+                {sections.map(([sectionName, sectionFields]) => (
+                  <div key={sectionName} className="space-y-2">
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {sectionName}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {sectionFields.map((field) => (
+                        <div key={field.id} className="space-y-1">
+                          <Label className="text-xs">{field.label}</Label>
+                          {renderFieldInput(field)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-2 justify-between pt-2 border-t">
               <Button
                 variant="ghost"
@@ -353,7 +553,7 @@ export default function ArchiveReviewDialog({
                   ) : (
                     <Archive className="mr-1.5 h-4 w-4" />
                   )}
-                  File to archive
+                  {hasTemplate ? "File with electronic report" : "File to archive"}
                 </Button>
               </div>
             </div>
