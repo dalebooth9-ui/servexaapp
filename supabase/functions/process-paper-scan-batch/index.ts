@@ -156,10 +156,20 @@ serve(async (req) => {
     });
   }
 
+  let batchId: string;
   try {
     const body = await req.json();
-    const batchId: string = body.batch_id;
+    batchId = body.batch_id;
     if (!batchId) throw new Error("batch_id required");
+  } catch (e: any) {
+    return new Response(
+      JSON.stringify({ error: e?.message || "bad request" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  const work = (async () => {
+    try {
 
     // Verify caller is admin in the batch's org
     const { data: batch } = await service
