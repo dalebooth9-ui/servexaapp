@@ -146,6 +146,8 @@ export async function archiveScanConfirm(
           fields: templateFields,
         },
         responses: extracted || {},
+        header: header || null,
+        sourcePaths: destPaths,
         customerId,
         siteId,
         documentDate,
