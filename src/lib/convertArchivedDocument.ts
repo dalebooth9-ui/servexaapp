@@ -188,10 +188,20 @@ export async function convertArchivedDocument(
     })
     .eq("id", archivedId);
 
+  const proposedDefects = proposeDefectsFromExtraction(
+    fields as any,
+    extracted as any,
+    (header || {}) as any,
+  );
+
   return {
     ok: true,
     archivedId,
     reportPdfPath: path,
     templateName: (tpl as any).name,
+    proposedDefects,
+    customerId: (doc as any).customer_id ?? null,
+    siteId: (doc as any).site_id ?? null,
+    documentDate: (doc as any).document_date ?? null,
   };
 }
