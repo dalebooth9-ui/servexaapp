@@ -1929,6 +1929,8 @@ export type Database = {
           resolved_by: string | null
           severity: string
           site_id: string | null
+          source_archived_document_id: string | null
+          source_kind: string
           source_response_id: string | null
           status: string
           title: string
@@ -1954,6 +1956,8 @@ export type Database = {
           resolved_by?: string | null
           severity?: string
           site_id?: string | null
+          source_archived_document_id?: string | null
+          source_kind?: string
           source_response_id?: string | null
           status?: string
           title: string
@@ -1979,6 +1983,8 @@ export type Database = {
           resolved_by?: string | null
           severity?: string
           site_id?: string | null
+          source_archived_document_id?: string | null
+          source_kind?: string
           source_response_id?: string | null
           status?: string
           title?: string
@@ -2046,6 +2052,13 @@ export type Database = {
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_source_archived_document_id_fkey"
+            columns: ["source_archived_document_id"]
+            isOneToOne: false
+            referencedRelation: "archived_documents"
             referencedColumns: ["id"]
           },
           {
