@@ -1149,6 +1149,9 @@ export default function CustomerDetail() {
         </Card>
       </div>
 
+      {/* Archived Documents Section */}
+      {id && <CustomerArchivedDocumentsCard customerId={id} />}
+
       {/* Linked Sites Section */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
