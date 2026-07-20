@@ -58,9 +58,6 @@ export default function BillingPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
-            <Link to="/app"><ArrowLeft className="mr-2 h-4 w-4" /> Back to dashboard</Link>
-          </Button>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <CreditCard className="h-6 w-6 text-primary" /> Billing
           </h1>

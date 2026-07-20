@@ -12,9 +12,6 @@ export default function SetupGuide() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <Link to="/" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-            <ArrowLeft className="h-3 w-3" /> Back to dashboard
-          </Link>
           <h1 className="text-2xl font-bold tracking-tight mt-1">Setup guide</h1>
           <p className="text-sm text-muted-foreground">
             A short guided setup for your organisation. Each step opens the right page and highlights what to click.

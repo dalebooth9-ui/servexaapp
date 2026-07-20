@@ -252,9 +252,6 @@ export default function ServiceContractDetail() {
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate("/contracts")}>
-        <ArrowLeft className="mr-1 h-4 w-4" /> Back to contracts
-      </Button>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
