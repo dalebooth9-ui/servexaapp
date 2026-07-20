@@ -54,6 +54,7 @@ export type ArchivePdfInput = {
 const HEADER_FIELD_ALIASES: Array<{ headerKey: string; labelFragments: string[] }> = [
   { headerKey: "riser_location", labelFragments: ["riser location", "location of riser"] },
   { headerKey: "number_of_outlets", labelFragments: ["number of outlets", "no of outlets", "no. of outlets", "outlets"] },
+  { headerKey: "valve_type", labelFragments: ["valve type", "type of valve", "landing valve type"] },
   { headerKey: "cabinet_keys", labelFragments: ["cabinet keys", "keys held", "key holder"] },
   { headerKey: "po_ref", labelFragments: ["po number", "p.o. number", "purchase order", "reference number", "ref no", "job ref"] },
   { headerKey: "date", labelFragments: ["date"] },
