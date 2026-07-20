@@ -149,6 +149,7 @@ export async function archiveScanConfirm(
         customerId,
         siteId,
         documentDate,
+        technicianName,
       });
       reportPdfPath = path;
       await (supabase as any)
