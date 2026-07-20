@@ -38,8 +38,20 @@ async function pathToPayload(
   }
 }
 
+import { proposeDefectsFromExtraction, type ProposedDefect } from "@/lib/proposeArchiveDefects";
+
 export type ConvertResult =
-  | { ok: true; archivedId: string; reportPdfPath: string; templateName: string }
+  | {
+      ok: true;
+      archivedId: string;
+      reportPdfPath: string;
+      templateName: string;
+      /** Defect proposals derived from OCR — surfaced for office review. Never auto-created. */
+      proposedDefects: ProposedDefect[];
+      customerId: string | null;
+      siteId: string | null;
+      documentDate: string | null;
+    }
   | { ok: false; reason: string };
 
 export async function convertArchivedDocument(
