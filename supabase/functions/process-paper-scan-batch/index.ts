@@ -221,11 +221,19 @@ serve(async (req) => {
       try {
         // Download and base64 the images
         const payloads: { image_base64: string; mime_type?: string }[] = [];
+        const downloadErrors: string[] = [];
         for (const p of paths) {
-          const enc = await pathToBase64(service, p);
-          if (enc) payloads.push(enc);
+          const enc = await pathToBase64(service, p, orgId);
+          if ("error" in enc) downloadErrors.push(enc.error);
+          else payloads.push(enc);
         }
-        if (payloads.length === 0) throw new Error("No readable images");
+        if (payloads.length === 0) {
+          throw new Error(
+            downloadErrors.length
+              ? `Couldn't read scan images from storage — ${downloadErrors.join("; ")}`
+              : "No readable images",
+          );
+        }
 
         // Classify: call classify-job-sheet-template with user JWT
         const clsResp = await fetch(
