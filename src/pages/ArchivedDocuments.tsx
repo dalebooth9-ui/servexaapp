@@ -198,18 +198,18 @@ export default function ArchivedDocuments() {
     setBusyId(d.id);
     try {
       const res = await convertArchivedDocument(d.id);
-      if (res.ok) {
-        toast({
-          title: "Converted",
-          description: `Electronic report generated from ${res.templateName}.`,
-        });
-        await load();
-      } else {
+      if (!res.ok) {
         toast({
           title: "Couldn't convert",
           description: res.reason,
           variant: "destructive",
         });
+      } else {
+        toast({
+          title: "Converted",
+          description: `Electronic report generated from ${res.templateName}.`,
+        });
+        await load();
       }
     } catch (e: any) {
       toast({
