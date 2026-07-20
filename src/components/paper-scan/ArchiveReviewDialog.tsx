@@ -43,6 +43,9 @@ import {
 } from "@/lib/proposeArchiveDefects";
 import ProposedDefectsSection from "@/components/paper-scan/ProposedDefectsSection";
 
+const createDefectSuffix = (n: number) =>
+  n > 0 ? ` · ${n} defect${n === 1 ? "" : "s"} logged` : "";
+
 // A single queue item filed as a standalone archived document (no job).
 export type ArchiveQueueItemInput = {
   itemId: string;
