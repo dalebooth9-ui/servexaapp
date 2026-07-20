@@ -656,6 +656,11 @@ export default function ArchivedDocuments() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ProposedDefectsReviewDialog
+        item={defectReviewQueue[0]}
+        onClose={() => setDefectReviewQueue((prev) => prev.slice(1))}
+      />
     </AppLayout>
   );
 }
