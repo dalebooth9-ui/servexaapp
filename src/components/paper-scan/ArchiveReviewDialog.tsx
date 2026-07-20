@@ -105,6 +105,11 @@ export default function ArchiveReviewDialog({
   >([]);
   const [technicianUserId, setTechnicianUserId] = useState<string>("");
 
+  // Proposed defects derived from the extracted answers. Office reviews the
+  // ticklist before anything is written to the defects table.
+  const [defectSelection, setDefectSelection] = useState<Record<string, boolean>>({});
+  const [defectOverrides, setDefectOverrides] = useState<Record<string, Partial<ProposedDefect>>>({});
+
   useEffect(() => {
     if (!open || !item) return;
     setCustomerId(item.guessCustomerId || "");
@@ -115,6 +120,8 @@ export default function ArchiveReviewDialog({
     setNotes("");
     setAnswers({ ...(item.extracted || {}) });
     setTemplateFields([]);
+    setDefectSelection({});
+    setDefectOverrides({});
   }, [open, item]);
 
   // Load full template fields for the editable answers panel
