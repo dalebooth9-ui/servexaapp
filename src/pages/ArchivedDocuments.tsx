@@ -58,6 +58,9 @@ import {
   useArchiveConversionEntry,
   useArchiveConversionSummary,
 } from "@/lib/archiveConversionQueue";
+import type { ProposedDefect } from "@/lib/proposeArchiveDefects";
+import { createArchiveSourcedDefects } from "@/lib/proposeArchiveDefects";
+import ProposedDefectsSection from "@/components/paper-scan/ProposedDefectsSection";
 
 type ArchivedDoc = {
   id: string;
