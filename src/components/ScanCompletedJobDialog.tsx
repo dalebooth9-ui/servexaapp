@@ -1263,6 +1263,34 @@ export default function ScanCompletedJobDialog({
               )}
             </div>
 
+            {(() => {
+              const owner = String(
+                (header as any)?.paperwork_owner_company || "",
+              ).trim();
+              const matched =
+                (header as any)?.paperwork_owner_matched_customer_id;
+              if (!owner) return null;
+              const matchedSelected = matched && customerId === matched;
+              return (
+                <div
+                  className={
+                    "rounded border px-3 py-2 text-sm flex items-start gap-2 " +
+                    (matchedSelected
+                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200"
+                      : "border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-200")
+                  }
+                >
+                  <span className="mt-0.5 text-base leading-none">🏷️</span>
+                  <span>
+                    Detected letterhead: <strong>{owner}</strong>
+                    {matchedSelected
+                      ? " — matched to selected customer."
+                      : " — no matching customer in your list. Pick or create one below."}
+                  </span>
+                </div>
+              );
+            })()}
+
             {/* Job header */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">

@@ -318,7 +318,8 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
             type: "object",
             description: "Header information from the form.",
             properties: {
-              customer: { type: "string", description: "The COMPANY/ORGANISATION name from the header 'Customer:' field at the TOP of the form. NOT a person's name from the signature block." },
+              paperwork_owner_company: { type: "string", description: "The COMPANY that OWNS this paperwork — the company whose LOGO or COMPANY NAME appears in the LETTERHEAD/BRANDING at the very TOP of the sheet (e.g. 'BESSEGES', 'SAFELY COMPLY', 'VIVA FIRE PROTECTION'). Read this from the logo/branding block ONLY — do NOT read from the 'Customer:' or 'Site:' form fields. If the letterhead has a stylised logo, transcribe the visible company name text. Leave blank if there is no letterhead/branding on the sheet." },
+              customer: { type: "string", description: "The COMPANY/ORGANISATION name written in the form's 'Customer:' or 'Client:' field (the FILLED-IN VALUE next to that label). NOT the letterhead — that goes in paperwork_owner_company. NOT a person's name from the signature block. On many subcontractor sheets this 'Customer:' field is blank because the details box only shows a site address — leave this blank in that case." },
               site: { type: "string", description: "FULL site address including street, city/town, and postcode. Look for fields labelled 'Site:', 'Site Address:', 'Address:', 'Location:' or similar in the header area. Include ALL address lines — do NOT omit any part. Read postcodes character by character: 0↔O, 6↔G, 8↔B, 9↔Q, N↔H. If multiple address lines exist, join them with ', '." },
               date: { type: "string", description: "Date from the form header." },
               po_ref: { type: "string", description: "PO number or reference number." },
@@ -379,6 +380,7 @@ RULES:
 2. The template name "${templateName}" is for context only — NEVER use it as a field value.
 3. Only map values that actually appear in the extracted text. If a field has no data, OMIT it.
 4. HEADER vs SIGNATURE BLOCK: "Customer:" in HEADER = COMPANY name. "Customer:" in SIGNATURE BLOCK = PERSON's name.
+4b. LETTERHEAD / PAPERWORK OWNER: The company whose LOGO or NAME appears at the very TOP of the sheet (the letterhead / branding block) is the paperwork_owner_company — put it in header.paperwork_owner_company. This is often DIFFERENT from the 'Customer:' field. On subcontractor jobs the details box may only contain a site address and NO customer name — that is expected; leave header.customer blank in that case rather than guessing.
 5. SITE ADDRESS: Look for "Site:", "Site Address:", "Address:", "Location:" in the text. Include the FULL address with street, town/city, and postcode. Do NOT omit any part of the address.
 6. YES/NO INTERPRETATION — be very flexible with how technicians mark answers:
    a) CIRCLING: If "YES" or "NO" is circled, looped, underlined, or highlighted → that is the answer. OCR may render circles as "$", "©", "()", or other artifacts — ignore those symbols and focus on which word is marked.
@@ -469,6 +471,7 @@ async function gptVisionFallback(
   const systemPrompt = `You are an expert OCR assistant. Extract data from the handwritten form in the image(s). Do NOT invent or guess values — ONLY transcribe what is physically written on the form.
 
 HEADER: "Customer:" at TOP = COMPANY name. "Customer:" at BOTTOM signature block = PERSON's name.
+LETTERHEAD / PAPERWORK OWNER: The company whose LOGO or NAME is printed at the very TOP of the sheet (the letterhead / branding block) is the paperwork_owner_company — extract it into header.paperwork_owner_company by reading the top-of-page logo/branding. It is often DIFFERENT from the 'Customer:' field. On subcontractor sheets the details box may only contain a SITE address and no 'Customer:' value — that is expected; leave header.customer blank in that case rather than inventing one from the letterhead or address.
 SITE ADDRESS: Look for "Site:", "Site Address:", "Address:", or "Location:" in the header. Transcribe the FULL address including street, town/city, and postcode. Include ALL lines. If the address spans multiple lines, join with ", ".
 Site postcodes: read character by character (0↔O, 6↔G, 8↔B).
 AIR RELEASE / VALVE FIELDS: Read EACH air release row independently. Do NOT copy values from adjacent rows. If a field says "N/A", "NOT INSTALLED", "NOT VISIBLE", or similar descriptive text, return that FULL text.
