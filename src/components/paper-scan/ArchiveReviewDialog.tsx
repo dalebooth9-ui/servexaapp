@@ -140,6 +140,38 @@ export default function ArchiveReviewDialog({
     })();
   }, [open]);
 
+  // Load org engineers (with signature_data flag) and prefill the technician
+  // dropdown by fuzzy-matching the OCR'd engineer name.
+  useEffect(() => {
+    if (!open || !item) return;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, signature_data");
+      const list = ((data as any[]) || [])
+        .filter((p) => p.full_name)
+        .map((p) => ({
+          user_id: p.user_id as string,
+          full_name: p.full_name as string,
+          has_signature: !!p.signature_data,
+        }));
+      setEngineers(list);
+      const raw = String((item.header as any)?.engineer || "").trim();
+      if (raw && list.length > 0) {
+        // Prefer engineers with a stored signature, then broaden.
+        const withSig = list.filter((e) => e.has_signature);
+        const pool = withSig.length > 0 ? withSig : list;
+        const matched = fuzzyMatchEngineer(raw, pool);
+        const found = pool.find(
+          (e) => e.full_name.toUpperCase() === matched.toUpperCase(),
+        );
+        setTechnicianUserId(found ? found.user_id : "");
+      } else {
+        setTechnicianUserId("");
+      }
+    })();
+  }, [open, item]);
+
   useEffect(() => {
     if (!open) return;
     if (!customerId) {
