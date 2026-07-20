@@ -297,6 +297,8 @@ export default function Defects() {
     if (severityFilter !== "all" && d.severity !== severityFilter) return false;
     if (quotedFilter === "unquoted" && d.quote_id) return false;
     if (quotedFilter === "quoted" && !d.quote_id) return false;
+    if (sourceFilter === "archive" && d.source_kind !== "archive") return false;
+    if (sourceFilter === "job" && d.source_kind === "archive") return false;
     if (search) {
       const s = search.toLowerCase();
       return d.title.toLowerCase().includes(s) || (d.description || "").toLowerCase().includes(s);
