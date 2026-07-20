@@ -402,19 +402,16 @@ serve(async (req) => {
         .update({ status: "complete" })
         .eq("id", batchId);
     }
+    } catch (e: any) {
+      console.error("process-paper-scan-batch bg error:", e);
+    }
+  })();
 
-    return new Response(
-      JSON.stringify({ ok: true, processed: items.length }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
-  } catch (e: any) {
-    console.error("process-paper-scan-batch error:", e);
-    return new Response(
-      JSON.stringify({ error: e?.message || "Unknown error" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
-  }
+  // @ts-ignore EdgeRuntime is provided by supabase edge runtime
+  try { EdgeRuntime.waitUntil(work); } catch { work.catch(() => {}); }
+
+  return new Response(
+    JSON.stringify({ ok: true, accepted: true }),
+    { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
 });
