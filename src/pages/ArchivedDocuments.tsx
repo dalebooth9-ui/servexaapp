@@ -58,6 +58,9 @@ export default function ArchivedDocuments() {
     "all",
   );
   const [typeFilter, setTypeFilter] = useState("all");
+  const [customerFilter, setCustomerFilter] = useState<string>(
+    params.get("customer") || "all",
+  );
   const [scanOpen, setScanOpen] = useState(false);
   const [openDoc, setOpenDoc] = useState<ArchivedDoc | null>(null);
   const [openUrls, setOpenUrls] = useState<string[]>([]);
