@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Archive, XCircle } from "lucide-react";
+import { Loader2, Archive, XCircle, AlertTriangle, Building2 } from "lucide-react";
 import CustomerCombobox, {
   type CustomerOption,
 } from "@/components/CustomerCombobox";
