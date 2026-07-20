@@ -54,6 +54,11 @@ import { resolveSubmissionsSignedUrls, resolveSubmissionsSignedUrl } from "@/lib
 import { useToast } from "@/hooks/use-toast";
 import { deleteArchivedDocument } from "@/lib/deleteArchivedDocument";
 import { convertArchivedDocument } from "@/lib/convertArchivedDocument";
+import {
+  archiveConversionQueue,
+  useArchiveConversionEntry,
+  useArchiveConversionSummary,
+} from "@/lib/archiveConversionQueue";
 
 type ArchivedDoc = {
   id: string;
