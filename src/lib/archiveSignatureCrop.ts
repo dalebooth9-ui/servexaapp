@@ -49,7 +49,7 @@ export async function cropSignatureFromScan(
   bbox: SignatureBBox | null | undefined,
 ): Promise<HTMLImageElement | null> {
   if (!isValidBox(bbox) || sourcePaths.length === 0) return null;
-  const pageIdx = Math.max(0, Math.min(sourcePaths.length - 1, Number(bbox.page_index) || 0));
+  const pageIdx = Math.max(0, Math.min(sourcePaths.length - 1, Number((bbox as SignatureBBox).page_index) || 0));
   const src = await loadImageFromPath(sourcePaths[pageIdx]);
   if (!src) return null;
 
