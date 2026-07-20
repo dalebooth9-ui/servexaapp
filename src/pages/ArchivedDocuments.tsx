@@ -201,6 +201,20 @@ export default function ArchivedDocuments() {
     });
   }, [docs, q, statusFilter, typeFilter, customerFilter, customers, sites]);
 
+  // Queue of successful conversions awaiting defect review. FIFO: the
+  // dialog shows one at a time so the office isn't overwhelmed by a bulk
+  // "Convert all" run.
+  const [defectReviewQueue, setDefectReviewQueue] = useState<
+    {
+      archivedId: string;
+      templateName?: string;
+      customerId: string | null;
+      siteId: string | null;
+      documentDate: string | null;
+      proposals: ProposedDefect[];
+    }[]
+  >([]);
+
   // Reload the document list whenever the conversion queue reports a
   // successful conversion, so newly-generated report_pdf_path values
   // surface as "Electronic" chips without a manual refresh.
@@ -212,9 +226,23 @@ export default function ArchivedDocuments() {
       const newlyDone = nowDone.filter((id) => !doneIds.has(id));
       if (newlyDone.length > 0) {
         doneIds = new Set(nowDone);
+        // Capture any pending defect proposals BEFORE we clear the entry,
+        // and enqueue them for office review.
+        const pending = newlyDone
+          .map((id) => archiveConversionQueue.getEntry(id))
+          .filter((e): e is NonNullable<typeof e> => !!e && !!e.proposedDefects?.length)
+          .map((e) => ({
+            archivedId: e.id,
+            templateName: e.templateName,
+            customerId: e.customerId ?? null,
+            siteId: e.siteId ?? null,
+            documentDate: e.documentDate ?? null,
+            proposals: e.proposedDefects!,
+          }));
+        if (pending.length > 0) {
+          setDefectReviewQueue((prev) => [...prev, ...pending]);
+        }
         load();
-        // Drop them out of the queue so the chip disappears once the
-        // reloaded row shows the real "Electronic" state.
         for (const id of newlyDone) archiveConversionQueue.clear(id);
       }
     });
