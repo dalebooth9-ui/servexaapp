@@ -241,6 +241,15 @@ export default function ArchiveReviewDialog({
     return Array.from(map.entries());
   }, [templateFields]);
 
+  const proposedDefects = useMemo(() => {
+    if (!item) return [] as ProposedDefect[];
+    return proposeDefectsFromExtraction(
+      templateFields as any,
+      answers,
+      (item.header || {}) as any,
+    );
+  }, [item, templateFields, answers]);
+
   const renderFieldInput = (field: TemplateField) => {
     const value = answers[field.id];
     switch (field.type) {
