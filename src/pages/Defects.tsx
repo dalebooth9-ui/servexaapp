@@ -94,6 +94,11 @@ export default function Defects() {
   const [quotedFilter, setQuotedFilter] = useState<"all" | "unquoted" | "quoted">(
     searchParams.get("filter") === "unquoted" ? "unquoted" : "all"
   );
+  const [sourceFilter, setSourceFilter] = useState<"all" | "job" | "archive">(
+    searchParams.get("source") === "archive" ? "archive" : "all"
+  );
+  // The `useState<"all" | "unquoted" | "quoted">` on the next line was
+  // originally the initial declaration — the block above replaces it.
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
