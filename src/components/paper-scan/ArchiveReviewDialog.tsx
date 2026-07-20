@@ -389,12 +389,43 @@ export default function ArchiveReviewDialog({
           return e && e.has_signature ? e.full_name : null;
         })(),
       });
+
+      // Create confirmed defect proposals AFTER the archive row exists,
+      // linked to it as source. Never linked to a job. Only when filed
+      // properly (not as "Unmatched") since defects need a customer/site.
+      let createdDefectCount = 0;
+      if (!asUnmatched && proposedDefects.length > 0 && (result as any).archivedId) {
+        const confirmed = proposedDefects
+          .filter((p) => defectSelection[p.key] !== false)
+          .map((p) => ({ ...p, ...(defectOverrides[p.key] || {}) }));
+        if (confirmed.length > 0) {
+          try {
+            const created = await createArchiveSourcedDefects({
+              userId: user.id,
+              archivedId: (result as any).archivedId,
+              customerId: customerId || null,
+              siteId: siteId || null,
+              documentDate: docDate || null,
+              templateName: title || item.templateName || null,
+              proposals: confirmed,
+            });
+            createdDefectCount = created.length;
+          } catch (defectErr: any) {
+            console.error("[archive] defect create failed", defectErr);
+            toast({
+              title: "Filed, but defects failed",
+              description: defectErr?.message || "Defects couldn't be created — open them from the Defects page.",
+              variant: "destructive",
+            });
+          }
+        }
+      }
       toast({
         title: asUnmatched
           ? "Filed as Unmatched"
           : result.reportPdfPath
-            ? "Filed with electronic report"
-            : "Filed to archive (scan only)",
+            ? `Filed with electronic report${createDefectSuffix(createdDefectCount)}`
+            : `Filed to archive (scan only)${createDefectSuffix(createdDefectCount)}`,
       });
       onResolved();
       onOpenChange(false);
