@@ -12,7 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Archive, ExternalLink, FileText, Loader2 } from "lucide-react";
+import { Archive, ExternalLink, FileText, Loader2, AlertTriangle } from "lucide-react";
+import { resolveSubmissionsSignedUrls } from "@/lib/resolveSubmissionsPath";
 
 type ArchivedDoc = {
   id: string;
@@ -40,6 +41,8 @@ export default function CustomerArchivedDocumentsCard({ customerId }: Props) {
   const [q, setQ] = useState("");
   const [openDoc, setOpenDoc] = useState<ArchivedDoc | null>(null);
   const [openUrls, setOpenUrls] = useState<string[]>([]);
+  const [openFailed, setOpenFailed] = useState<string[]>([]);
+  const [openLoading, setOpenLoading] = useState(false);
 
   useEffect(() => {
     if (!isAdmin || !customerId) {
@@ -82,14 +85,16 @@ export default function CustomerArchivedDocumentsCard({ customerId }: Props) {
 
   const openView = async (d: ArchivedDoc) => {
     setOpenDoc(d);
-    const urls: string[] = [];
-    for (const p of d.file_paths || []) {
-      const { data } = await supabase.storage
-        .from("submissions")
-        .createSignedUrl(p, 60 * 60);
-      if (data?.signedUrl) urls.push(data.signedUrl);
+    setOpenUrls([]);
+    setOpenFailed([]);
+    setOpenLoading(true);
+    const { urls, failed } = await resolveSubmissionsSignedUrls(d.file_paths);
+    if (failed.length) {
+      console.error("[archive-card] unresolved pages", d.id, failed);
     }
-    setOpenUrls(urls);
+    setOpenUrls(urls.map((u) => u.signedUrl));
+    setOpenFailed(failed);
+    setOpenLoading(false);
   };
 
   if (!isAdmin) return null;
