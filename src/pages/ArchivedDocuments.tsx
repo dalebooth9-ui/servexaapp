@@ -131,6 +131,7 @@ export default function ArchivedDocuments() {
     return docs.filter((d) => {
       if (statusFilter !== "all" && d.status !== statusFilter) return false;
       if (typeFilter !== "all" && d.document_type !== typeFilter) return false;
+      if (customerFilter !== "all" && d.customer_id !== customerFilter) return false;
       if (!term) return true;
       const hay = [
         d.title,
