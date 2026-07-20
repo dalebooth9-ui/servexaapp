@@ -63,13 +63,14 @@ const DEFAULT_NAV_ITEMS = [
   { to: "/defects", label: "Defects", icon: ShieldAlert, section: "more", adminOnly: false },
   { to: "/defects/review", label: "Defects Review", icon: ShieldAlert, section: "admin", adminOnly: true },
   { to: "/report-downloads", label: "Report Downloads", icon: FileArchive, section: "more", adminOnly: false },
+  { to: "/paper-scan-queue", label: "Paper Scan Queue", icon: ClipboardCheck, section: "more", adminOnly: true },
+  { to: "/archive", label: "Archive", icon: FileArchive, section: "more", adminOnly: true },
   { to: "/sync-status", label: "Sync Status", icon: CloudUpload, section: "more", adminOnly: false },
 { to: "/industry-templates", label: "Templates", icon: BookOpen, section: "admin", adminOnly: true },
 { to: "/reports", label: "Reports", icon: BarChart2, section: "admin", adminOnly: true },
 { to: "/reports/engineers", label: "Performance", icon: TrendingUp, section: "admin", adminOnly: true },
 { to: "/audit-log", label: "Audit Log", icon: History, section: "admin", adminOnly: true },
 { to: "/engineers", label: "Engineers", icon: Users, section: "admin", adminOnly: true },
-{ to: "/billing", label: "Billing", icon: CreditCard, section: "admin", adminOnly: true },
 { to: "/setup", label: "Setup guide", icon: Rocket, section: "admin", adminOnly: true },
 { to: "/support/my-tickets", label: "My tickets", icon: LifeBuoy, section: "more" },
 { to: "/admin/support-tickets", label: "Org support tickets", icon: LifeBuoy, section: "admin", adminOnly: true },
@@ -92,7 +93,12 @@ const SECTION_OVERRIDE_KEY = "nav-section-overrides";
 function loadNavOrder(): string[] | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    // Dedupe persisted order — prevents stale localStorage from rendering the
+    // same nav item twice (e.g. two "Settings" rows after a nav refactor).
+    return Array.from(new Set(parsed.filter((v) => typeof v === "string")));
   } catch { return null; }
 }
 
