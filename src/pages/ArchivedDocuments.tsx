@@ -201,7 +201,7 @@ export default function ArchivedDocuments() {
       if (!res.ok) {
         toast({
           title: "Couldn't convert",
-          description: res.reason,
+          description: (res as { ok: false; reason: string }).reason,
           variant: "destructive",
         });
       } else {
