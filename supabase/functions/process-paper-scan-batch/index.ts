@@ -24,25 +24,57 @@ const CONFIDENCE_READY_THRESHOLD = 0.7;
 async function pathToBase64(
   supabase: ReturnType<typeof createClient>,
   path: string,
-): Promise<{ image_base64: string; mime_type: string } | null> {
-  const { data, error } = await supabase.storage.from(BUCKET).download(path);
-  if (error || !data) {
-    console.error("download failed", path, error?.message);
-    return null;
+  orgId: string | null,
+): Promise<
+  { image_base64: string; mime_type: string } | { error: string }
+> {
+  // Try stored path first, then the org-prefixed variant. Legacy items were
+  // written with a path relative to the org root (e.g. "paper-batches/…") but
+  // the actual object in storage lives at "<orgId>/paper-batches/…" because
+  // uploads went through buildOrgPathAsync. Falling back to the prefixed
+  // form transparently heals those rows without a re-upload.
+  const candidates: string[] = [path];
+  if (orgId && !path.startsWith(`${orgId}/`)) {
+    candidates.push(`${orgId}/${path}`);
   }
-  const buf = await data.arrayBuffer();
-  // Base64 encode
-  const bytes = new Uint8Array(buf);
-  let bin = "";
-  const CHUNK = 0x8000;
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    bin += String.fromCharCode.apply(
-      null,
-      Array.from(bytes.subarray(i, i + CHUNK)) as any,
-    );
+  let lastErr = "unknown";
+  for (const p of candidates) {
+    const { data, error } = await supabase.storage.from(BUCKET).download(p);
+    if (error || !data) {
+      lastErr = error?.message || "download returned no data";
+      continue;
+    }
+    const buf = await data.arrayBuffer();
+    if (buf.byteLength === 0) {
+      lastErr = "empty file";
+      continue;
+    }
+    const bytes = new Uint8Array(buf);
+    let bin = "";
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      bin += String.fromCharCode.apply(
+        null,
+        Array.from(bytes.subarray(i, i + CHUNK)) as any,
+      );
+    }
+    let mime = (data as Blob).type || "";
+    if (!mime || mime === "application/octet-stream") {
+      const ext = p.split(".").pop()?.toLowerCase() || "";
+      mime = ext === "png"
+        ? "image/png"
+        : ext === "webp"
+        ? "image/webp"
+        : ext === "heic" || ext === "heif"
+        ? "image/heic"
+        : ext === "tif" || ext === "tiff"
+        ? "image/tiff"
+        : "image/jpeg";
+    }
+    return { image_base64: btoa(bin), mime_type: mime };
   }
-  const image_base64 = btoa(bin);
-  return { image_base64, mime_type: (data as Blob).type || "image/jpeg" };
+  console.error("download failed", path, "orgId=", orgId, "err=", lastErr);
+  return { error: `${path}: ${lastErr}` };
 }
 
 async function fuzzyGuessSite(
@@ -189,11 +221,19 @@ serve(async (req) => {
       try {
         // Download and base64 the images
         const payloads: { image_base64: string; mime_type?: string }[] = [];
+        const downloadErrors: string[] = [];
         for (const p of paths) {
-          const enc = await pathToBase64(service, p);
-          if (enc) payloads.push(enc);
+          const enc = await pathToBase64(service, p, orgId);
+          if ("error" in enc) downloadErrors.push(enc.error);
+          else payloads.push(enc);
         }
-        if (payloads.length === 0) throw new Error("No readable images");
+        if (payloads.length === 0) {
+          throw new Error(
+            downloadErrors.length
+              ? `Couldn't read scan images from storage — ${downloadErrors.join("; ")}`
+              : "No readable images",
+          );
+        }
 
         // Classify: call classify-job-sheet-template with user JWT
         const clsResp = await fetch(

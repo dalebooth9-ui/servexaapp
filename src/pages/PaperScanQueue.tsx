@@ -22,7 +22,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
+  RotateCw,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import ScanCompletedJobDialog, {
   type QueueItemInput,
 } from "@/components/ScanCompletedJobDialog";
@@ -90,9 +92,31 @@ export default function PaperScanQueue() {
   const [openArchiveItem, setOpenArchiveItem] =
     useState<ArchiveQueueItemInput | null>(null);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  const [retrying, setRetrying] = useState<Record<string, boolean>>({});
+  const { toast } = useToast();
 
 
   const isAdmin = userRole === "admin";
+
+  const retryItem = useCallback(async (item: Item) => {
+    setRetrying((r) => ({ ...r, [item.id]: true }));
+    try {
+      const { error } = await (supabase as any)
+        .from("paper_scan_batch_items")
+        .update({ status: "pending", error: null })
+        .eq("id", item.id);
+      if (error) throw error;
+      await supabase.functions.invoke("process-paper-scan-batch", {
+        body: { batch_id: item.batch_id },
+      });
+      toast({ title: "Retrying", description: "The item is being reprocessed." });
+    } catch (e: any) {
+      toast({ title: "Retry failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setRetrying((r) => ({ ...r, [item.id]: false }));
+    }
+  }, [toast]);
+
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -157,6 +181,16 @@ export default function PaperScanQueue() {
           : null,
       })),
     );
+    // Auto-kick the processor for any batches that have pending items but no
+    // one currently processing (e.g. after a Retry, or if a batch stalled).
+    const pendingBatches = Array.from(
+      new Set(rows.filter((r) => r.status === "pending").map((r) => r.batch_id)),
+    );
+    for (const bId of pendingBatches) {
+      supabase.functions
+        .invoke("process-paper-scan-batch", { body: { batch_id: bId } })
+        .catch(() => {});
+    }
     setLoading(false);
   }, []);
 
@@ -465,6 +499,20 @@ export default function PaperScanQueue() {
                             <Loader2 className="h-3 w-3 animate-spin" />{" "}
                             Processing
                           </span>
+                        ) : i.status === "failed" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!!retrying[i.id]}
+                            onClick={() => retryItem(i)}
+                          >
+                            {retrying[i.id] ? (
+                              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <RotateCw className="mr-1 h-3.5 w-3.5" />
+                            )}
+                            Retry
+                          </Button>
                         ) : (
                           <span className="text-xs text-muted-foreground">
                             —
