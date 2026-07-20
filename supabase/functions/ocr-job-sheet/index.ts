@@ -318,7 +318,8 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
             type: "object",
             description: "Header information from the form.",
             properties: {
-              customer: { type: "string", description: "The COMPANY/ORGANISATION name from the header 'Customer:' field at the TOP of the form. NOT a person's name from the signature block." },
+              paperwork_owner_company: { type: "string", description: "The COMPANY that OWNS this paperwork — the company whose LOGO or COMPANY NAME appears in the LETTERHEAD/BRANDING at the very TOP of the sheet (e.g. 'BESSEGES', 'SAFELY COMPLY', 'VIVA FIRE PROTECTION'). Read this from the logo/branding block ONLY — do NOT read from the 'Customer:' or 'Site:' form fields. If the letterhead has a stylised logo, transcribe the visible company name text. Leave blank if there is no letterhead/branding on the sheet." },
+              customer: { type: "string", description: "The COMPANY/ORGANISATION name written in the form's 'Customer:' or 'Client:' field (the FILLED-IN VALUE next to that label). NOT the letterhead — that goes in paperwork_owner_company. NOT a person's name from the signature block. On many subcontractor sheets this 'Customer:' field is blank because the details box only shows a site address — leave this blank in that case." },
               site: { type: "string", description: "FULL site address including street, city/town, and postcode. Look for fields labelled 'Site:', 'Site Address:', 'Address:', 'Location:' or similar in the header area. Include ALL address lines — do NOT omit any part. Read postcodes character by character: 0↔O, 6↔G, 8↔B, 9↔Q, N↔H. If multiple address lines exist, join them with ', '." },
               date: { type: "string", description: "Date from the form header." },
               po_ref: { type: "string", description: "PO number or reference number." },
