@@ -90,6 +90,14 @@ export default function ArchiveReviewDialog({
   const [templateFields, setTemplateFields] = useState<TemplateField[]>([]);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [loadingTemplate, setLoadingTemplate] = useState(false);
+  // Engineer signature matching — office confirms which employee profile's
+  // stored signature to stamp as the technician signature on the electronic
+  // report, on the basis that the scanned original bears their handwritten
+  // signature. "" = no signature applied; UUID = user_id of matched engineer.
+  const [engineers, setEngineers] = useState<
+    { user_id: string; full_name: string; has_signature: boolean }[]
+  >([]);
+  const [technicianUserId, setTechnicianUserId] = useState<string>("");
 
   useEffect(() => {
     if (!open || !item) return;
