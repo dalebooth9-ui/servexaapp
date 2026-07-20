@@ -23,6 +23,14 @@ export type ArchivePdfInput = {
   customerId: string | null;
   siteId: string | null;
   documentDate: string | null; // yyyy-mm-dd
+  /**
+   * When set, forwarded as `submittedBy` so the shared job PDF generator
+   * looks up this engineer's profile signature (`profiles.signature_data`)
+   * and stamps it into the technician signature block. Used by the archive
+   * flow to apply an engineer's stored signature on the basis that the
+   * scanned original bears their handwritten signature.
+   */
+  technicianName?: string | null;
 };
 
 export async function generateAndUploadArchivePdf(
