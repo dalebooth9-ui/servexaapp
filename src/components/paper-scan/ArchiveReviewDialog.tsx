@@ -361,6 +361,11 @@ export default function ArchiveReviewDialog({
         storagePhotoPaths: item.imagePaths || [],
         status: asUnmatched ? "unmatched" : "filed",
         templateFields: asUnmatched ? null : templateFields,
+        technicianName: (() => {
+          if (asUnmatched) return null;
+          const e = engineers.find((x) => x.user_id === technicianUserId);
+          return e && e.has_signature ? e.full_name : null;
+        })(),
       });
       toast({
         title: asUnmatched
