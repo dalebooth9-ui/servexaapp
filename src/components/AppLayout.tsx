@@ -93,7 +93,12 @@ const SECTION_OVERRIDE_KEY = "nav-section-overrides";
 function loadNavOrder(): string[] | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    // Dedupe persisted order — prevents stale localStorage from rendering the
+    // same nav item twice (e.g. two "Settings" rows after a nav refactor).
+    return Array.from(new Set(parsed.filter((v) => typeof v === "string")));
   } catch { return null; }
 }
 
