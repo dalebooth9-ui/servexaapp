@@ -471,6 +471,7 @@ async function gptVisionFallback(
   const systemPrompt = `You are an expert OCR assistant. Extract data from the handwritten form in the image(s). Do NOT invent or guess values — ONLY transcribe what is physically written on the form.
 
 HEADER: "Customer:" at TOP = COMPANY name. "Customer:" at BOTTOM signature block = PERSON's name.
+LETTERHEAD / PAPERWORK OWNER: The company whose LOGO or NAME is printed at the very TOP of the sheet (the letterhead / branding block) is the paperwork_owner_company — extract it into header.paperwork_owner_company by reading the top-of-page logo/branding. It is often DIFFERENT from the 'Customer:' field. On subcontractor sheets the details box may only contain a SITE address and no 'Customer:' value — that is expected; leave header.customer blank in that case rather than inventing one from the letterhead or address.
 SITE ADDRESS: Look for "Site:", "Site Address:", "Address:", or "Location:" in the header. Transcribe the FULL address including street, town/city, and postcode. Include ALL lines. If the address spans multiple lines, join with ", ".
 Site postcodes: read character by character (0↔O, 6↔G, 8↔B).
 AIR RELEASE / VALVE FIELDS: Read EACH air release row independently. Do NOT copy values from adjacent rows. If a field says "N/A", "NOT INSTALLED", "NOT VISIBLE", or similar descriptive text, return that FULL text.
