@@ -334,7 +334,21 @@ export async function generateJobSheetPdf(
   };
 
   const customerName = jobInfo?.customers?.name || jobInfo?.customer || findFormVal("customer detail", "client detail", "customer company", "client company", "company") || "";
-  const siteFormVal = findFormVal("site detail", "site info", "site name", "site address", "location");
+  // Site lookup by label — deliberately narrow patterns and skip anything
+  // that mentions "riser"/"valve"/"outlet" so the riser location field
+  // never leaks into the Site display (it has its own dedicated header slot).
+  const siteFormVal = (() => {
+    const patterns = ["site detail", "site info", "site name", "site address", "site location"];
+    for (const f of template.fields) {
+      const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+      if (label.includes("riser") || label.includes("valve") || label.includes("outlet")) continue;
+      if (patterns.some(p => label.includes(p) || label === p)) {
+        const v = resolvedFormData[f.id];
+        if (hasValue(v)) return String(v);
+      }
+    }
+    return "";
+  })();
   const siteAddress = jobInfo?.site?.address || jobInfo?.address || "";
   const siteName = jobInfo?.site?.name || "";
   // Also try to pull site from the job address if no site linked

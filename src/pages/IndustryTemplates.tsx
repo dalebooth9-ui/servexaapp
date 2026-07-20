@@ -48,6 +48,7 @@ const DRY_RISER_PRESSURE_TEST_FIELDS: FieldDef[] = [
   { id: "relevant_signs_in_place", type: "checkbox", label: "BS9990:2015 8.1 Are all relevant signs in place?", section: "External Equipment", required: true, allow_notes: true },
   { id: "breeching_inlet_cabinet_good_condition", type: "checkbox", label: "BS9990:2015 7.4.3.1 Is the Breeching Inlet cabinet in good condition?", section: "External Equipment", required: true, allow_notes: true },
   { id: "number_of_outlets", type: "number", label: "Number of outlets :", section: "Internal Equipment", required: true, allow_notes: true },
+  { id: "valve_type", type: "text", label: "Valve type:", section: "Internal Equipment", required: false, allow_notes: true, placeholder: "e.g. instantaneous / screw thread" },
   { id: "landing_valve_good_condition", type: "checkbox", label: "BS9990:2015 7.4.3.1 Is the landing valve in good condition?", section: "Internal Equipment", required: true, allow_notes: true },
   { id: "landing_valve_blank_cap_chain", type: "checkbox", label: "BS9990:2015 7.4.3.1 Does the landing valve have a blank cap & chain?", section: "Internal Equipment", required: true, allow_notes: true },
   { id: "custom_field_1771871167826", type: "checkbox", label: "BS9990:2015 7.4.3.1 Are the instantaneous washers in good condition?", section: "Internal Equipment", required: true, allow_notes: true },
