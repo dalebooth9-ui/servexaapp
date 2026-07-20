@@ -23,6 +23,7 @@ import SetupSpotlightBanner from "@/components/SetupSpotlightBanner";
 import PlanBandBanner from "@/components/billing/PlanBandBanner";
 import SubscriptionActivationBanner from "@/components/billing/SubscriptionActivationBanner";
 import ReportProblemDialog from "@/components/ReportProblemDialog";
+import BackButton from "@/components/BackButton";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { supabase } from "@/integrations/supabase/client";
 import {
