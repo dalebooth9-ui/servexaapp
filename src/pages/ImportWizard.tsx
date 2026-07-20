@@ -76,7 +76,7 @@ export default function ImportWizard() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><Upload className="h-6 w-6" /> Import Data</h1>
           <p className="text-sm text-muted-foreground mt-1">Bring customers, sites, or assets in from a CSV or Excel export.</p>
         </div>
-        <Button variant="ghost" onClick={() => navigate("/settings")}><ArrowLeft className="h-4 w-4 mr-1" /> Back to Settings</Button>
+        
       </div>
 
       {/* Stepper */}
