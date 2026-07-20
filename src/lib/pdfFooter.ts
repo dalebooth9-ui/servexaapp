@@ -216,11 +216,40 @@ export function resolveFooterText(
       ruleLabel: "Fire Hydrant → BS 9990:2015 / NFCC",
     };
   }
-  if (n.includes("dry riser") && n.includes("visual")) {
+  // Hydraulic pressure test (dry / wet riser) — BS 9990:2015 12 bar for 15 min
+  if (n.includes("hydraulic") && n.includes("pressure")) {
+    return {
+      text: "We have, today, carried out a Hydraulic Pressure Test of 12 Bars for a period of 15 minutes to the requirements of BS 9990:2015",
+      source: "rule",
+      ruleLabel: "Hydraulic Pressure Test → BS 9990:2015 (12 bar / 15 min)",
+    };
+  }
+  if (n.includes("wet riser")) {
     return {
       text: "Tested and inspected in accordance with BS 9990:2015",
       source: "rule",
-      ruleLabel: "Dry Riser Visual → BS 9990:2015",
+      ruleLabel: "Wet Riser → BS 9990:2015",
+    };
+  }
+  if (n.includes("dry riser")) {
+    return {
+      text: "Tested and inspected in accordance with BS 9990:2015",
+      source: "rule",
+      ruleLabel: "Dry Riser → BS 9990:2015",
+    };
+  }
+  if (n.includes("emergency light")) {
+    return {
+      text: "Tested and inspected in accordance with BS 5266-1:2016",
+      source: "rule",
+      ruleLabel: "Emergency Lighting → BS 5266-1:2016",
+    };
+  }
+  if (n.includes("fire alarm")) {
+    return {
+      text: "Tested and inspected in accordance with BS 5839-1:2017",
+      source: "rule",
+      ruleLabel: "Fire Alarm → BS 5839-1:2017",
     };
   }
   return { text: "", source: "none", ruleLabel: "No footer (no matching rule)" };
