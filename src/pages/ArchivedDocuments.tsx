@@ -53,7 +53,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { resolveSubmissionsSignedUrls, resolveSubmissionsSignedUrl } from "@/lib/resolveSubmissionsPath";
 import { useToast } from "@/hooks/use-toast";
 import { deleteArchivedDocument } from "@/lib/deleteArchivedDocument";
-import { convertArchivedDocument } from "@/lib/convertArchivedDocument";
 import {
   archiveConversionQueue,
   useArchiveConversionEntry,
