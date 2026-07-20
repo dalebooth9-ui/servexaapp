@@ -489,6 +489,20 @@ export default function PaperScanQueue() {
                             <Loader2 className="h-3 w-3 animate-spin" />{" "}
                             Processing
                           </span>
+                        ) : i.status === "failed" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!!retrying[i.id]}
+                            onClick={() => retryItem(i)}
+                          >
+                            {retrying[i.id] ? (
+                              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <RotateCw className="mr-1 h-3.5 w-3.5" />
+                            )}
+                            Retry
+                          </Button>
                         ) : (
                           <span className="text-xs text-muted-foreground">
                             —
