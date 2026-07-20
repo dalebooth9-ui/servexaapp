@@ -181,6 +181,16 @@ export default function PaperScanQueue() {
           : null,
       })),
     );
+    // Auto-kick the processor for any batches that have pending items but no
+    // one currently processing (e.g. after a Retry, or if a batch stalled).
+    const pendingBatches = Array.from(
+      new Set(rows.filter((r) => r.status === "pending").map((r) => r.batch_id)),
+    );
+    for (const bId of pendingBatches) {
+      supabase.functions
+        .invoke("process-paper-scan-batch", { body: { batch_id: bId } })
+        .catch(() => {});
+    }
     setLoading(false);
   }, []);
 
