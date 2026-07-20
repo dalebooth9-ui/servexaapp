@@ -642,6 +642,18 @@ export default function ArchiveReviewDialog({
               </div>
             </div>
 
+            {proposedDefects.length > 0 && (
+              <ProposedDefectsSection
+                proposals={proposedDefects}
+                selection={defectSelection}
+                onSelectionChange={setDefectSelection}
+                overrides={defectOverrides}
+                onOverridesChange={setDefectOverrides}
+              />
+            )}
+
+
+
             {hasTemplate && (
               <div className="rounded border bg-muted/30 p-3 space-y-3">
                 <div className="flex items-center gap-2 text-sm font-medium">
