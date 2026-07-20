@@ -10,6 +10,10 @@ export interface PdfSignatureData {
   engineerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string } | null;
   /** Signature record for customer */
   customerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string } | null;
+  /** Optional small caption rendered under the technician signature (e.g. "signature from original scan"). */
+  technicianSourceNote?: string | null;
+  /** Optional small caption rendered under the customer signature. */
+  customerSourceNote?: string | null;
 }
 
 function formatSigTimestamp(iso?: string): string {
@@ -99,6 +103,15 @@ export function renderPdfSignatures(
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
   }
+  if (data.technicianSourceNote) {
+    doc.setFontSize(5.5);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(110, 110, 110);
+    doc.text(data.technicianSourceNote, margin, sigY + 27);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(0, 0, 0);
+  }
 
   doc.setFont("helvetica", "bold");
   doc.text("Date: ", cx, sigY + 3);
@@ -124,6 +137,15 @@ export function renderPdfSignatures(
     doc.setFontSize(6);
     doc.setTextColor(90, 90, 90);
     doc.text(`Signed ${custTs}`, cx, sigY + 24);
+    doc.setFontSize(7);
+    doc.setTextColor(0, 0, 0);
+  }
+  if (data.customerSourceNote) {
+    doc.setFontSize(5.5);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(110, 110, 110);
+    doc.text(data.customerSourceNote, cx, sigY + 27);
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
   }
