@@ -1,8 +1,14 @@
 // File a paper-scan-batch item as a standalone archived document — NO job,
 // NO visit, NO planner entry. Used by the digitise-only "Archive scan" flow.
+//
+// When the sheet was matched to a template we ALSO generate the filled
+// electronic report through the normal job PDF pipeline and attach it as
+// the archive's primary artifact (report_pdf_path). The original scan
+// pages remain attached as source reference (file_paths).
 import { supabase } from "@/integrations/supabase/client";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { resolveSubmissionsSignedUrl } from "@/lib/resolveSubmissionsPath";
+import { generateAndUploadArchivePdf } from "@/lib/archivePdfBuilder";
 
 export type ArchiveScanConfirmInput = {
   userId: string;
@@ -21,11 +27,16 @@ export type ArchiveScanConfirmInput = {
   header: Record<string, any>;
   storagePhotoPaths: string[]; // paths in 'submissions' bucket
   status?: "filed" | "unmatched";
+  /**
+   * Full template fields — when supplied and status === "filed", the
+   * electronic PDF report is rendered and attached.
+   */
+  templateFields?: any[] | null;
 };
 
 export async function archiveScanConfirm(
   input: ArchiveScanConfirmInput,
-): Promise<{ archivedId: string }> {
+): Promise<{ archivedId: string; reportPdfPath: string | null }> {
   const {
     userId,
     orgId,
@@ -43,16 +54,15 @@ export async function archiveScanConfirm(
     header,
     storagePhotoPaths,
     status = "filed",
+    templateFields,
   } = input;
 
-  // Copy source-scan pages into an archive-scoped folder so deleting the
-  // batch never orphans the filed document.
+  // 1. Copy the source scan pages into an archive-scoped folder so deleting
+  //    the batch never orphans the filed document.
   const destPaths: string[] = [];
   const stamp = Date.now();
   for (let i = 0; i < storagePhotoPaths.length; i++) {
     const rawSrc = storagePhotoPaths[i];
-    // Resolve the real object path first — legacy batch items may have stored
-    // an un-prefixed path while the physical object lives under <orgId>/...
     const resolved = await resolveSubmissionsSignedUrl(rawSrc);
     const src = resolved?.path || rawSrc;
     const ext =
@@ -63,8 +73,6 @@ export async function archiveScanConfirm(
       .from("submissions")
       .copy(src, dest);
     if (copyErr) {
-      // Fall back: keep the RESOLVED source path (verified readable) so the
-      // archive row always previews, even if copy fails.
       console.error("archive copy failed", src, copyErr);
       destPaths.push(src);
     } else {
@@ -72,6 +80,7 @@ export async function archiveScanConfirm(
     }
   }
 
+  // 2. Insert the archive row first so we have an id to name the PDF with.
   const { data, error } = await supabase
     .from("archived_documents" as any)
     .insert({
@@ -98,7 +107,44 @@ export async function archiveScanConfirm(
   if (error) throw error;
   const archivedId = (data as any).id as string;
 
-  // Mark the queue item as confirmed and link back to the archive.
+  // 3. Generate + attach the electronic report when we have a template.
+  //    Skips silently (image-only fallback) if generation fails so the
+  //    user still gets a filed archive record instead of a hard error.
+  let reportPdfPath: string | null = null;
+  if (
+    status === "filed" &&
+    templateId &&
+    templateName &&
+    Array.isArray(templateFields) &&
+    templateFields.length > 0
+  ) {
+    try {
+      const { path } = await generateAndUploadArchivePdf({
+        archivedId,
+        template: {
+          id: templateId,
+          name: templateName,
+          fields: templateFields,
+        },
+        responses: extracted || {},
+        customerId,
+        siteId,
+        documentDate,
+      });
+      reportPdfPath = path;
+      await (supabase as any)
+        .from("archived_documents")
+        .update({ report_pdf_path: path })
+        .eq("id", archivedId);
+    } catch (e) {
+      console.error(
+        "[archiveScanConfirm] electronic report generation failed — filed as scan-only",
+        e,
+      );
+    }
+  }
+
+  // 4. Mark the queue item as confirmed and link back to the archive.
   await supabase
     .from("paper_scan_batch_items")
     .update({
@@ -109,5 +155,5 @@ export async function archiveScanConfirm(
     } as any)
     .eq("id", itemId);
 
-  return { archivedId };
+  return { archivedId, reportPdfPath };
 }
