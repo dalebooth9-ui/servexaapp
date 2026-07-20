@@ -198,33 +198,40 @@ export default function ArchivedDocuments() {
     });
   }, [docs, q, statusFilter, typeFilter, customerFilter, customers, sites]);
 
-  const handleConvert = async (d: ArchivedDoc) => {
-    setBusyId(d.id);
-    try {
-      const res = await convertArchivedDocument(d.id);
-      if (!res.ok) {
-        toast({
-          title: "Couldn't convert",
-          description: (res as { ok: false; reason: string }).reason,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Converted",
-          description: `Electronic report generated from ${res.templateName}.`,
-        });
-        await load();
+  // Reload the document list whenever the conversion queue reports a
+  // successful conversion, so newly-generated report_pdf_path values
+  // surface as "Electronic" chips without a manual refresh.
+  useEffect(() => {
+    let doneIds = new Set<string>();
+    const unsub = archiveConversionQueue.subscribe(() => {
+      const snap = archiveConversionQueue.snapshot();
+      const nowDone = snap.filter((e) => e.state === "done").map((e) => e.id);
+      const newlyDone = nowDone.filter((id) => !doneIds.has(id));
+      if (newlyDone.length > 0) {
+        doneIds = new Set(nowDone);
+        load();
+        // Drop them out of the queue so the chip disappears once the
+        // reloaded row shows the real "Electronic" state.
+        for (const id of newlyDone) archiveConversionQueue.clear(id);
       }
-    } catch (e: any) {
-      toast({
-        title: "Convert failed",
-        description: e?.message,
-        variant: "destructive",
-      });
-    } finally {
-      setBusyId(null);
-    }
+    });
+    return unsub;
+  }, []);
+
+  const handleConvert = (d: ArchivedDoc) => {
+    archiveConversionQueue.enqueue([d.id]);
   };
+
+  const convertibleIds = useMemo(
+    () =>
+      filtered
+        .filter((d) => !d.report_pdf_path && d.file_paths?.length > 0)
+        .map((d) => d.id),
+    [filtered],
+  );
+  const [confirmBulk, setConfirmBulk] = useState(false);
+
+  const summary = useArchiveConversionSummary();
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
