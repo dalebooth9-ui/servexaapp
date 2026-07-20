@@ -154,7 +154,7 @@ class ArchiveConversionQueue {
         entry.reason = undefined;
       } else {
         entry.state = "failed";
-        entry.reason = res.reason;
+        entry.reason = (res as { ok: false; reason: string }).reason;
       }
     } catch (e: any) {
       const entry = this.entries.get(id);
