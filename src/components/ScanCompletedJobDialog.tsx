@@ -818,7 +818,31 @@ export default function ScanCompletedJobDialog({
     }
     setSaving(true);
     try {
-      const site = sites.find((s) => s.id === siteId);
+      // Auto-create the site from the free-text sheet fields if the reviewer
+      // didn't pick one — the UI promises "free text will be filed".
+      let effectiveSiteId = siteId;
+      if (!effectiveSiteId && freeTextSite) {
+        const parts = splitSiteHeaderForCreate(freeTextSite);
+        const { data: created, error: siteErr } = await supabase
+          .from("sites")
+          .insert({
+            name: (parts.name || freeTextSite).slice(0, 200),
+            address: parts.address || freeTextSite || null,
+            postcode: parts.postcode || null,
+            site_type: "site",
+            created_by: user.id,
+            notes: "Auto-created from paper scan review",
+          } as any)
+          .select("id, name, address, postcode")
+          .single();
+        if (siteErr) throw siteErr;
+        effectiveSiteId = (created as any).id;
+        await supabase.from("customer_sites" as any).insert({
+          customer_id: customerId,
+          site_id: effectiveSiteId,
+        });
+      }
+      const site = sites.find((s) => s.id === effectiveSiteId);
       const jobAddress = [site?.address, site?.postcode]
         .filter(Boolean)
         .join(", ");
