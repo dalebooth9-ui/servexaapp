@@ -176,7 +176,7 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
           description: `Batch created with ${pageFiles.length} pages. Opening review queue…`,
         });
         onClose();
-        navigate(`/paper-scan-queue?batch=${batchId}${mode === "archive" ? "&mode=archive" : ""}`);
+        navigate(`/paper-scans?tab=review&batch=${batchId}${mode === "archive" ? "&mode=archive" : ""}`);
         return;
 
       } catch (e: any) {
