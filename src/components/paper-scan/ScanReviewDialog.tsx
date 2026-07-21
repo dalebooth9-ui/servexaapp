@@ -253,6 +253,13 @@ export default function ScanReviewDialog({
     setDefectOverrides({});
     setJobName("");
     setMatchExistingJobId("");
+    setPoNumber(
+      String(
+        (item.header as any)?.po_ref ||
+          (item.header as any)?.job_ref ||
+          "",
+      ).trim(),
+    );
     setDuplicatePrompt(null);
     setCustomerSig(null);
     setEngineerSig(null);
