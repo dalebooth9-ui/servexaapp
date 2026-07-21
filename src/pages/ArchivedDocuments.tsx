@@ -619,9 +619,66 @@ export default function ArchivedDocuments() {
             </Table>
           )}
         </Card>
+
+        <BulkActionBar
+          count={selectedIds.size}
+          onClear={() => setSelectedIds(new Set())}
+        >
+          {selectedConvertible.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={bulkBusy}
+              onClick={runBulkConvert}
+            >
+              <Wand2 className="mr-1 h-3.5 w-3.5" /> Convert ({selectedConvertible.length})
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={bulkBusy}
+            onClick={() => setConfirmBulkDelete(true)}
+          >
+            <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete ({selectedIds.size})
+          </Button>
+        </BulkActionBar>
       </div>
 
       <ArchiveScanDialog open={scanOpen} onOpenChange={setScanOpen} />
+
+      <AlertDialog open={confirmBulkDelete} onOpenChange={setConfirmBulkDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selectedIds.size} archived document{selectedIds.size === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the selected archive rows, their stored pages and
+              any generated electronic reports.
+              {selectedInFlight.length > 0 && (
+                <>
+                  {" "}
+                  <span className="text-destructive font-medium">
+                    {selectedInFlight.length} of these are still being converted —
+                    deleting mid-conversion will cancel them.
+                  </span>
+                </>
+              )}
+              {" "}This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={runBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog
         open={!!openDoc}
