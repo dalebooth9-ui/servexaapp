@@ -171,6 +171,14 @@ export async function convertArchivedDocument(
     sourcePaths: paths,
     customerId: (doc as any).customer_id,
     siteId: (doc as any).site_id,
+    siteName:
+      (doc as any).site_name ||
+      (header as any)?.site ||
+      null,
+    siteAddress:
+      (doc as any).site_address ||
+      (header as any)?.site ||
+      null,
     documentDate: (doc as any).document_date,
     technicianName,
   });
