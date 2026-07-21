@@ -685,10 +685,29 @@ export default function PaperScanQueue({ embedded = false, onGoUpload }: PaperSc
 
                         ) : i.status === "processing" ||
                           i.status === "pending" ? (
-                          <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                            <Loader2 className="h-3 w-3 animate-spin" />{" "}
-                            Processing
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" />{" "}
+                              Processing
+                            </span>
+                            {/* Safety valve: if the background processor crashed
+                                mid-item this row would stay stuck forever with
+                                no action. Allow the reviewer to force a retry. */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs"
+                              disabled={!!retrying[i.id]}
+                              onClick={() => retryItem(i)}
+                              title="Force reprocess if this row seems stuck"
+                            >
+                              {retrying[i.id] ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <RotateCw className="h-3 w-3" />
+                              )}
+                            </Button>
+                          </div>
                         ) : i.status === "failed" ? (
                           <Button
                             size="sm"
