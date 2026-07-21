@@ -37,6 +37,9 @@ export type ArchivePdfInput = {
   sourcePaths?: string[] | null;
   customerId: string | null;
   siteId: string | null;
+  /** Free-text site name/address used as a fallback when siteId is null. */
+  siteName?: string | null;
+  siteAddress?: string | null;
   documentDate: string | null; // yyyy-mm-dd
   /**
    * When set, forwarded as `submittedBy` so the shared job PDF generator
