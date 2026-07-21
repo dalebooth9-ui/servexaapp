@@ -60,7 +60,7 @@ export async function convertArchivedDocument(
   const { data: doc, error } = await (supabase as any)
     .from("archived_documents")
     .select(
-      "id, org_id, customer_id, site_id, document_date, file_paths, report_pdf_path",
+      "id, org_id, customer_id, site_id, site_name, site_address, document_date, file_paths, report_pdf_path",
     )
     .eq("id", archivedId)
     .maybeSingle();
@@ -171,6 +171,14 @@ export async function convertArchivedDocument(
     sourcePaths: paths,
     customerId: (doc as any).customer_id,
     siteId: (doc as any).site_id,
+    siteName:
+      (doc as any).site_name ||
+      (header as any)?.site ||
+      null,
+    siteAddress:
+      (doc as any).site_address ||
+      (header as any)?.site ||
+      null,
     documentDate: (doc as any).document_date,
     technicianName,
   });
@@ -185,6 +193,10 @@ export async function convertArchivedDocument(
       header_data: header,
       report_pdf_path: path,
       status: "filed",
+      site_name:
+        (doc as any).site_name || (header as any)?.site || null,
+      site_address:
+        (doc as any).site_address || (header as any)?.site || null,
     })
     .eq("id", archivedId);
 

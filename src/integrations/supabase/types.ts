@@ -111,7 +111,9 @@ export type Database = {
           org_id: string
           page_count: number
           report_pdf_path: string | null
+          site_address: string | null
           site_id: string | null
+          site_name: string | null
           source_batch_id: string | null
           source_item_id: string | null
           status: string
@@ -135,7 +137,9 @@ export type Database = {
           org_id: string
           page_count?: number
           report_pdf_path?: string | null
+          site_address?: string | null
           site_id?: string | null
+          site_name?: string | null
           source_batch_id?: string | null
           source_item_id?: string | null
           status?: string
@@ -159,7 +163,9 @@ export type Database = {
           org_id?: string
           page_count?: number
           report_pdf_path?: string | null
+          site_address?: string | null
           site_id?: string | null
+          site_name?: string | null
           source_batch_id?: string | null
           source_item_id?: string | null
           status?: string

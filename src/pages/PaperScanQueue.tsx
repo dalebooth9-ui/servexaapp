@@ -249,11 +249,13 @@ export default function PaperScanQueue() {
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
-    items.forEach((i) => {
-      c[i.status] = (c[i.status] || 0) + 1;
-    });
+    items
+      .filter((i) => (i.mode || "job") === modeTab)
+      .forEach((i) => {
+        c[i.status] = (c[i.status] || 0) + 1;
+      });
     return c;
-  }, [items]);
+  }, [items, modeTab]);
 
   const openReview = (i: Item) => {
     if ((i.mode || "job") === "archive") {
@@ -315,20 +317,18 @@ export default function PaperScanQueue() {
               correct the extracted answers, and file it as a completed job.
             </p>
           </div>
-          <div className="flex gap-2 text-xs">
-            <Badge variant="outline">
-              Ready: {counts.ready || 0}
-            </Badge>
+          <div className="flex gap-2 text-xs items-center">
+            <span className="text-muted-foreground">
+              {modeTab === "job" ? "Job scans:" : "Archive scans:"}
+            </span>
+            <Badge variant="outline">Ready: {counts.ready || 0}</Badge>
             <Badge variant="secondary">
               Low confidence: {counts.low_confidence || 0}
             </Badge>
-            <Badge variant="destructive">
-              Failed: {counts.failed || 0}
-            </Badge>
-            <Badge variant="outline">
-              Filed: {counts.confirmed || 0}
-            </Badge>
+            <Badge variant="destructive">Failed: {counts.failed || 0}</Badge>
+            <Badge variant="outline">Filed: {counts.confirmed || 0}</Badge>
           </div>
+
         </div>
 
         <div className="flex gap-2 flex-wrap">

@@ -23,6 +23,10 @@ export type ArchiveScanConfirmInput = {
   documentDate: string | null; // yyyy-mm-dd
   title: string | null;
   notes: string | null;
+  /** Free-text site name (used when siteId is null, or as the display fallback). */
+  siteName?: string | null;
+  /** Free-text site address (persisted so the electronic PDF can render it). */
+  siteAddress?: string | null;
   extracted: Record<string, any>;
   header: Record<string, any>;
   storagePhotoPaths: string[]; // paths in 'submissions' bucket
@@ -57,6 +61,8 @@ export async function archiveScanConfirm(
     documentDate,
     title,
     notes,
+    siteName,
+    siteAddress,
     extracted,
     header,
     storagePhotoPaths,
@@ -106,6 +112,8 @@ export async function archiveScanConfirm(
       org_id: orgId,
       customer_id: customerId,
       site_id: siteId,
+      site_name: siteName ?? (header as any)?.site ?? null,
+      site_address: siteAddress ?? (header as any)?.site ?? null,
       document_date: documentDate,
       document_type: documentType,
       template_id: templateId,
@@ -150,6 +158,8 @@ export async function archiveScanConfirm(
         sourcePaths: destPaths,
         customerId,
         siteId,
+        siteName: siteName ?? (header as any)?.site ?? null,
+        siteAddress: siteAddress ?? (header as any)?.site ?? null,
         documentDate,
         technicianName,
       });

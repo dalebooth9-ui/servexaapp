@@ -90,6 +90,8 @@ export default function ArchiveReviewDialog({
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [customerId, setCustomerId] = useState("");
   const [siteId, setSiteId] = useState("");
+  const [siteName, setSiteName] = useState("");
+  const [siteAddress, setSiteAddress] = useState("");
   const [docDate, setDocDate] = useState("");
   const [docType, setDocType] = useState("");
   const [title, setTitle] = useState("");
@@ -117,6 +119,13 @@ export default function ArchiveReviewDialog({
     if (!open || !item) return;
     setCustomerId(item.guessCustomerId || "");
     setSiteId(item.guessSiteId || "");
+    // Prefill free-text site name / address from the OCR header block so
+    // the office doesn't have to retype them. When a site record is also
+    // matched (guessSiteId) these will get overwritten below by the
+    // matched site's own name/address.
+    const headerSite = String((item.header as any)?.site || "").trim();
+    setSiteName(headerSite);
+    setSiteAddress(headerSite);
     setDocDate(item.guessDate || "");
     setDocType(item.documentType || item.templateName || "");
     setTitle(item.templateName || "");
@@ -200,9 +209,37 @@ export default function ArchiveReviewDialog({
         .select("id, name, address, postcode")
         .eq("customer_id", customerId)
         .order("name");
-      setSites((ss as any) || []);
+      const list = (ss as any as SiteOption[]) || [];
+      setSites(list);
+      // Auto-match a site record from the OCR'd site text when nothing is
+      // already picked. Simple case-insensitive substring / postcode match.
+      if (!siteId && item) {
+        const headerSite = String((item.header as any)?.site || "")
+          .toLowerCase()
+          .trim();
+        if (headerSite) {
+          const pc = headerSite.match(/[a-z]{1,2}\d{1,2}[a-z]?\s*\d[a-z]{2}/i)?.[0]?.toLowerCase();
+          const match = list.find((s) => {
+            const hay = `${s.name || ""} ${s.address || ""} ${s.postcode || ""}`.toLowerCase();
+            if (pc && (s.postcode || "").toLowerCase().replace(/\s+/g, "") === pc.replace(/\s+/g, "")) return true;
+            const nameLc = (s.name || "").toLowerCase();
+            return nameLc && (headerSite.includes(nameLc) || hay.includes(headerSite.slice(0, 20)));
+          });
+          if (match) setSiteId(match.id);
+        }
+      }
     })();
-  }, [open, customerId]);
+  }, [open, customerId, item, siteId]);
+
+  // When a site record is picked, mirror its name/address into the
+  // free-text fields so the persisted archive row is consistent.
+  useEffect(() => {
+    if (!siteId) return;
+    const s = sites.find((x) => x.id === siteId);
+    if (!s) return;
+    setSiteName(s.name || "");
+    setSiteAddress(s.address || "");
+  }, [siteId, sites]);
 
   useEffect(() => {
     if (!open || !item?.imagePaths?.length) {
@@ -378,6 +415,8 @@ export default function ArchiveReviewDialog({
         documentType: docType || null,
         customerId: asUnmatched ? null : customerId || null,
         siteId: asUnmatched ? null : siteId || null,
+        siteName: asUnmatched ? null : siteName || null,
+        siteAddress: asUnmatched ? null : siteAddress || null,
         documentDate: docDate || null,
         title: title || null,
         notes: notes || null,
@@ -552,12 +591,30 @@ export default function ArchiveReviewDialog({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Site</Label>
+                <Label>Site {siteId ? "" : "(no matching record — free text will be filed)"}</Label>
                 <SiteCombobox
                   value={siteId}
                   sites={sites}
                   onChange={setSiteId}
                 />
+              </div>
+              <div className="space-y-1.5 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Site name (from sheet)</Label>
+                  <Input
+                    value={siteName}
+                    onChange={(e) => setSiteName(e.target.value)}
+                    placeholder="e.g. The Slate Yard — Graphite Building"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Site address (from sheet)</Label>
+                  <Input
+                    value={siteAddress}
+                    onChange={(e) => setSiteAddress(e.target.value)}
+                    placeholder="Full address including postcode"
+                  />
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Document date</Label>
