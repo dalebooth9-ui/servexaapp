@@ -627,42 +627,31 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         }))
       );
 
-      const { data, error } = await supabase.functions.invoke("ocr-job-sheet", {
-        body: {
-          images: imagePayloads,
-          template_name: template.name,
-          fields: fieldDescriptions,
-        },
+      // Single canonical extraction call — same pipeline every other scan
+      // door uses. Handles engineer fuzzy-match against org profiles internally.
+      const { extracted, header } = await runScanExtraction({
+        images: imagePayloads,
+        templateName: template.name,
+        fields: fieldDescriptions,
       });
 
-      if (error) throw error;
-
-      if (data?.extracted) {
-        const header = data.header || {};
-
-        // Fuzzy-match engineer name against known profiles
-        if (header.engineer) {
-          const { data: profiles } = await supabase.from("profiles").select("user_id, full_name");
-          if (profiles && profiles.length > 0) {
-            const matched = fuzzyMatchEngineer(header.engineer, profiles.filter((p: any) => p.full_name));
-            if (matched === header.engineer && jobInfo?.engineers?.length) {
-              header.engineer = jobInfo.engineers[0];
-            } else {
-              header.engineer = matched;
-            }
-          }
-        } else if (jobInfo?.engineers?.length) {
+      if (extracted && Object.keys(extracted).length >= 0) {
+        // If the pipeline didn't find an engineer match but this job already
+        // has one assigned, prefer that (job door only — the archive/queue
+        // door don't have a "current job's engineer" fallback).
+        if (!header.engineer && jobInfo?.engineers?.length) {
           header.engineer = jobInfo.engineers[0];
         }
 
         // Show review panel instead of immediately applying
-        const normalizedFields = applyExposedOutletOverrides(data.extracted || {}, template.fields);
+        const normalizedFields = applyExposedOutletOverrides(extracted, template.fields);
         setReviewData({ fields: normalizedFields, header });
         toast({
           title: "Data extracted — please review",
           description: `Check the extracted values before confirming.`,
         });
       } else {
+
         toast({ title: "No data extracted", description: "Could not read the handwritten content. Try a clearer photo.", variant: "destructive" });
       }
     } catch (err: any) {
