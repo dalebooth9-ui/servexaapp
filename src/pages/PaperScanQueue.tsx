@@ -421,27 +421,15 @@ export default function PaperScanQueue() {
   };
 
   const openReview = (i: Item) => {
-    if ((i.mode || "job") === "archive") {
-      setOpenArchiveItem({
-        itemId: i.id,
-        batchId: i.batch_id,
-        templateId: i.detected_template_id,
-        templateName: i.template_name || null,
-        documentType: (i.header_data?.document_type as string) || null,
-        extracted: i.extracted || {},
-        header: i.header_data || {},
-        imagePaths: i.image_paths || [],
-        guessCustomerId: i.guess_customer_id,
-        guessSiteId: i.guess_site_id,
-        guessDate: i.guess_date,
-      });
-      return;
-    }
-    if (!i.detected_template_id) return;
+    const currentMode: "job" | "archive" = (i.mode || "job") === "archive" ? "archive" : "job";
+    if (currentMode === "job" && !i.detected_template_id) return;
     setOpenItem({
+      _mode: currentMode,
       itemId: i.id,
       batchId: i.batch_id,
       templateId: i.detected_template_id,
+      templateName: i.template_name || null,
+      documentType: (i.header_data?.document_type as string) || null,
       extracted: i.extracted || {},
       header: i.header_data || {},
       imagePaths: i.image_paths || [],
@@ -453,6 +441,7 @@ export default function PaperScanQueue() {
         : [],
     });
   };
+
 
 
   if (!isAdmin) {
