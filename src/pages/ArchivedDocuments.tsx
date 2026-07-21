@@ -119,6 +119,8 @@ export default function ArchivedDocuments({ embedded = false }: ArchivedDocument
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
 
+  const [sendDoc, setSendDoc] = useState<ArchivedDoc | null>(null);
+
   const isAdmin = userRole === "admin";
 
   const load = async () => {
