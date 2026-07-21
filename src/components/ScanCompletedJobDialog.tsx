@@ -390,6 +390,7 @@ export default function ScanCompletedJobDialog({
     if (!customerId) {
       setSites([]);
       setSiteId("");
+      setSiteMatch(null);
       return;
     }
     supabase
@@ -407,8 +408,27 @@ export default function ScanCompletedJobDialog({
             postcode: s.postcode,
           }));
         setSites(opts);
+
+        // Auto-match extracted site text against the customer's site
+        // records. Confident match → pre-select. Ambiguous / none → surface
+        // the extracted text and a "Create site from sheet" hint.
+        const headerSite = String((header as any)?.site || "").trim();
+        if (!headerSite) {
+          setSiteMatch(null);
+          return;
+        }
+        const result = matchSiteFromHeader(opts, headerSite);
+        setSiteMatch(result);
+        if (result.confidence === "exact" && result.best && !siteId) {
+          setSiteId(result.best.id);
+        }
       });
+    // Intentionally excluding siteId/header from deps: we only want to
+    // auto-match once per customer selection to avoid clobbering the
+    // reviewer's explicit choice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerId]);
+
 
   // ── Auto-crop signatures out of the source photos using the bboxes the
   // OCR function returned. Runs in both single and queue flows; either
