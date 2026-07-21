@@ -589,12 +589,30 @@ export default function ArchiveReviewDialog({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Site</Label>
+                <Label>Site {siteId ? "" : "(no matching record — free text will be filed)"}</Label>
                 <SiteCombobox
                   value={siteId}
                   sites={sites}
                   onChange={setSiteId}
                 />
+              </div>
+              <div className="space-y-1.5 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Site name (from sheet)</Label>
+                  <Input
+                    value={siteName}
+                    onChange={(e) => setSiteName(e.target.value)}
+                    placeholder="e.g. The Slate Yard — Graphite Building"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Site address (from sheet)</Label>
+                  <Input
+                    value={siteAddress}
+                    onChange={(e) => setSiteAddress(e.target.value)}
+                    placeholder="Full address including postcode"
+                  />
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Document date</Label>
