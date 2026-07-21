@@ -18,6 +18,10 @@ import CustomerReportPdf from "./CustomerReportPdf";
 import PreviousReportsForJob from "./PreviousReportsForJob";
 import { generateJobSheetPdf } from "./JobSheetPdfExport";
 import { useJobCategories } from "@/hooks/useJobCategories";
+import { useEffect } from "react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { AlertTriangle, ExternalLink } from "lucide-react";
+import { getGraphSendStatus, sendViaGraph, type GraphSendStatus } from "@/lib/graphMailSend";
 
 interface Props {
   jobId: string;
