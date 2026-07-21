@@ -142,7 +142,7 @@ export async function archiveScanConfirm(
       title,
       notes: notesWithSigTrail,
       extracted,
-      header_data: header,
+      header_data: headerWithManualSigs,
       file_paths: destPaths,
       page_count: destPaths.length,
       status,
