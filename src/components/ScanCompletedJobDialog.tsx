@@ -788,8 +788,15 @@ export default function ScanCompletedJobDialog({
       toast({ title: "Choose a customer", variant: "destructive" });
       return;
     }
-    if (!siteId) {
-      toast({ title: "Choose or create a site", variant: "destructive" });
+    const headerSite = String((header as any)?.site || "").trim();
+    const freeTextSite = headerSite;
+    if (!siteId && !freeTextSite) {
+      toast({
+        title: "No site information",
+        description:
+          "Pick a site from the list, or add a site name/address from the sheet.",
+        variant: "destructive",
+      });
       return;
     }
     if (mismatches.length > 0 && !ackMismatch) {
