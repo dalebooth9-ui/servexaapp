@@ -546,6 +546,16 @@ export default function PaperScanQueue() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      aria-label="Select all rows in view"
+                      checked={
+                        filtered.length > 0 &&
+                        filtered.every((r) => selectedIds.has(r.id))
+                      }
+                      onCheckedChange={(v) => toggleAllVisible(v === true)}
+                    />
+                  </TableHead>
                   <TableHead className="w-16"></TableHead>
                   <TableHead>Template</TableHead>
                   <TableHead>Customer / Site (guessed)</TableHead>
@@ -562,7 +572,17 @@ export default function PaperScanQueue() {
                     ? thumbs[i.image_paths[0]]
                     : null;
                   return (
-                    <TableRow key={i.id}>
+                    <TableRow
+                      key={i.id}
+                      data-state={selectedIds.has(i.id) ? "selected" : undefined}
+                    >
+                      <TableCell>
+                        <Checkbox
+                          aria-label={`Select item ${i.id}`}
+                          checked={selectedIds.has(i.id)}
+                          onCheckedChange={(v) => toggleId(i.id, v === true)}
+                        />
+                      </TableCell>
                       <TableCell>
                         {thumb ? (
                           <img
