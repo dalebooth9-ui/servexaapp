@@ -1431,7 +1431,7 @@ export default function ScanReviewDialog({
               </div>
             )}
 
-            <div className="flex flex-wrap gap-2 justify-between pt-2 border-t">
+            <div className="flex flex-wrap gap-3 justify-between items-center pt-2 border-t">
               <Button
                 variant="ghost"
                 type="button"
@@ -1440,35 +1440,24 @@ export default function ScanReviewDialog({
               >
                 <XCircle className="mr-1.5 h-4 w-4" /> Discard
               </Button>
-              <div className="flex gap-2">
-                {!isJob && (
-                  <Button
-                    variant="outline"
-                    type="button"
-                    onClick={() => fileArchive(true)}
-                    disabled={saving}
-                  >
-                    File as Unmatched
-                  </Button>
-                )}
+              <div className="flex flex-col items-end gap-1">
                 <Button
                   type="button"
-                  onClick={() => (isJob ? fileAsJob() : fileArchive(false))}
+                  size="lg"
+                  onClick={handleUnifiedSubmit}
                   disabled={saving}
+                  className="min-h-12"
                 >
                   {saving ? (
-                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                  ) : isJob ? (
-                    <Briefcase className="mr-1.5 h-4 w-4" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <Archive className="mr-1.5 h-4 w-4" />
+                    <FileText className="mr-2 h-4 w-4" />
                   )}
-                  {isJob
-                    ? "File as completed job"
-                    : hasTemplate
-                      ? "File with electronic report"
-                      : "File to archive"}
+                  Looks good → build PDF
                 </Button>
+                <span className="text-[11px] text-muted-foreground">
+                  {destinationHint}
+                </span>
               </div>
             </div>
           </div>
