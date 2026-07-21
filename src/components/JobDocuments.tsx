@@ -913,6 +913,18 @@ ${sections}
           {printingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
           Print all
         </Button>
+        {hasSideBySide && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={openPaperVsElectronic}
+            title="View the original scanned paper form alongside the generated electronic report"
+          >
+            <Images className="h-3.5 w-3.5" />
+            Paper scan vs electronic
+          </Button>
+        )}
         {docs.some((d) => !!d.file_url && isImageDoc(d) && d.source === "email_po") && (
           <Button
             variant="outline"
