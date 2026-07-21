@@ -18,6 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { applyExposedOutletOverrides } from "@/lib/ocrResultNormalization";
+import { runScanExtraction, runScanCategoryIdentify } from "@/lib/scanPipeline";
 import { mergeQuickScanState } from "@/lib/quickScanState";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
