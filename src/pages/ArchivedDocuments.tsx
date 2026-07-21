@@ -773,6 +773,14 @@ export default function ArchivedDocuments({ embedded = false }: ArchivedDocument
                       <Download className="h-3.5 w-3.5 mr-1" /> Download PDF
                     </a>
                   )}
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="h-7 gap-1"
+                    onClick={() => openDoc && setSendDoc(openDoc)}
+                  >
+                    <Send className="h-3.5 w-3.5" /> Send to customer
+                  </Button>
                 </div>
               )}
 
