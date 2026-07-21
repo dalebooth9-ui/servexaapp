@@ -578,17 +578,36 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
   };
 
 
+  const previewDialog = (
+    <PdfPreviewDialog
+      open={previewOpen}
+      onOpenChange={setPreviewOpen}
+      blob={previewBlob}
+      fileName={previewName}
+      title={`${job?.reference_number || "Job"} — Customer report`}
+    />
+  );
+
   if (trigger) {
-    return <span onClick={generate} className="cursor-pointer">{trigger}</span>;
+    return (
+      <>
+        <span onClick={generate} className="cursor-pointer">{trigger}</span>
+        {previewDialog}
+      </>
+    );
   }
 
   return (
-    <Button variant="outline" size="sm" onClick={generate} disabled={generating}>
-      {generating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileDown className="mr-1.5 h-4 w-4" />}
-      {generating ? "Generating..." : "Customer Report"}
-    </Button>
+    <>
+      <Button variant="outline" size="sm" onClick={generate} disabled={generating}>
+        {generating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileDown className="mr-1.5 h-4 w-4" />}
+        {generating ? "Generating..." : "Customer Report"}
+      </Button>
+      {previewDialog}
+    </>
   );
 }
+
 
 function extractStoragePath(fileUrl: string): string | null {
   try {
