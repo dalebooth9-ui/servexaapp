@@ -904,6 +904,14 @@ export default function InvoiceDetail() {
           </CardContent>
         </Card>
       )}
+      <PdfPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        blob={previewBlob}
+        fileName={`${invoice?.invoice_number || "invoice"}.pdf`}
+        title={`Invoice ${invoice?.invoice_number || ""}`}
+      />
     </div>
   );
 }
+
