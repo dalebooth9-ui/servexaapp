@@ -254,7 +254,7 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated,
                 {extracted?.document_kind_reason && (
                   <p className="text-xs text-muted-foreground">{extracted.document_kind_reason}</p>
                 )}
-                <p className="text-xs text-muted-foreground">Send it to Scan Paper Reports instead — no re-upload needed.</p>
+                <p className="text-xs text-muted-foreground">Send it to Paper scans instead — no re-upload needed.</p>
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">
