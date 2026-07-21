@@ -733,6 +733,45 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
               />
             </div>
 
+            <div className="rounded-md border p-3 space-y-2">
+              <div className="text-sm font-semibold">Delivery route</div>
+              <RadioGroup value={route} onValueChange={(v) => setRoute(v as any)}>
+                <label className={`flex items-start gap-2 rounded p-2 cursor-pointer ${!graphStatus?.ready ? "opacity-50" : "hover:bg-muted/50"}`}>
+                  <RadioGroupItem value="graph_send" className="mt-1" disabled={!graphStatus?.ready} />
+                  <div className="text-sm">
+                    <div className="font-medium">Send from {graphStatus?.mailbox || "Microsoft 365"}</div>
+                    <p className="text-xs text-muted-foreground">Goes out through Outlook and lands in Sent Items; replies come back there.</p>
+                  </div>
+                </label>
+                <label className={`flex items-start gap-2 rounded p-2 cursor-pointer ${!graphStatus?.ready ? "opacity-50" : "hover:bg-muted/50"}`}>
+                  <RadioGroupItem value="graph_draft" className="mt-1" disabled={!graphStatus?.ready} />
+                  <div className="text-sm">
+                    <div className="font-medium">Create draft in Outlook</div>
+                    <p className="text-xs text-muted-foreground">Opens a pre-filled draft with attachments — review and press Send there.</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-2 rounded p-2 cursor-pointer hover:bg-muted/50">
+                  <RadioGroupItem value="app_mailer" className="mt-1" />
+                  <div className="text-sm">
+                    <div className="font-medium">Send via Servexa mailer</div>
+                    <p className="text-xs text-muted-foreground">Fallback route — won't appear in your Outlook Sent Items.</p>
+                  </div>
+                </label>
+              </RadioGroup>
+              {!graphStatus?.ready && (
+                <div className="text-xs text-muted-foreground border-t pt-2 flex items-start gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
+                  <span>
+                    {graphStatus?.message || "Microsoft 365 isn't connected yet."}{" "}
+                    <a href="/settings?tab=email" className="text-primary hover:underline inline-flex items-center gap-0.5">
+                      Set up <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </span>
+                </div>
+              )}
+            </div>
+
+
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
               <Button
