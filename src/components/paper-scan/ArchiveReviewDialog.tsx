@@ -209,9 +209,37 @@ export default function ArchiveReviewDialog({
         .select("id, name, address, postcode")
         .eq("customer_id", customerId)
         .order("name");
-      setSites((ss as any) || []);
+      const list = (ss as any as SiteOption[]) || [];
+      setSites(list);
+      // Auto-match a site record from the OCR'd site text when nothing is
+      // already picked. Simple case-insensitive substring / postcode match.
+      if (!siteId && item) {
+        const headerSite = String((item.header as any)?.site || "")
+          .toLowerCase()
+          .trim();
+        if (headerSite) {
+          const pc = headerSite.match(/[a-z]{1,2}\d{1,2}[a-z]?\s*\d[a-z]{2}/i)?.[0]?.toLowerCase();
+          const match = list.find((s) => {
+            const hay = `${s.name || ""} ${s.address || ""} ${s.postcode || ""}`.toLowerCase();
+            if (pc && (s.postcode || "").toLowerCase().replace(/\s+/g, "") === pc.replace(/\s+/g, "")) return true;
+            const nameLc = (s.name || "").toLowerCase();
+            return nameLc && (headerSite.includes(nameLc) || hay.includes(headerSite.slice(0, 20)));
+          });
+          if (match) setSiteId(match.id);
+        }
+      }
     })();
-  }, [open, customerId]);
+  }, [open, customerId, item, siteId]);
+
+  // When a site record is picked, mirror its name/address into the
+  // free-text fields so the persisted archive row is consistent.
+  useEffect(() => {
+    if (!siteId) return;
+    const s = sites.find((x) => x.id === siteId);
+    if (!s) return;
+    setSiteName(s.name || "");
+    setSiteAddress(s.address || "");
+  }, [siteId, sites]);
 
   useEffect(() => {
     if (!open || !item?.imagePaths?.length) {
