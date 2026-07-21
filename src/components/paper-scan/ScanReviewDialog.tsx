@@ -693,58 +693,97 @@ export default function ScanReviewDialog({
         });
       }
 
-      // Duplicate-job detection — same customer + site + date (and matching
-      // PO if both have one). Skip if the reviewer already chose "attach to
-      // existing", already chose "create separate", or the date is unknown
-      // (we don't have enough to be sure).
+      // Duplicate-job detection — two signals, either is enough to prompt:
+      //   (a) same customer + site + date (with matching PO if both have one),
+      //   (b) same customer + same PO number (dates missing/mismatched is fine).
+      // A matching PO is a strong signal it's the same visit even when the
+      // recorded completion date shifts across pages/sheets in a batch.
       const chosenExistingJobId =
         opts?.existingJobId ?? (matchExistingJobId || null);
-      if (
-        !opts?.forceNew &&
-        !chosenExistingJobId &&
-        ukDate
-      ) {
-        const m = ukDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-        const iso = m ? `${m[3]}-${m[2]}-${m[1]}` : null;
-        if (iso) {
-          const dayStart = `${iso}T00:00:00Z`;
-          const dayEnd = `${iso}T23:59:59Z`;
-          const { data: dupJobs } = await supabase
+      const scanPo = poNumber.trim().toLowerCase();
+      if (!opts?.forceNew && !chosenExistingJobId) {
+        let candidate: {
+          id: string;
+          reference_number: string;
+          completed_at: string | null;
+          reason: "date" | "po";
+        } | null = null;
+
+        // (a) date-window match
+        if (ukDate) {
+          const m = ukDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+          const iso = m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+          if (iso) {
+            const dayStart = `${iso}T00:00:00Z`;
+            const dayEnd = `${iso}T23:59:59Z`;
+            const { data: dupJobs } = await supabase
+              .from("jobs")
+              .select("id, reference_number, completed_at, customer_po")
+              .eq("customer_id", customerId)
+              .eq("site_id", effectiveSiteId)
+              .gte("completed_at", dayStart)
+              .lte("completed_at", dayEnd)
+              .neq("status", "cancelled" as any)
+              .order("created_at", { ascending: false })
+              .limit(5);
+            const compatible = (dupJobs || []).filter((j: any) => {
+              const jobPo = String(j.customer_po || "").trim().toLowerCase();
+              if (scanPo && jobPo && scanPo !== jobPo) return false;
+              return true;
+            });
+            if (compatible.length > 0) {
+              const pick = compatible[0] as any;
+              candidate = {
+                id: pick.id,
+                reference_number: pick.reference_number,
+                completed_at: pick.completed_at || null,
+                reason: "date",
+              };
+            }
+          }
+        }
+
+        // (b) PO match — only if we didn't already find a date match
+        if (!candidate && scanPo) {
+          const { data: poJobs } = await supabase
             .from("jobs")
             .select("id, reference_number, completed_at, customer_po")
             .eq("customer_id", customerId)
-            .eq("site_id", effectiveSiteId)
-            .gte("completed_at", dayStart)
-            .lte("completed_at", dayEnd)
+            .ilike("customer_po", poNumber.trim())
             .neq("status", "cancelled" as any)
             .order("created_at", { ascending: false })
-            .limit(5);
-          const scanPo = String(
-            (item.header as any)?.po_ref || (item.header as any)?.job_ref || "",
-          )
-            .trim()
-            .toLowerCase();
-          const compatible = (dupJobs || []).filter((j: any) => {
-            const jobPo = String(j.customer_po || "").trim().toLowerCase();
-            // If both have a PO and they disagree, don't suggest a merge.
-            if (scanPo && jobPo && scanPo !== jobPo) return false;
-            return true;
-          });
-          if (compatible.length > 0) {
-            const pick = compatible[0] as any;
-            setDuplicatePrompt({
-              jobId: pick.id,
-              reference: pick.reference_number,
-              completedAt: pick.completed_at || null,
-            });
-            setSaving(false);
-            return;
+            .limit(1);
+          if (poJobs && poJobs.length > 0) {
+            const pick = poJobs[0] as any;
+            candidate = {
+              id: pick.id,
+              reference_number: pick.reference_number,
+              completed_at: pick.completed_at || null,
+              reason: "po",
+            };
           }
+        }
+
+        if (candidate) {
+          setDuplicatePrompt({
+            jobId: candidate.id,
+            reference: candidate.reference_number,
+            completedAt: candidate.completed_at,
+            reason: candidate.reason,
+          });
+          setSaving(false);
+          return;
         }
       }
 
       const category = deriveJobCategory(templateMeta);
       const dateKnown = !!ukDate;
+      // Override the header PO with the reviewer's edited value so the RPC
+      // stores the corrected PO on the job.
+      const headerWithPo: Record<string, any> = {
+        ...(item.header || {}),
+        po_ref: poNumber.trim() || (item.header as any)?.po_ref || null,
+      };
       const result = await confirmScanQueueAsJob({
         userId: user.id,
         itemId: item.itemId,
@@ -758,7 +797,7 @@ export default function ScanReviewDialog({
         completionDate: ukDate || null,
         dateKnown,
         responses: answers,
-        header: item.header || {},
+        header: headerWithPo,
         imagePaths: item.imagePaths || [],
         customerSignatureBlob: customerSig?.blob || null,
         engineerSignatureBlob: engineerSig?.blob || null,
