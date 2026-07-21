@@ -95,7 +95,13 @@ const STATUS_VARIANT: Record<
   rejected: "outline",
 };
 
-export default function PaperScanQueue() {
+interface PaperScanQueueProps {
+  /** When true, render just the page body (no AppLayout wrapper) so it can
+   *  be embedded as a tab inside the unified `/paper-scans` shell. */
+  embedded?: boolean;
+}
+
+export default function PaperScanQueue({ embedded = false }: PaperScanQueueProps = {}) {
   const { userRole, user, orgId } = useAuth();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -445,19 +451,19 @@ export default function PaperScanQueue() {
 
 
   if (!isAdmin) {
-    return (
-      <AppLayout>
-        <div className="p-6">
-          <p className="text-sm text-muted-foreground">
-            This page is available to administrators only.
-          </p>
-        </div>
-      </AppLayout>
+    const denied = (
+      <div className="p-6">
+        <p className="text-sm text-muted-foreground">
+          This page is available to administrators only.
+        </p>
+      </div>
     );
+    return embedded ? denied : <AppLayout>{denied}</AppLayout>;
   }
 
-  return (
-    <AppLayout>
+  const body = (
+    <>
+
       <div className="p-6 space-y-4">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
@@ -649,7 +655,7 @@ export default function PaperScanQueue() {
                           </Button>
                         ) : i.status === "confirmed" && i.archived_document_id ? (
                           <Button size="sm" variant="outline" asChild>
-                            <Link to={`/archive?doc=${i.archived_document_id}`}>
+                            <Link to={`/paper-scans?tab=history&doc=${i.archived_document_id}`}>
                               <ExternalLink className="mr-1 h-3.5 w-3.5" /> Open in archive
                             </Link>
                           </Button>
@@ -780,7 +786,9 @@ export default function PaperScanQueue() {
         }}
       />
 
-
-    </AppLayout>
+    </>
   );
+
+  return embedded ? body : <AppLayout>{body}</AppLayout>;
 }
+

@@ -81,7 +81,14 @@ type ArchivedDoc = {
   created_at: string;
 };
 
-export default function ArchivedDocuments() {
+interface ArchivedDocumentsProps {
+  /** When true, render just the page body (no AppLayout wrapper) so it can
+   *  be embedded as a tab inside the unified `/paper-scans` shell. Also hides
+   *  the "Archive scan" launcher since Upload has its own tab. */
+  embedded?: boolean;
+}
+
+export default function ArchivedDocuments({ embedded = false }: ArchivedDocumentsProps = {}) {
   const [params, setParams] = useSearchParams();
   const { userRole } = useAuth();
   const { toast } = useToast();
@@ -373,19 +380,18 @@ export default function ArchivedDocuments() {
   };
 
   if (!isAdmin) {
-    return (
-      <AppLayout>
-        <div className="p-6">
-          <p className="text-sm text-muted-foreground">
-            Only administrators can view the archive library.
-          </p>
-        </div>
-      </AppLayout>
+    const denied = (
+      <div className="p-6">
+        <p className="text-sm text-muted-foreground">
+          Only administrators can view the archive library.
+        </p>
+      </div>
     );
+    return embedded ? denied : <AppLayout>{denied}</AppLayout>;
   }
 
-  return (
-    <AppLayout>
+  const body = (
+    <>
       <div className="p-6 space-y-4">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
@@ -397,10 +403,13 @@ export default function ArchivedDocuments() {
               creating jobs or planner entries.
             </p>
           </div>
-          <Button onClick={() => setScanOpen(true)}>
-            <ScanLine className="mr-1.5 h-4 w-4" /> Archive scan
-          </Button>
+          {!embedded && (
+            <Button onClick={() => setScanOpen(true)}>
+              <ScanLine className="mr-1.5 h-4 w-4" /> Archive scan
+            </Button>
+          )}
         </div>
+
 
         <Card className="p-3 flex flex-wrap gap-2 items-center">
           <Input
@@ -825,9 +834,12 @@ export default function ArchivedDocuments() {
         item={defectReviewQueue[0]}
         onClose={() => setDefectReviewQueue((prev) => prev.slice(1))}
       />
-    </AppLayout>
+    </>
   );
+
+  return embedded ? body : <AppLayout>{body}</AppLayout>;
 }
+
 
 /**
  * Per-row convert cell — subscribes to the shared conversion queue so its

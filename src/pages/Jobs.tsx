@@ -1547,20 +1547,13 @@ export default function Jobs() {
                 <DropdownMenuItem onClick={() => setBulkImportOpen(true)}>
                   <Upload className="mr-2 h-4 w-4" /> Import CSV
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setScanPaperOpen(true)}>
-                  <ScanLine className="mr-2 h-4 w-4" /> Scan Paper Report
-                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/paper-scan-queue" className="cursor-pointer flex items-center">
-                    <ScanLine className="mr-2 h-4 w-4" /> Paper Scan Queue
+                  <Link to="/paper-scans" className="cursor-pointer flex items-center">
+                    <ScanLine className="mr-2 h-4 w-4" /> Paper scans
                     <span className="ml-auto"><PaperScanQueueBadge /></span>
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/archive" className="cursor-pointer flex items-center">
-                    <ScanLine className="mr-2 h-4 w-4" /> Archive Paper Backlog
-                  </Link>
-                </DropdownMenuItem>
+
 
               </DropdownMenuContent>
             </DropdownMenu>
