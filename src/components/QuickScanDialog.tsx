@@ -480,35 +480,7 @@ export default function QuickScanDialog() {
         (c: any) => c.name.toLowerCase() === (detectedName || "").toLowerCase(),
       );
 
-        {
-          id: "detected_category",
-          label: "Document Category",
-          type: "select",
-          options: categoryNames,
-        },
-        {
-          id: "confidence",
-          label: "Confidence",
-          type: "select",
-          options: ["high", "medium", "low"],
-        },
-      ];
 
-      const { data: identifyData, error: identifyError } = await supabase.functions.invoke("ocr-job-sheet", {
-        body: {
-          images: imagePayloads,
-          template_name: "Category Identification",
-          fields: categoryIdentifyFields,
-        },
-      });
-
-      if (identifyError) throw identifyError;
-      if (identifyData?.error) throw new Error(identifyData.error);
-
-      const detectedName = identifyData?.extracted?.detected_category;
-      const matchedCat = (categories || []).find(
-        (c: any) => c.name.toLowerCase() === (detectedName || "").toLowerCase()
-      );
 
       if (matchedCat) {
         setDetectedCategory({ slug: matchedCat.slug, name: matchedCat.name });
