@@ -515,6 +515,16 @@ export default function ArchivedDocuments() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      aria-label="Select all rows in view"
+                      checked={
+                        filtered.length > 0 &&
+                        filtered.every((r) => selectedIds.has(r.id))
+                      }
+                      onCheckedChange={(v) => toggleAllVisible(v === true)}
+                    />
+                  </TableHead>
                   <TableHead>Customer / Site</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Date</TableHead>
@@ -527,7 +537,17 @@ export default function ArchivedDocuments() {
                 {filtered.map((d) => {
                   const canConvert = !d.report_pdf_path && d.file_paths?.length > 0;
                   return (
-                    <TableRow key={d.id}>
+                    <TableRow
+                      key={d.id}
+                      data-state={selectedIds.has(d.id) ? "selected" : undefined}
+                    >
+                      <TableCell>
+                        <Checkbox
+                          aria-label={`Select document ${d.id}`}
+                          checked={selectedIds.has(d.id)}
+                          onCheckedChange={(v) => toggleId(d.id, v === true)}
+                        />
+                      </TableCell>
                       <TableCell className="text-sm">
                         <div>
                           {d.customer_id
