@@ -45,7 +45,7 @@ export default function ScanIntakeEmailCard() {
         </CardTitle>
         <CardDescription>
           Set your office scanner/printer's "scan to email" destination to this address. Servexa
-          batches every attachment into the Paper Scan Queue for template matching and review.
+          batches every attachment into the Review tab under Paper scans for template matching and review.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
