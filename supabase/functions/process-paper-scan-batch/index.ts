@@ -10,6 +10,7 @@
 // re-invokes itself to continue (so we never exhaust one edge invocation).
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { decode, Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,70 @@ const corsHeaders = {
 const CHUNK_SIZE = 1;
 const BUCKET = "submissions";
 const CONFIDENCE_READY_THRESHOLD = 0.7;
+const MAX_IMAGE_DIM = 1800; // px — plenty for OCR, avoids gateway timeouts
+const OCR_MAX_ATTEMPTS = 3;
+
+// Downscale phone-camera photos before sending to OCR. Large 4000px+ images
+// blow the gateway idle-timeout on slow AI extraction runs; 1800px is more
+// than enough for GPT-vision / Azure layout to read a job sheet.
+async function downscaleForOcr(
+  image_base64: string,
+  mime_type?: string,
+): Promise<{ image_base64: string; mime_type: string }> {
+  try {
+    if (mime_type === "application/pdf") {
+      return { image_base64, mime_type };
+    }
+    const bytes = Uint8Array.from(atob(image_base64), (c) => c.charCodeAt(0));
+    const img = await decode(bytes);
+    if (!(img instanceof Image)) {
+      return { image_base64, mime_type: mime_type || "image/jpeg" };
+    }
+    const maxSide = Math.max(img.width, img.height);
+    if (maxSide <= MAX_IMAGE_DIM && bytes.length < 2_500_000) {
+      return { image_base64, mime_type: mime_type || "image/jpeg" };
+    }
+    if (maxSide > MAX_IMAGE_DIM) {
+      const scale = MAX_IMAGE_DIM / maxSide;
+      img.resize(Math.round(img.width * scale), Math.round(img.height * scale));
+    }
+    const jpeg = await img.encodeJPEG(82);
+    let bin = "";
+    const CHUNK = 0x8000;
+    for (let i = 0; i < jpeg.length; i += CHUNK) {
+      bin += String.fromCharCode.apply(
+        null,
+        Array.from(jpeg.subarray(i, i + CHUNK)) as any,
+      );
+    }
+    return { image_base64: btoa(bin), mime_type: "image/jpeg" };
+  } catch (e) {
+    console.warn("downscaleForOcr failed, sending original:", (e as any)?.message);
+    return { image_base64, mime_type: mime_type || "image/jpeg" };
+  }
+}
+
+// Translate raw upstream errors into an operator-friendly one-liner. The
+// review queue surfaces this string directly; keep it actionable.
+function friendlyError(raw: string): string {
+  const s = String(raw || "");
+  if (/IDLE_TIMEOUT|504|timeout|timed out/i.test(s)) {
+    return "Timed out reading this sheet — tap Retry to try again.";
+  }
+  if (/429/.test(s)) {
+    return "AI is busy right now — tap Retry in a moment.";
+  }
+  if (/402/.test(s) || /credits/i.test(s)) {
+    return "AI credits exhausted — top up in Settings, then tap Retry.";
+  }
+  if (/No matching template/i.test(s)) {
+    return "Couldn't match this sheet to a template. Open it and pick one, or add a matching template.";
+  }
+  if (/Couldn't read scan images|No readable images/i.test(s)) {
+    return "Couldn't read the uploaded scan file — try re-uploading a clearer photo.";
+  }
+  return s.length > 180 ? s.substring(0, 177) + "…" : s;
+}
 
 async function pathToBase64(
   supabase: ReturnType<typeof createClient>,
