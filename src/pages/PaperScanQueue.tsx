@@ -101,9 +101,9 @@ export default function PaperScanQueue() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"pending" | "all">("pending");
   const [modeTab, setModeTab] = useState<"job" | "archive">("job");
-  const [openItem, setOpenItem] = useState<QueueItemInput | null>(null);
-  const [openArchiveItem, setOpenArchiveItem] =
-    useState<ArchiveQueueItemInput | null>(null);
+  const [openItem, setOpenItem] = useState<
+    (ScanQueueItemInput & { _mode: "job" | "archive" }) | null
+  >(null);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [retrying, setRetrying] = useState<Record<string, boolean>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
