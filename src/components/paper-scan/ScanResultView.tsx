@@ -47,6 +47,7 @@ export default function ScanResultView({
   const navigate = useNavigate();
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
 
   useEffect(() => {
     if (!reportPdfPath) {
