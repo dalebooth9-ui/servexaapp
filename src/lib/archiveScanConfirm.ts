@@ -23,6 +23,10 @@ export type ArchiveScanConfirmInput = {
   documentDate: string | null; // yyyy-mm-dd
   title: string | null;
   notes: string | null;
+  /** Free-text site name (used when siteId is null, or as the display fallback). */
+  siteName?: string | null;
+  /** Free-text site address (persisted so the electronic PDF can render it). */
+  siteAddress?: string | null;
   extracted: Record<string, any>;
   header: Record<string, any>;
   storagePhotoPaths: string[]; // paths in 'submissions' bucket
