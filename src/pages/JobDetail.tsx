@@ -400,7 +400,9 @@ export default function JobDetail() {
             </>
           )}
           <BreadcrumbItem>
-            <BreadcrumbPage>{job.reference_number}</BreadcrumbPage>
+            <BreadcrumbPage>
+              {(job as any).customer_po ? `PO ${(job as any).customer_po}` : job.reference_number}
+            </BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
@@ -410,13 +412,15 @@ export default function JobDetail() {
         <div>
           <h1 className="text-2xl font-bold">{job.name}</h1>
           <p className="text-sm text-muted-foreground">
-            {(job as any).customer_po && (
+            {(job as any).customer_po ? (
               <>
-                <span className="font-medium text-foreground">PO {(job as any).customer_po}</span>
+                <span className="font-mono font-semibold text-foreground">PO {(job as any).customer_po}</span>
                 {" · "}
+                <span className="font-mono text-xs" title="Internal reference">{job.reference_number}</span>
               </>
+            ) : (
+              <span className="font-mono">{job.reference_number}</span>
             )}
-            <span className="font-mono">{job.reference_number}</span>
             {custName && <> · <span className="font-medium text-foreground">{custName}</span></>}
             {job.sites?.name && <> · <span className="font-medium text-foreground">{job.sites.name}</span></>}
             {!job.sites?.name && job.address && <> · <span className="text-foreground">{job.address}</span></>}
