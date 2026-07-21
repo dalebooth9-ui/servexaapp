@@ -47,7 +47,9 @@ import {
   FileText,
   Images,
   Download,
+  Send,
 } from "lucide-react";
+import SendArchiveDialog from "@/components/paper-scan/SendArchiveDialog";
 import ArchiveScanDialog from "@/components/paper-scan/ArchiveScanDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { resolveSubmissionsSignedUrls, resolveSubmissionsSignedUrl } from "@/lib/resolveSubmissionsPath";
