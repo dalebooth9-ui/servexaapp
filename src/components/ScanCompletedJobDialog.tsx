@@ -932,7 +932,7 @@ export default function ScanCompletedJobDialog({
         {
           _template_id: template.id,
           _customer_id: customerId,
-          _site_id: siteId,
+          _site_id: effectiveSiteId,
           _completed_at: completedAt,
           _date_known: dateKnown,
           _category: category,
