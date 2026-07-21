@@ -723,21 +723,68 @@ export default function ArchiveReviewDialog({
                     render with header data only.
                   </p>
                 )}
-                {sections.map(([sectionName, sectionFields]) => (
-                  <div key={sectionName} className="space-y-2">
-                    <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                      {sectionName}
+                {(() => {
+                  const conf =
+                    ((item.header as any)?._field_confidence as
+                      | Record<string, number>
+                      | undefined) || {};
+                  return sections.map(([sectionName, sectionFields]) => (
+                    <div key={sectionName} className="space-y-2">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                        {sectionName}
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {sectionFields.map((field) => {
+                          const rawConf = conf[field.id];
+                          const hasVal =
+                            answers[field.id] !== undefined &&
+                            answers[field.id] !== null &&
+                            String(answers[field.id]).trim() !== "";
+                          const lowConf =
+                            hasVal &&
+                            typeof rawConf === "number" &&
+                            rawConf < 0.7;
+                          const unanswered = !hasVal;
+                          return (
+                            <div
+                              key={field.id}
+                              className={`space-y-1 rounded-md ${
+                                lowConf
+                                  ? "border border-amber-400 bg-amber-50/60 dark:bg-amber-950/20 p-2"
+                                  : unanswered
+                                    ? "border border-dashed border-muted-foreground/30 p-2"
+                                    : ""
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <Label className="text-xs">{field.label}</Label>
+                                {lowConf && (
+                                  <span
+                                    title={`Low OCR confidence (${Math.round(
+                                      rawConf * 100,
+                                    )}%) — check against scan`}
+                                    className="text-[10px] font-medium text-amber-700 dark:text-amber-400"
+                                  >
+                                    ⚠ check
+                                  </span>
+                                )}
+                                {unanswered && (
+                                  <span
+                                    title="Not extracted — no clear mark on the sheet"
+                                    className="text-[10px] font-medium text-muted-foreground"
+                                  >
+                                    unanswered
+                                  </span>
+                                )}
+                              </div>
+                              {renderFieldInput(field)}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {sectionFields.map((field) => (
-                        <div key={field.id} className="space-y-1">
-                          <Label className="text-xs">{field.label}</Label>
-                          {renderFieldInput(field)}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
             )}
 

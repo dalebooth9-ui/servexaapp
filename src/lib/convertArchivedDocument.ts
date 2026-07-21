@@ -125,6 +125,7 @@ export async function convertArchivedDocument(
   if (ocrErr) return { ok: false, reason: `OCR failed: ${ocrErr.message}` };
   const extracted = ocrData?.extracted || {};
   const header = ocrData?.header || {};
+  const fieldConfidence = ocrData?.field_confidence || {};
 
   // Best-effort: match the OCR'd technician name against an org engineer
   // profile so their stored signature (profiles.signature_data) stamps
@@ -190,7 +191,7 @@ export async function convertArchivedDocument(
       template_name: (tpl as any).name,
       document_type: (doc as any).document_type || (tpl as any).name,
       extracted,
-      header_data: header,
+      header_data: { ...(header || {}), _field_confidence: fieldConfidence },
       report_pdf_path: path,
       status: "filed",
       site_name:
