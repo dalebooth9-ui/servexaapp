@@ -49,7 +49,32 @@ export type ArchivePdfInput = {
    * scanned original bears their handwritten signature.
    */
   technicianName?: string | null;
+  /**
+   * Storage paths in the `signatures` bucket for manually-cropped signatures
+   * picked by the office via "Select from photo". When set, override the
+   * auto-crop (customer_signature_bbox / engineer_signature_bbox) and any
+   * profile-signature stamping. Same single-source-of-truth rule as the
+   * customer link — never re-derive over a human's choice.
+   */
+  manualCustomerSignaturePath?: string | null;
+  manualEngineerSignaturePath?: string | null;
 };
+
+async function loadImageFromSignaturesBucket(
+  path: string,
+): Promise<HTMLImageElement | null> {
+  const { data } = await supabase.storage
+    .from("signatures")
+    .createSignedUrl(path, 60 * 60);
+  if (!data?.signedUrl) return null;
+  return await new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = data.signedUrl;
+  });
+}
 
 // Well-known header keys → label fragments used on printed sheets. When any
 // template field's label matches a fragment, we seed the field with the
