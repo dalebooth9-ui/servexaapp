@@ -4,7 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, Trash2, Upload, Loader2, Building2, Printer, Eye, ImagePlus, Check } from "lucide-react";
+import { FileText, Download, Trash2, Upload, Loader2, Building2, Printer, Eye, ImagePlus, Check, Images } from "lucide-react";
+import PaperVsElectronicViewer from "@/components/paper-scan/PaperVsElectronicViewer";
 import { generateRamsPdf } from "@/lib/ramsPdf";
 import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf, generateInstallationRamsPdf } from "@/lib/ramsPdfVariants";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
@@ -112,6 +113,47 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const [addingToPhotosId, setAddingToPhotosId] = useState<string | null>(null);
   const [addingAllPhotos, setAddingAllPhotos] = useState(false);
   const [clearingReviewId, setClearingReviewId] = useState<string | null>(null);
+  const [paperVsElectronic, setPaperVsElectronic] = useState<{
+    open: boolean;
+    loading: boolean;
+    scanUrls: string[];
+    scanFailed: number;
+    pdfUrl: string | null;
+  }>({ open: false, loading: false, scanUrls: [], scanFailed: 0, pdfUrl: null });
+
+  const sourceScanDocs = docs.filter((d) => d.document_type === "source_scan");
+  const reportDoc = docs.find(
+    (d) => d.document_type === "report" && !!d.file_url,
+  );
+  const hasSideBySide = sourceScanDocs.length > 0;
+
+  const openPaperVsElectronic = async () => {
+    setPaperVsElectronic({
+      open: true,
+      loading: true,
+      scanUrls: [],
+      scanFailed: 0,
+      pdfUrl: null,
+    });
+    const scanUrls: string[] = [];
+    let scanFailed = 0;
+    for (const d of sourceScanDocs) {
+      const u = await resolveToSignedUrl(d.file_url || "", "submissions", 600);
+      if (u) scanUrls.push(u);
+      else scanFailed++;
+    }
+    let pdfUrl: string | null = null;
+    if (reportDoc?.file_url) {
+      pdfUrl = await resolveToSignedUrl(reportDoc.file_url, "submissions", 600);
+    }
+    setPaperVsElectronic({
+      open: true,
+      loading: false,
+      scanUrls,
+      scanFailed,
+      pdfUrl,
+    });
+  };
 
   const handleFillOnline = (templateId: string) => {
     document.getElementById("job-sheets-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -871,6 +913,18 @@ ${sections}
           {printingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
           Print all
         </Button>
+        {hasSideBySide && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={openPaperVsElectronic}
+            title="View the original scanned paper form alongside the generated electronic report"
+          >
+            <Images className="h-3.5 w-3.5" />
+            Paper scan vs electronic
+          </Button>
+        )}
         {docs.some((d) => !!d.file_url && isImageDoc(d) && d.source === "email_po") && (
           <Button
             variant="outline"
@@ -939,6 +993,19 @@ ${sections}
           const idx = imgs.findIndex((d) => d.id === previewDocId);
           return idx >= 0 && idx < imgs.length - 1;
         })()}
+      />
+
+      <PaperVsElectronicViewer
+        open={paperVsElectronic.open}
+        onOpenChange={(o) =>
+          setPaperVsElectronic((p) => ({ ...p, open: o }))
+        }
+        title="Paper scan vs electronic report"
+        subtitle={reportDoc?.label || undefined}
+        loading={paperVsElectronic.loading}
+        scanUrls={paperVsElectronic.scanUrls}
+        scanFailedCount={paperVsElectronic.scanFailed}
+        electronicPdfUrl={paperVsElectronic.pdfUrl}
       />
     </div>
   );

@@ -99,9 +99,12 @@ interface PaperScanQueueProps {
   /** When true, render just the page body (no AppLayout wrapper) so it can
    *  be embedded as a tab inside the unified `/paper-scans` shell. */
   embedded?: boolean;
+  /** Optional callback used by the empty-state action to jump to the Upload
+   *  tab when the queue is embedded inside `/paper-scans`. */
+  onGoUpload?: () => void;
 }
 
-export default function PaperScanQueue({ embedded = false }: PaperScanQueueProps = {}) {
+export default function PaperScanQueue({ embedded = false, onGoUpload }: PaperScanQueueProps = {}) {
   const { userRole, user, orgId } = useAuth();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -530,9 +533,17 @@ export default function PaperScanQueue({ embedded = false }: PaperScanQueueProps
               Loading…
             </div>
           ) : filtered.length === 0 ? (
-            <div className="p-12 text-center text-muted-foreground text-sm">
-              Nothing in the queue. Use “Scan Paper Report” → “Bulk scan” on the
-              Jobs page to add forms.
+            <div className="p-12 text-center text-muted-foreground text-sm space-y-3">
+              <div>Nothing to review right now.</div>
+              {onGoUpload ? (
+                <Button size="sm" variant="outline" onClick={onGoUpload}>
+                  Upload sheets in the Upload tab
+                </Button>
+              ) : (
+                <div className="text-xs">
+                  Upload new sheets from the Upload tab in Paper scans.
+                </div>
+              )}
             </div>
           ) : (
             <Table>
