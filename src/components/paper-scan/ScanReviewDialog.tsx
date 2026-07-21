@@ -200,6 +200,13 @@ export default function ScanReviewDialog({
   // Job-mode extra state
   const [jobName, setJobName] = useState("");
   const [matchExistingJobId, setMatchExistingJobId] = useState<string>("");
+  // Duplicate-job prompt: same customer + site + date (+ PO if both have one).
+  // Reviewer picks "attach to existing" or "create separate job".
+  const [duplicatePrompt, setDuplicatePrompt] = useState<{
+    jobId: string;
+    reference: string;
+    completedAt: string | null;
+  } | null>(null);
 
   // Manual signature capture (both modes)
   type SigCapture = { blob: Blob; previewUrl: string; pageIdx: number };
