@@ -119,6 +119,13 @@ export default function ArchiveReviewDialog({
     if (!open || !item) return;
     setCustomerId(item.guessCustomerId || "");
     setSiteId(item.guessSiteId || "");
+    // Prefill free-text site name / address from the OCR header block so
+    // the office doesn't have to retype them. When a site record is also
+    // matched (guessSiteId) these will get overwritten below by the
+    // matched site's own name/address.
+    const headerSite = String((item.header as any)?.site || "").trim();
+    setSiteName(headerSite);
+    setSiteAddress(headerSite);
     setDocDate(item.guessDate || "");
     setDocType(item.documentType || item.templateName || "");
     setTitle(item.templateName || "");
