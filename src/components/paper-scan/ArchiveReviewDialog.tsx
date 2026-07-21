@@ -418,6 +418,34 @@ export default function ArchiveReviewDialog({
     }
     setSaving(true);
     try {
+      // Upload manually-cropped signatures to the signatures bucket first so
+      // we can persist the storage paths on the archive row and pass them to
+      // the PDF generator. Same bucket + path convention as the job-scan
+      // flow: <user.id>/<archivedItemId>-<role>-paper-<ts>.png
+      let manualCustomerSignaturePath: string | null = null;
+      let manualEngineerSignaturePath: string | null = null;
+      const uploadSig = async (
+        role: "customer" | "engineer",
+        sig: SigCapture,
+      ): Promise<string | null> => {
+        const rel = `${user.id}/archive-${item.itemId}-${role}-paper-${Date.now()}.png`;
+        const dest = await buildOrgPathAsync(rel);
+        const { error: upErr } = await supabase.storage
+          .from("signatures")
+          .upload(dest, sig.blob, { contentType: "image/png", upsert: false });
+        if (upErr) {
+          console.error("[archive] signature upload failed", role, upErr);
+          return null;
+        }
+        return dest;
+      };
+      if (!asUnmatched && customerSig) {
+        manualCustomerSignaturePath = await uploadSig("customer", customerSig);
+      }
+      if (!asUnmatched && engineerSig) {
+        manualEngineerSignaturePath = await uploadSig("engineer", engineerSig);
+      }
+
       const result = await archiveScanConfirm({
         userId: user.id,
         orgId,
@@ -443,6 +471,8 @@ export default function ArchiveReviewDialog({
           const e = engineers.find((x) => x.user_id === technicianUserId);
           return e && e.has_signature ? e.full_name : null;
         })(),
+        manualCustomerSignaturePath,
+        manualEngineerSignaturePath,
       });
 
       // Create confirmed defect proposals AFTER the archive row exists,
