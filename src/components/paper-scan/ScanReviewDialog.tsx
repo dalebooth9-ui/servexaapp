@@ -27,6 +27,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -200,6 +210,13 @@ export default function ScanReviewDialog({
   // Job-mode extra state
   const [jobName, setJobName] = useState("");
   const [matchExistingJobId, setMatchExistingJobId] = useState<string>("");
+  // Duplicate-job prompt: same customer + site + date (+ PO if both have one).
+  // Reviewer picks "attach to existing" or "create separate job".
+  const [duplicatePrompt, setDuplicatePrompt] = useState<{
+    jobId: string;
+    reference: string;
+    completedAt: string | null;
+  } | null>(null);
 
   // Manual signature capture (both modes)
   type SigCapture = { blob: Blob; previewUrl: string; pageIdx: number };
@@ -230,6 +247,7 @@ export default function ScanReviewDialog({
     setDefectOverrides({});
     setJobName("");
     setMatchExistingJobId("");
+    setDuplicatePrompt(null);
     setCustomerSig(null);
     setEngineerSig(null);
   }, [open, item]);
@@ -599,7 +617,12 @@ export default function ScanReviewDialog({
 
   // Job mode — mirrors ScanCompletedJobDialog.handleConfirm minus the upload
   // step (queue items already have imagePaths).
-  const fileAsJob = async () => {
+  // Job mode — mirrors ScanCompletedJobDialog.handleConfirm minus the upload
+  // step (queue items already have imagePaths).
+  //
+  // `opts.existingJobId` and `opts.forceNew` let the duplicate-prompt buttons
+  // re-enter with a decision without going through the query again.
+  const fileAsJob = async (opts?: { existingJobId?: string | null; forceNew?: boolean }) => {
     if (!user || !item || !item.templateId) return;
     if (!customerId) {
       toast({ title: "Choose a customer", variant: "destructive" });
@@ -656,6 +679,57 @@ export default function ScanReviewDialog({
           site_id: effectiveSiteId,
         });
       }
+
+      // Duplicate-job detection — same customer + site + date (and matching
+      // PO if both have one). Skip if the reviewer already chose "attach to
+      // existing", already chose "create separate", or the date is unknown
+      // (we don't have enough to be sure).
+      const chosenExistingJobId =
+        opts?.existingJobId ?? (matchExistingJobId || null);
+      if (
+        !opts?.forceNew &&
+        !chosenExistingJobId &&
+        ukDate
+      ) {
+        const m = ukDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        const iso = m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+        if (iso) {
+          const dayStart = `${iso}T00:00:00Z`;
+          const dayEnd = `${iso}T23:59:59Z`;
+          const { data: dupJobs } = await supabase
+            .from("jobs")
+            .select("id, reference_number, completed_at, customer_po")
+            .eq("customer_id", customerId)
+            .eq("site_id", effectiveSiteId)
+            .gte("completed_at", dayStart)
+            .lte("completed_at", dayEnd)
+            .neq("status", "cancelled" as any)
+            .order("created_at", { ascending: false })
+            .limit(5);
+          const scanPo = String(
+            (item.header as any)?.po_ref || (item.header as any)?.job_ref || "",
+          )
+            .trim()
+            .toLowerCase();
+          const compatible = (dupJobs || []).filter((j: any) => {
+            const jobPo = String(j.customer_po || "").trim().toLowerCase();
+            // If both have a PO and they disagree, don't suggest a merge.
+            if (scanPo && jobPo && scanPo !== jobPo) return false;
+            return true;
+          });
+          if (compatible.length > 0) {
+            const pick = compatible[0] as any;
+            setDuplicatePrompt({
+              jobId: pick.id,
+              reference: pick.reference_number,
+              completedAt: pick.completed_at || null,
+            });
+            setSaving(false);
+            return;
+          }
+        }
+      }
+
       const category = deriveJobCategory(templateMeta);
       const dateKnown = !!ukDate;
       const result = await confirmScanQueueAsJob({
@@ -667,7 +741,7 @@ export default function ScanReviewDialog({
         customerId,
         siteId: effectiveSiteId,
         overrideJobName: jobName.trim() || null,
-        existingJobId: matchExistingJobId || null,
+        existingJobId: chosenExistingJobId,
         completionDate: ukDate || null,
         dateKnown,
         responses: answers,
@@ -677,8 +751,12 @@ export default function ScanReviewDialog({
         engineerSignatureBlob: engineerSig?.blob || null,
       });
       toast({
-        title: `Job ${result.jobRef} filed`,
-        description: "Paper report digitised. Opening the job now.",
+        title: chosenExistingJobId
+          ? `Report attached to ${result.jobRef}`
+          : `Job ${result.jobRef} filed`,
+        description: chosenExistingJobId
+          ? "This sheet has been added to the existing job."
+          : "Paper report digitised. Opening the job now.",
       });
       onResolved();
       onOpenChange(false);
@@ -1194,6 +1272,58 @@ export default function ScanReviewDialog({
           </div>
         )}
       </DialogContent>
+
+      <AlertDialog
+        open={!!duplicatePrompt}
+        onOpenChange={(o) => {
+          if (!o) setDuplicatePrompt(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              A job already exists for this visit
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {duplicatePrompt ? (
+                <>
+                  Job <strong>{duplicatePrompt.reference}</strong> is on the
+                  same customer, site and date as this sheet. Attach this
+                  sheet as an <strong>additional report</strong> on that job,
+                  or file it as a separate job? Each attached report keeps
+                  its own answers, signatures and scan image.
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                const chosen = duplicatePrompt;
+                setDuplicatePrompt(null);
+                if (chosen) {
+                  // Create a separate job — bypass the duplicate check.
+                  fileAsJob({ forceNew: true });
+                }
+              }}
+            >
+              Create separate job
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const chosen = duplicatePrompt;
+                setDuplicatePrompt(null);
+                if (chosen) {
+                  setMatchExistingJobId(chosen.jobId);
+                  fileAsJob({ existingJobId: chosen.jobId });
+                }
+              }}
+            >
+              Attach to {duplicatePrompt?.reference}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
