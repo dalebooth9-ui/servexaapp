@@ -141,15 +141,47 @@ export default function PdfPreviewDialog({
     }
   };
 
+  // Turn either a Blob or a remote URL (signed URL, etc.) into a same-origin
+  // blob: object URL. Fetching the remote URL client-side sidesteps
+  // content-disposition / cross-origin quirks that stop browsers rendering
+  // the PDF inline inside an <iframe>.
   useEffect(() => {
-    if (!blob) {
+    if (!open) return;
+    let cancelled = false;
+    let created: string | null = null;
+    setFetchError(null);
+    if (blob) {
+      const u = URL.createObjectURL(blob);
+      created = u;
+      setObjectUrl(u);
+      setFetching(false);
+    } else if (urlProp) {
+      setFetching(true);
       setObjectUrl(null);
-      return;
+      (async () => {
+        try {
+          const res = await fetch(urlProp);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const b = await res.blob();
+          if (cancelled) return;
+          const u = URL.createObjectURL(b);
+          created = u;
+          setObjectUrl(u);
+        } catch (e: any) {
+          if (!cancelled) setFetchError(e?.message || "Failed to load document");
+        } finally {
+          if (!cancelled) setFetching(false);
+        }
+      })();
+    } else {
+      setObjectUrl(null);
+      setFetching(false);
     }
-    const u = URL.createObjectURL(blob);
-    setObjectUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [blob]);
+    return () => {
+      cancelled = true;
+      if (created) URL.revokeObjectURL(created);
+    };
+  }, [blob, urlProp, open]);
 
   const isImage = mimeType.startsWith("image/");
   const ext = useMemo(() => {
