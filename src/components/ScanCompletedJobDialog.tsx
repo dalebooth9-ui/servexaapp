@@ -48,6 +48,11 @@ import {
 } from "@/lib/signatureCrop";
 import { detectPaperMismatches } from "@/lib/paperScanMismatch";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import {
+  matchSiteFromHeader,
+  splitSiteHeaderForCreate,
+  type SiteMatchResult,
+} from "@/lib/matchSiteFromHeader";
 
 // ── Types ──
 type TemplateField = {
