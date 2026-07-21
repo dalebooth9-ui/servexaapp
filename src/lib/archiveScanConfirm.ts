@@ -78,7 +78,19 @@ export async function archiveScanConfirm(
     status = "filed",
     templateFields,
     technicianName,
+    manualCustomerSignaturePath,
+    manualEngineerSignaturePath,
   } = input;
+
+  // Preserve manual signatures in header_data so a later re-convert can
+  // pick them up and never re-derive over the office's choice.
+  const headerWithManualSigs: Record<string, any> = { ...(header || {}) };
+  if (manualCustomerSignaturePath) {
+    headerWithManualSigs._manual_customer_signature_path = manualCustomerSignaturePath;
+  }
+  if (manualEngineerSignaturePath) {
+    headerWithManualSigs._manual_engineer_signature_path = manualEngineerSignaturePath;
+  }
 
   // Append an auditable trail to notes when a signature is being applied
   // from an engineer's profile on the basis of the signed original scan.
