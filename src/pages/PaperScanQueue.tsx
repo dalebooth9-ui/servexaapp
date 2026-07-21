@@ -767,30 +767,19 @@ export default function PaperScanQueue() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {openItem && (
-        <ScanCompletedJobDialog
-          open={true}
-          onOpenChange={(o) => {
-            if (!o) setOpenItem(null);
-          }}
-          queueItem={openItem}
-          onQueueItemResolved={() => {
-            setOpenItem(null);
-            load();
-          }}
-        />
-      )}
-      <ArchiveReviewDialog
-        open={!!openArchiveItem}
+      <ScanReviewDialog
+        open={!!openItem}
+        mode={openItem?._mode || "job"}
+        item={openItem}
         onOpenChange={(o) => {
-          if (!o) setOpenArchiveItem(null);
+          if (!o) setOpenItem(null);
         }}
-        item={openArchiveItem}
         onResolved={() => {
-          setOpenArchiveItem(null);
+          setOpenItem(null);
           load();
         }}
       />
+
 
     </AppLayout>
   );
