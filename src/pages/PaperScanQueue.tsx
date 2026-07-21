@@ -281,6 +281,148 @@ export default function PaperScanQueue() {
     return c;
   }, [items, modeTab]);
 
+  // Prune selection to only ids present in the current filtered view so
+  // hidden-and-selected rows can't be silently deleted/converted. Runs
+  // whenever the filter or the underlying items list changes.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const visible = new Set(filtered.map((r) => r.id));
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (visible.has(id)) next.add(id);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [filtered]);
+
+  const selectedItems = useMemo(
+    () => filtered.filter((i) => selectedIds.has(i.id)),
+    [filtered, selectedIds],
+  );
+  const selectedFailed = selectedItems.filter((i) => i.status === "failed");
+  const selectedProcessing = selectedItems.filter(
+    (i) => i.status === "processing" || i.status === "pending",
+  );
+  const selectedReadyArchive = selectedItems.filter(
+    (i) =>
+      (i.mode || "job") === "archive" &&
+      (i.status === "ready" || i.status === "low_confidence"),
+  );
+
+  const toggleId = (id: string, on: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+  const toggleAllVisible = (on: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (on) filtered.forEach((r) => next.add(r.id));
+      else filtered.forEach((r) => next.delete(r.id));
+      return next;
+    });
+  };
+
+  const runBulkDelete = async () => {
+    setBulkBusy(true);
+    try {
+      const ids = Array.from(selectedIds);
+      await deletePaperScanItems(ids);
+      toast({
+        title: `Deleted ${ids.length} item${ids.length === 1 ? "" : "s"}`,
+      });
+      setSelectedIds(new Set());
+      setConfirmBulkDelete(false);
+      await load();
+    } catch (e: any) {
+      toast({
+        title: "Bulk delete failed",
+        description: e?.message,
+        variant: "destructive",
+      });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const runBulkRetry = async () => {
+    if (selectedFailed.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const ids = selectedFailed.map((i) => i.id);
+      const batchIds = Array.from(new Set(selectedFailed.map((i) => i.batch_id)));
+      const { error } = await (supabase as any)
+        .from("paper_scan_batch_items")
+        .update({ status: "pending", error: null })
+        .in("id", ids);
+      if (error) throw error;
+      for (const bId of batchIds) {
+        supabase.functions
+          .invoke("process-paper-scan-batch", { body: { batch_id: bId } })
+          .catch(() => {});
+      }
+      toast({
+        title: `Retrying ${ids.length} item${ids.length === 1 ? "" : "s"}`,
+      });
+      setSelectedIds(new Set());
+    } catch (e: any) {
+      toast({
+        title: "Bulk retry failed",
+        description: e?.message,
+        variant: "destructive",
+      });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const runBulkConvertArchive = async () => {
+    if (!user || !orgId || selectedReadyArchive.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const { filed, failed } = await bulkFileAndConvertArchiveItems({
+        items: selectedReadyArchive.map((i) => ({
+          id: i.id,
+          batch_id: i.batch_id,
+          detected_template_id: i.detected_template_id,
+          extracted: i.extracted,
+          header_data: i.header_data,
+          guess_customer_id: i.guess_customer_id,
+          guess_site_id: i.guess_site_id,
+          guess_date: i.guess_date,
+          image_paths: i.image_paths,
+          template_name: i.template_name || null,
+        })),
+        userId: user.id,
+        orgId,
+      });
+      toast({
+        title: `Filed ${filed} and queued for conversion`,
+        description:
+          failed > 0
+            ? `${failed} failed to file — check the queue.`
+            : "AI will extract answers and generate the electronic report in the background.",
+        variant: failed > 0 ? "destructive" : "default",
+      });
+      setSelectedIds(new Set());
+      await load();
+    } catch (e: any) {
+      toast({
+        title: "Bulk convert failed",
+        description: e?.message,
+        variant: "destructive",
+      });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const openReview = (i: Item) => {
     if ((i.mode || "job") === "archive") {
       setOpenArchiveItem({
