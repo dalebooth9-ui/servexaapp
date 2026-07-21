@@ -268,7 +268,6 @@ export async function generateAndUploadArchivePdf(
     }
   }
 
-  const paths = Array.isArray(sourcePaths) ? sourcePaths : [];
   if (paths.length > 0 && header) {
     if (!customerSig && header.customer_signature_bbox) {
       const img = await cropSignatureFromScan(paths, header.customer_signature_bbox);
