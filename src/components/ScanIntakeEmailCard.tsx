@@ -68,7 +68,7 @@ export default function ScanIntakeEmailCard() {
           <p className="font-medium text-foreground">How it works</p>
           <ol className="list-decimal list-inside space-y-1">
             <li>Scan the completed paper job sheets on your office multifunction and send to this address.</li>
-            <li>Each attachment (PDF or image) becomes one sheet in a new batch under Paper Scan Queue.</li>
+            <li>Each attachment (PDF or image) becomes one sheet in a new batch under Paper scans → Review.</li>
             <li>An admin reviews matched jobs / templates and confirms — the original scans stay attached.</li>
           </ol>
           <p className="pt-1">
