@@ -237,6 +237,7 @@ export default function ScanReviewDialog({
     setDefectOverrides({});
     setJobName("");
     setMatchExistingJobId("");
+    setDuplicatePrompt(null);
     setCustomerSig(null);
     setEngineerSig(null);
   }, [open, item]);
