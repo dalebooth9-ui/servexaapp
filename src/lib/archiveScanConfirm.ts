@@ -158,6 +158,8 @@ export async function archiveScanConfirm(
         sourcePaths: destPaths,
         customerId,
         siteId,
+        siteName: siteName ?? (header as any)?.site ?? null,
+        siteAddress: siteAddress ?? (header as any)?.site ?? null,
         documentDate,
         technicianName,
       });
