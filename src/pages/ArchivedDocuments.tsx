@@ -606,6 +606,16 @@ export default function ArchivedDocuments({ embedded = false }: ArchivedDocument
                           {canConvert && (
                             <ConvertCell doc={d} onConvert={handleConvert} />
                           )}
+                          {d.report_pdf_path && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSendDoc(d)}
+                              title="Email report to customer"
+                            >
+                              <Send className="h-3.5 w-3.5 mr-1" /> Send
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="outline"
