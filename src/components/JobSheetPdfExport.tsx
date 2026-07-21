@@ -333,7 +333,23 @@ export async function generateJobSheetPdf(
     return "";
   };
 
-  const customerName = jobInfo?.customers?.name || jobInfo?.customer || findFormVal("customer detail", "client detail", "customer company", "client company", "company") || "";
+  // Guard the form-text fallback: a sheet footer often prints the generating
+  // org's own website ("vivafire.co.uk") next to a "Company:" label — we must
+  // never surface that as the customer. Any candidate that looks like a URL /
+  // domain / email or matches the org's own identity is discarded.
+  const { isSafeCustomerName } = await import("@/lib/customerNameGuard");
+  const orgIdentifiers = [
+    (jobInfo as any)?.generating_org?.name,
+    (jobInfo as any)?.generating_org?.intake_email,
+    (jobInfo as any)?.generating_org?.scan_intake_email,
+  ];
+  const linkedCustomer = jobInfo?.customers?.name || jobInfo?.customer || "";
+  const formCustomerCandidate = linkedCustomer
+    ? ""
+    : findFormVal("customer detail", "client detail", "customer company", "client company", "company");
+  const customerName = linkedCustomer
+    || (isSafeCustomerName(formCustomerCandidate, orgIdentifiers) ? formCustomerCandidate : "")
+    || "";
   // Site lookup by label — deliberately narrow patterns and skip anything
   // that mentions "riser"/"valve"/"outlet" so the riser location field
   // never leaks into the Site display (it has its own dedicated header slot).

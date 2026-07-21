@@ -117,15 +117,36 @@ export async function generateAndUploadArchivePdf(
     technicianName,
   } = input;
 
-  // Hydrate the same shape a job PDF would receive.
+  // Hydrate the same shape a job PDF would receive. Customer is taken *only*
+  // from the archived document's confirmed customer_id — never re-derived
+  // from form text — so a re-convert can never regress the customer link.
   let customer: any = null;
   if (customerId) {
     const { data } = await supabase
       .from("customers")
-      .select("id, name, logo_url, brand_colour")
+      .select("id, name, logo_url, brand_colour, org_id")
       .eq("id", customerId)
       .maybeSingle();
     customer = data;
+    // Belt-and-braces guard: if the linked customer's *name* is domain-shaped
+    // (a legacy bad row from before the matcher was guarded), drop it so we
+    // don't render "vivafire.co.uk" as the customer.
+    const { looksLikeDomainOrUrl } = await import("@/lib/customerNameGuard");
+    if (customer && looksLikeDomainOrUrl(customer.name)) {
+      console.warn("[archivePdfBuilder] linked customer name looks domain-shaped, dropping", customer.name);
+      customer = null;
+    }
+  }
+  // Load generating-org identifiers so the shared PDF fallback chain can
+  // reject any form-text candidate that collapses to the org's own identity.
+  let generatingOrg: any = null;
+  if (customer?.org_id) {
+    const { data } = await supabase
+      .from("organisations")
+      .select("name, intake_email, scan_intake_email")
+      .eq("id", customer.org_id)
+      .maybeSingle();
+    generatingOrg = data;
   }
   let site: any = null;
   if (siteId) {
@@ -153,6 +174,7 @@ export async function generateAndUploadArchivePdf(
           brand_colour: customer.brand_colour,
         }
       : null,
+    generating_org: generatingOrg,
     reference_number: `ARCH-${archivedId.substring(0, 8).toUpperCase()}`,
     site: effectiveSite,
   } as any;
