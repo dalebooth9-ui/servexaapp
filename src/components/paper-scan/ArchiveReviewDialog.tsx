@@ -36,6 +36,7 @@ import CustomerCombobox, {
 import SiteCombobox, { type SiteOption } from "@/components/SiteCombobox";
 import { archiveScanConfirm } from "@/lib/archiveScanConfirm";
 import { fuzzyMatchEngineer } from "@/lib/fuzzyEngineerMatch";
+import { matchSiteFromHeader } from "@/lib/matchSiteFromHeader";
 import {
   proposeDefectsFromExtraction,
   createArchiveSourcedDefects,
@@ -212,22 +213,18 @@ export default function ArchiveReviewDialog({
       const list = (ss as any as SiteOption[]) || [];
       setSites(list);
       // Auto-match a site record from the OCR'd site text when nothing is
-      // already picked. Simple case-insensitive substring / postcode match.
+      // already picked. Shared helper (same one the Scan-paper-job dialog
+      // uses) — postcode → name → address ranking.
       if (!siteId && item) {
-        const headerSite = String((item.header as any)?.site || "")
-          .toLowerCase()
-          .trim();
+        const headerSite = String((item.header as any)?.site || "").trim();
         if (headerSite) {
-          const pc = headerSite.match(/[a-z]{1,2}\d{1,2}[a-z]?\s*\d[a-z]{2}/i)?.[0]?.toLowerCase();
-          const match = list.find((s) => {
-            const hay = `${s.name || ""} ${s.address || ""} ${s.postcode || ""}`.toLowerCase();
-            if (pc && (s.postcode || "").toLowerCase().replace(/\s+/g, "") === pc.replace(/\s+/g, "")) return true;
-            const nameLc = (s.name || "").toLowerCase();
-            return nameLc && (headerSite.includes(nameLc) || hay.includes(headerSite.slice(0, 20)));
-          });
-          if (match) setSiteId(match.id);
+          const result = matchSiteFromHeader(list, headerSite);
+          if (result.confidence === "exact" && result.best) {
+            setSiteId(result.best.id);
+          }
         }
       }
+
     })();
   }, [open, customerId, item, siteId]);
 
