@@ -946,3 +946,100 @@ export default function ArchiveReviewDialog({
     </Dialog>
   );
 }
+
+// Per-role signature slot: shows current capture preview (or a placeholder),
+// a page-picker when the scan has multiple pages, and a "Select from photo"
+// button that opens the shared drag-a-box cropper. Kept in-file since it's
+// only ever consumed here.
+function SigSlot({
+  label,
+  autoDetected,
+  sig,
+  onSelect,
+  onClear,
+  pageCount,
+}: {
+  label: string;
+  autoDetected: boolean;
+  sig: { previewUrl: string; pageIdx: number } | null;
+  onSelect: (pageIdx: number) => void;
+  onClear: () => void;
+  pageCount: number;
+}) {
+  const [page, setPage] = useState(0);
+  return (
+    <div className="space-y-1.5 rounded border bg-background p-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-medium">{label}</Label>
+        {autoDetected && !sig && (
+          <span className="text-[10px] text-muted-foreground">
+            auto-detected on scan
+          </span>
+        )}
+      </div>
+      {sig ? (
+        <div className="space-y-1.5">
+          <div className="rounded border bg-white p-1 flex items-center justify-center h-16">
+            <img
+              src={sig.previewUrl}
+              alt={`${label} preview`}
+              className="max-h-14 object-contain"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] text-muted-foreground">
+              from page {sig.pageIdx + 1}
+            </span>
+            <div className="flex gap-1.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onSelect(sig.pageIdx)}
+              >
+                Reselect
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onClear}
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          {pageCount > 1 && (
+            <Select
+              value={String(page)}
+              onValueChange={(v) => setPage(Number(v))}
+            >
+              <SelectTrigger className="h-8 w-24 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: pageCount }).map((_, i) => (
+                  <SelectItem key={i} value={String(i)}>
+                    Page {i + 1}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8"
+            onClick={() => onSelect(page)}
+          >
+            <PenLine className="mr-1.5 h-3.5 w-3.5" /> Select from photo
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
