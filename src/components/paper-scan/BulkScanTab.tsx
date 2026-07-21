@@ -347,7 +347,7 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
 
   const openQueue = () => {
     onClose();
-    navigate("/paper-scan-queue");
+    navigate("/paper-scans?tab=review");
   };
 
   return (
