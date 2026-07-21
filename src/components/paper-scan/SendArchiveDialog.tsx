@@ -167,8 +167,8 @@ export default function SendArchiveDialog({
       // 1. Electronic PDF (required)
       if (row.report_pdf_path) {
         const signed = await resolveSubmissionsSignedUrl(row.report_pdf_path);
-        if (!signed) throw new Error("Couldn't retrieve the electronic PDF.");
-        const b64 = await urlToBase64(signed);
+        if (!signed?.signedUrl) throw new Error("Couldn't retrieve the electronic PDF.");
+        const b64 = await urlToBase64(signed.signedUrl);
         if (!b64) throw new Error("Couldn't read the electronic PDF file.");
         const stub = (row.template_name || "electronic-report")
           .toLowerCase()
