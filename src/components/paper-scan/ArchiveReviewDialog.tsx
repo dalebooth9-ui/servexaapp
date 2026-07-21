@@ -119,6 +119,19 @@ export default function ArchiveReviewDialog({
   const [defectSelection, setDefectSelection] = useState<Record<string, boolean>>({});
   const [defectOverrides, setDefectOverrides] = useState<Record<string, Partial<ProposedDefect>>>({});
 
+  // Manual "Select from photo" signature capture — same drag-a-box component
+  // used by the job-scan flow. Overrides the auto-crop if the OCR pass
+  // returned a bounding box, and supplies the signature when auto-crop
+  // returned nothing. Persisted so a re-convert never re-derives over a
+  // human's choice (same single-source-of-truth rule as the customer link).
+  type SigCapture = { blob: Blob; previewUrl: string; pageIdx: number };
+  const [customerSig, setCustomerSig] = useState<SigCapture | null>(null);
+  const [engineerSig, setEngineerSig] = useState<SigCapture | null>(null);
+  const [manualCrop, setManualCrop] = useState<{
+    role: "customer" | "engineer";
+    pageIdx: number;
+  } | null>(null);
+
   useEffect(() => {
     if (!open || !item) return;
     setCustomerId(item.guessCustomerId || "");
