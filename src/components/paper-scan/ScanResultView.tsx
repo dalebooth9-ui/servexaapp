@@ -207,6 +207,14 @@ export default function ScanResultView({
         fileName={fileName}
         title={templateName || "Electronic report"}
       />
+
+      {archivedId && (
+        <SendArchiveDialog
+          archivedId={archivedId}
+          open={sendOpen}
+          onOpenChange={setSendOpen}
+        />
+      )}
     </div>
   );
 }
