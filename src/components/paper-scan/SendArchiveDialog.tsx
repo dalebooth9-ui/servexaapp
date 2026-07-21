@@ -219,50 +219,92 @@ export default function SendArchiveDialog({
         }
       }
 
-      const { error: sendError } = await supabase.functions.invoke(
-        "send-customer-email",
-        {
-          body: {
-            customerEmail: email.trim(),
-            customerName: row.customers?.name || "Customer",
-            subject: subject.trim() || "Report",
-            htmlBody: message.replace(/\n/g, "<br/>"),
-            attachments,
+      let channel: "app_mailer" | "graph_send" | "graph_draft" = "app_mailer";
+      let webLink: string | null = null;
+
+      if (route === "graph_send" || route === "graph_draft") {
+        const result = await sendViaGraph({
+          toEmail: email.trim(),
+          toName: row.customers?.name,
+          subject: subject.trim() || "Report",
+          htmlBody: message.replace(/\n/g, "<br/>"),
+          attachments: attachments.map((a) => ({
+            filename: a.filename,
+            content: a.content,
+            contentType: a.filename.toLowerCase().endsWith(".pdf")
+              ? "application/pdf"
+              : undefined,
+          })),
+          logContext: {
+            kind: "archive",
+            archivedId: row.id,
             emailType: "archive_report",
           },
-        },
-      );
-      if (sendError) throw sendError;
+          overrideMode: route === "graph_draft" ? "draft" : "send",
+        });
+        channel = result.mode === "draft" ? "graph_draft" : "graph_send";
+        webLink = result.webLink;
+      } else {
+        const { error: sendError } = await supabase.functions.invoke(
+          "send-customer-email",
+          {
+            body: {
+              customerEmail: email.trim(),
+              customerName: row.customers?.name || "Customer",
+              subject: subject.trim() || "Report",
+              htmlBody: message.replace(/\n/g, "<br/>"),
+              attachments,
+              emailType: "archive_report",
+            },
+          },
+        );
+        if (sendError) throw sendError;
+      }
 
-      // 3. Log the send onto header_data._email_sends
-      const { data: current } = await supabase
-        .from("archived_documents")
-        .select("header_data")
-        .eq("id", row.id)
-        .maybeSingle();
-      const existing = ((current?.header_data as any)?._email_sends || []) as any[];
-      const { data: userData } = await supabase.auth.getUser();
-      const entry = {
-        sent_at: new Date().toISOString(),
-        sent_by: userData?.user?.id || null,
-        sent_by_email: userData?.user?.email || null,
-        recipient: email.trim(),
-        subject: subject.trim(),
-        included_scan: includeScan,
-      };
-      const nextHeader = {
-        ...(current?.header_data as any || {}),
-        _email_sends: [...existing, entry],
-      };
-      await supabase
-        .from("archived_documents")
-        .update({ header_data: nextHeader })
-        .eq("id", row.id);
+      // 3. Log the send onto header_data._email_sends (app_mailer branch;
+      //    graph branch is logged inside the edge function already).
+      if (channel === "app_mailer") {
+        const { data: current } = await supabase
+          .from("archived_documents")
+          .select("header_data")
+          .eq("id", row.id)
+          .maybeSingle();
+        const existing = ((current?.header_data as any)?._email_sends || []) as any[];
+        const { data: userData } = await supabase.auth.getUser();
+        const entry = {
+          sent_at: new Date().toISOString(),
+          sent_by: userData?.user?.id || null,
+          sent_by_email: userData?.user?.email || null,
+          recipient: email.trim(),
+          subject: subject.trim(),
+          included_scan: includeScan,
+          channel,
+        };
+        const nextHeader = {
+          ...(current?.header_data as any || {}),
+          _email_sends: [...existing, entry],
+        };
+        await supabase
+          .from("archived_documents")
+          .update({ header_data: nextHeader })
+          .eq("id", row.id);
+      }
 
-      toast({
-        title: "Email sent",
-        description: `Report sent to ${email.trim()}.`,
-      });
+      if (channel === "graph_draft" && webLink) {
+        window.open(webLink, "_blank", "noopener");
+        toast({
+          title: "Draft ready in Outlook",
+          description: `Review the draft in ${graphStatus?.mailbox || "Outlook"} and press Send.`,
+        });
+      } else {
+        toast({
+          title: "Email sent",
+          description:
+            channel === "graph_send"
+              ? `Sent from ${graphStatus?.mailbox} to ${email.trim()}.`
+              : `Report sent to ${email.trim()}.`,
+        });
+      }
       onOpenChange(false);
     } catch (err: any) {
       const msg =
