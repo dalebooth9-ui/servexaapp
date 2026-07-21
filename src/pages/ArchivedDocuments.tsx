@@ -47,7 +47,9 @@ import {
   FileText,
   Images,
   Download,
+  Send,
 } from "lucide-react";
+import SendArchiveDialog from "@/components/paper-scan/SendArchiveDialog";
 import ArchiveScanDialog from "@/components/paper-scan/ArchiveScanDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { resolveSubmissionsSignedUrls, resolveSubmissionsSignedUrl } from "@/lib/resolveSubmissionsPath";
@@ -116,6 +118,8 @@ export default function ArchivedDocuments({ embedded = false }: ArchivedDocument
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+
+  const [sendDoc, setSendDoc] = useState<ArchivedDoc | null>(null);
 
   const isAdmin = userRole === "admin";
 
@@ -602,6 +606,16 @@ export default function ArchivedDocuments({ embedded = false }: ArchivedDocument
                           {canConvert && (
                             <ConvertCell doc={d} onConvert={handleConvert} />
                           )}
+                          {d.report_pdf_path && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSendDoc(d)}
+                              title="Email report to customer"
+                            >
+                              <Send className="h-3.5 w-3.5 mr-1" /> Send
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="outline"
@@ -759,6 +773,14 @@ export default function ArchivedDocuments({ embedded = false }: ArchivedDocument
                       <Download className="h-3.5 w-3.5 mr-1" /> Download PDF
                     </a>
                   )}
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="h-7 gap-1"
+                    onClick={() => openDoc && setSendDoc(openDoc)}
+                  >
+                    <Send className="h-3.5 w-3.5" /> Send to customer
+                  </Button>
                 </div>
               )}
 
@@ -881,6 +903,14 @@ export default function ArchivedDocuments({ embedded = false }: ArchivedDocument
         item={defectReviewQueue[0]}
         onClose={() => setDefectReviewQueue((prev) => prev.slice(1))}
       />
+
+      {sendDoc && (
+        <SendArchiveDialog
+          archivedId={sendDoc.id}
+          open={!!sendDoc}
+          onOpenChange={(o) => !o && setSendDoc(null)}
+        />
+      )}
     </>
   );
 

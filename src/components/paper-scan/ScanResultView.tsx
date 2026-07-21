@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
+import SendArchiveDialog from "@/components/paper-scan/SendArchiveDialog";
 import {
   CheckCircle2,
   Download,
@@ -46,6 +47,7 @@ export default function ScanResultView({
   const navigate = useNavigate();
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
 
   useEffect(() => {
     if (!reportPdfPath) {
@@ -88,11 +90,15 @@ export default function ScanResultView({
       onClose();
       return;
     }
-    // Archive-only: no job to hang the send flow off. Best we can do
-    // without a customer link is open the archive entry so the office can
-    // download and attach to their own email. Deliberately non-blocking.
-    openDestination();
+    // Archive-only: open the archive-specific send dialog inline. No
+    // navigating away, no dead-end.
+    setSendOpen(true);
   };
+
+  const archivedId =
+    destination.kind === "archive" || destination.kind === "unmatched"
+      ? destination.archivedId
+      : null;
 
   return (
     <div className="space-y-4">
@@ -201,6 +207,14 @@ export default function ScanResultView({
         fileName={fileName}
         title={templateName || "Electronic report"}
       />
+
+      {archivedId && (
+        <SendArchiveDialog
+          archivedId={archivedId}
+          open={sendOpen}
+          onOpenChange={setSendOpen}
+        />
+      )}
     </div>
   );
 }
