@@ -29,6 +29,7 @@ import {
   AlertTriangle,
   Building2,
   FileText,
+  PenLine,
 } from "lucide-react";
 import CustomerCombobox, {
   type CustomerOption,
@@ -43,6 +44,8 @@ import {
   type ProposedDefect,
 } from "@/lib/proposeArchiveDefects";
 import ProposedDefectsSection from "@/components/paper-scan/ProposedDefectsSection";
+import PaperSignatureCropper from "@/components/paper-scan/PaperSignatureCropper";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 const createDefectSuffix = (n: number) =>
   n > 0 ? ` · ${n} defect${n === 1 ? "" : "s"} logged` : "";
