@@ -5895,6 +5895,8 @@ export type Database = {
           id: string
           intake_email: string | null
           logo_url: string | null
+          ms_send_mailbox: string | null
+          ms_send_mode: string
           name: string
           plan: string
           plan_status: string
@@ -5924,6 +5926,8 @@ export type Database = {
           id?: string
           intake_email?: string | null
           logo_url?: string | null
+          ms_send_mailbox?: string | null
+          ms_send_mode?: string
           name: string
           plan?: string
           plan_status?: string
@@ -5953,6 +5957,8 @@ export type Database = {
           id?: string
           intake_email?: string | null
           logo_url?: string | null
+          ms_send_mailbox?: string | null
+          ms_send_mode?: string
           name?: string
           plan?: string
           plan_status?: string
