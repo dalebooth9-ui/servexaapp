@@ -463,9 +463,24 @@ export default function PdfPreviewDialog({
           </div>
         </DialogHeader>
         <div className="flex-1 min-h-0 bg-muted/40 relative">
-          {!src ? (
+          {!src && !fetchError ? (
             <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Preparing preview…
+              <Loader2 className="h-4 w-4 animate-spin" /> {fetching ? "Loading document…" : "Preparing preview…"}
+            </div>
+          ) : fetchError && !src ? (
+            <div className="h-full w-full flex flex-col items-center justify-center text-center gap-3 p-6">
+              <FileText className="h-10 w-10 text-destructive/70" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Couldn't load the document</p>
+                <p className="text-xs text-muted-foreground max-w-sm">{fetchError}</p>
+              </div>
+              {urlProp && (
+                <Button size="sm" variant="outline" asChild>
+                  <a href={urlProp} target="_blank" rel="noopener noreferrer" className="gap-1.5">
+                    <ExternalLink className="h-3.5 w-3.5" /> Open in new tab
+                  </a>
+                </Button>
+              )}
             </div>
           ) : isImage ? (
             <div className="h-full w-full overflow-auto flex items-start justify-center p-4">
