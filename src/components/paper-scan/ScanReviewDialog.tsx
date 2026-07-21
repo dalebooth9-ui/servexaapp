@@ -1278,6 +1278,19 @@ export default function ScanReviewDialog({
                     </label>
                   </div>
                 </div>
+                <div className="space-y-1.5">
+                  <Label>Customer PO number</Label>
+                  <Input
+                    value={poNumber}
+                    onChange={(e) => setPoNumber(e.target.value)}
+                    placeholder="e.g. BFMPO-0181"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    PO-first rule: this becomes the customer-facing reference
+                    on the job and its reports. Leave blank to fall back to
+                    the internal reference.
+                  </p>
+                </div>
               </div>
             )}
 
