@@ -171,7 +171,7 @@ export async function runScanExtraction(
 ): Promise<ScanExtractionResult> {
   const { data, error } = await supabase.functions.invoke("ocr-job-sheet", {
     body: {
-      images: input.imagesBase64,
+      images: input.images,
       template_name: input.templateName,
       fields: toOcrFieldPayload(input.fields),
     },
