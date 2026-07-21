@@ -994,6 +994,19 @@ ${sections}
           return idx >= 0 && idx < imgs.length - 1;
         })()}
       />
+
+      <PaperVsElectronicViewer
+        open={paperVsElectronic.open}
+        onOpenChange={(o) =>
+          setPaperVsElectronic((p) => ({ ...p, open: o }))
+        }
+        title="Paper scan vs electronic report"
+        subtitle={reportDoc?.label || undefined}
+        loading={paperVsElectronic.loading}
+        scanUrls={paperVsElectronic.scanUrls}
+        scanFailedCount={paperVsElectronic.scanFailed}
+        electronicPdfUrl={paperVsElectronic.pdfUrl}
+      />
     </div>
   );
 }
