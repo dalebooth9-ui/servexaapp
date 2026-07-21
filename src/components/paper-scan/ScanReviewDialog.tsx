@@ -976,24 +976,37 @@ export default function ScanReviewDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {isJob ? (
+            {resultData ? (
               <>
-                <Briefcase className="h-5 w-5" /> File as completed job
+                <FileText className="h-5 w-5" /> Electronic report
               </>
             ) : (
               <>
-                <Archive className="h-5 w-5" /> File to archive
+                <FileText className="h-5 w-5" /> Review &amp; build PDF
               </>
             )}
           </DialogTitle>
           <DialogDescription>
-            {isJob
-              ? "Backfilling a paper report as a completed job. Confirm the extraction, then file — a job is created and the scan attaches as source document."
-              : "Archive-only — no job is created. Confirm the filing details and file. If a template was matched, a clean electronic report is generated as the primary document."}
+            {resultData
+              ? "Your electronic PDF is ready. View, download, or send it to the customer."
+              : "Check the extracted answers, correct anything wrong, then tap Looks good — the electronic PDF is generated straight away."}
           </DialogDescription>
         </DialogHeader>
 
-        {item && (
+        {item && resultData && (
+          <ScanResultView
+            reportPdfPath={resultData.reportPdfPath}
+            destination={resultData.destination}
+            templateName={resultData.templateName}
+            onScanAnother={() => {
+              onOpenChange(false);
+              navigate("/paper-scans?tab=upload");
+            }}
+            onClose={() => onOpenChange(false)}
+          />
+        )}
+
+        {item && !resultData && (
           <div className="space-y-4">
             {thumbs.length > 0 && (
               <div className="flex gap-2 overflow-x-auto pb-1">
