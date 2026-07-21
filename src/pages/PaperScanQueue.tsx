@@ -99,9 +99,12 @@ interface PaperScanQueueProps {
   /** When true, render just the page body (no AppLayout wrapper) so it can
    *  be embedded as a tab inside the unified `/paper-scans` shell. */
   embedded?: boolean;
+  /** Optional callback used by the empty-state action to jump to the Upload
+   *  tab when the queue is embedded inside `/paper-scans`. */
+  onGoUpload?: () => void;
 }
 
-export default function PaperScanQueue({ embedded = false }: PaperScanQueueProps = {}) {
+export default function PaperScanQueue({ embedded = false, onGoUpload }: PaperScanQueueProps = {}) {
   const { userRole, user, orgId } = useAuth();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
