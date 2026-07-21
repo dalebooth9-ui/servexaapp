@@ -742,6 +742,80 @@ export default function ArchiveReviewDialog({
               </div>
             </div>
 
+            {/* Manual "Select from photo" signature capture. Same drag-a-box
+                component used in the job-scan flow (PaperSignatureCropper).
+                Customer sig is always offered; engineer sig only when no
+                profile-signature engineer is chosen — the profile stamp is
+                preferred where available (correct provenance). Captures are
+                labelled "signature from original scan" on the PDF. */}
+            {thumbs.length > 0 && (
+              <div className="rounded border bg-muted/30 p-3 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <PenLine className="h-4 w-4" /> Signatures from original scan
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <SigSlot
+                    label="Customer signature"
+                    autoDetected={
+                      !!(item.header as any)?.customer_signature_bbox
+                    }
+                    sig={customerSig}
+                    onClear={() => setCustomerSig(null)}
+                    onSelect={(pageIdx) =>
+                      setManualCrop({ role: "customer", pageIdx })
+                    }
+                    pageCount={thumbs.length}
+                  />
+                  {!technicianUserId && (
+                    <SigSlot
+                      label="Technician signature"
+                      autoDetected={
+                        !!(item.header as any)?.engineer_signature_bbox
+                      }
+                      sig={engineerSig}
+                      onClear={() => setEngineerSig(null)}
+                      onSelect={(pageIdx) =>
+                        setManualCrop({ role: "engineer", pageIdx })
+                      }
+                      pageCount={thumbs.length}
+                    />
+                  )}
+                </div>
+                {manualCrop && (
+                  <Dialog
+                    open={!!manualCrop}
+                    onOpenChange={(o) => !o && setManualCrop(null)}
+                  >
+                    <DialogContent className="max-w-3xl">
+                      <DialogHeader>
+                        <DialogTitle>
+                          Select {manualCrop.role} signature — page{" "}
+                          {manualCrop.pageIdx + 1}
+                        </DialogTitle>
+                      </DialogHeader>
+                      <PaperSignatureCropper
+                        imageUrl={thumbs[manualCrop.pageIdx]}
+                        onCancel={() => setManualCrop(null)}
+                        onCrop={(blob, previewUrl) => {
+                          const capture = {
+                            blob,
+                            previewUrl,
+                            pageIdx: manualCrop.pageIdx,
+                          };
+                          if (manualCrop.role === "customer") {
+                            setCustomerSig(capture);
+                          } else {
+                            setEngineerSig(capture);
+                          }
+                          setManualCrop(null);
+                        }}
+                      />
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </div>
+            )}
+
             {proposedDefects.length > 0 && (
               <ProposedDefectsSection
                 proposals={proposedDefects}
