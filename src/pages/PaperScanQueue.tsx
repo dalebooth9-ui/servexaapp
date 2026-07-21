@@ -99,7 +99,7 @@ const STATUS_VARIANT: Record<
 };
 
 export default function PaperScanQueue() {
-  const { userRole } = useAuth();
+  const { userRole, user, orgId } = useAuth();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"pending" | "all">("pending");
@@ -109,10 +109,18 @@ export default function PaperScanQueue() {
     useState<ArchiveQueueItemInput | null>(null);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [retrying, setRetrying] = useState<Record<string, boolean>>({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const { toast } = useToast();
 
 
   const isAdmin = userRole === "admin";
+
+  // Clear selection whenever the tab changes.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [modeTab]);
 
   const retryItem = useCallback(async (item: Item) => {
     setRetrying((r) => ({ ...r, [item.id]: true }));
