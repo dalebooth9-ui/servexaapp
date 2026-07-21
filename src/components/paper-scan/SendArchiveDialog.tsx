@@ -105,6 +105,11 @@ export default function SendArchiveDialog({
     };
   }, [open]);
 
+  const poRef = useMemo<string | null>(() => {
+    const h = (row?.header_data || {}) as any;
+    return h.po_ref || h.po_number || h.customer_po || h.customerPo || null;
+  }, [row]);
+
   const reference = useMemo(() => {
     if (poRef) return String(poRef);
     if (row?.title) return row.title;
