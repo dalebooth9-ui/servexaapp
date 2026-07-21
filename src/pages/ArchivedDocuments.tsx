@@ -165,7 +165,7 @@ export default function ArchivedDocuments({ embedded = false }: ArchivedDocument
     setOpenUrls([]);
     setOpenFailed([]);
     setOpenPdfUrl(null);
-    setOpenView(d.report_pdf_path ? "pdf" : "scan");
+    setOpenView(d.report_pdf_path ? "split" : "scan");
     setOpenLoading(true);
     if (d.report_pdf_path) {
       const pdf = await resolveSubmissionsSignedUrl(d.report_pdf_path);
