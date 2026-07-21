@@ -21,9 +21,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Send, Mail, Loader2, FileText, Images, AlertTriangle } from "lucide-react";
+import { Send, Mail, Loader2, FileText, Images, AlertTriangle, ExternalLink } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { resolveSubmissionsSignedUrl } from "@/lib/resolveSubmissionsPath";
+import {
+  getGraphSendStatus,
+  sendViaGraph,
+  type GraphSendStatus,
+} from "@/lib/graphMailSend";
 
 interface Props {
   archivedId: string;
@@ -78,12 +84,30 @@ export default function SendArchiveDialog({
   const [message, setMessage] = useState("");
   const [includeScan, setIncludeScan] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [graphStatus, setGraphStatus] = useState<GraphSendStatus | null>(null);
+  const [route, setRoute] = useState<"graph_send" | "graph_draft" | "app_mailer">(
+    "app_mailer",
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      const s = await getGraphSendStatus();
+      if (cancelled) return;
+      setGraphStatus(s);
+      if (s.ready && s.mode === "send") setRoute("graph_send");
+      else if (s.ready && s.mode === "draft") setRoute("graph_draft");
+      else setRoute("app_mailer");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   const poRef = useMemo<string | null>(() => {
-    const h = row?.header_data || {};
-    return (
-      h.po_ref || h.po_number || h.customer_po || h.customerPo || null
-    );
+    const h = (row?.header_data || {}) as any;
+    return h.po_ref || h.po_number || h.customer_po || h.customerPo || null;
   }, [row]);
 
   const reference = useMemo(() => {
@@ -195,50 +219,92 @@ export default function SendArchiveDialog({
         }
       }
 
-      const { error: sendError } = await supabase.functions.invoke(
-        "send-customer-email",
-        {
-          body: {
-            customerEmail: email.trim(),
-            customerName: row.customers?.name || "Customer",
-            subject: subject.trim() || "Report",
-            htmlBody: message.replace(/\n/g, "<br/>"),
-            attachments,
+      let channel: "app_mailer" | "graph_send" | "graph_draft" = "app_mailer";
+      let webLink: string | null = null;
+
+      if (route === "graph_send" || route === "graph_draft") {
+        const result = await sendViaGraph({
+          toEmail: email.trim(),
+          toName: row.customers?.name,
+          subject: subject.trim() || "Report",
+          htmlBody: message.replace(/\n/g, "<br/>"),
+          attachments: attachments.map((a) => ({
+            filename: a.filename,
+            content: a.content,
+            contentType: a.filename.toLowerCase().endsWith(".pdf")
+              ? "application/pdf"
+              : undefined,
+          })),
+          logContext: {
+            kind: "archive",
+            archivedId: row.id,
             emailType: "archive_report",
           },
-        },
-      );
-      if (sendError) throw sendError;
+          overrideMode: route === "graph_draft" ? "draft" : "send",
+        });
+        channel = result.mode === "draft" ? "graph_draft" : "graph_send";
+        webLink = result.webLink;
+      } else {
+        const { error: sendError } = await supabase.functions.invoke(
+          "send-customer-email",
+          {
+            body: {
+              customerEmail: email.trim(),
+              customerName: row.customers?.name || "Customer",
+              subject: subject.trim() || "Report",
+              htmlBody: message.replace(/\n/g, "<br/>"),
+              attachments,
+              emailType: "archive_report",
+            },
+          },
+        );
+        if (sendError) throw sendError;
+      }
 
-      // 3. Log the send onto header_data._email_sends
-      const { data: current } = await supabase
-        .from("archived_documents")
-        .select("header_data")
-        .eq("id", row.id)
-        .maybeSingle();
-      const existing = ((current?.header_data as any)?._email_sends || []) as any[];
-      const { data: userData } = await supabase.auth.getUser();
-      const entry = {
-        sent_at: new Date().toISOString(),
-        sent_by: userData?.user?.id || null,
-        sent_by_email: userData?.user?.email || null,
-        recipient: email.trim(),
-        subject: subject.trim(),
-        included_scan: includeScan,
-      };
-      const nextHeader = {
-        ...(current?.header_data as any || {}),
-        _email_sends: [...existing, entry],
-      };
-      await supabase
-        .from("archived_documents")
-        .update({ header_data: nextHeader })
-        .eq("id", row.id);
+      // 3. Log the send onto header_data._email_sends (app_mailer branch;
+      //    graph branch is logged inside the edge function already).
+      if (channel === "app_mailer") {
+        const { data: current } = await supabase
+          .from("archived_documents")
+          .select("header_data")
+          .eq("id", row.id)
+          .maybeSingle();
+        const existing = ((current?.header_data as any)?._email_sends || []) as any[];
+        const { data: userData } = await supabase.auth.getUser();
+        const entry = {
+          sent_at: new Date().toISOString(),
+          sent_by: userData?.user?.id || null,
+          sent_by_email: userData?.user?.email || null,
+          recipient: email.trim(),
+          subject: subject.trim(),
+          included_scan: includeScan,
+          channel,
+        };
+        const nextHeader = {
+          ...(current?.header_data as any || {}),
+          _email_sends: [...existing, entry],
+        };
+        await supabase
+          .from("archived_documents")
+          .update({ header_data: nextHeader })
+          .eq("id", row.id);
+      }
 
-      toast({
-        title: "Email sent",
-        description: `Report sent to ${email.trim()}.`,
-      });
+      if (channel === "graph_draft" && webLink) {
+        window.open(webLink, "_blank", "noopener");
+        toast({
+          title: "Draft ready in Outlook",
+          description: `Review the draft in ${graphStatus?.mailbox || "Outlook"} and press Send.`,
+        });
+      } else {
+        toast({
+          title: "Email sent",
+          description:
+            channel === "graph_send"
+              ? `Sent from ${graphStatus?.mailbox} to ${email.trim()}.`
+              : `Report sent to ${email.trim()}.`,
+        });
+      }
       onOpenChange(false);
     } catch (err: any) {
       const msg =
@@ -329,6 +395,58 @@ export default function SendArchiveDialog({
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
               />
+            </div>
+
+            <div className="rounded-md border p-3 space-y-2">
+              <div className="text-sm font-medium">Delivery route</div>
+              <RadioGroup value={route} onValueChange={(v) => setRoute(v as any)}>
+                <label className={`flex items-start gap-2 rounded p-2 cursor-pointer ${!graphStatus?.ready ? "opacity-50" : "hover:bg-muted/50"}`}>
+                  <RadioGroupItem value="graph_send" className="mt-1" disabled={!graphStatus?.ready} />
+                  <div className="text-sm">
+                    <div className="font-medium">
+                      Send from {graphStatus?.mailbox || "Microsoft 365"}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Goes out through Outlook and lands in your Sent Items.
+                      Replies come back to that mailbox.
+                    </p>
+                  </div>
+                </label>
+                <label className={`flex items-start gap-2 rounded p-2 cursor-pointer ${!graphStatus?.ready ? "opacity-50" : "hover:bg-muted/50"}`}>
+                  <RadioGroupItem value="graph_draft" className="mt-1" disabled={!graphStatus?.ready} />
+                  <div className="text-sm">
+                    <div className="font-medium">Create draft in Outlook</div>
+                    <p className="text-xs text-muted-foreground">
+                      Opens a pre-filled draft in Outlook on the web with the
+                      PDF attached — review and press Send there.
+                    </p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-2 rounded p-2 hover:bg-muted/50 cursor-pointer">
+                  <RadioGroupItem value="app_mailer" className="mt-1" />
+                  <div className="text-sm">
+                    <div className="font-medium">Send via Servexa mailer</div>
+                    <p className="text-xs text-muted-foreground">
+                      Fallback route. Won't appear in your Outlook Sent Items.
+                    </p>
+                  </div>
+                </label>
+              </RadioGroup>
+              {!graphStatus?.ready && (
+                <div className="text-xs text-muted-foreground border-t pt-2 flex items-start gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
+                  <span>
+                    {graphStatus?.message ||
+                      "Microsoft 365 isn't connected yet."}{" "}
+                    <a
+                      href="/settings?tab=email"
+                      className="text-primary hover:underline inline-flex items-center gap-0.5"
+                    >
+                      Set up <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="rounded-md border p-3 space-y-2">

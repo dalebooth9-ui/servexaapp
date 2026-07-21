@@ -18,6 +18,10 @@ import CustomerReportPdf from "./CustomerReportPdf";
 import PreviousReportsForJob from "./PreviousReportsForJob";
 import { generateJobSheetPdf } from "./JobSheetPdfExport";
 import { useJobCategories } from "@/hooks/useJobCategories";
+import { useEffect } from "react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { AlertTriangle, ExternalLink } from "lucide-react";
+import { getGraphSendStatus, sendViaGraph, type GraphSendStatus } from "@/lib/graphMailSend";
 
 interface Props {
   jobId: string;
@@ -38,6 +42,22 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
   const [message, setMessage] = useState("");
   const [reportBase64, setReportBase64] = useState<string | null>(null);
   const [reportFileName, setReportFileName] = useState("");
+  const [graphStatus, setGraphStatus] = useState<GraphSendStatus | null>(null);
+  const [route, setRoute] = useState<"graph_send" | "graph_draft" | "app_mailer">("app_mailer");
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+    let cancelled = false;
+    (async () => {
+      const s = await getGraphSendStatus();
+      if (cancelled) return;
+      setGraphStatus(s);
+      if (s.ready && s.mode === "send") setRoute("graph_send");
+      else if (s.ready && s.mode === "draft") setRoute("graph_draft");
+      else setRoute("app_mailer");
+    })();
+    return () => { cancelled = true; };
+  }, [dialogOpen]);
 
   // Invoice selection
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -318,26 +338,54 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
         attachments.push({ filename: fileName, content: base64 });
       }
 
-      const { error } = await supabase.functions.invoke("send-customer-email", {
-        body: {
-          customerEmail: email.trim(),
-          customerName: job.customers?.name || job.customer || "Customer",
+      let graphWebLink: string | null = null;
+      if (route === "graph_send" || route === "graph_draft") {
+        const result = await sendViaGraph({
+          toEmail: email.trim(),
+          toName: job.customers?.name || job.customer,
           subject: subject.trim(),
           htmlBody: message.replace(/\n/g, "<br/>"),
-          attachments,
-          jobId,
-          emailType: Array.from(selectedDocs).join(","),
-          invoiceId: selectedDocs.has("invoice") ? selectedInvoice : undefined,
-        },
-      });
-
-      if (error) throw error;
+          attachments: attachments.map((a: any) => ({
+            filename: a.filename,
+            content: a.content,
+            contentType: a.filename.toLowerCase().endsWith(".pdf") ? "application/pdf" : undefined,
+          })),
+          logContext: {
+            kind: "job",
+            jobId,
+            emailType: Array.from(selectedDocs).join(","),
+          },
+          overrideMode: route === "graph_draft" ? "draft" : "send",
+        });
+        graphWebLink = result.webLink;
+      } else {
+        const { error } = await supabase.functions.invoke("send-customer-email", {
+          body: {
+            customerEmail: email.trim(),
+            customerName: job.customers?.name || job.customer || "Customer",
+            subject: subject.trim(),
+            htmlBody: message.replace(/\n/g, "<br/>"),
+            attachments,
+            jobId,
+            emailType: Array.from(selectedDocs).join(","),
+            invoiceId: selectedDocs.has("invoice") ? selectedInvoice : undefined,
+          },
+        });
+        if (error) throw error;
+      }
 
       const docNames = Array.from(selectedDocs).map((d) => {
         if (d === "jobsheets") return "Job Sheets";
         return d.charAt(0).toUpperCase() + d.slice(1);
       });
-      toast({ title: "Email sent", description: `${docNames.join(", ")} sent to ${email}.` });
+      if (route === "graph_draft" && graphWebLink) {
+        window.open(graphWebLink, "_blank", "noopener");
+        toast({ title: "Draft ready in Outlook", description: `Review and send from ${graphStatus?.mailbox || "Outlook"}.` });
+      } else if (route === "graph_send") {
+        toast({ title: "Email sent", description: `${docNames.join(", ")} sent from ${graphStatus?.mailbox} to ${email}.` });
+      } else {
+        toast({ title: "Email sent", description: `${docNames.join(", ")} sent to ${email}.` });
+      }
       setDialogOpen(false);
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to send email.", variant: "destructive" });
@@ -684,6 +732,45 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
                 rows={6}
               />
             </div>
+
+            <div className="rounded-md border p-3 space-y-2">
+              <div className="text-sm font-semibold">Delivery route</div>
+              <RadioGroup value={route} onValueChange={(v) => setRoute(v as any)}>
+                <label className={`flex items-start gap-2 rounded p-2 cursor-pointer ${!graphStatus?.ready ? "opacity-50" : "hover:bg-muted/50"}`}>
+                  <RadioGroupItem value="graph_send" className="mt-1" disabled={!graphStatus?.ready} />
+                  <div className="text-sm">
+                    <div className="font-medium">Send from {graphStatus?.mailbox || "Microsoft 365"}</div>
+                    <p className="text-xs text-muted-foreground">Goes out through Outlook and lands in Sent Items; replies come back there.</p>
+                  </div>
+                </label>
+                <label className={`flex items-start gap-2 rounded p-2 cursor-pointer ${!graphStatus?.ready ? "opacity-50" : "hover:bg-muted/50"}`}>
+                  <RadioGroupItem value="graph_draft" className="mt-1" disabled={!graphStatus?.ready} />
+                  <div className="text-sm">
+                    <div className="font-medium">Create draft in Outlook</div>
+                    <p className="text-xs text-muted-foreground">Opens a pre-filled draft with attachments — review and press Send there.</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-2 rounded p-2 cursor-pointer hover:bg-muted/50">
+                  <RadioGroupItem value="app_mailer" className="mt-1" />
+                  <div className="text-sm">
+                    <div className="font-medium">Send via Servexa mailer</div>
+                    <p className="text-xs text-muted-foreground">Fallback route — won't appear in your Outlook Sent Items.</p>
+                  </div>
+                </label>
+              </RadioGroup>
+              {!graphStatus?.ready && (
+                <div className="text-xs text-muted-foreground border-t pt-2 flex items-start gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
+                  <span>
+                    {graphStatus?.message || "Microsoft 365 isn't connected yet."}{" "}
+                    <a href="/settings?tab=email" className="text-primary hover:underline inline-flex items-center gap-0.5">
+                      Set up <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </span>
+                </div>
+              )}
+            </div>
+
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
