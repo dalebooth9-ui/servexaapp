@@ -569,7 +569,7 @@ serve(async (req) => {
           .from("paper_scan_batch_items")
           .update({
             status: "failed",
-            error: (e?.message || "Unknown error").substring(0, 400),
+            error: friendlyError(e?.message || "Unknown error").substring(0, 400),
           })
           .eq("id", itemId);
       }
