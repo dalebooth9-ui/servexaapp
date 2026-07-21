@@ -338,26 +338,54 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
         attachments.push({ filename: fileName, content: base64 });
       }
 
-      const { error } = await supabase.functions.invoke("send-customer-email", {
-        body: {
-          customerEmail: email.trim(),
-          customerName: job.customers?.name || job.customer || "Customer",
+      let graphWebLink: string | null = null;
+      if (route === "graph_send" || route === "graph_draft") {
+        const result = await sendViaGraph({
+          toEmail: email.trim(),
+          toName: job.customers?.name || job.customer,
           subject: subject.trim(),
           htmlBody: message.replace(/\n/g, "<br/>"),
-          attachments,
-          jobId,
-          emailType: Array.from(selectedDocs).join(","),
-          invoiceId: selectedDocs.has("invoice") ? selectedInvoice : undefined,
-        },
-      });
-
-      if (error) throw error;
+          attachments: attachments.map((a: any) => ({
+            filename: a.filename,
+            content: a.content,
+            contentType: a.filename.toLowerCase().endsWith(".pdf") ? "application/pdf" : undefined,
+          })),
+          logContext: {
+            kind: "job",
+            jobId,
+            emailType: Array.from(selectedDocs).join(","),
+          },
+          overrideMode: route === "graph_draft" ? "draft" : "send",
+        });
+        graphWebLink = result.webLink;
+      } else {
+        const { error } = await supabase.functions.invoke("send-customer-email", {
+          body: {
+            customerEmail: email.trim(),
+            customerName: job.customers?.name || job.customer || "Customer",
+            subject: subject.trim(),
+            htmlBody: message.replace(/\n/g, "<br/>"),
+            attachments,
+            jobId,
+            emailType: Array.from(selectedDocs).join(","),
+            invoiceId: selectedDocs.has("invoice") ? selectedInvoice : undefined,
+          },
+        });
+        if (error) throw error;
+      }
 
       const docNames = Array.from(selectedDocs).map((d) => {
         if (d === "jobsheets") return "Job Sheets";
         return d.charAt(0).toUpperCase() + d.slice(1);
       });
-      toast({ title: "Email sent", description: `${docNames.join(", ")} sent to ${email}.` });
+      if (route === "graph_draft" && graphWebLink) {
+        window.open(graphWebLink, "_blank", "noopener");
+        toast({ title: "Draft ready in Outlook", description: `Review and send from ${graphStatus?.mailbox || "Outlook"}.` });
+      } else if (route === "graph_send") {
+        toast({ title: "Email sent", description: `${docNames.join(", ")} sent from ${graphStatus?.mailbox} to ${email}.` });
+      } else {
+        toast({ title: "Email sent", description: `${docNames.join(", ")} sent to ${email}.` });
+      }
       setDialogOpen(false);
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to send email.", variant: "destructive" });
