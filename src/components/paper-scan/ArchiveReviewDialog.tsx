@@ -36,6 +36,7 @@ import CustomerCombobox, {
 import SiteCombobox, { type SiteOption } from "@/components/SiteCombobox";
 import { archiveScanConfirm } from "@/lib/archiveScanConfirm";
 import { fuzzyMatchEngineer } from "@/lib/fuzzyEngineerMatch";
+import { matchSiteFromHeader } from "@/lib/matchSiteFromHeader";
 import {
   proposeDefectsFromExtraction,
   createArchiveSourcedDefects,
