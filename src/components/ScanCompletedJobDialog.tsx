@@ -1342,13 +1342,89 @@ export default function ScanCompletedJobDialog({
                     variant="outline"
                     size="icon"
                     disabled={!customerId}
-                    onClick={() => setShowNewSite((s) => !s)}
+                    onClick={() => {
+                      const headerSite = String((header as any)?.site || "").trim();
+                      if (headerSite && !showNewSite) {
+                        const parts = splitSiteHeaderForCreate(headerSite);
+                        setNewSite((prev) => ({
+                          name: prev.name || parts.name,
+                          address: prev.address || parts.address,
+                          postcode: prev.postcode || parts.postcode,
+                          riser_location: prev.riser_location,
+                        }));
+                      }
+                      setShowNewSite((s) => !s);
+                    }}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
+                {/* Prefill hints from the OCR'd sheet */}
+                {(() => {
+                  const headerSite = String((header as any)?.site || "").trim();
+                  if (!headerSite || !customerId) return null;
+                  if (siteId && siteMatch?.confidence === "exact" && siteMatch.best?.id === siteId) {
+                    return (
+                      <div className="text-[11px] text-green-700 dark:text-green-400 flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> Matched from sheet: “{headerSite}”
+                      </div>
+                    );
+                  }
+                  if (!siteId && siteMatch?.confidence === "ambiguous") {
+                    return (
+                      <div className="rounded border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-2 py-1.5 text-[11px] space-y-1">
+                        <div className="text-amber-900 dark:text-amber-200">
+                          Sheet says: <strong>{headerSite}</strong> — pick the best match:
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {siteMatch.candidates.slice(0, 4).map((c) => (
+                            <Button
+                              key={c.id}
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-[11px]"
+                              onClick={() => setSiteId(c.id)}
+                            >
+                              {c.name}{c.postcode ? ` · ${c.postcode}` : ""}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (!siteId && siteMatch?.confidence === "none") {
+                    return (
+                      <div className="rounded border border-dashed px-2 py-1.5 text-[11px] flex items-center gap-2">
+                        <span className="text-muted-foreground flex-1 truncate">
+                          Sheet says: <strong>{headerSite}</strong> — no match on file.
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-[11px]"
+                          onClick={() => {
+                            const parts = splitSiteHeaderForCreate(headerSite);
+                            setNewSite({
+                              name: parts.name,
+                              address: parts.address,
+                              postcode: parts.postcode,
+                              riser_location: "",
+                            });
+                            setShowNewSite(true);
+                          }}
+                        >
+                          <Plus className="h-3 w-3 mr-1" /> Create site from sheet
+                        </Button>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
+
 
             {showNewSite && (
               <div className="rounded-md border p-3 space-y-2 bg-muted/20">
