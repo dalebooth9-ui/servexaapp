@@ -255,7 +255,7 @@ export async function fileToScanBase64(
 // Category identification pass — used by admin QuickScan/BatchScan to pick a
 // template before running full extraction. Same pipeline, thin wrapper.
 export async function runScanCategoryIdentify(
-  imagesBase64: string[],
+  images: ScanImagePayload[],
   categories: { name: string }[],
 ): Promise<string | null> {
   const identifyFields = [
