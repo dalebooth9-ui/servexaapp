@@ -210,12 +210,18 @@ export default function ScanReviewDialog({
   // Job-mode extra state
   const [jobName, setJobName] = useState("");
   const [matchExistingJobId, setMatchExistingJobId] = useState<string>("");
-  // Duplicate-job prompt: same customer + site + date (+ PO if both have one).
-  // Reviewer picks "attach to existing" or "create separate job".
+  // Customer PO from the sheet header — editable so the reviewer can
+  // correct OCR mistakes. Drives the job's PO-first customer reference
+  // (see src/lib/jobReference.ts).
+  const [poNumber, setPoNumber] = useState("");
+  // Duplicate-job prompt: same customer + site + date (+ PO if both have one),
+  // or same customer + PO on its own. Reviewer picks "attach to existing"
+  // or "create separate job".
   const [duplicatePrompt, setDuplicatePrompt] = useState<{
     jobId: string;
     reference: string;
     completedAt: string | null;
+    reason: "date" | "po";
   } | null>(null);
 
   // Manual signature capture (both modes)
