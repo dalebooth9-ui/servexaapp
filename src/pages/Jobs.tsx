@@ -255,7 +255,7 @@ export default function Jobs() {
   );
 
   const fetchJobs = async () => {
-    const COLUMNS = "id, reference_number, name, customer, customer_id, site_id, address, status, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, template_mismatch_reason, detected_work_types, submissions(id, type), customers(id, name, email), sites(id, name, address, postcode)";
+    const COLUMNS = "id, reference_number, customer_po, name, customer, customer_id, site_id, address, status, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, template_mismatch_reason, detected_work_types, submissions(id, type), customers(id, name, email), sites(id, name, address, postcode)";
     let query = supabase.from("jobs").select(COLUMNS).order("created_at", { ascending: false });
     // When user is actively searching, fetch across ALL statuses so completed jobs
     // still surface regardless of the current tab. Otherwise, scope by tab.
@@ -1404,6 +1404,7 @@ export default function Jobs() {
   const filtered = fuzzyFilter(prefiltered, search, (j) => [
     j.name,
     j.reference_number,
+    (j as any).customer_po,
     getCustomerName(j),
     (j as any).address,
     (j as any).sites?.name,
@@ -2215,7 +2216,14 @@ export default function Jobs() {
                         />
                       )}
                       <Link to={`/jobs/${j.id}`} className="flex-1 min-w-0 flex items-center gap-2 hover:underline">
-                        <span className="font-mono text-xs font-semibold text-primary shrink-0">{j.reference_number}</span>
+                        {(j as any).customer_po ? (
+                          <>
+                            <span className="font-mono text-xs font-semibold text-primary shrink-0">PO {(j as any).customer_po}</span>
+                            <span className="font-mono text-[10px] text-muted-foreground shrink-0">{j.reference_number}</span>
+                          </>
+                        ) : (
+                          <span className="font-mono text-xs font-semibold text-primary shrink-0">{j.reference_number}</span>
+                        )}
                         {(j as any).sites?.name && (
                           <span className="text-xs font-medium text-muted-foreground truncate shrink-0">· {(j as any).sites.name}</span>
                         )}

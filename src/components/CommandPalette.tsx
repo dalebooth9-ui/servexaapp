@@ -42,7 +42,7 @@ export default function CommandPalette() {
     }
     const term = `%${escapeLike(trimmed)}%`;
     const [jobsRes, engRes, repRes] = await Promise.all([
-      supabase.from("jobs").select("id, name, reference_number").or(`name.ilike.${term},reference_number.ilike.${term}`).limit(5),
+      supabase.from("jobs").select("id, name, reference_number, customer_po").or(`name.ilike.${term},reference_number.ilike.${term},customer_po.ilike.${term}`).limit(5),
       supabase.from("profile_names" as any).select("user_id, full_name").ilike("full_name", term).limit(5),
       supabase.from("field_reports").select("id, title, job_id").ilike("title", term).limit(5),
     ]);
@@ -72,7 +72,14 @@ export default function CommandPalette() {
             {jobs.map((j) => (
               <CommandItem key={j.id} onSelect={() => handleSelect(`/jobs/${j.id}`)}>
                 <Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />
-                <span className="font-mono text-xs mr-2">{j.reference_number}</span>
+                {j.customer_po ? (
+                  <>
+                    <span className="font-mono text-xs font-semibold mr-2">PO {j.customer_po}</span>
+                    <span className="font-mono text-[10px] text-muted-foreground mr-2">{j.reference_number}</span>
+                  </>
+                ) : (
+                  <span className="font-mono text-xs mr-2">{j.reference_number}</span>
+                )}
                 {j.name}
               </CommandItem>
             ))}
