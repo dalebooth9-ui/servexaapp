@@ -57,7 +57,7 @@ import SiteCombobox, { type SiteOption } from "@/components/SiteCombobox";
 import { archiveScanConfirm } from "@/lib/archiveScanConfirm";
 import { confirmScanQueueAsJob } from "@/lib/confirmScanQueueAsJob";
 import { fuzzyMatchEngineer } from "@/lib/fuzzyEngineerMatch";
-import { matchSiteFromHeader } from "@/lib/matchSiteFromHeader";
+import { matchSiteFromHeader, splitSiteHeaderForCreate } from "@/lib/matchSiteFromHeader";
 import {
   proposeDefectsFromExtraction,
   createArchiveSourcedDefects,
@@ -605,8 +605,15 @@ export default function ScanReviewDialog({
       toast({ title: "Choose a customer", variant: "destructive" });
       return;
     }
-    if (!siteId) {
-      toast({ title: "Choose or create a site", variant: "destructive" });
+    const headerSite = String((item.header as any)?.site || "").trim();
+    const freeTextSite = (siteName || siteAddress || headerSite).trim();
+    if (!siteId && !freeTextSite) {
+      toast({
+        title: "No site information",
+        description:
+          "Pick a site from the list, or add a site name/address from the sheet.",
+        variant: "destructive",
+      });
       return;
     }
     if (!ukDate && !dateUnknown) {
@@ -620,6 +627,35 @@ export default function ScanReviewDialog({
     }
     setSaving(true);
     try {
+      // Auto-create the site record from the free-text sheet fields if the
+      // reviewer didn't pick one — the label promises "free text will be
+      // filed", so blocking here contradicts the UI.
+      let effectiveSiteId = siteId;
+      if (!effectiveSiteId) {
+        const parts = splitSiteHeaderForCreate(freeTextSite);
+        const nameForSite =
+          (siteName.trim() || parts.name || freeTextSite).slice(0, 200);
+        const addressForSite =
+          siteAddress.trim() || parts.address || freeTextSite;
+        const { data: created, error: siteErr } = await supabase
+          .from("sites")
+          .insert({
+            name: nameForSite,
+            address: addressForSite || null,
+            postcode: parts.postcode || null,
+            site_type: "site",
+            created_by: user.id,
+            notes: "Auto-created from paper scan review",
+          } as any)
+          .select("id")
+          .single();
+        if (siteErr) throw siteErr;
+        effectiveSiteId = (created as any).id;
+        await supabase.from("customer_sites" as any).insert({
+          customer_id: customerId,
+          site_id: effectiveSiteId,
+        });
+      }
       const category = deriveJobCategory(templateMeta);
       const dateKnown = !!ukDate;
       const result = await confirmScanQueueAsJob({
@@ -629,7 +665,7 @@ export default function ScanReviewDialog({
         templateId: item.templateId,
         category,
         customerId,
-        siteId,
+        siteId: effectiveSiteId,
         overrideJobName: jobName.trim() || null,
         existingJobId: matchExistingJobId || null,
         completionDate: ukDate || null,
