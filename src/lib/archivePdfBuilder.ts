@@ -111,6 +111,8 @@ export async function generateAndUploadArchivePdf(
     sourcePaths,
     customerId,
     siteId,
+    siteName,
+    siteAddress,
     documentDate,
     technicianName,
   } = input;
@@ -134,9 +136,15 @@ export async function generateAndUploadArchivePdf(
       .maybeSingle();
     site = data;
   }
+  // Fallback to free-text site name/address when there is no matched site record.
+  const effectiveSite = site
+    ? { name: site.name, address: site.address }
+    : (siteName || siteAddress)
+      ? { name: siteName || siteAddress || null, address: siteAddress || siteName || null }
+      : null;
 
   const jobInfo = {
-    address: site?.address || null,
+    address: effectiveSite?.address || null,
     customer: customer?.name || null,
     customers: customer
       ? {
@@ -146,7 +154,7 @@ export async function generateAndUploadArchivePdf(
         }
       : null,
     reference_number: `ARCH-${archivedId.substring(0, 8).toUpperCase()}`,
-    site: site ? { name: site.name, address: site.address } : null,
+    site: effectiveSite,
   } as any;
 
   // Seed header extractions into responses so riser location, outlet count,
