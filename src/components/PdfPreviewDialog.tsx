@@ -98,6 +98,17 @@ export default function PdfPreviewDialog({
   const [localOpacity, setLocalOpacity] = useState<number | null>(null);
   const [localAccredOpacity, setLocalAccredOpacity] = useState<number | null>(null);
   const [rebuilding, setRebuilding] = useState(false);
+  const [iframeError, setIframeError] = useState(false);
+
+  // iOS/iPadOS Safari renders <iframe src="blob:...pdf"> as a blank frame —
+  // fall back to opening the file in the browser's own viewer via a new tab.
+  const isIosLike = useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+    const ua = navigator.userAgent || "";
+    return /iPad|iPhone|iPod/.test(ua)
+      || (ua.includes("Macintosh") && "ontouchend" in document);
+  }, []);
+
 
   useEffect(() => {
     if (open) {
