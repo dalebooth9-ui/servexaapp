@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -14,6 +15,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { formatDistanceToNow } from "date-fns";
 import {
   ScanLine,
@@ -23,6 +34,8 @@ import {
   CheckCircle2,
   XCircle,
   RotateCw,
+  Trash2,
+  Wand2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ScanCompletedJobDialog, {
@@ -31,6 +44,9 @@ import ScanCompletedJobDialog, {
 import ArchiveReviewDialog, {
   type ArchiveQueueItemInput,
 } from "@/components/paper-scan/ArchiveReviewDialog";
+import BulkActionBar from "@/components/BulkActionBar";
+import { deletePaperScanItems } from "@/lib/deletePaperScanItems";
+import { bulkFileAndConvertArchiveItems } from "@/lib/bulkFileAndConvertArchiveItems";
 
 
 type Item = {
