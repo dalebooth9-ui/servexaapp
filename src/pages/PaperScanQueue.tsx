@@ -533,9 +533,17 @@ export default function PaperScanQueue({ embedded = false, onGoUpload }: PaperSc
               Loading…
             </div>
           ) : filtered.length === 0 ? (
-            <div className="p-12 text-center text-muted-foreground text-sm">
-              Nothing in the queue. Use “Scan Paper Report” → “Bulk scan” on the
-              Jobs page to add forms.
+            <div className="p-12 text-center text-muted-foreground text-sm space-y-3">
+              <div>Nothing to review right now.</div>
+              {onGoUpload ? (
+                <Button size="sm" variant="outline" onClick={onGoUpload}>
+                  Upload sheets in the Upload tab
+                </Button>
+              ) : (
+                <div className="text-xs">
+                  Upload new sheets from the Upload tab in Paper scans.
+                </div>
+              )}
             </div>
           ) : (
             <Table>
