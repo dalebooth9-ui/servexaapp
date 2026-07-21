@@ -220,7 +220,7 @@ export default function PdfPreviewDialog({
   // Append the filename as a URL fragment so the browser's built-in PDF
   // viewer (and any fallback UI) shows a human-readable name instead of the
   // blob UUID. The fragment is ignored when fetching the blob.
-  const rawSrc = objectUrl || urlProp || null;
+  const rawSrc = objectUrl || null;
   const src = rawSrc
     ? `${rawSrc.split("#")[0]}#filename=${encodeURIComponent(downloadName)}`
     : null;
