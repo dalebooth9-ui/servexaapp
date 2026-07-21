@@ -1420,7 +1420,7 @@ export default function ScanReviewDialog({
                   <Input
                     value={poNumber}
                     onChange={(e) => setPoNumber(e.target.value)}
-                    placeholder="e.g. BFMPO-0181"
+                    placeholder="e.g. PO-12345"
                   />
                   <p className="text-[11px] text-muted-foreground">
                     PO-first rule: this becomes the customer-facing reference

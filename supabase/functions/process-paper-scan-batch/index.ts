@@ -512,6 +512,12 @@ serve(async (req) => {
         const ocrJson = await ocrResp.json();
         const extracted = ocrJson.extracted || {};
         const header = ocrJson.header || {};
+        // Mirror per-field confidence onto header so the review UI (which
+        // only receives header_data) can surface amber "check this" flags
+        // on low-confidence / unmarked rows.
+        if (ocrJson.field_confidence && typeof ocrJson.field_confidence === "object") {
+          (header as any)._field_confidence = ocrJson.field_confidence;
+        }
 
         // Guess customer/site (letterhead wins over form 'Customer:' field)
         const { customerId, siteId, paperworkOwnerMatchedCustomerId } =

@@ -430,8 +430,11 @@ export default function PaperScanQueue({ embedded = false, onGoUpload }: PaperSc
   };
 
   const openReview = (i: Item) => {
-    const currentMode: "job" | "archive" = (i.mode || "job") === "archive" ? "archive" : "job";
-    if (currentMode === "job" && !i.detected_template_id) return;
+    // Fall back to archive-mode review when a job-mode item has no template
+    // detected — the reviewer can still file it (as an unmatched archive)
+    // instead of hitting a dead-end with no action button.
+    const currentMode: "job" | "archive" =
+      (i.mode || "job") === "archive" || !i.detected_template_id ? "archive" : "job";
     setOpenItem({
       _mode: currentMode,
       itemId: i.id,
@@ -674,20 +677,37 @@ export default function PaperScanQueue({ embedded = false, onGoUpload }: PaperSc
                           <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
                             <XCircle className="h-3 w-3" /> Discarded
                           </span>
-                        ) : (i.status === "ready" ||
-                            i.status === "low_confidence") &&
-                          ((i.mode || "job") === "archive" ||
-                            i.detected_template_id) ? (
+                        ) : i.status === "ready" ||
+                          i.status === "low_confidence" ? (
                           <Button size="sm" onClick={() => openReview(i)}>
                             <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Review
                           </Button>
 
                         ) : i.status === "processing" ||
                           i.status === "pending" ? (
-                          <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                            <Loader2 className="h-3 w-3 animate-spin" />{" "}
-                            Processing
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" />{" "}
+                              Processing
+                            </span>
+                            {/* Safety valve: if the background processor crashed
+                                mid-item this row would stay stuck forever with
+                                no action. Allow the reviewer to force a retry. */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs"
+                              disabled={!!retrying[i.id]}
+                              onClick={() => retryItem(i)}
+                              title="Force reprocess if this row seems stuck"
+                            >
+                              {retrying[i.id] ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <RotateCw className="h-3 w-3" />
+                              )}
+                            </Button>
+                          </div>
                         ) : i.status === "failed" ? (
                           <Button
                             size="sm"
