@@ -15,7 +15,7 @@ const RULES: SlugRule[] = [
   { test: (p) => /^\/jobs\/[^/]+$/.test(p), slug: "jobs.detail" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/rams"), slug: "rams" },
   { test: (p) => p.startsWith("/rams"), slug: "rams" },
-  { test: (p) => p === "/paper-scan-queue", slug: "paper-scan-queue" },
+  { test: (p) => p === "/paper-scans" || p.startsWith("/paper-scans"), slug: "paper-scans" },
   { test: (p) => p === "/customers", slug: "customers" },
   { test: (p) => p.startsWith("/customers/"), slug: "customers.detail" },
   { test: (p) => p === "/sites", slug: "sites" },
