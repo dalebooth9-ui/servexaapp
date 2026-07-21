@@ -354,18 +354,18 @@ export default function QuickScanDialog() {
     templateName: string,
     fields: TemplateField[],
   ) => {
-    const { data, error } = await supabase.functions.invoke("ocr-job-sheet", {
-      body: {
-        images: imagePayloads,
-        template_name: templateName,
-        fields: toOcrFieldPayload(fields),
-      },
+    // Canonical extraction — routes through the shared scan pipeline so
+    // QuickScan gets the same confidence flags & normalisation as every
+    // other scan door.
+    const { extracted, header } = await runScanExtraction({
+      images: imagePayloads,
+      templateName,
+      fields,
     });
-
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error);
-
-    return (data ?? {}) as { extracted?: Record<string, any>; header?: Record<string, any> };
+    return { extracted, header } as {
+      extracted?: Record<string, any>;
+      header?: Record<string, any>;
+    };
   };
 
   const chunkFields = (fields: TemplateField[], size: number) => {
