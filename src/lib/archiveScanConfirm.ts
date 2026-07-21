@@ -112,6 +112,8 @@ export async function archiveScanConfirm(
       org_id: orgId,
       customer_id: customerId,
       site_id: siteId,
+      site_name: siteName ?? (header as any)?.site ?? null,
+      site_address: siteAddress ?? (header as any)?.site ?? null,
       document_date: documentDate,
       document_type: documentType,
       template_id: templateId,
