@@ -8,7 +8,7 @@ import { useOrgStatus } from "@/hooks/useOrgStatus";
 import AccountPaused from "@/components/AccountPaused";
 import { ROUTE_TO_SLUG } from "@/lib/engineerPages";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History, Truck, CloudUpload, Rocket, LifeBuoy, Bug, CreditCard } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History, Truck, CloudUpload, Rocket, LifeBuoy, Bug, CreditCard, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
@@ -25,6 +25,7 @@ import SubscriptionActivationBanner from "@/components/billing/SubscriptionActiv
 import ReportProblemDialog from "@/components/ReportProblemDialog";
 import BackButton from "@/components/BackButton";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { usePaperScanPendingCount } from "@/hooks/usePaperScanQueue";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DndContext,
@@ -63,8 +64,8 @@ const DEFAULT_NAV_ITEMS = [
   { to: "/defects", label: "Defects", icon: ShieldAlert, section: "more", adminOnly: false },
   { to: "/defects/review", label: "Defects Review", icon: ShieldAlert, section: "admin", adminOnly: true },
   { to: "/report-downloads", label: "Report Downloads", icon: FileArchive, section: "more", adminOnly: false },
-  { to: "/paper-scan-queue", label: "Paper Scan Queue", icon: ClipboardCheck, section: "more", adminOnly: true },
-  { to: "/archive", label: "Archive", icon: FileArchive, section: "more", adminOnly: true },
+  { to: "/paper-scans", label: "Paper scans", icon: ScanLine, section: "more", adminOnly: true, badgeKey: "paper_scans_pending" as const },
+
   { to: "/sync-status", label: "Sync Status", icon: CloudUpload, section: "more", adminOnly: false },
 { to: "/industry-templates", label: "Templates", icon: BookOpen, section: "admin", adminOnly: true },
 { to: "/reports", label: "Reports", icon: BarChart2, section: "admin", adminOnly: true },
@@ -236,6 +237,8 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   const [openDefectCount, setOpenDefectCount] = useReactState<number>(0);
   const [pendingReviewCount, setPendingReviewCount] = useReactState<number>(0);
   const [platformSupportOpen, setPlatformSupportOpen] = useReactState<number>(0);
+  const paperScansPending = usePaperScanPendingCount();
+
 
   useEffect(() => {
     supabase.from("app_settings").select("value").eq("key", "business_whatsapp_number").single()
@@ -460,7 +463,8 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                                   inOps={false}
                                   collapsed={sidebarCollapsed}
                                   onTogglePin={() => handleTogglePin(item.to, "more")}
-                                  badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : item.to === "/platform/support" ? platformSupportOpen : undefined} />
+                                  badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : item.to === "/platform/support" ? platformSupportOpen : item.to === "/paper-scans" ? paperScansPending : undefined} />
+
 
                               );
                             })}
@@ -480,7 +484,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                               inOps={isOpsSection}
                               collapsed={sidebarCollapsed}
                               onTogglePin={() => handleTogglePin(item.to, isOpsSection ? "operations" : section as "operations" | "more")}
-                              badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : item.to === "/platform/support" ? platformSupportOpen : undefined} />
+                              badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : item.to === "/platform/support" ? platformSupportOpen : item.to === "/paper-scans" ? paperScansPending : undefined} />
 
                           );
                         })}

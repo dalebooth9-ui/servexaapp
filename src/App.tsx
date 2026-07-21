@@ -41,8 +41,7 @@ const InvoiceDetail = lazy(() => import("@/pages/InvoiceDetail"));
 const Quotes = lazy(() => import("@/pages/Quotes"));
 const ServiceContracts = lazy(() => import("@/pages/ServiceContracts"));
 const ServiceContractDetail = lazy(() => import("@/pages/ServiceContractDetail"));
-const PaperScanQueue = lazy(() => import("@/pages/PaperScanQueue"));
-const ArchivedDocuments = lazy(() => import("@/pages/ArchivedDocuments"));
+const PaperScans = lazy(() => import("@/pages/PaperScans"));
 
 const PartsLibrary = lazy(() => import("@/pages/PartsLibrary"));
 const VanStock = lazy(() => import("@/pages/VanStock"));
@@ -199,8 +198,11 @@ const App = () => (
               <Route path="/platform/support" element={<AdminRoute><PlatformSupportInbox /></AdminRoute>} />
               <Route path="/support/my-tickets" element={<ProtectedRoute><MyTickets /></ProtectedRoute>} />
 
-              <Route path="/paper-scan-queue" element={<AdminRoute><Suspense fallback={<PageFallback />}><PaperScanQueue /></Suspense></AdminRoute>} />
-              <Route path="/archive" element={<AdminRoute><Suspense fallback={<PageFallback />}><ArchivedDocuments /></Suspense></AdminRoute>} />
+              <Route path="/paper-scans" element={<AdminRoute><Suspense fallback={<PageFallback />}><PaperScans /></Suspense></AdminRoute>} />
+              {/* Legacy routes — redirect to the unified surface with the right tab preselected. */}
+              <Route path="/paper-scan-queue" element={<Navigate to={`/paper-scans?tab=review${typeof window !== "undefined" && window.location.search ? "&" + window.location.search.slice(1) : ""}`} replace />} />
+              <Route path="/archive" element={<Navigate to={`/paper-scans?tab=history${typeof window !== "undefined" && window.location.search ? "&" + window.location.search.slice(1) : ""}`} replace />} />
+
 
               <Route path="/jobs" element={<AccessRoute pageSlug="jobs"><Jobs /></AccessRoute>} />
               <Route path="/jobs/:id" element={<AccessRoute pageSlug="jobs"><JobDetail /></AccessRoute>} />

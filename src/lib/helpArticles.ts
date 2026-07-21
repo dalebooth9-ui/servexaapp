@@ -15,7 +15,7 @@ const RULES: SlugRule[] = [
   { test: (p) => /^\/jobs\/[^/]+$/.test(p), slug: "jobs.detail" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/rams"), slug: "rams" },
   { test: (p) => p.startsWith("/rams"), slug: "rams" },
-  { test: (p) => p === "/paper-scan-queue", slug: "paper-scan-queue" },
+  { test: (p) => p === "/paper-scans" || p.startsWith("/paper-scans"), slug: "paper-scans" },
   { test: (p) => p === "/customers", slug: "customers" },
   { test: (p) => p.startsWith("/customers/"), slug: "customers.detail" },
   { test: (p) => p === "/sites", slug: "sites" },
@@ -48,7 +48,7 @@ const RULES: SlugRule[] = [
   { test: (p) => p.startsWith("/fire-log/"), slug: "fire-log" },
   { test: (p) => p === "/sign-off", slug: "sign-off" },
   { test: (p) => p === "/admin/support-tickets", slug: "support-tickets" },
-  { test: (p) => p === "/archive" || p.startsWith("/archive/"), slug: "archive" },
+  { test: (p) => p === "/archive" || p.startsWith("/archive/"), slug: "paper-scans" },
   { test: (p) => p === "/billing", slug: "billing" },
 ];
 
