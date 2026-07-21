@@ -452,33 +452,62 @@ serve(async (req) => {
           ? (tpl as any).fields
           : [];
 
-        // OCR/extract
-        const ocrResp = await fetch(
-          `${SUPABASE_URL}/functions/v1/ocr-job-sheet`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${jwt}`,
-              "Content-Type": "application/json",
-              apikey: SUPABASE_ANON_KEY,
-            },
-            body: JSON.stringify({
-              images: payloads,
-              template_name: (tpl as any).name,
-              fields: fields.map((f: any) => ({
-                id: f.id,
-                label: f.label,
-                type: f.type,
-                section: f.section,
-                options: f.options,
-              })),
-            }),
-          },
-        );
-        if (!ocrResp.ok) {
-          throw new Error(
-            `ocr failed ${ocrResp.status}: ${await ocrResp.text()}`,
-          );
+        // Downscale big phone-camera photos before sending to OCR — full-res
+        // 4000px+ images regularly blow the 150s gateway idle timeout.
+        const ocrPayloads = [] as { image_base64: string; mime_type?: string }[];
+        for (const p of payloads) {
+          ocrPayloads.push(await downscaleForOcr(p.image_base64, p.mime_type));
+        }
+
+        // OCR/extract — retry with backoff on 5xx / idle-timeout. The upstream
+        // AI extraction can be slow on complex sheets and occasionally the
+        // gateway kills the connection; a second attempt usually succeeds.
+        let ocrResp: Response | null = null;
+        let ocrErrText = "";
+        for (let attempt = 1; attempt <= OCR_MAX_ATTEMPTS; attempt++) {
+          try {
+            ocrResp = await fetch(
+              `${SUPABASE_URL}/functions/v1/ocr-job-sheet`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${jwt}`,
+                  "Content-Type": "application/json",
+                  apikey: SUPABASE_ANON_KEY,
+                },
+                body: JSON.stringify({
+                  images: ocrPayloads,
+                  template_name: (tpl as any).name,
+                  fields: fields.map((f: any) => ({
+                    id: f.id,
+                    label: f.label,
+                    type: f.type,
+                    section: f.section,
+                    options: f.options,
+                  })),
+                }),
+              },
+            );
+            if (ocrResp.ok) break;
+            ocrErrText = await ocrResp.text();
+            const retriable = ocrResp.status >= 500 || ocrResp.status === 408 ||
+              /IDLE_TIMEOUT|timeout/i.test(ocrErrText);
+            if (!retriable || attempt === OCR_MAX_ATTEMPTS) {
+              throw new Error(`ocr failed ${ocrResp.status}: ${ocrErrText.substring(0, 200)}`);
+            }
+          } catch (fetchErr: any) {
+            ocrErrText = fetchErr?.message || String(fetchErr);
+            if (attempt === OCR_MAX_ATTEMPTS) {
+              throw new Error(`ocr failed: ${ocrErrText.substring(0, 200)}`);
+            }
+          }
+          // Exponential backoff: 2s, 5s
+          const waitMs = attempt === 1 ? 2000 : 5000;
+          console.warn(`OCR attempt ${attempt} failed (${ocrErrText.substring(0, 100)}), retrying in ${waitMs}ms`);
+          await new Promise((r) => setTimeout(r, waitMs));
+        }
+        if (!ocrResp || !ocrResp.ok) {
+          throw new Error(`ocr failed: ${ocrErrText.substring(0, 200)}`);
         }
         const ocrJson = await ocrResp.json();
         const extracted = ocrJson.extracted || {};
