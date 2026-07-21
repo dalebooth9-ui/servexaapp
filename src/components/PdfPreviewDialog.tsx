@@ -437,17 +437,55 @@ export default function PdfPreviewDialog({
             <div className="h-full w-full overflow-auto flex items-start justify-center p-4">
               <img src={src} alt={downloadName} className="max-w-full h-auto" />
             </div>
+          ) : isIosLike && !isImage ? (
+            <div className="h-full w-full flex flex-col items-center justify-center text-center gap-3 p-6">
+              <FileText className="h-10 w-10 text-muted-foreground" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Preview not supported on this device</p>
+                <p className="text-xs text-muted-foreground max-w-xs">
+                  iOS Safari can't embed PDFs. Open it in a new tab (no download required) or save it.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleOpenInTab} className="gap-1.5">
+                  <ExternalLink className="h-3.5 w-3.5" /> Open in browser
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleDownload} className="gap-1.5">
+                  <Download className="h-3.5 w-3.5" /> Download
+                </Button>
+              </div>
+            </div>
+          ) : iframeError && !isImage ? (
+            <div className="h-full w-full flex flex-col items-center justify-center text-center gap-3 p-6">
+              <FileText className="h-10 w-10 text-destructive/70" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Couldn't display the document</p>
+                <p className="text-xs text-muted-foreground max-w-sm">
+                  Your browser blocked the inline preview. You can still open it in a new tab or download it.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleOpenInTab} className="gap-1.5">
+                  <ExternalLink className="h-3.5 w-3.5" /> Open in new tab
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleDownload} className="gap-1.5">
+                  <Download className="h-3.5 w-3.5" /> Download
+                </Button>
+              </div>
+            </div>
           ) : (
             <iframe
               key={src}
               src={src}
               title={downloadName}
               className="w-full h-full border-0 bg-background"
+              onError={() => setIframeError(true)}
             />
           )}
           {rebuilding && src && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm pointer-events-none">
               <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2 shadow-sm text-sm">
+
                 <Loader2 className="h-4 w-4 animate-spin" /> Updating preview…
               </div>
             </div>
