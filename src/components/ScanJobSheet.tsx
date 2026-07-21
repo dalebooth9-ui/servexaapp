@@ -16,6 +16,7 @@ import { renderPdfHeader } from "@/lib/pdfHeader";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { applyExposedOutletOverrides } from "@/lib/ocrResultNormalization";
+import { runScanExtraction } from "@/lib/scanPipeline";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type TemplateField = {
