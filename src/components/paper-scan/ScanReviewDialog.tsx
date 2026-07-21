@@ -210,12 +210,18 @@ export default function ScanReviewDialog({
   // Job-mode extra state
   const [jobName, setJobName] = useState("");
   const [matchExistingJobId, setMatchExistingJobId] = useState<string>("");
-  // Duplicate-job prompt: same customer + site + date (+ PO if both have one).
-  // Reviewer picks "attach to existing" or "create separate job".
+  // Customer PO from the sheet header — editable so the reviewer can
+  // correct OCR mistakes. Drives the job's PO-first customer reference
+  // (see src/lib/jobReference.ts).
+  const [poNumber, setPoNumber] = useState("");
+  // Duplicate-job prompt: same customer + site + date (+ PO if both have one),
+  // or same customer + PO on its own. Reviewer picks "attach to existing"
+  // or "create separate job".
   const [duplicatePrompt, setDuplicatePrompt] = useState<{
     jobId: string;
     reference: string;
     completedAt: string | null;
+    reason: "date" | "po";
   } | null>(null);
 
   // Manual signature capture (both modes)
@@ -247,6 +253,13 @@ export default function ScanReviewDialog({
     setDefectOverrides({});
     setJobName("");
     setMatchExistingJobId("");
+    setPoNumber(
+      String(
+        (item.header as any)?.po_ref ||
+          (item.header as any)?.job_ref ||
+          "",
+      ).trim(),
+    );
     setDuplicatePrompt(null);
     setCustomerSig(null);
     setEngineerSig(null);
@@ -680,58 +693,97 @@ export default function ScanReviewDialog({
         });
       }
 
-      // Duplicate-job detection — same customer + site + date (and matching
-      // PO if both have one). Skip if the reviewer already chose "attach to
-      // existing", already chose "create separate", or the date is unknown
-      // (we don't have enough to be sure).
+      // Duplicate-job detection — two signals, either is enough to prompt:
+      //   (a) same customer + site + date (with matching PO if both have one),
+      //   (b) same customer + same PO number (dates missing/mismatched is fine).
+      // A matching PO is a strong signal it's the same visit even when the
+      // recorded completion date shifts across pages/sheets in a batch.
       const chosenExistingJobId =
         opts?.existingJobId ?? (matchExistingJobId || null);
-      if (
-        !opts?.forceNew &&
-        !chosenExistingJobId &&
-        ukDate
-      ) {
-        const m = ukDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-        const iso = m ? `${m[3]}-${m[2]}-${m[1]}` : null;
-        if (iso) {
-          const dayStart = `${iso}T00:00:00Z`;
-          const dayEnd = `${iso}T23:59:59Z`;
-          const { data: dupJobs } = await supabase
+      const scanPo = poNumber.trim().toLowerCase();
+      if (!opts?.forceNew && !chosenExistingJobId) {
+        let candidate: {
+          id: string;
+          reference_number: string;
+          completed_at: string | null;
+          reason: "date" | "po";
+        } | null = null;
+
+        // (a) date-window match
+        if (ukDate) {
+          const m = ukDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+          const iso = m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+          if (iso) {
+            const dayStart = `${iso}T00:00:00Z`;
+            const dayEnd = `${iso}T23:59:59Z`;
+            const { data: dupJobs } = await supabase
+              .from("jobs")
+              .select("id, reference_number, completed_at, customer_po")
+              .eq("customer_id", customerId)
+              .eq("site_id", effectiveSiteId)
+              .gte("completed_at", dayStart)
+              .lte("completed_at", dayEnd)
+              .neq("status", "cancelled" as any)
+              .order("created_at", { ascending: false })
+              .limit(5);
+            const compatible = (dupJobs || []).filter((j: any) => {
+              const jobPo = String(j.customer_po || "").trim().toLowerCase();
+              if (scanPo && jobPo && scanPo !== jobPo) return false;
+              return true;
+            });
+            if (compatible.length > 0) {
+              const pick = compatible[0] as any;
+              candidate = {
+                id: pick.id,
+                reference_number: pick.reference_number,
+                completed_at: pick.completed_at || null,
+                reason: "date",
+              };
+            }
+          }
+        }
+
+        // (b) PO match — only if we didn't already find a date match
+        if (!candidate && scanPo) {
+          const { data: poJobs } = await supabase
             .from("jobs")
             .select("id, reference_number, completed_at, customer_po")
             .eq("customer_id", customerId)
-            .eq("site_id", effectiveSiteId)
-            .gte("completed_at", dayStart)
-            .lte("completed_at", dayEnd)
+            .ilike("customer_po", poNumber.trim())
             .neq("status", "cancelled" as any)
             .order("created_at", { ascending: false })
-            .limit(5);
-          const scanPo = String(
-            (item.header as any)?.po_ref || (item.header as any)?.job_ref || "",
-          )
-            .trim()
-            .toLowerCase();
-          const compatible = (dupJobs || []).filter((j: any) => {
-            const jobPo = String(j.customer_po || "").trim().toLowerCase();
-            // If both have a PO and they disagree, don't suggest a merge.
-            if (scanPo && jobPo && scanPo !== jobPo) return false;
-            return true;
-          });
-          if (compatible.length > 0) {
-            const pick = compatible[0] as any;
-            setDuplicatePrompt({
-              jobId: pick.id,
-              reference: pick.reference_number,
-              completedAt: pick.completed_at || null,
-            });
-            setSaving(false);
-            return;
+            .limit(1);
+          if (poJobs && poJobs.length > 0) {
+            const pick = poJobs[0] as any;
+            candidate = {
+              id: pick.id,
+              reference_number: pick.reference_number,
+              completed_at: pick.completed_at || null,
+              reason: "po",
+            };
           }
+        }
+
+        if (candidate) {
+          setDuplicatePrompt({
+            jobId: candidate.id,
+            reference: candidate.reference_number,
+            completedAt: candidate.completed_at,
+            reason: candidate.reason,
+          });
+          setSaving(false);
+          return;
         }
       }
 
       const category = deriveJobCategory(templateMeta);
       const dateKnown = !!ukDate;
+      // Override the header PO with the reviewer's edited value so the RPC
+      // stores the corrected PO on the job.
+      const headerWithPo: Record<string, any> = {
+        ...(item.header || {}),
+        po_ref: poNumber.trim() || (item.header as any)?.po_ref || null,
+      };
       const result = await confirmScanQueueAsJob({
         userId: user.id,
         itemId: item.itemId,
@@ -745,7 +797,7 @@ export default function ScanReviewDialog({
         completionDate: ukDate || null,
         dateKnown,
         responses: answers,
-        header: item.header || {},
+        header: headerWithPo,
         imagePaths: item.imagePaths || [],
         customerSignatureBlob: customerSig?.blob || null,
         engineerSignatureBlob: engineerSig?.blob || null,
@@ -1226,6 +1278,19 @@ export default function ScanReviewDialog({
                     </label>
                   </div>
                 </div>
+                <div className="space-y-1.5">
+                  <Label>Customer PO number</Label>
+                  <Input
+                    value={poNumber}
+                    onChange={(e) => setPoNumber(e.target.value)}
+                    placeholder="e.g. BFMPO-0181"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    PO-first rule: this becomes the customer-facing reference
+                    on the job and its reports. Leave blank to fall back to
+                    the internal reference.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -1287,11 +1352,14 @@ export default function ScanReviewDialog({
             <AlertDialogDescription>
               {duplicatePrompt ? (
                 <>
-                  Job <strong>{duplicatePrompt.reference}</strong> is on the
-                  same customer, site and date as this sheet. Attach this
-                  sheet as an <strong>additional report</strong> on that job,
-                  or file it as a separate job? Each attached report keeps
-                  its own answers, signatures and scan image.
+                  Job <strong>{duplicatePrompt.reference}</strong>{" "}
+                  {duplicatePrompt.reason === "po"
+                    ? "already has this PO number on the same customer."
+                    : "is on the same customer, site and date as this sheet."}{" "}
+                  Attach this sheet as an{" "}
+                  <strong>additional report</strong> on that job, or file it
+                  as a separate job? Each attached report keeps its own
+                  answers, signatures and scan image.
                 </>
               ) : null}
             </AlertDialogDescription>
