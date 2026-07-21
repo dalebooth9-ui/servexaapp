@@ -21,9 +21,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Send, Mail, Loader2, FileText, Images, AlertTriangle } from "lucide-react";
+import { Send, Mail, Loader2, FileText, Images, AlertTriangle, ExternalLink } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { resolveSubmissionsSignedUrl } from "@/lib/resolveSubmissionsPath";
+import {
+  getGraphSendStatus,
+  sendViaGraph,
+  type GraphSendStatus,
+} from "@/lib/graphMailSend";
 
 interface Props {
   archivedId: string;
