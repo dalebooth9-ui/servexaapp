@@ -398,6 +398,58 @@ export default function SendArchiveDialog({
             </div>
 
             <div className="rounded-md border p-3 space-y-2">
+              <div className="text-sm font-medium">Delivery route</div>
+              <RadioGroup value={route} onValueChange={(v) => setRoute(v as any)}>
+                <label className={`flex items-start gap-2 rounded p-2 cursor-pointer ${!graphStatus?.ready ? "opacity-50" : "hover:bg-muted/50"}`}>
+                  <RadioGroupItem value="graph_send" className="mt-1" disabled={!graphStatus?.ready} />
+                  <div className="text-sm">
+                    <div className="font-medium">
+                      Send from {graphStatus?.mailbox || "Microsoft 365"}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Goes out through Outlook and lands in your Sent Items.
+                      Replies come back to that mailbox.
+                    </p>
+                  </div>
+                </label>
+                <label className={`flex items-start gap-2 rounded p-2 cursor-pointer ${!graphStatus?.ready ? "opacity-50" : "hover:bg-muted/50"}`}>
+                  <RadioGroupItem value="graph_draft" className="mt-1" disabled={!graphStatus?.ready} />
+                  <div className="text-sm">
+                    <div className="font-medium">Create draft in Outlook</div>
+                    <p className="text-xs text-muted-foreground">
+                      Opens a pre-filled draft in Outlook on the web with the
+                      PDF attached — review and press Send there.
+                    </p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-2 rounded p-2 hover:bg-muted/50 cursor-pointer">
+                  <RadioGroupItem value="app_mailer" className="mt-1" />
+                  <div className="text-sm">
+                    <div className="font-medium">Send via Servexa mailer</div>
+                    <p className="text-xs text-muted-foreground">
+                      Fallback route. Won't appear in your Outlook Sent Items.
+                    </p>
+                  </div>
+                </label>
+              </RadioGroup>
+              {!graphStatus?.ready && (
+                <div className="text-xs text-muted-foreground border-t pt-2 flex items-start gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
+                  <span>
+                    {graphStatus?.message ||
+                      "Microsoft 365 isn't connected yet."}{" "}
+                    <a
+                      href="/settings?tab=email"
+                      className="text-primary hover:underline inline-flex items-center gap-0.5"
+                    >
+                      Set up <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-md border p-3 space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <FileText className="h-4 w-4 text-muted-foreground" />
                 <span className="font-medium">Electronic report (PDF)</span>
