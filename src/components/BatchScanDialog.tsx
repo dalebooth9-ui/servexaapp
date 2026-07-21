@@ -9,6 +9,7 @@ import { Loader2, Upload, Trash2, Layers, FileStack, CheckCircle2, XCircle, Scan
 import { useNavigate } from "react-router-dom";
 import { fuzzyMatchEngineer } from "@/lib/fuzzyEngineerMatch";
 import { applyExposedOutletOverrides } from "@/lib/ocrResultNormalization";
+import { runScanExtraction, runScanCategoryIdentify } from "@/lib/scanPipeline";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface TemplateField {
