@@ -60,7 +60,7 @@ export async function convertArchivedDocument(
   const { data: doc, error } = await (supabase as any)
     .from("archived_documents")
     .select(
-      "id, org_id, customer_id, site_id, site_name, site_address, document_date, file_paths, report_pdf_path",
+      "id, org_id, customer_id, site_id, site_name, site_address, document_date, file_paths, report_pdf_path, header_data",
     )
     .eq("id", archivedId)
     .maybeSingle();
