@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { runScanExtraction } from "@/lib/scanPipeline";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -522,22 +523,18 @@ export default function ScanCompletedJobDialog({
     setTemplate(tplObj);
     setProcessingMsg(`Reading form using "${tplObj.name}"…`);
 
-    const { data, error } = await supabase.functions.invoke("ocr-job-sheet", {
-      body: {
-        images: imagePayloads,
-        template_name: tplObj.name,
-        fields: tplObj.fields.map((f) => ({
-          id: f.id,
-          label: f.label,
-          type: f.type,
-          section: f.section,
-          options: f.options,
-        })),
-      },
+    // Canonical extraction — shared with archive/queue/quick-scan doors.
+    const { extracted, header: hdr } = await runScanExtraction({
+      images: imagePayloads,
+      templateName: tplObj.name,
+      fields: tplObj.fields.map((f) => ({
+        id: f.id,
+        label: f.label,
+        type: f.type,
+        section: f.section,
+        options: f.options,
+      })),
     });
-    if (error) throw new Error(error.message || "OCR failed");
-    const extracted: Record<string, any> = data?.extracted || {};
-    const hdr: Record<string, any> = data?.header || {};
 
     // Normalise checkbox strings → booleans/N/A
     const normalised: Record<string, any> = {};

@@ -1,7 +1,25 @@
+// ScanReviewDialog — SINGLE review UI for every paper-scan door.
+//
+// Historically the app had two separate review dialogs: `ArchiveReviewDialog`
+// (archive-only) and `ScanCompletedJobDialog` (job-mode, ~1800 LOC). Every
+// parity fix — confidence flags, signature cropper, customer/site pickers,
+// site-from-header prefill, letterhead guard — had to land twice, and one of
+// them always drifted. This component is the merger of the two.
+//
+// Modes:
+//   • "archive"  → files a queue item into archived_documents (no job)
+//   • "job"      → files a queue item as a completed job via the
+//                  confirm_paper_scan_job RPC
+//
+// Everything above the destination section is identical between modes. The
+// destination section renders the tiny mode-specific bit (archive filing vs
+// job name / matched-existing / date-known confirm).
+
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -30,12 +48,14 @@ import {
   Building2,
   FileText,
   PenLine,
+  Briefcase,
 } from "lucide-react";
 import CustomerCombobox, {
   type CustomerOption,
 } from "@/components/CustomerCombobox";
 import SiteCombobox, { type SiteOption } from "@/components/SiteCombobox";
 import { archiveScanConfirm } from "@/lib/archiveScanConfirm";
+import { confirmScanQueueAsJob } from "@/lib/confirmScanQueueAsJob";
 import { fuzzyMatchEngineer } from "@/lib/fuzzyEngineerMatch";
 import { matchSiteFromHeader } from "@/lib/matchSiteFromHeader";
 import {
@@ -50,8 +70,9 @@ import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 const createDefectSuffix = (n: number) =>
   n > 0 ? ` · ${n} defect${n === 1 ? "" : "s"} logged` : "";
 
-// A single queue item filed as a standalone archived document (no job).
-export type ArchiveQueueItemInput = {
+// Canonical shape a queue item takes when passed into this dialog. Both modes
+// share it — the queue writer decides mode when it hands the item over.
+export type ScanQueueItemInput = {
   itemId: string;
   batchId: string | null;
   templateId: string | null;
@@ -62,7 +83,16 @@ export type ArchiveQueueItemInput = {
   imagePaths: string[];
   guessCustomerId: string | null;
   guessSiteId: string | null;
-  guessDate: string | null;
+  guessDate: string | null; // yyyy-mm-dd
+  // Job-mode extra: candidate existing jobs the AI thinks this scan belongs
+  // to (for the "append to existing job" pattern). Empty in archive mode.
+  candidateMatches?: Array<{
+    job_id: string;
+    reference_number: string;
+    score: number;
+    reason?: string;
+    category?: string | null;
+  }>;
 };
 
 type TemplateField = {
@@ -77,18 +107,61 @@ type TemplateField = {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  item: ArchiveQueueItemInput | null;
+  mode: "job" | "archive";
+  item: ScanQueueItemInput | null;
   onResolved: () => void;
 }
 
-export default function ArchiveReviewDialog({
+// yyyy-mm-dd → dd/mm/yyyy for the job-mode date input
+function isoToUk(iso: string | null): string {
+  if (!iso) return "";
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return iso;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+// Derive a job category from the template metadata (mirrors the logic that
+// used to live inline in ScanCompletedJobDialog).
+function deriveJobCategory(template: {
+  category?: string | null;
+  job_category?: string | null;
+}): string {
+  const cat = (template.category || "").toLowerCase();
+  const jc = (template.job_category || "").toLowerCase();
+  if (cat === "pressure_test" || jc.includes("pressure_test"))
+    return "pressure_test";
+  if (cat === "visual" || jc.includes("visual")) return "visual";
+  if (
+    cat === "sprinkler" ||
+    cat === "sprinkler_service" ||
+    cat === "commercial_sprinkler_service" ||
+    jc.startsWith("sprinkler") ||
+    jc.includes("sprinkler")
+  )
+    return "commercial_sprinkler_service";
+  if (jc.startsWith("fire_hydrant") || jc.startsWith("hydrant") || cat.startsWith("hydrant"))
+    return "fire_hydrant";
+  if (jc.startsWith("wet_riser") || cat.startsWith("wet_riser")) return "wet_riser";
+  if (jc.startsWith("dry_riser") || cat.startsWith("dry_riser")) return "dry_riser";
+  if (
+    jc.startsWith("fire_extinguisher") ||
+    cat.startsWith("fire_extinguisher") ||
+    jc.startsWith("extinguisher")
+  )
+    return "fire_extinguisher";
+  return template.category || template.job_category || "general";
+}
+
+export default function ScanReviewDialog({
   open,
   onOpenChange,
+  mode,
   item,
   onResolved,
 }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [sites, setSites] = useState<SiteOption[]>([]);
@@ -96,34 +169,39 @@ export default function ArchiveReviewDialog({
   const [siteId, setSiteId] = useState("");
   const [siteName, setSiteName] = useState("");
   const [siteAddress, setSiteAddress] = useState("");
-  const [docDate, setDocDate] = useState("");
+  const [docDate, setDocDate] = useState(""); // yyyy-mm-dd for archive
+  const [ukDate, setUkDate] = useState(""); // dd/mm/yyyy for job
+  const [dateUnknown, setDateUnknown] = useState(false);
   const [docType, setDocType] = useState("");
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [thumbs, setThumbs] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [templateFields, setTemplateFields] = useState<TemplateField[]>([]);
+  const [templateMeta, setTemplateMeta] = useState<{
+    name: string | null;
+    category: string | null;
+    job_category: string | null;
+  }>({ name: null, category: null, job_category: null });
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [loadingTemplate, setLoadingTemplate] = useState(false);
-  // Engineer signature matching — office confirms which employee profile's
-  // stored signature to stamp as the technician signature on the electronic
-  // report, on the basis that the scanned original bears their handwritten
-  // signature. "" = no signature applied; UUID = user_id of matched engineer.
   const [engineers, setEngineers] = useState<
     { user_id: string; full_name: string; has_signature: boolean }[]
   >([]);
   const [technicianUserId, setTechnicianUserId] = useState<string>("");
 
-  // Proposed defects derived from the extracted answers. Office reviews the
-  // ticklist before anything is written to the defects table.
+  // Defect proposals (archive mode only; job mode already has remedial items
+  // via the normal job path).
   const [defectSelection, setDefectSelection] = useState<Record<string, boolean>>({});
-  const [defectOverrides, setDefectOverrides] = useState<Record<string, Partial<ProposedDefect>>>({});
+  const [defectOverrides, setDefectOverrides] = useState<
+    Record<string, Partial<ProposedDefect>>
+  >({});
 
-  // Manual "Select from photo" signature capture — same drag-a-box component
-  // used by the job-scan flow. Overrides the auto-crop if the OCR pass
-  // returned a bounding box, and supplies the signature when auto-crop
-  // returned nothing. Persisted so a re-convert never re-derives over a
-  // human's choice (same single-source-of-truth rule as the customer link).
+  // Job-mode extra state
+  const [jobName, setJobName] = useState("");
+  const [matchExistingJobId, setMatchExistingJobId] = useState<string>("");
+
+  // Manual signature capture (both modes)
   type SigCapture = { blob: Blob; previewUrl: string; pageIdx: number };
   const [customerSig, setCustomerSig] = useState<SigCapture | null>(null);
   const [engineerSig, setEngineerSig] = useState<SigCapture | null>(null);
@@ -136,37 +214,44 @@ export default function ArchiveReviewDialog({
     if (!open || !item) return;
     setCustomerId(item.guessCustomerId || "");
     setSiteId(item.guessSiteId || "");
-    // Prefill free-text site name / address from the OCR header block so
-    // the office doesn't have to retype them. When a site record is also
-    // matched (guessSiteId) these will get overwritten below by the
-    // matched site's own name/address.
     const headerSite = String((item.header as any)?.site || "").trim();
     setSiteName(headerSite);
     setSiteAddress(headerSite);
     setDocDate(item.guessDate || "");
+    setUkDate(isoToUk(item.guessDate));
+    setDateUnknown(false);
     setDocType(item.documentType || item.templateName || "");
     setTitle(item.templateName || "");
     setNotes("");
     setAnswers({ ...(item.extracted || {}) });
     setTemplateFields([]);
+    setTemplateMeta({ name: null, category: null, job_category: null });
     setDefectSelection({});
     setDefectOverrides({});
+    setJobName("");
+    setMatchExistingJobId("");
+    setCustomerSig(null);
+    setEngineerSig(null);
   }, [open, item]);
 
-  // Load full template fields for the editable answers panel
   useEffect(() => {
     if (!open || !item?.templateId) return;
     setLoadingTemplate(true);
     (async () => {
       const { data } = await supabase
         .from("job_sheet_templates")
-        .select("fields")
+        .select("name, category, job_category, fields")
         .eq("id", item.templateId!)
         .maybeSingle();
       const raw = Array.isArray((data as any)?.fields)
         ? ((data as any).fields as any[])
         : [];
       setTemplateFields(raw as TemplateField[]);
+      setTemplateMeta({
+        name: (data as any)?.name ?? null,
+        category: (data as any)?.category ?? null,
+        job_category: (data as any)?.job_category ?? null,
+      });
       setLoadingTemplate(false);
     })();
   }, [open, item?.templateId]);
@@ -182,8 +267,6 @@ export default function ArchiveReviewDialog({
     })();
   }, [open]);
 
-  // Load org engineers (with signature_data flag) and prefill the technician
-  // dropdown by fuzzy-matching the OCR'd engineer name.
   useEffect(() => {
     if (!open || !item) return;
     (async () => {
@@ -200,7 +283,6 @@ export default function ArchiveReviewDialog({
       setEngineers(list);
       const raw = String((item.header as any)?.engineer || "").trim();
       if (raw && list.length > 0) {
-        // Prefer engineers with a stored signature, then broaden.
         const withSig = list.filter((e) => e.has_signature);
         const pool = withSig.length > 0 ? withSig : list;
         const matched = fuzzyMatchEngineer(raw, pool);
@@ -228,9 +310,6 @@ export default function ArchiveReviewDialog({
         .order("name");
       const list = (ss as any as SiteOption[]) || [];
       setSites(list);
-      // Auto-match a site record from the OCR'd site text when nothing is
-      // already picked. Shared helper (same one the Scan-paper-job dialog
-      // uses) — postcode → name → address ranking.
       if (!siteId && item) {
         const headerSite = String((item.header as any)?.site || "").trim();
         if (headerSite) {
@@ -240,12 +319,9 @@ export default function ArchiveReviewDialog({
           }
         }
       }
-
     })();
   }, [open, customerId, item, siteId]);
 
-  // When a site record is picked, mirror its name/address into the
-  // free-text fields so the persisted archive row is consistent.
   useEffect(() => {
     if (!siteId) return;
     const s = sites.find((x) => x.id === siteId);
@@ -295,13 +371,13 @@ export default function ArchiveReviewDialog({
   }, [templateFields]);
 
   const proposedDefects = useMemo(() => {
-    if (!item) return [] as ProposedDefect[];
+    if (!item || mode !== "archive") return [] as ProposedDefect[];
     return proposeDefectsFromExtraction(
       templateFields as any,
       answers,
       (item.header || {}) as any,
     );
-  }, [item, templateFields, answers]);
+  }, [item, mode, templateFields, answers]);
 
   const renderFieldInput = (field: TemplateField) => {
     const value = answers[field.id];
@@ -400,7 +476,8 @@ export default function ArchiveReviewDialog({
     }
   };
 
-  const fileIt = async (asUnmatched = false) => {
+  // Shared "file it" — archive mode
+  const fileArchive = async (asUnmatched = false) => {
     if (!user || !item) return;
     const orgId = await orgIdPromise;
     if (!orgId) {
@@ -418,10 +495,6 @@ export default function ArchiveReviewDialog({
     }
     setSaving(true);
     try {
-      // Upload manually-cropped signatures to the signatures bucket first so
-      // we can persist the storage paths on the archive row and pass them to
-      // the PDF generator. Same bucket + path convention as the job-scan
-      // flow: <user.id>/<archivedItemId>-<role>-paper-<ts>.png
       let manualCustomerSignaturePath: string | null = null;
       let manualEngineerSignaturePath: string | null = null;
       const uploadSig = async (
@@ -434,7 +507,7 @@ export default function ArchiveReviewDialog({
           .from("signatures")
           .upload(dest, sig.blob, { contentType: "image/png", upsert: false });
         if (upErr) {
-          console.error("[archive] signature upload failed", role, upErr);
+          console.error("[scan-review] signature upload failed", role, upErr);
           return null;
         }
         return dest;
@@ -475,9 +548,6 @@ export default function ArchiveReviewDialog({
         manualEngineerSignaturePath,
       });
 
-      // Create confirmed defect proposals AFTER the archive row exists,
-      // linked to it as source. Never linked to a job. Only when filed
-      // properly (not as "Unmatched") since defects need a customer/site.
       let createdDefectCount = 0;
       if (!asUnmatched && proposedDefects.length > 0 && (result as any).archivedId) {
         const confirmed = proposedDefects
@@ -496,10 +566,12 @@ export default function ArchiveReviewDialog({
             });
             createdDefectCount = created.length;
           } catch (defectErr: any) {
-            console.error("[archive] defect create failed", defectErr);
+            console.error("[scan-review] defect create failed", defectErr);
             toast({
               title: "Filed, but defects failed",
-              description: defectErr?.message || "Defects couldn't be created — open them from the Defects page.",
+              description:
+                defectErr?.message ||
+                "Defects couldn't be created — open them from the Defects page.",
               variant: "destructive",
             });
           }
@@ -518,6 +590,67 @@ export default function ArchiveReviewDialog({
       toast({
         title: "Couldn't file document",
         description: e?.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Job mode — mirrors ScanCompletedJobDialog.handleConfirm minus the upload
+  // step (queue items already have imagePaths).
+  const fileAsJob = async () => {
+    if (!user || !item || !item.templateId) return;
+    if (!customerId) {
+      toast({ title: "Choose a customer", variant: "destructive" });
+      return;
+    }
+    if (!siteId) {
+      toast({ title: "Choose or create a site", variant: "destructive" });
+      return;
+    }
+    if (!ukDate && !dateUnknown) {
+      toast({
+        title: "Enter the date from the sheet",
+        description:
+          "Type the date handwritten on the paper form (dd/mm/yyyy) — or tick 'Date unknown'.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSaving(true);
+    try {
+      const category = deriveJobCategory(templateMeta);
+      const dateKnown = !!ukDate;
+      const result = await confirmScanQueueAsJob({
+        userId: user.id,
+        itemId: item.itemId,
+        batchId: item.batchId,
+        templateId: item.templateId,
+        category,
+        customerId,
+        siteId,
+        overrideJobName: jobName.trim() || null,
+        existingJobId: matchExistingJobId || null,
+        completionDate: ukDate || null,
+        dateKnown,
+        responses: answers,
+        header: item.header || {},
+        imagePaths: item.imagePaths || [],
+        customerSignatureBlob: customerSig?.blob || null,
+        engineerSignatureBlob: engineerSig?.blob || null,
+      });
+      toast({
+        title: `Job ${result.jobRef} filed`,
+        description: "Paper report digitised. Opening the job now.",
+      });
+      onResolved();
+      onOpenChange(false);
+      navigate(`/jobs/${result.jobId}`);
+    } catch (e: any) {
+      toast({
+        title: "Couldn't file job",
+        description: e?.message || "Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -546,19 +679,27 @@ export default function ArchiveReviewDialog({
   };
 
   const hasTemplate = !!item?.templateId;
+  const isJob = mode === "job";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Archive className="h-5 w-5" /> File to archive
+            {isJob ? (
+              <>
+                <Briefcase className="h-5 w-5" /> File as completed job
+              </>
+            ) : (
+              <>
+                <Archive className="h-5 w-5" /> File to archive
+              </>
+            )}
           </DialogTitle>
           <DialogDescription>
-            Archive-only — no job is created. Confirm or correct the filing
-            details and extracted answers, then file. If a template was
-            matched, we'll also generate a clean electronic report as the
-            primary document.
+            {isJob
+              ? "Backfilling a paper report as a completed job. Confirm the extraction, then file — a job is created and the scan attaches as source document."
+              : "Archive-only — no job is created. Confirm the filing details and file. If a template was matched, a clean electronic report is generated as the primary document."}
           </DialogDescription>
         </DialogHeader>
 
@@ -582,7 +723,9 @@ export default function ArchiveReviewDialog({
                 <Badge variant="secondary">Template: {item.templateName}</Badge>
               ) : (
                 <Badge variant="outline">
-                  No template matched — will file as scan-only
+                  {isJob
+                    ? "No template matched"
+                    : "No template matched — will file as scan-only"}
                 </Badge>
               )}
               <span className="text-muted-foreground">
@@ -634,12 +777,11 @@ export default function ArchiveReviewDialog({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Site {siteId ? "" : "(no matching record — free text will be filed)"}</Label>
-                <SiteCombobox
-                  value={siteId}
-                  sites={sites}
-                  onChange={setSiteId}
-                />
+                <Label>
+                  Site{" "}
+                  {siteId ? "" : "(no matching record — free text will be filed)"}
+                </Label>
+                <SiteCombobox value={siteId} sites={sites} onChange={setSiteId} />
               </div>
               <div className="space-y-1.5 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -659,29 +801,31 @@ export default function ArchiveReviewDialog({
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Document date</Label>
-                <Input
-                  type="date"
-                  value={docDate}
-                  onChange={(e) => setDocDate(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Document type</Label>
-                <Input
-                  value={docType}
-                  onChange={(e) => setDocType(e.target.value)}
-                  placeholder="e.g. Dry Riser Annual"
-                />
-              </div>
+              {!isJob && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label>Document date</Label>
+                    <Input
+                      type="date"
+                      value={docDate}
+                      onChange={(e) => setDocDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Document type</Label>
+                    <Input
+                      value={docType}
+                      onChange={(e) => setDocType(e.target.value)}
+                      placeholder="e.g. Dry Riser Annual"
+                    />
+                  </div>
+                </>
+              )}
               <div className="space-y-1.5 md:col-span-2">
                 <Label>
                   Technician signature{" "}
                   <span className="text-muted-foreground font-normal">
-                    (applies this engineer's stored profile signature to the
-                    electronic report — the scanned original bears their
-                    handwritten signature)
+                    (applies this engineer's stored profile signature)
                   </span>
                 </Label>
                 <Select
@@ -723,31 +867,30 @@ export default function ArchiveReviewDialog({
                   );
                 })()}
               </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <Label>Title</Label>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Short label (optional)"
-                />
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <Label>Notes</Label>
-                <Textarea
-                  rows={2}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Anything the office should know"
-                />
-              </div>
+              {!isJob && (
+                <>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label>Title</Label>
+                    <Input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Short label (optional)"
+                    />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label>Notes</Label>
+                    <Textarea
+                      rows={2}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Anything the office should know"
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
-            {/* Manual "Select from photo" signature capture. Same drag-a-box
-                component used in the job-scan flow (PaperSignatureCropper).
-                Customer sig is always offered; engineer sig only when no
-                profile-signature engineer is chosen — the profile stamp is
-                preferred where available (correct provenance). Captures are
-                labelled "signature from original scan" on the PDF. */}
+            {/* Manual signature capture — identical UI in both modes */}
             {thumbs.length > 0 && (
               <div className="rounded border bg-muted/30 p-3 space-y-3">
                 <div className="flex items-center gap-2 text-sm font-medium">
@@ -825,8 +968,6 @@ export default function ArchiveReviewDialog({
                 onOverridesChange={setDefectOverrides}
               />
             )}
-
-
 
             {hasTemplate && (
               <div className="rounded border bg-muted/30 p-3 space-y-3">
@@ -908,6 +1049,72 @@ export default function ArchiveReviewDialog({
               </div>
             )}
 
+            {/* Destination-specific section — the ONLY per-mode UI */}
+            {isJob && (
+              <div className="rounded border bg-muted/30 p-3 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Briefcase className="h-4 w-4" /> Job details
+                </div>
+                {item.candidateMatches && item.candidateMatches.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label>Append to existing job (optional)</Label>
+                    <Select
+                      value={matchExistingJobId || "none"}
+                      onValueChange={(v) =>
+                        setMatchExistingJobId(v === "none" ? "" : v)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          Create new job (default)
+                        </SelectItem>
+                        {item.candidateMatches.map((c) => (
+                          <SelectItem key={c.job_id} value={c.job_id}>
+                            {c.reference_number}
+                            {c.reason ? ` — ${c.reason}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Job name (optional override)</Label>
+                    <Input
+                      value={jobName}
+                      onChange={(e) => setJobName(e.target.value)}
+                      disabled={!!matchExistingJobId}
+                      placeholder="Auto-generated from template + site"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Completion date (dd/mm/yyyy)</Label>
+                    <Input
+                      value={ukDate}
+                      onChange={(e) => setUkDate(e.target.value)}
+                      disabled={dateUnknown}
+                      placeholder="dd/mm/yyyy"
+                    />
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Checkbox
+                        checked={dateUnknown}
+                        onCheckedChange={(c) => {
+                          const on = !!c;
+                          setDateUnknown(on);
+                          if (on) setUkDate("");
+                        }}
+                      />
+                      Date unknown — file without one
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-2 justify-between pt-2 border-t">
               <Button
                 variant="ghost"
@@ -918,25 +1125,33 @@ export default function ArchiveReviewDialog({
                 <XCircle className="mr-1.5 h-4 w-4" /> Discard
               </Button>
               <div className="flex gap-2">
+                {!isJob && (
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() => fileArchive(true)}
+                    disabled={saving}
+                  >
+                    File as Unmatched
+                  </Button>
+                )}
                 <Button
-                  variant="outline"
                   type="button"
-                  onClick={() => fileIt(true)}
-                  disabled={saving}
-                >
-                  File as Unmatched
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => fileIt(false)}
+                  onClick={() => (isJob ? fileAsJob() : fileArchive(false))}
                   disabled={saving}
                 >
                   {saving ? (
                     <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  ) : isJob ? (
+                    <Briefcase className="mr-1.5 h-4 w-4" />
                   ) : (
                     <Archive className="mr-1.5 h-4 w-4" />
                   )}
-                  {hasTemplate ? "File with electronic report" : "File to archive"}
+                  {isJob
+                    ? "File as completed job"
+                    : hasTemplate
+                      ? "File with electronic report"
+                      : "File to archive"}
                 </Button>
               </div>
             </div>
@@ -947,10 +1162,6 @@ export default function ArchiveReviewDialog({
   );
 }
 
-// Per-role signature slot: shows current capture preview (or a placeholder),
-// a page-picker when the scan has multiple pages, and a "Select from photo"
-// button that opens the shared drag-a-box cropper. Kept in-file since it's
-// only ever consumed here.
 function SigSlot({
   label,
   autoDetected,
@@ -999,12 +1210,7 @@ function SigSlot({
               >
                 Reselect
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={onClear}
-              >
+              <Button type="button" variant="ghost" size="sm" onClick={onClear}>
                 Clear
               </Button>
             </div>

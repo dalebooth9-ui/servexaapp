@@ -38,12 +38,9 @@ import {
   Wand2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import ScanCompletedJobDialog, {
-  type QueueItemInput,
-} from "@/components/ScanCompletedJobDialog";
-import ArchiveReviewDialog, {
-  type ArchiveQueueItemInput,
-} from "@/components/paper-scan/ArchiveReviewDialog";
+import ScanReviewDialog, {
+  type ScanQueueItemInput,
+} from "@/components/paper-scan/ScanReviewDialog";
 import BulkActionBar from "@/components/BulkActionBar";
 import { deletePaperScanItems } from "@/lib/deletePaperScanItems";
 import { bulkFileAndConvertArchiveItems } from "@/lib/bulkFileAndConvertArchiveItems";
@@ -104,9 +101,9 @@ export default function PaperScanQueue() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"pending" | "all">("pending");
   const [modeTab, setModeTab] = useState<"job" | "archive">("job");
-  const [openItem, setOpenItem] = useState<QueueItemInput | null>(null);
-  const [openArchiveItem, setOpenArchiveItem] =
-    useState<ArchiveQueueItemInput | null>(null);
+  const [openItem, setOpenItem] = useState<
+    (ScanQueueItemInput & { _mode: "job" | "archive" }) | null
+  >(null);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [retrying, setRetrying] = useState<Record<string, boolean>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -424,27 +421,15 @@ export default function PaperScanQueue() {
   };
 
   const openReview = (i: Item) => {
-    if ((i.mode || "job") === "archive") {
-      setOpenArchiveItem({
-        itemId: i.id,
-        batchId: i.batch_id,
-        templateId: i.detected_template_id,
-        templateName: i.template_name || null,
-        documentType: (i.header_data?.document_type as string) || null,
-        extracted: i.extracted || {},
-        header: i.header_data || {},
-        imagePaths: i.image_paths || [],
-        guessCustomerId: i.guess_customer_id,
-        guessSiteId: i.guess_site_id,
-        guessDate: i.guess_date,
-      });
-      return;
-    }
-    if (!i.detected_template_id) return;
+    const currentMode: "job" | "archive" = (i.mode || "job") === "archive" ? "archive" : "job";
+    if (currentMode === "job" && !i.detected_template_id) return;
     setOpenItem({
+      _mode: currentMode,
       itemId: i.id,
       batchId: i.batch_id,
       templateId: i.detected_template_id,
+      templateName: i.template_name || null,
+      documentType: (i.header_data?.document_type as string) || null,
       extracted: i.extracted || {},
       header: i.header_data || {},
       imagePaths: i.image_paths || [],
@@ -456,6 +441,7 @@ export default function PaperScanQueue() {
         : [],
     });
   };
+
 
 
   if (!isAdmin) {
@@ -781,30 +767,19 @@ export default function PaperScanQueue() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {openItem && (
-        <ScanCompletedJobDialog
-          open={true}
-          onOpenChange={(o) => {
-            if (!o) setOpenItem(null);
-          }}
-          queueItem={openItem}
-          onQueueItemResolved={() => {
-            setOpenItem(null);
-            load();
-          }}
-        />
-      )}
-      <ArchiveReviewDialog
-        open={!!openArchiveItem}
+      <ScanReviewDialog
+        open={!!openItem}
+        mode={openItem?._mode || "job"}
+        item={openItem}
         onOpenChange={(o) => {
-          if (!o) setOpenArchiveItem(null);
+          if (!o) setOpenItem(null);
         }}
-        item={openArchiveItem}
         onResolved={() => {
-          setOpenArchiveItem(null);
+          setOpenItem(null);
           load();
         }}
       />
+
 
     </AppLayout>
   );

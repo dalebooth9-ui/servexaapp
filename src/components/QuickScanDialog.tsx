@@ -18,6 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { applyExposedOutletOverrides } from "@/lib/ocrResultNormalization";
+import { runScanExtraction, runScanCategoryIdentify } from "@/lib/scanPipeline";
 import { mergeQuickScanState } from "@/lib/quickScanState";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
@@ -354,18 +355,18 @@ export default function QuickScanDialog() {
     templateName: string,
     fields: TemplateField[],
   ) => {
-    const { data, error } = await supabase.functions.invoke("ocr-job-sheet", {
-      body: {
-        images: imagePayloads,
-        template_name: templateName,
-        fields: toOcrFieldPayload(fields),
-      },
+    // Canonical extraction — routes through the shared scan pipeline so
+    // QuickScan gets the same confidence flags & normalisation as every
+    // other scan door.
+    const { extracted, header } = await runScanExtraction({
+      images: imagePayloads,
+      templateName,
+      fields,
     });
-
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error);
-
-    return (data ?? {}) as { extracted?: Record<string, any>; header?: Record<string, any> };
+    return { extracted, header } as {
+      extracted?: Record<string, any>;
+      header?: Record<string, any>;
+    };
   };
 
   const chunkFields = (fields: TemplateField[], size: number) => {
@@ -470,36 +471,16 @@ export default function QuickScanDialog() {
         .order("sort_order");
 
       const categoryNames = (categories || []).map((c: any) => c.name);
-      const categoryIdentifyFields = [
-        {
-          id: "detected_category",
-          label: "Document Category",
-          type: "select",
-          options: categoryNames,
-        },
-        {
-          id: "confidence",
-          label: "Confidence",
-          type: "select",
-          options: ["high", "medium", "low"],
-        },
-      ];
-
-      const { data: identifyData, error: identifyError } = await supabase.functions.invoke("ocr-job-sheet", {
-        body: {
-          images: imagePayloads,
-          template_name: "Category Identification",
-          fields: categoryIdentifyFields,
-        },
-      });
-
-      if (identifyError) throw identifyError;
-      if (identifyData?.error) throw new Error(identifyData.error);
-
-      const detectedName = identifyData?.extracted?.detected_category;
-      const matchedCat = (categories || []).find(
-        (c: any) => c.name.toLowerCase() === (detectedName || "").toLowerCase()
+      // Stage 1: identify category via shared pipeline
+      const detectedName = await runScanCategoryIdentify(
+        imagePayloads,
+        (categories || []).map((c: any) => ({ name: c.name })),
       );
+      const matchedCat = (categories || []).find(
+        (c: any) => c.name.toLowerCase() === (detectedName || "").toLowerCase(),
+      );
+
+
 
       if (matchedCat) {
         setDetectedCategory({ slug: matchedCat.slug, name: matchedCat.name });
