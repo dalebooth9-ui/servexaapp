@@ -1,64 +1,99 @@
+# Paper Scans — North Star: photo in, PDF out. Fast.
 
-# One "Paper scans" section
+Owner's line: *"I just want it straightforward: scan the paper copy of a handwritten report and get the PDF copy. Fast."*
 
-Today the same activity — "digitise these sheets" — is split across three screens: the "Scan paper report" launcher (job intake), the Paper Scan Queue (`/paper-scan-queue`, job-mode review), and the Archive backlog (`/archive`, archive-mode intake + filed archive list). The pipeline underneath is already shared (`paper_scan_batches` / `paper_scan_batch_items` carry a `mode` column, `ScanReviewDialog` already renders both modes, `scanPipeline.ts` is common). So this is a UX / routing consolidation, not a rewrite.
+Everything below is scoped to that one outcome. Job filing, PO matching, attach-to-existing prompts and defect capture still happen — but they happen **around** the PDF, never in front of it.
 
-## The new shape
+## The happy path — count the clicks
 
-One sidebar item: **Paper scans**, at `/paper-scans`, with three tabs:
+```text
+1. Tap "Scan paper report"      → file picker opens
+2. Pick photo / PDF             → auto-extraction runs (progress shown)
+3. Tap "Looks good"             → PDF is built + opened
+                                  (Send to customer button right there)
+```
 
-1. **Upload** — single entry point. Drag/drop or pick files, optional camera capture, existing multi-sheet PDF splitting, existing letterhead/customer/template detection. No mode picked here.
-2. **Review queue** — every unreviewed sheet from every source (upload, scan-to-email, WhatsApp intake) in one list. Each row shows the AI's suggested outcome as a pill (`Suggested: File as job` / `Suggested: Archive only`) with a one-line reason. Opening a row launches the shared review dialog; the reviewer confirms or flips the outcome there.
-3. **History** — one list of everything already processed. Filters: outcome (Job / Archive), customer, site, template, date range, source (upload / email / WhatsApp). Rows link out to the job or the archived document.
+**3 taps from photo to PDF.** No mode selector, no site picker gate, no "job vs archive" fork in the user's face.
 
-Review dialog gains a single **Outcome** toggle at the top:
-- **File as job** — current job flow, including the attach-to-existing-job prompt (same customer + site + date, or same PO).
-- **Archive only** — current archive flow: electronic PDF built via `archivePdfBuilder`, filed against customer/site, defects pushed into the defects system via `proposeArchiveDefects`, no job created.
+## Design rules (non-negotiable)
 
-The AI suggestion is a default, not a gate. Heuristic (already partially in place): recent date + PO present ⇒ suggest Job; document older than ~60 days, or no PO and template looks like a service record ⇒ suggest Archive. Reviewer can always flip.
+1. **PDF is the product.** Every scan run ends with a viewable electronic PDF. Filing to a job or to the archive is a side effect of that same run, not a prerequisite.
+2. **The review screen never blocks the PDF.** Missing site, missing customer, low-confidence answers, unmatched signature — all become soft warnings. "Looks good" is always enabled. Nothing on review may throw an error that prevents PDF generation.
+3. **One review screen, one primary button.** No mode toggle in the header. The reviewer sees the extracted sheet, corrects what they want, taps one green button.
+4. **Everything else runs in the background** after the PDF is produced: PO-match / attach-to-existing job prompt, defect proposals, signature crop retries, customer enrichment. Each surfaces as a dismissible follow-up card on the same result screen — never a modal that gates the PDF.
+5. **Failure has a floor.** If extraction fails or is very low-confidence, we still produce a PDF (raw scan pages + whatever fields we got) so the user is never empty-handed. A "Re-run extraction" action is offered on the result screen.
 
-## What gets merged
+## What changes
 
-- Sidebar: "Paper Scan Queue" and "Archive" entries collapse to one **Paper scans** entry. Customer-detail archived-documents card stays (it's a customer view, not navigation).
-- Routes: `/paper-scan-queue` and `/archive` both redirect to `/paper-scans` (queue tab and history tab respectively) so existing bookmarks and deep links keep working.
-- Launchers: the "Scan paper report" button on Jobs and the "Archive scan" button both open the same Upload tab. The mode is decided at review, not at upload.
-- Dialogs: `ArchiveScanDialog` and the job-mode intake dialog fold into the single Upload tab (they already share `BulkScanTab` / `scanPipeline`). `ScanReviewDialog` stays as the one review UI, with the new Outcome toggle exposed at the top instead of being fixed by the launcher.
-- Badges: `PaperScanQueueBadge` becomes the single unread-review badge on the Paper scans nav item, counting all `pending`/`ready` items regardless of `mode`.
+### A. Entry point — single button
+- `/paper-scans` Upload tab keeps one primary CTA: **"Scan paper report"**. Remove the job-vs-archive mode chooser from the user surface; mode is inferred after review (see D).
+- Drag-drop and camera input both funnel into the same pipeline.
 
-## What gets removed
+### B. Extraction — same as today, just visible
+- Reuse `scanPipeline.ts` (`ocr-job-sheet` → normalize → template match).
+- Show a single progress bar with sheet-by-sheet ticks. No intermediate dialogs.
+- On completion, jump straight to the review screen — do not stop at the queue.
 
-- The separate "Archive" top-level nav item.
-- The separate "Paper Scan Queue" top-level nav item.
-- Any "Convert to electronic report" action buried on already-filed archive rows moves into the History tab row menu (same code path).
-- Help-article entries pointing at the old routes are updated to the new one (per the "ship rule" for `helpArticles.ts`).
+### C. Review screen — one screen, soft signals
+`ScanReviewDialog` becomes the *only* review UI, with these tightenings:
+- Header: sheet thumbnail + template name + confidence pill. No mode tabs.
+- Body: fields inline-editable. Low-confidence rows keep the amber flag (already built) but never disable submit.
+- Site / customer / PO: shown as **editable chips with suggested match**, not required fields. Blank is allowed.
+- Signature slots: auto-crop preview + "Select from photo" fallback (already built). Both optional.
+- Footer: **one** primary button — **"Looks good → build PDF"**. Secondary link: "Re-run extraction".
+- Remove every current guard that returns early on missing site/customer/template. Replace with a small "We'll file this as archive-only until you set a site" banner.
 
-## What is explicitly preserved
+### D. Filing decision — inferred, not asked
+After the reviewer taps "Looks good":
+1. Build the electronic PDF immediately via the shared builder (extract the current `archivePdfBuilder` core into `src/lib/electronicReportPdf.ts` so both flows call the same function).
+2. Decide destination **from the data**:
+   - Customer + site + PO/date match an open job → attach to that job (silent).
+   - Customer + site present, no job match → create a new job (silent) with the PDF as its completed report.
+   - Customer/site missing → file as archived document.
+3. Show the result screen (see E). The user never had to pick.
 
-Template matching, letterhead/customer detection, site auto-create, `PaperSignatureCropper` capture, PO extraction and PO-first job reference, defect extraction on archive sheets, batch splitting via `split-paper-scan-pdf`, scan-to-email intake, WhatsApp intake, duplicate-job prompt, low-confidence amber flagging, manual signature override persistence, admin-only delete, bulk actions. All the underlying libs (`scanPipeline`, `paperScanConfirm`, `archiveScanConfirm`, `archivePdfBuilder`, `confirmScanQueueAsJob`, `bulkFileAndConvertArchiveItems`) stay as-is — only the shell around them changes.
+### E. Result screen — PDF front and centre
+Replaces the current post-confirm toast + navigate-away behaviour.
+- Big PDF preview (reuse `PdfPreviewDialog` renderer inline).
+- Primary actions: **Download**, **Send to customer**, **Open job / archive entry**.
+- Secondary cards, all dismissible, none blocking:
+  - "Attach to existing job VFP-00226? (PO match)" — one-click accept.
+  - "3 potential defects detected — review" — opens defect drawer.
+  - "Signature not captured — add one now" — opens cropper.
+- "Scan another" button loops back to step 1.
 
-## Risks and how they're handled
+### F. Background follow-ups
+- PO-match / attach-to-existing runs against the same rules already in `confirm_paper_scan_job` RPC; result is surfaced as the card in E, not a modal.
+- Defect proposals (`proposeArchiveDefects`) run async after PDF build; card appears when ready.
+- Customer/site auto-create logic stays but is silent unless it fails.
 
-- **In-flight scans.** Any `paper_scan_batch_items` currently `pending` or errored keep their `mode` value and continue to work — the review dialog already reads `mode` per item, so an item mid-review isn't disturbed. The Outcome toggle simply pre-selects that stored `mode`.
-- **Already-filed data.** Nothing moves in the database. Existing jobs stay jobs, existing `archived_documents` stay archived. The History tab is a read-only union view over `jobs` (where `source = paper_scan`) and `archived_documents`, filtered by org.
-- **Deep links / external bookmarks.** Handled by the two redirects above. Scan-to-email and WhatsApp intake keep writing into the same tables, so no inbound integration changes.
-- **RLS.** No schema change, no policy change — same tables, same `has_role_in_org` guards.
-- **Suggestion accuracy.** The AI outcome is advisory; the reviewer always confirms. Wrong suggestions cost one click, not data loss.
+### G. Review queue — becomes a safety net, not the main road
+- The queue tab still exists for sheets that failed extraction, batch scan-to-email intake, or were explicitly left for later.
+- Successful single-sheet uploads should never require a visit to the queue — they go straight from upload → review → PDF.
+- Queue rows link into the same unified review screen.
 
-## Data migration
+## Guardrails against past blockers
 
-None required. The `mode` column and `archived_document_id` / `created_job_id` fields on `paper_scan_batch_items` already model the two outcomes, and the History tab is a query, not a new store. Only follow-up: a small backfill query is unnecessary — existing rows already have `mode` set correctly by whichever launcher created them.
+Explicitly forbidden in the review/confirm path:
+- Throwing on missing site (the Slate Yard / 201 Deansgate class of bug).
+- Throwing on signature crop failure (canvas tainting, no ink bounds).
+- Throwing on template mismatch — fall back to generic layout.
+- Any "please fix X before continuing" modal.
+
+Every one of these becomes a warning on the result screen with a one-click fix action.
 
 ## Technical notes
 
-- New page: `src/pages/PaperScans.tsx` with `?tab=upload|review|history` (default `review` if there are pending items, else `upload`).
-- Redirects added in `src/App.tsx` for `/paper-scan-queue` and `/archive`.
-- `AppLayout.tsx` sidebar: replace the two entries with one `Paper scans` entry using the existing `ClipboardCheck` icon; badge wired to the combined pending count.
-- `ScanReviewDialog.tsx`: add an `outcome` state initialised from `item.mode`, render a segmented control at the top, and route the confirm action to `confirmScanQueueAsJob` or `archiveScanConfirm` based on the current toggle rather than a prop. All existing sub-flows (duplicate prompt, signature capture, PO field, low-confidence flagging) are outcome-agnostic and stay put.
-- History tab: single `useQuery` returning `{ jobs_from_scans, archived_documents }` merged, sorted by filed date, with client-side filters. No new endpoint.
-- `helpArticles.ts`: retire the two old route entries, add one `/paper-scans` entry covering upload, review, outcomes, and history.
+- New shared entry: `src/lib/electronicReportPdf.ts` — extracted from `archivePdfBuilder.ts`, called by both job-fill and archive-fill paths so the PDF is identical regardless of destination.
+- `ScanReviewDialog` submit handler is refactored to: `buildPdf() → decideDestination() → persist()` in that order. PDF build must not depend on destination.
+- New result view: `src/components/paper-scan/ScanResultView.tsx` (replaces the toast-and-redirect ending).
+- Upload tab primary CTA simplified; mode prop dropped from `BulkScanTab` public surface (kept internally with default "auto").
+- Queue tab (`PaperScanQueue`) keeps current behaviour; only the entry paths change.
+- No schema changes required. `confirm_paper_scan_job` RPC unchanged — it's just called after PDF build instead of before.
 
-## Out of scope (intentionally)
+## What we are NOT changing
 
-- No changes to the scan pipeline, extraction prompts, or PDF builders.
-- No changes to how jobs or archived documents are stored or rendered.
-- No new roles, no schema migration.
+- The extraction prompts, confidence flags, and amber highlighting shipped previously.
+- The archive vs job data models — only how the user reaches them.
+- Batch scan-to-email intake — it still lands in the queue tab.
+- Existing PO-first display, duplicate-job merge behaviour, or RLS.

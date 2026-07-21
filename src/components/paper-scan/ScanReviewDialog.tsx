@@ -76,6 +76,10 @@ import {
 import ProposedDefectsSection from "@/components/paper-scan/ProposedDefectsSection";
 import PaperSignatureCropper from "@/components/paper-scan/PaperSignatureCropper";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import ScanResultView, {
+  type ScanResultDestination,
+} from "@/components/paper-scan/ScanResultView";
+import { buildElectronicReportPdf } from "@/lib/electronicReportPdf";
 
 const createDefectSuffix = (n: number) =>
   n > 0 ? ` · ${n} defect${n === 1 ? "" : "s"} logged` : "";
@@ -233,6 +237,15 @@ export default function ScanReviewDialog({
     pageIdx: number;
   } | null>(null);
 
+  // North-star: after "Looks good", we switch this dialog into a result view
+  // that shows the produced PDF + next actions. Never re-navigate away — the
+  // PDF outcome must be visible where the reviewer was already looking.
+  const [resultData, setResultData] = useState<{
+    reportPdfPath: string | null;
+    destination: ScanResultDestination;
+    templateName: string | null;
+  } | null>(null);
+
   useEffect(() => {
     if (!open || !item) return;
     setCustomerId(item.guessCustomerId || "");
@@ -263,6 +276,7 @@ export default function ScanReviewDialog({
     setDuplicatePrompt(null);
     setCustomerSig(null);
     setEngineerSig(null);
+    setResultData(null);
   }, [open, item]);
 
   useEffect(() => {
@@ -616,7 +630,15 @@ export default function ScanReviewDialog({
             : `Filed to archive (scan only)${createDefectSuffix(createdDefectCount)}`,
       });
       onResolved();
-      onOpenChange(false);
+      // North-star: swap the dialog into the PDF-result view. Never navigate
+      // the user away — the PDF outcome must be visible here.
+      setResultData({
+        reportPdfPath: result.reportPdfPath,
+        destination: asUnmatched
+          ? { kind: "unmatched", archivedId: (result as any).archivedId }
+          : { kind: "archive", archivedId: (result as any).archivedId },
+        templateName: item.templateName || null,
+      });
     } catch (e: any) {
       toast({
         title: "Couldn't file document",
@@ -637,30 +659,15 @@ export default function ScanReviewDialog({
   // re-enter with a decision without going through the query again.
   const fileAsJob = async (opts?: { existingJobId?: string | null; forceNew?: boolean }) => {
     if (!user || !item || !item.templateId) return;
-    if (!customerId) {
-      toast({ title: "Choose a customer", variant: "destructive" });
-      return;
-    }
+    // North-star: never block the PDF. Callers of fileAsJob must pre-check
+    // that customer + site + template are present (handleUnifiedSubmit does
+    // this and falls back to archive when they aren't). We keep the checks
+    // here only as a defensive guard for direct callers, but they no longer
+    // toast — the unified submit routes around them.
+    if (!customerId) return;
     const headerSite = String((item.header as any)?.site || "").trim();
     const freeTextSite = (siteName || siteAddress || headerSite).trim();
-    if (!siteId && !freeTextSite) {
-      toast({
-        title: "No site information",
-        description:
-          "Pick a site from the list, or add a site name/address from the sheet.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!ukDate && !dateUnknown) {
-      toast({
-        title: "Enter the date from the sheet",
-        description:
-          "Type the date handwritten on the paper form (dd/mm/yyyy) — or tick 'Date unknown'.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!siteId && !freeTextSite) return;
     setSaving(true);
     try {
       // Auto-create the site record from the free-text sheet fields if the
@@ -802,17 +809,104 @@ export default function ScanReviewDialog({
         customerSignatureBlob: customerSig?.blob || null,
         engineerSignatureBlob: engineerSig?.blob || null,
       });
+
+      // North-star: always produce the electronic PDF. The job-mode RPC
+      // creates the job/responses but doesn't render a PDF eagerly, so we
+      // run the shared electronic-report builder now and attach the result
+      // as a job_document. This guarantees the reviewer has a PDF to view /
+      // download / send *immediately*, not after opening the job.
+      let reportPdfPath: string | null = null;
+      if (templateMeta && item.templateId) {
+        try {
+          const { data: tpl } = await supabase
+            .from("job_sheet_templates")
+            .select("id, name, description, fields, footer_text, branding")
+            .eq("id", item.templateId)
+            .maybeSingle();
+          if (tpl && Array.isArray((tpl as any).fields)) {
+            let manualCustomerSignaturePath: string | null = null;
+            let manualEngineerSignaturePath: string | null = null;
+            if (customerSig || engineerSig) {
+              const uploadSig = async (
+                role: "customer" | "engineer",
+                sig: SigCapture,
+              ): Promise<string | null> => {
+                const rel = `${user.id}/job-${result.jobId}-${role}-paper-${Date.now()}.png`;
+                const dest = await buildOrgPathAsync(rel);
+                const { error: upErr } = await supabase.storage
+                  .from("signatures")
+                  .upload(dest, sig.blob, { contentType: "image/png", upsert: false });
+                if (upErr) {
+                  console.warn("[scan-review] sig upload failed", role, upErr);
+                  return null;
+                }
+                return dest;
+              };
+              if (customerSig)
+                manualCustomerSignaturePath = await uploadSig("customer", customerSig);
+              if (engineerSig)
+                manualEngineerSignaturePath = await uploadSig("engineer", engineerSig);
+            }
+            const chosenEng = engineers.find((x) => x.user_id === technicianUserId);
+            const { path } = await buildElectronicReportPdf({
+              archivedId: result.jobId, // used only for filename
+              template: tpl as any,
+              responses: answers,
+              header: headerWithPo,
+              sourcePaths: item.imagePaths || [],
+              customerId,
+              siteId: effectiveSiteId,
+              siteName: siteName || null,
+              siteAddress: siteAddress || null,
+              documentDate: ukDate
+                ? (() => {
+                    const m = ukDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                    return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+                  })()
+                : null,
+              technicianName:
+                chosenEng && chosenEng.has_signature ? chosenEng.full_name : null,
+              manualCustomerSignaturePath,
+              manualEngineerSignaturePath,
+            });
+            reportPdfPath = path;
+            // Attach as a job_document so it appears on the job's Documents tab.
+            const { data: signed } = await supabase.storage
+              .from("submissions")
+              .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+            await supabase.from("job_documents" as any).insert({
+              job_id: result.jobId,
+              document_type: "report",
+              label: `Electronic report — ${tpl.name}`,
+              file_url: signed?.signedUrl || null,
+              file_name: `${(tpl.name || "electronic-report")
+                .toLowerCase()
+                .replace(/[^\w\-. ]+/g, "-")}.pdf`,
+              source: "manual",
+              created_by: user.id,
+            });
+          }
+        } catch (pdfErr) {
+          console.warn(
+            "[scan-review] PDF build failed — filing succeeded without electronic report",
+            pdfErr,
+          );
+        }
+      }
       toast({
         title: chosenExistingJobId
           ? `Report attached to ${result.jobRef}`
           : `Job ${result.jobRef} filed`,
-        description: chosenExistingJobId
-          ? "This sheet has been added to the existing job."
-          : "Paper report digitised. Opening the job now.",
+        description: reportPdfPath
+          ? "Electronic PDF ready to view, download or send."
+          : "Paper report digitised.",
       });
       onResolved();
-      onOpenChange(false);
-      navigate(`/jobs/${result.jobId}`);
+      setResultData({
+        reportPdfPath,
+        destination: { kind: "job", jobId: result.jobId, jobRef: result.jobRef },
+        templateName: item.templateName || null,
+      });
     } catch (e: any) {
       toast({
         title: "Couldn't file job",
@@ -821,6 +915,24 @@ export default function ScanReviewDialog({
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  // NORTH-STAR unified submit: photo → PDF, no dead ends.
+  // Data-driven destination: file as job when we have customer + site
+  // + template; otherwise fall back to archive. Never toasts an error to
+  // block the reviewer — the PDF outcome always happens.
+  const handleUnifiedSubmit = async () => {
+    if (!user || !item) return;
+    const headerSite = String((item.header as any)?.site || "").trim();
+    const freeTextSite = (siteName || siteAddress || headerSite).trim();
+    const canFileAsJob =
+      !!customerId && !!item.templateId && (!!siteId || !!freeTextSite);
+    if (canFileAsJob) {
+      await fileAsJob();
+    } else {
+      const canFileAsMatched = !!customerId;
+      await fileArchive(!canFileAsMatched);
     }
   };
 
@@ -847,29 +959,54 @@ export default function ScanReviewDialog({
   const hasTemplate = !!item?.templateId;
   const isJob = mode === "job";
 
+  // Destination hint shown next to the primary button so the reviewer knows
+  // where this sheet will land — inferred, not asked.
+  const destinationHint = (() => {
+    if (!item) return "";
+    const headerSite = String((item.header as any)?.site || "").trim();
+    const freeTextSite = (siteName || siteAddress || headerSite).trim();
+    if (!customerId) return "Will file to archive (no customer)";
+    if (!item.templateId) return "Will file to archive (no template matched)";
+    if (!siteId && !freeTextSite) return "Will file to archive (no site info)";
+    return "Will file as completed job";
+  })();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {isJob ? (
+            {resultData ? (
               <>
-                <Briefcase className="h-5 w-5" /> File as completed job
+                <FileText className="h-5 w-5" /> Electronic report
               </>
             ) : (
               <>
-                <Archive className="h-5 w-5" /> File to archive
+                <FileText className="h-5 w-5" /> Review &amp; build PDF
               </>
             )}
           </DialogTitle>
           <DialogDescription>
-            {isJob
-              ? "Backfilling a paper report as a completed job. Confirm the extraction, then file — a job is created and the scan attaches as source document."
-              : "Archive-only — no job is created. Confirm the filing details and file. If a template was matched, a clean electronic report is generated as the primary document."}
+            {resultData
+              ? "Your electronic PDF is ready. View, download, or send it to the customer."
+              : "Check the extracted answers, correct anything wrong, then tap Looks good — the electronic PDF is generated straight away."}
           </DialogDescription>
         </DialogHeader>
 
-        {item && (
+        {item && resultData && (
+          <ScanResultView
+            reportPdfPath={resultData.reportPdfPath}
+            destination={resultData.destination}
+            templateName={resultData.templateName}
+            onScanAnother={() => {
+              onOpenChange(false);
+              navigate("/paper-scans?tab=upload");
+            }}
+            onClose={() => onOpenChange(false)}
+          />
+        )}
+
+        {item && !resultData && (
           <div className="space-y-4">
             {thumbs.length > 0 && (
               <div className="flex gap-2 overflow-x-auto pb-1">
@@ -1294,7 +1431,7 @@ export default function ScanReviewDialog({
               </div>
             )}
 
-            <div className="flex flex-wrap gap-2 justify-between pt-2 border-t">
+            <div className="flex flex-wrap gap-3 justify-between items-center pt-2 border-t">
               <Button
                 variant="ghost"
                 type="button"
@@ -1303,35 +1440,24 @@ export default function ScanReviewDialog({
               >
                 <XCircle className="mr-1.5 h-4 w-4" /> Discard
               </Button>
-              <div className="flex gap-2">
-                {!isJob && (
-                  <Button
-                    variant="outline"
-                    type="button"
-                    onClick={() => fileArchive(true)}
-                    disabled={saving}
-                  >
-                    File as Unmatched
-                  </Button>
-                )}
+              <div className="flex flex-col items-end gap-1">
                 <Button
                   type="button"
-                  onClick={() => (isJob ? fileAsJob() : fileArchive(false))}
+                  size="lg"
+                  onClick={handleUnifiedSubmit}
                   disabled={saving}
+                  className="min-h-12"
                 >
                   {saving ? (
-                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                  ) : isJob ? (
-                    <Briefcase className="mr-1.5 h-4 w-4" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <Archive className="mr-1.5 h-4 w-4" />
+                    <FileText className="mr-2 h-4 w-4" />
                   )}
-                  {isJob
-                    ? "File as completed job"
-                    : hasTemplate
-                      ? "File with electronic report"
-                      : "File to archive"}
+                  Looks good → build PDF
                 </Button>
+                <span className="text-[11px] text-muted-foreground">
+                  {destinationHint}
+                </span>
               </div>
             </div>
           </div>
