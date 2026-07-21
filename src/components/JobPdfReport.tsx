@@ -1242,8 +1242,16 @@ export default function JobPdfReport({ jobId, job }: Props) {
         generating={generating}
         onConfirm={generate}
       />
+      <PdfPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        blob={previewBlob}
+        fileName={previewName}
+        title={`${job.reference_number} — Report`}
+      />
     </>
   );
+
 
 }
 
