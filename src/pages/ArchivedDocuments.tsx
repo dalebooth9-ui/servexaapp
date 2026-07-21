@@ -61,6 +61,8 @@ import {
 import type { ProposedDefect } from "@/lib/proposeArchiveDefects";
 import { createArchiveSourcedDefects } from "@/lib/proposeArchiveDefects";
 import ProposedDefectsSection from "@/components/paper-scan/ProposedDefectsSection";
+import { Checkbox } from "@/components/ui/checkbox";
+import BulkActionBar from "@/components/BulkActionBar";
 
 type ArchivedDoc = {
   id: string;
