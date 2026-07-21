@@ -903,6 +903,14 @@ export default function ArchivedDocuments({ embedded = false }: ArchivedDocument
         item={defectReviewQueue[0]}
         onClose={() => setDefectReviewQueue((prev) => prev.slice(1))}
       />
+
+      {sendDoc && (
+        <SendArchiveDialog
+          archivedId={sendDoc.id}
+          open={!!sendDoc}
+          onOpenChange={(o) => !o && setSendDoc(null)}
+        />
+      )}
     </>
   );
 
