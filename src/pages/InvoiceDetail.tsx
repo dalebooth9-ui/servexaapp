@@ -11,12 +11,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Download, Send, Loader2, RefreshCw, ArrowRightLeft, Pencil, Trash2, Plus, X, Save, Wrench } from "lucide-react";
+import { ArrowLeft, Download, Send, Loader2, RefreshCw, ArrowRightLeft, Pencil, Trash2, Plus, X, Save, Wrench, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { useRef } from "react";
+import PdfPreviewDialog from "@/components/PdfPreviewDialog";
+
 
 const statusStyles: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -44,6 +46,9 @@ export default function InvoiceDetail() {
   const [creatingRemedial, setCreatingRemedial] = useState(false);
   const [linkedDefects, setLinkedDefects] = useState<any[]>([]);
   const [deleting, setDeleting] = useState(false);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   const printRef = useRef<HTMLDivElement>(null);
 
   // Edit mode state
@@ -396,6 +401,15 @@ export default function InvoiceDetail() {
     }
   };
 
+  const handlePreviewPdf = async () => {
+    const pdf = await generatePdf();
+    if (pdf) {
+      setPreviewBlob(pdf.output("blob"));
+      setPreviewOpen(true);
+    }
+  };
+
+
   const handleSendEmail = async () => {
     if (!invoice.customer_email) {
       toast({ title: "No email", description: "Customer email is not set.", variant: "destructive" });
@@ -559,10 +573,15 @@ export default function InvoiceDetail() {
                   <Link to={`/jobs/${existingRemedialJobId}`}><Wrench className="mr-1.5 h-4 w-4" /> View Remedial Job</Link>
                 </Button>
               )}
+              <Button variant="outline" size="sm" onClick={handlePreviewPdf} disabled={generatingPdf} title="Preview PDF">
+                <Eye className="mr-1.5 h-4 w-4" />
+                Preview
+              </Button>
               <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={generatingPdf}>
                 <Download className="mr-1.5 h-4 w-4" />
                 {generatingPdf ? "Generating..." : "PDF"}
               </Button>
+
               {userRole === "admin" && (
                 <Button size="sm" variant="outline" onClick={handleSyncXero} disabled={syncingXero}>
                   {syncingXero ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />}
@@ -885,6 +904,14 @@ export default function InvoiceDetail() {
           </CardContent>
         </Card>
       )}
+      <PdfPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        blob={previewBlob}
+        fileName={`${invoice?.invoice_number || "invoice"}.pdf`}
+        title={`Invoice ${invoice?.invoice_number || ""}`}
+      />
     </div>
   );
 }
+

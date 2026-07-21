@@ -18,6 +18,8 @@ import {
   loadEngineerSignatureLibrary,
   findEngineerSignatureByName,
 } from "@/lib/engineerSignatureLibrary";
+import PdfPreviewDialog from "@/components/PdfPreviewDialog";
+
 
 interface Props {
   jobId: string;
@@ -28,6 +30,10 @@ interface Props {
 
 export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger }: Props) {
   const [generating, setGenerating] = useState(false);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewName, setPreviewName] = useState<string>("");
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   const { toast } = useToast();
 
   const generate = async () => {
@@ -556,10 +562,14 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       if (onPdfGenerated) {
         const base64 = doc.output("datauristring").split(",")[1];
         onPdfGenerated(base64, fileName);
+        toast({ title: "Report generated", description: `${fileName} ready.` });
       } else {
-        doc.save(fileName);
+        const blob = doc.output("blob");
+        setPreviewBlob(blob);
+        setPreviewName(fileName);
+        setPreviewOpen(true);
+        toast({ title: "Report ready", description: `${fileName} — preview opened.` });
       }
-      toast({ title: "Report generated", description: `${fileName} ready.` });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
@@ -567,17 +577,37 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
     }
   };
 
+
+  const previewDialog = (
+    <PdfPreviewDialog
+      open={previewOpen}
+      onOpenChange={setPreviewOpen}
+      blob={previewBlob}
+      fileName={previewName}
+      title={`${job?.reference_number || "Job"} — Customer report`}
+    />
+  );
+
   if (trigger) {
-    return <span onClick={generate} className="cursor-pointer">{trigger}</span>;
+    return (
+      <>
+        <span onClick={generate} className="cursor-pointer">{trigger}</span>
+        {previewDialog}
+      </>
+    );
   }
 
   return (
-    <Button variant="outline" size="sm" onClick={generate} disabled={generating}>
-      {generating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileDown className="mr-1.5 h-4 w-4" />}
-      {generating ? "Generating..." : "Customer Report"}
-    </Button>
+    <>
+      <Button variant="outline" size="sm" onClick={generate} disabled={generating}>
+        {generating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileDown className="mr-1.5 h-4 w-4" />}
+        {generating ? "Generating..." : "Customer Report"}
+      </Button>
+      {previewDialog}
+    </>
   );
 }
+
 
 function extractStoragePath(fileUrl: string): string | null {
   try {
