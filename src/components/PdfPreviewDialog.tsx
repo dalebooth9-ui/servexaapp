@@ -115,8 +115,10 @@ export default function PdfPreviewDialog({
       setLocalMode("default");
       setLocalOpacity(null);
       setLocalAccredOpacity(null);
+      setIframeError(false);
     }
   }, [open]);
+
 
   const effectiveMode: WatermarkMode = localMode === "default" ? savedWatermark.mode : localMode;
   const effectiveOpacity = localOpacity ?? savedWatermark.opacity;
