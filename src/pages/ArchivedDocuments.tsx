@@ -269,6 +269,88 @@ export default function ArchivedDocuments() {
 
   const summary = useArchiveConversionSummary();
 
+  // Prune selection to only ids currently in view.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const visible = new Set(filtered.map((d) => d.id));
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (visible.has(id)) next.add(id);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [filtered]);
+
+  const selectedDocs = useMemo(
+    () => filtered.filter((d) => selectedIds.has(d.id)),
+    [filtered, selectedIds],
+  );
+  const selectedConvertible = selectedDocs.filter(
+    (d) => !d.report_pdf_path && d.file_paths?.length > 0,
+  );
+  const selectedInFlight = selectedDocs.filter((d) => {
+    const entry = archiveConversionQueue.getEntry(d.id);
+    return entry?.state === "queued" || entry?.state === "converting";
+  });
+
+  const toggleId = (id: string, on: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+  const toggleAllVisible = (on: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (on) filtered.forEach((d) => next.add(d.id));
+      else filtered.forEach((d) => next.delete(d.id));
+      return next;
+    });
+  };
+
+  const runBulkDelete = async () => {
+    setBulkBusy(true);
+    try {
+      const ids = Array.from(selectedIds);
+      for (const id of ids) {
+        try {
+          await deleteArchivedDocument(id);
+        } catch (e) {
+          console.error("[archive bulk delete] failed for", id, e);
+        }
+      }
+      toast({
+        title: `Deleted ${ids.length} document${ids.length === 1 ? "" : "s"}`,
+      });
+      setSelectedIds(new Set());
+      setConfirmBulkDelete(false);
+      await load();
+    } catch (e: any) {
+      toast({
+        title: "Bulk delete failed",
+        description: e?.message,
+        variant: "destructive",
+      });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const runBulkConvert = () => {
+    if (selectedConvertible.length === 0) return;
+    archiveConversionQueue.enqueue(selectedConvertible.map((d) => d.id));
+    toast({
+      title: `Queued ${selectedConvertible.length} conversion${selectedConvertible.length === 1 ? "" : "s"}`,
+      description: "Running 2 at a time in the background.",
+    });
+    setSelectedIds(new Set());
+  };
+
   const handleDelete = async () => {
     if (!confirmDelete) return;
     const id = confirmDelete.id;
