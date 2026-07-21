@@ -1272,6 +1272,58 @@ export default function ScanReviewDialog({
           </div>
         )}
       </DialogContent>
+
+      <AlertDialog
+        open={!!duplicatePrompt}
+        onOpenChange={(o) => {
+          if (!o) setDuplicatePrompt(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              A job already exists for this visit
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {duplicatePrompt ? (
+                <>
+                  Job <strong>{duplicatePrompt.reference}</strong> is on the
+                  same customer, site and date as this sheet. Attach this
+                  sheet as an <strong>additional report</strong> on that job,
+                  or file it as a separate job? Each attached report keeps
+                  its own answers, signatures and scan image.
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                const chosen = duplicatePrompt;
+                setDuplicatePrompt(null);
+                if (chosen) {
+                  // Create a separate job — bypass the duplicate check.
+                  fileAsJob({ forceNew: true });
+                }
+              }}
+            >
+              Create separate job
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const chosen = duplicatePrompt;
+                setDuplicatePrompt(null);
+                if (chosen) {
+                  setMatchExistingJobId(chosen.jobId);
+                  fileAsJob({ existingJobId: chosen.jobId });
+                }
+              }}
+            >
+              Attach to {duplicatePrompt?.reference}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
