@@ -184,8 +184,8 @@ export default function SendArchiveDialog({
         for (let i = 0; i < row.file_paths.length; i++) {
           const path = row.file_paths[i];
           const signed = await resolveSubmissionsSignedUrl(path);
-          if (!signed) continue;
-          const b64 = await urlToBase64(signed);
+          if (!signed?.signedUrl) continue;
+          const b64 = await urlToBase64(signed.signedUrl);
           if (!b64) continue;
           const ext = path.split(".").pop() || "jpg";
           attachments.push({
