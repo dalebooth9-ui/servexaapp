@@ -61,7 +61,7 @@ const ROOT_ROUTES = new Set<string>([
   "/billing",
   "/setup",
   "/settings",
-  "/archive",
+  "/paper-scans",
   "/auth",
 ]);
 
