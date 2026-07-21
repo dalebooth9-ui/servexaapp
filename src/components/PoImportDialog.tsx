@@ -273,7 +273,7 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated,
                   onRedirectToScan?.(file);
                 }}
               >
-                <ScanLine className="mr-2 h-4 w-4" /> Send to Scan Paper Reports
+                <ScanLine className="mr-2 h-4 w-4" /> Send to Paper scans
               </Button>
               <Button
                 size="sm"
