@@ -116,7 +116,7 @@ export default function PaperScans() {
           </TabsContent>
 
           <TabsContent value="review" className="mt-2">
-            <PaperScanQueue embedded />
+            <PaperScanQueue embedded onGoUpload={() => setTab("upload")} />
           </TabsContent>
 
           <TabsContent value="history" className="mt-2">
