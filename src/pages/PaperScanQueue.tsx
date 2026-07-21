@@ -38,12 +38,9 @@ import {
   Wand2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import ScanCompletedJobDialog, {
-  type QueueItemInput,
-} from "@/components/ScanCompletedJobDialog";
-import ArchiveReviewDialog, {
-  type ArchiveQueueItemInput,
-} from "@/components/paper-scan/ArchiveReviewDialog";
+import ScanReviewDialog, {
+  type ScanQueueItemInput,
+} from "@/components/paper-scan/ScanReviewDialog";
 import BulkActionBar from "@/components/BulkActionBar";
 import { deletePaperScanItems } from "@/lib/deletePaperScanItems";
 import { bulkFileAndConvertArchiveItems } from "@/lib/bulkFileAndConvertArchiveItems";
