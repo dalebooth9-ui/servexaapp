@@ -90,6 +90,8 @@ export default function ArchiveReviewDialog({
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [customerId, setCustomerId] = useState("");
   const [siteId, setSiteId] = useState("");
+  const [siteName, setSiteName] = useState("");
+  const [siteAddress, setSiteAddress] = useState("");
   const [docDate, setDocDate] = useState("");
   const [docType, setDocType] = useState("");
   const [title, setTitle] = useState("");
