@@ -240,6 +240,7 @@ export default function ScanCompletedJobDialog({
       setHeader({});
       setCustomerId("");
       setSiteId("");
+      setSiteMatch(null);
       setShowNewSite(false);
       setNewSite({ name: "", address: "", postcode: "", riser_location: "" });
       setJobName("");
