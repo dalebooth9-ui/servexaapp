@@ -91,6 +91,8 @@ export default function PdfPreviewDialog({
   hasNext,
 }: PdfPreviewDialogProps) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [fetching, setFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const { settings: savedWatermark, loaded: watermarkLoaded } = useWatermarkSettings();
   // Local override the dialog applies on top of the saved org-wide setting.
   // Reset to "use saved value" each time the dialog opens.
