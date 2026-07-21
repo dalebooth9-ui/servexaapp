@@ -43,6 +43,15 @@ export type ArchiveScanConfirmInput = {
    * original bears this engineer's handwritten signature.
    */
   technicianName?: string | null;
+  /**
+   * Storage paths (signatures bucket) of manually-cropped signatures picked
+   * by the office via "Select from photo" on the archive review dialog.
+   * When set, override the auto-crop / profile-stamped signatures on the
+   * generated electronic report. Persisted on header_data so re-converts
+   * never re-derive over a human's choice.
+   */
+  manualCustomerSignaturePath?: string | null;
+  manualEngineerSignaturePath?: string | null;
 };
 
 export async function archiveScanConfirm(
@@ -69,7 +78,19 @@ export async function archiveScanConfirm(
     status = "filed",
     templateFields,
     technicianName,
+    manualCustomerSignaturePath,
+    manualEngineerSignaturePath,
   } = input;
+
+  // Preserve manual signatures in header_data so a later re-convert can
+  // pick them up and never re-derive over the office's choice.
+  const headerWithManualSigs: Record<string, any> = { ...(header || {}) };
+  if (manualCustomerSignaturePath) {
+    headerWithManualSigs._manual_customer_signature_path = manualCustomerSignaturePath;
+  }
+  if (manualEngineerSignaturePath) {
+    headerWithManualSigs._manual_engineer_signature_path = manualEngineerSignaturePath;
+  }
 
   // Append an auditable trail to notes when a signature is being applied
   // from an engineer's profile on the basis of the signed original scan.
@@ -121,7 +142,7 @@ export async function archiveScanConfirm(
       title,
       notes: notesWithSigTrail,
       extracted,
-      header_data: header,
+      header_data: headerWithManualSigs,
       file_paths: destPaths,
       page_count: destPaths.length,
       status,
@@ -154,7 +175,7 @@ export async function archiveScanConfirm(
           fields: templateFields,
         },
         responses: extracted || {},
-        header: header || null,
+        header: headerWithManualSigs,
         sourcePaths: destPaths,
         customerId,
         siteId,
@@ -162,6 +183,8 @@ export async function archiveScanConfirm(
         siteAddress: siteAddress ?? (header as any)?.site ?? null,
         documentDate,
         technicianName,
+        manualCustomerSignaturePath,
+        manualEngineerSignaturePath,
       });
       reportPdfPath = path;
       await (supabase as any)

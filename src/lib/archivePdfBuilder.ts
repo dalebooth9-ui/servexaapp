@@ -49,7 +49,32 @@ export type ArchivePdfInput = {
    * scanned original bears their handwritten signature.
    */
   technicianName?: string | null;
+  /**
+   * Storage paths in the `signatures` bucket for manually-cropped signatures
+   * picked by the office via "Select from photo". When set, override the
+   * auto-crop (customer_signature_bbox / engineer_signature_bbox) and any
+   * profile-signature stamping. Same single-source-of-truth rule as the
+   * customer link — never re-derive over a human's choice.
+   */
+  manualCustomerSignaturePath?: string | null;
+  manualEngineerSignaturePath?: string | null;
 };
+
+async function loadImageFromSignaturesBucket(
+  path: string,
+): Promise<HTMLImageElement | null> {
+  const { data } = await supabase.storage
+    .from("signatures")
+    .createSignedUrl(path, 60 * 60);
+  if (!data?.signedUrl) return null;
+  return await new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = data.signedUrl;
+  });
+}
 
 // Well-known header keys → label fragments used on printed sheets. When any
 // template field's label matches a fragment, we seed the field with the
@@ -115,6 +140,8 @@ export async function generateAndUploadArchivePdf(
     siteAddress,
     documentDate,
     technicianName,
+    manualCustomerSignaturePath,
+    manualEngineerSignaturePath,
   } = input;
 
   // Hydrate the same shape a job PDF would receive. Customer is taken *only*
@@ -210,8 +237,39 @@ export async function generateAndUploadArchivePdf(
   let technicianSourceNote: string | null = null;
 
   const paths = Array.isArray(sourcePaths) ? sourcePaths : [];
+  // Manual "Select from photo" overrides win — same single-source-of-truth
+  // rule as the customer link: never re-derive over a human's choice.
+  if (manualCustomerSignaturePath) {
+    const img = await loadImageFromSignaturesBucket(manualCustomerSignaturePath);
+    if (img) {
+      const id = `archive-cust-manual-${archivedId}`;
+      sigImages[id] = img;
+      customerSig = {
+        id,
+        signer_name: header?.customer_signed_name || "",
+        signer_role: "customer",
+        signer_position: null,
+      };
+      customerSourceNote = "Signature captured from original scan";
+    }
+  }
+  if (manualEngineerSignaturePath) {
+    const img = await loadImageFromSignaturesBucket(manualEngineerSignaturePath);
+    if (img) {
+      const id = `archive-eng-manual-${archivedId}`;
+      sigImages[id] = img;
+      engineerSigOverride = {
+        id,
+        signer_name: header?.engineer || "",
+        signer_role: "engineer",
+        signer_position: null,
+      };
+      technicianSourceNote = "Signature captured from original scan";
+    }
+  }
+
   if (paths.length > 0 && header) {
-    if (header.customer_signature_bbox) {
+    if (!customerSig && header.customer_signature_bbox) {
       const img = await cropSignatureFromScan(paths, header.customer_signature_bbox);
       if (img) {
         const id = `archive-cust-${archivedId}`;
@@ -226,9 +284,9 @@ export async function generateAndUploadArchivePdf(
       }
     }
     // Only crop the engineer signature from the scan when we DON'T have a
-    // profile signature to apply — otherwise the shared generator's
-    // profile-signature stamping wins (correct provenance).
-    if (!technicianName && header.engineer_signature_bbox) {
+    // manual override or a profile signature to apply — otherwise the
+    // shared generator's profile-signature stamping wins (correct provenance).
+    if (!engineerSigOverride && !technicianName && header.engineer_signature_bbox) {
       const img = await cropSignatureFromScan(paths, header.engineer_signature_bbox);
       if (img) {
         const id = `archive-eng-${archivedId}`;

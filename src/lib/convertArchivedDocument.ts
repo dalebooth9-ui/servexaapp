@@ -60,7 +60,7 @@ export async function convertArchivedDocument(
   const { data: doc, error } = await (supabase as any)
     .from("archived_documents")
     .select(
-      "id, org_id, customer_id, site_id, site_name, site_address, document_date, file_paths, report_pdf_path",
+      "id, org_id, customer_id, site_id, site_name, site_address, document_date, file_paths, report_pdf_path, header_data",
     )
     .eq("id", archivedId)
     .maybeSingle();
@@ -160,6 +160,22 @@ export async function convertArchivedDocument(
     }
   }
 
+  // Preserve any manually-cropped signatures the office picked previously —
+  // same single-source-of-truth rule as the customer link. A re-convert
+  // must never re-derive over a human's choice.
+  const priorHeader = ((doc as any).header_data || {}) as Record<string, any>;
+  const manualCustomerSignaturePath: string | null =
+    priorHeader._manual_customer_signature_path || null;
+  const manualEngineerSignaturePath: string | null =
+    priorHeader._manual_engineer_signature_path || null;
+  const mergedHeader: Record<string, any> = { ...(header || {}) };
+  if (manualCustomerSignaturePath) {
+    mergedHeader._manual_customer_signature_path = manualCustomerSignaturePath;
+  }
+  if (manualEngineerSignaturePath) {
+    mergedHeader._manual_engineer_signature_path = manualEngineerSignaturePath;
+  }
+
   const { path } = await generateAndUploadArchivePdf({
     archivedId,
     template: {
@@ -168,7 +184,7 @@ export async function convertArchivedDocument(
       fields,
     },
     responses: extracted,
-    header: header || null,
+    header: mergedHeader,
     sourcePaths: paths,
     customerId: (doc as any).customer_id,
     siteId: (doc as any).site_id,
@@ -182,6 +198,8 @@ export async function convertArchivedDocument(
       null,
     documentDate: (doc as any).document_date,
     technicianName,
+    manualCustomerSignaturePath,
+    manualEngineerSignaturePath,
   });
 
   await (supabase as any)
@@ -191,7 +209,7 @@ export async function convertArchivedDocument(
       template_name: (tpl as any).name,
       document_type: (doc as any).document_type || (tpl as any).name,
       extracted,
-      header_data: { ...(header || {}), _field_confidence: fieldConfidence },
+      header_data: { ...mergedHeader, _field_confidence: fieldConfidence },
       report_pdf_path: path,
       status: "filed",
       site_name:

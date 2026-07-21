@@ -29,6 +29,7 @@ import {
   AlertTriangle,
   Building2,
   FileText,
+  PenLine,
 } from "lucide-react";
 import CustomerCombobox, {
   type CustomerOption,
@@ -43,6 +44,8 @@ import {
   type ProposedDefect,
 } from "@/lib/proposeArchiveDefects";
 import ProposedDefectsSection from "@/components/paper-scan/ProposedDefectsSection";
+import PaperSignatureCropper from "@/components/paper-scan/PaperSignatureCropper";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 const createDefectSuffix = (n: number) =>
   n > 0 ? ` · ${n} defect${n === 1 ? "" : "s"} logged` : "";
@@ -115,6 +118,19 @@ export default function ArchiveReviewDialog({
   // ticklist before anything is written to the defects table.
   const [defectSelection, setDefectSelection] = useState<Record<string, boolean>>({});
   const [defectOverrides, setDefectOverrides] = useState<Record<string, Partial<ProposedDefect>>>({});
+
+  // Manual "Select from photo" signature capture — same drag-a-box component
+  // used by the job-scan flow. Overrides the auto-crop if the OCR pass
+  // returned a bounding box, and supplies the signature when auto-crop
+  // returned nothing. Persisted so a re-convert never re-derives over a
+  // human's choice (same single-source-of-truth rule as the customer link).
+  type SigCapture = { blob: Blob; previewUrl: string; pageIdx: number };
+  const [customerSig, setCustomerSig] = useState<SigCapture | null>(null);
+  const [engineerSig, setEngineerSig] = useState<SigCapture | null>(null);
+  const [manualCrop, setManualCrop] = useState<{
+    role: "customer" | "engineer";
+    pageIdx: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!open || !item) return;
@@ -402,6 +418,34 @@ export default function ArchiveReviewDialog({
     }
     setSaving(true);
     try {
+      // Upload manually-cropped signatures to the signatures bucket first so
+      // we can persist the storage paths on the archive row and pass them to
+      // the PDF generator. Same bucket + path convention as the job-scan
+      // flow: <user.id>/<archivedItemId>-<role>-paper-<ts>.png
+      let manualCustomerSignaturePath: string | null = null;
+      let manualEngineerSignaturePath: string | null = null;
+      const uploadSig = async (
+        role: "customer" | "engineer",
+        sig: SigCapture,
+      ): Promise<string | null> => {
+        const rel = `${user.id}/archive-${item.itemId}-${role}-paper-${Date.now()}.png`;
+        const dest = await buildOrgPathAsync(rel);
+        const { error: upErr } = await supabase.storage
+          .from("signatures")
+          .upload(dest, sig.blob, { contentType: "image/png", upsert: false });
+        if (upErr) {
+          console.error("[archive] signature upload failed", role, upErr);
+          return null;
+        }
+        return dest;
+      };
+      if (!asUnmatched && customerSig) {
+        manualCustomerSignaturePath = await uploadSig("customer", customerSig);
+      }
+      if (!asUnmatched && engineerSig) {
+        manualEngineerSignaturePath = await uploadSig("engineer", engineerSig);
+      }
+
       const result = await archiveScanConfirm({
         userId: user.id,
         orgId,
@@ -427,6 +471,8 @@ export default function ArchiveReviewDialog({
           const e = engineers.find((x) => x.user_id === technicianUserId);
           return e && e.has_signature ? e.full_name : null;
         })(),
+        manualCustomerSignaturePath,
+        manualEngineerSignaturePath,
       });
 
       // Create confirmed defect proposals AFTER the archive row exists,
@@ -696,6 +742,80 @@ export default function ArchiveReviewDialog({
               </div>
             </div>
 
+            {/* Manual "Select from photo" signature capture. Same drag-a-box
+                component used in the job-scan flow (PaperSignatureCropper).
+                Customer sig is always offered; engineer sig only when no
+                profile-signature engineer is chosen — the profile stamp is
+                preferred where available (correct provenance). Captures are
+                labelled "signature from original scan" on the PDF. */}
+            {thumbs.length > 0 && (
+              <div className="rounded border bg-muted/30 p-3 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <PenLine className="h-4 w-4" /> Signatures from original scan
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <SigSlot
+                    label="Customer signature"
+                    autoDetected={
+                      !!(item.header as any)?.customer_signature_bbox
+                    }
+                    sig={customerSig}
+                    onClear={() => setCustomerSig(null)}
+                    onSelect={(pageIdx) =>
+                      setManualCrop({ role: "customer", pageIdx })
+                    }
+                    pageCount={thumbs.length}
+                  />
+                  {!technicianUserId && (
+                    <SigSlot
+                      label="Technician signature"
+                      autoDetected={
+                        !!(item.header as any)?.engineer_signature_bbox
+                      }
+                      sig={engineerSig}
+                      onClear={() => setEngineerSig(null)}
+                      onSelect={(pageIdx) =>
+                        setManualCrop({ role: "engineer", pageIdx })
+                      }
+                      pageCount={thumbs.length}
+                    />
+                  )}
+                </div>
+                {manualCrop && (
+                  <Dialog
+                    open={!!manualCrop}
+                    onOpenChange={(o) => !o && setManualCrop(null)}
+                  >
+                    <DialogContent className="max-w-3xl">
+                      <DialogHeader>
+                        <DialogTitle>
+                          Select {manualCrop.role} signature — page{" "}
+                          {manualCrop.pageIdx + 1}
+                        </DialogTitle>
+                      </DialogHeader>
+                      <PaperSignatureCropper
+                        imageUrl={thumbs[manualCrop.pageIdx]}
+                        onCancel={() => setManualCrop(null)}
+                        onCrop={(blob, previewUrl) => {
+                          const capture = {
+                            blob,
+                            previewUrl,
+                            pageIdx: manualCrop.pageIdx,
+                          };
+                          if (manualCrop.role === "customer") {
+                            setCustomerSig(capture);
+                          } else {
+                            setEngineerSig(capture);
+                          }
+                          setManualCrop(null);
+                        }}
+                      />
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </div>
+            )}
+
             {proposedDefects.length > 0 && (
               <ProposedDefectsSection
                 proposals={proposedDefects}
@@ -824,5 +944,102 @@ export default function ArchiveReviewDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+// Per-role signature slot: shows current capture preview (or a placeholder),
+// a page-picker when the scan has multiple pages, and a "Select from photo"
+// button that opens the shared drag-a-box cropper. Kept in-file since it's
+// only ever consumed here.
+function SigSlot({
+  label,
+  autoDetected,
+  sig,
+  onSelect,
+  onClear,
+  pageCount,
+}: {
+  label: string;
+  autoDetected: boolean;
+  sig: { previewUrl: string; pageIdx: number } | null;
+  onSelect: (pageIdx: number) => void;
+  onClear: () => void;
+  pageCount: number;
+}) {
+  const [page, setPage] = useState(0);
+  return (
+    <div className="space-y-1.5 rounded border bg-background p-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-medium">{label}</Label>
+        {autoDetected && !sig && (
+          <span className="text-[10px] text-muted-foreground">
+            auto-detected on scan
+          </span>
+        )}
+      </div>
+      {sig ? (
+        <div className="space-y-1.5">
+          <div className="rounded border bg-white p-1 flex items-center justify-center h-16">
+            <img
+              src={sig.previewUrl}
+              alt={`${label} preview`}
+              className="max-h-14 object-contain"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] text-muted-foreground">
+              from page {sig.pageIdx + 1}
+            </span>
+            <div className="flex gap-1.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onSelect(sig.pageIdx)}
+              >
+                Reselect
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onClear}
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          {pageCount > 1 && (
+            <Select
+              value={String(page)}
+              onValueChange={(v) => setPage(Number(v))}
+            >
+              <SelectTrigger className="h-8 w-24 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: pageCount }).map((_, i) => (
+                  <SelectItem key={i} value={String(i)}>
+                    Page {i + 1}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8"
+            onClick={() => onSelect(page)}
+          >
+            <PenLine className="mr-1.5 h-3.5 w-3.5" /> Select from photo
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
