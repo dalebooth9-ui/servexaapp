@@ -61,6 +61,8 @@ export async function archiveScanConfirm(
     documentDate,
     title,
     notes,
+    siteName,
+    siteAddress,
     extracted,
     header,
     storagePhotoPaths,
