@@ -106,6 +106,9 @@ export default function ArchivedDocuments() {
   const [openLoading, setOpenLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<ArchivedDoc | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const isAdmin = userRole === "admin";
 
