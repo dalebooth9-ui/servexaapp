@@ -90,11 +90,15 @@ export default function ScanResultView({
       onClose();
       return;
     }
-    // Archive-only: no job to hang the send flow off. Best we can do
-    // without a customer link is open the archive entry so the office can
-    // download and attach to their own email. Deliberately non-blocking.
-    openDestination();
+    // Archive-only: open the archive-specific send dialog inline. No
+    // navigating away, no dead-end.
+    setSendOpen(true);
   };
+
+  const archivedId =
+    destination.kind === "archive" || destination.kind === "unmatched"
+      ? destination.archivedId
+      : null;
 
   return (
     <div className="space-y-4">
