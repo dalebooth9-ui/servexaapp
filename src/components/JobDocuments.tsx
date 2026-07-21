@@ -113,6 +113,47 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const [addingToPhotosId, setAddingToPhotosId] = useState<string | null>(null);
   const [addingAllPhotos, setAddingAllPhotos] = useState(false);
   const [clearingReviewId, setClearingReviewId] = useState<string | null>(null);
+  const [paperVsElectronic, setPaperVsElectronic] = useState<{
+    open: boolean;
+    loading: boolean;
+    scanUrls: string[];
+    scanFailed: number;
+    pdfUrl: string | null;
+  }>({ open: false, loading: false, scanUrls: [], scanFailed: 0, pdfUrl: null });
+
+  const sourceScanDocs = docs.filter((d) => d.document_type === "source_scan");
+  const reportDoc = docs.find(
+    (d) => d.document_type === "report" && !!d.file_url,
+  );
+  const hasSideBySide = sourceScanDocs.length > 0;
+
+  const openPaperVsElectronic = async () => {
+    setPaperVsElectronic({
+      open: true,
+      loading: true,
+      scanUrls: [],
+      scanFailed: 0,
+      pdfUrl: null,
+    });
+    const scanUrls: string[] = [];
+    let scanFailed = 0;
+    for (const d of sourceScanDocs) {
+      const u = await resolveToSignedUrl(d.file_url || "", "submissions", 600);
+      if (u) scanUrls.push(u);
+      else scanFailed++;
+    }
+    let pdfUrl: string | null = null;
+    if (reportDoc?.file_url) {
+      pdfUrl = await resolveToSignedUrl(reportDoc.file_url, "submissions", 600);
+    }
+    setPaperVsElectronic({
+      open: true,
+      loading: false,
+      scanUrls,
+      scanFailed,
+      pdfUrl,
+    });
+  };
 
   const handleFillOnline = (templateId: string) => {
     document.getElementById("job-sheets-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
