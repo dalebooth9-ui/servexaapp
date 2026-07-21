@@ -619,7 +619,7 @@ export default function ScanCompletedJobDialog({
             description: `Batch created with ${images.length} pages. Opening review queue…`,
           });
           onOpenChange(false);
-          navigate(`/paper-scan-queue?batch=${batchId}`);
+          navigate(`/paper-scans?tab=review&batch=${batchId}`);
           return;
         }
         // Single sheet found spanning multiple pages — continue with single flow.
