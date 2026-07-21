@@ -712,7 +712,74 @@ export default function PaperScanQueue() {
             </Table>
           )}
         </Card>
+
+        <BulkActionBar
+          count={selectedIds.size}
+          onClear={() => setSelectedIds(new Set())}
+        >
+          {selectedFailed.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={bulkBusy}
+              onClick={runBulkRetry}
+            >
+              <RotateCw className="mr-1 h-3.5 w-3.5" /> Retry ({selectedFailed.length})
+            </Button>
+          )}
+          {modeTab === "archive" && selectedReadyArchive.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={bulkBusy}
+              onClick={runBulkConvertArchive}
+            >
+              <Wand2 className="mr-1 h-3.5 w-3.5" /> Convert ({selectedReadyArchive.length})
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={bulkBusy}
+            onClick={() => setConfirmBulkDelete(true)}
+          >
+            <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete ({selectedIds.size})
+          </Button>
+        </BulkActionBar>
       </div>
+
+      <AlertDialog open={confirmBulkDelete} onOpenChange={setConfirmBulkDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selectedIds.size} queue item{selectedIds.size === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the selected review-queue rows and their stored
+              page images.
+              {selectedProcessing.length > 0 && (
+                <>
+                  {" "}
+                  <span className="text-destructive font-medium">
+                    {selectedProcessing.length} of these are still processing —
+                    deleting mid-conversion will cancel them.
+                  </span>
+                </>
+              )}
+              {" "}This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={runBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {openItem && (
         <ScanCompletedJobDialog
