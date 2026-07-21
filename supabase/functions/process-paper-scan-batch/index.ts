@@ -89,6 +89,18 @@ function normaliseCompany(s: string): string {
     .trim();
 }
 
+const DOMAIN_LIKE_RE = /(https?:\/\/|www\.|@)|\.[a-z]{2,}(\.[a-z]{2,})?(\/|$)|^[a-z0-9-]+(\.[a-z0-9-]+)+$/i;
+
+function normaliseOrgId(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/https?:\/\//g, "")
+    .replace(/^www\./, "")
+    .replace(/\.(co\.uk|com|net|org|io|uk|ltd)$/g, "")
+    .replace(/\s+(ltd|limited|plc|llp|inc)\.?$/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
 async function fuzzyMatchCustomer(
   supabase: ReturnType<typeof createClient>,
   orgId: string,
@@ -96,15 +108,40 @@ async function fuzzyMatchCustomer(
 ): Promise<string | null> {
   const raw = name.trim();
   if (raw.length < 2) return null;
-  // Exact-ish first
-  const { data: exact } = await supabase
+  // Guard: a "customer" candidate that is actually a URL / domain / email is
+  // almost always the generating org's own website printed in the sheet
+  // footer being misread as a customer. Reject up-front.
+  if (DOMAIN_LIKE_RE.test(raw)) return null;
+
+  // Load the generating org's identifiers so we never match a candidate that
+  // collapses to the org's own identity (org name, intake email local-part).
+  const { data: orgRow } = await supabase
+    .from("organisations")
+    .select("name, intake_email, scan_intake_email")
+    .eq("id", orgId)
+    .maybeSingle();
+  const orgIds = [
+    (orgRow as any)?.name,
+    (orgRow as any)?.intake_email,
+    (orgRow as any)?.scan_intake_email,
+  ].filter(Boolean).map((s: string) => normaliseOrgId(s));
+  const candidateNorm = normaliseOrgId(raw);
+  if (candidateNorm && orgIds.some((n) => n === candidateNorm || n.includes(candidateNorm) || candidateNorm.includes(n))) {
+    return null;
+  }
+
+  // Exact-ish first — but skip customer records whose *name* is itself
+  // domain-shaped (e.g. a legacy "vivafire.co.uk" row created by an earlier
+  // buggy match). Those are never valid customers.
+  const { data: exactRows } = await supabase
     .from("customers")
-    .select("id")
+    .select("id, name")
     .eq("org_id", orgId)
     .ilike("name", `%${raw.substring(0, 40)}%`)
-    .limit(1)
-    .maybeSingle();
-  if (exact) return (exact as any).id;
+    .limit(5);
+  for (const row of (exactRows as any[]) || []) {
+    if (!DOMAIN_LIKE_RE.test(String(row.name || ""))) return row.id;
+  }
 
   // Fuzzy by normalised token overlap
   const target = normaliseCompany(raw);
@@ -116,6 +153,7 @@ async function fuzzyMatchCustomer(
   const rows = (all as any[]) || [];
   let best: { id: string; score: number } | null = null;
   for (const r of rows) {
+    if (DOMAIN_LIKE_RE.test(String(r.name || ""))) continue;
     const cand = normaliseCompany(String(r.name || ""));
     if (!cand) continue;
     if (cand === target || cand.includes(target) || target.includes(cand)) {
