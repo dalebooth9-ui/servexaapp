@@ -188,6 +188,7 @@ export default function ScanCompletedJobDialog({
   const [customerId, setCustomerId] = useState("");
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [siteId, setSiteId] = useState("");
+  const [siteMatch, setSiteMatch] = useState<SiteMatchResult<SiteOption> | null>(null);
   const [showNewSite, setShowNewSite] = useState(false);
   const [newSite, setNewSite] = useState({
     name: "",
