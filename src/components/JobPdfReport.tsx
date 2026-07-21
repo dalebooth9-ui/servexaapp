@@ -16,6 +16,8 @@ import { collectEmbeddedPhotoPaths, loadJobPhotosForPdf, type JobPhotoForPdf } f
 import ExportBundlePickerDialog, { type ExportBundleSelection } from "@/components/exports/ExportBundlePickerDialog";
 import { generateJobSheetPdf } from "@/components/JobSheetPdfExport";
 import { PDFDocument } from "pdf-lib";
+import PdfPreviewDialog from "@/components/PdfPreviewDialog";
+
 
 interface Props {
   jobId: string;
