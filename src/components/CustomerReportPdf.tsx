@@ -18,6 +18,8 @@ import {
   loadEngineerSignatureLibrary,
   findEngineerSignatureByName,
 } from "@/lib/engineerSignatureLibrary";
+import PdfPreviewDialog from "@/components/PdfPreviewDialog";
+
 
 interface Props {
   jobId: string;
