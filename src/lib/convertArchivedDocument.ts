@@ -193,6 +193,10 @@ export async function convertArchivedDocument(
       header_data: header,
       report_pdf_path: path,
       status: "filed",
+      site_name:
+        (doc as any).site_name || (header as any)?.site || null,
+      site_address:
+        (doc as any).site_address || (header as any)?.site || null,
     })
     .eq("id", archivedId);
 
