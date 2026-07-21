@@ -49,8 +49,16 @@ export const DRY_RISER_LAYOUT = {
      * SINGLE SOURCE OF TRUTH for header logo height (mm).
      * Both Word and PDF derive logo box from this value. Do NOT introduce
      * any independent logo-height constants in renderer code for Dry Riser.
+     *
+     * PINNED AT 22mm. A previous bump to 35mm reintroduced the two-page
+     * regression on completed Dry Riser Pressure Test reports (the extra
+     * ~13mm of header chrome pushed the signature block onto a second
+     * page). Do NOT raise this value without also proportionally shrinking
+     * `body.fieldRowMm` / `footer.totalMm` and re-running
+     * `dryRiserSinglePage.test.ts` with a fully-populated pressure test
+     * fixture (not just the blank template).
      */
-    logoHeightMm: 35,
+    logoHeightMm: 22,
     gapAfterLogoPt: 4,
     titleSizePt: 16,
     subtitleGapPt: 2,
@@ -61,8 +69,9 @@ export const DRY_RISER_LAYOUT = {
     brandBlueHex: "1F4E79",
     brandBlueRgb: [31, 78, 121] as [number, number, number],
     /** Total header chrome height estimate in mm — used for elastic math. */
-    totalChromeMm: 35 + 1.4 + 5.6 + 0.7 + 3.5 + 0.7 + 0.4, // logo + gaps + title + sub + rule
+    totalChromeMm: 22 + 1.4 + 5.6 + 0.7 + 3.5 + 0.7 + 0.4, // ≈ 34mm (logo + gaps + title + sub + rule)
   },
+
 
   // ── Body row heights ──────────────────────────────────────────────
   body: {
