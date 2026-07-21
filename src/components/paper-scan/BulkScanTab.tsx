@@ -333,8 +333,12 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
 
       toast({
         title: "Batch started",
-        description: `${groups.length} forms queued. You can leave this dialog — track progress in the review queue.`,
+        description: `${groups.length} forms queued. Opening the review queue — items appear as they finish.`,
       });
+      // Save the user a click on the happy path: jump straight to the review
+      // queue where the finished items will appear.
+      onClose();
+      navigate(`/paper-scans?tab=review&batch=${bId}${mode === "archive" ? "&mode=archive" : ""}`);
     } catch (e: any) {
       toast({
         title: "Couldn't start batch",
