@@ -249,11 +249,13 @@ export default function PaperScanQueue() {
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
-    items.forEach((i) => {
-      c[i.status] = (c[i.status] || 0) + 1;
-    });
+    items
+      .filter((i) => (i.mode || "job") === modeTab)
+      .forEach((i) => {
+        c[i.status] = (c[i.status] || 0) + 1;
+      });
     return c;
-  }, [items]);
+  }, [items, modeTab]);
 
   const openReview = (i: Item) => {
     if ((i.mode || "job") === "archive") {
