@@ -471,7 +471,15 @@ export default function QuickScanDialog() {
         .order("sort_order");
 
       const categoryNames = (categories || []).map((c: any) => c.name);
-      const categoryIdentifyFields = [
+      // Stage 1: identify category via shared pipeline
+      const detectedName = await runScanCategoryIdentify(
+        imagePayloads,
+        (categories || []).map((c: any) => ({ name: c.name })),
+      );
+      const matchedCat = (categories || []).find(
+        (c: any) => c.name.toLowerCase() === (detectedName || "").toLowerCase(),
+      );
+
         {
           id: "detected_category",
           label: "Document Category",
