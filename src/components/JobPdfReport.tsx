@@ -471,6 +471,10 @@ async function renderDwellingAccessLog(
 export default function JobPdfReport({ jobId, job }: Props) {
   const [generating, setGenerating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewName, setPreviewName] = useState<string>("");
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   const { toast } = useToast();
 
   const generate = async (sel: ExportBundleSelection) => {
