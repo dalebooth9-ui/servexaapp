@@ -250,13 +250,21 @@ function extractStructuredPayload(result: any) {
   const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
   if (toolCall?.function?.arguments?.trim()) {
     const parsed = parseStructuredJson(toolCall.function.arguments);
-    return { extracted: parsed.fields || {}, header: parsed.header || {} };
+    return {
+      extracted: parsed.fields || {},
+      header: parsed.header || {},
+      field_confidence: parsed.field_confidence || {},
+    };
   }
   const content = typeof result.choices?.[0]?.message?.content === "string"
     ? result.choices?.[0]?.message?.content : "";
   if (content.trim()) {
     const parsed = parseStructuredJson(content);
-    return { extracted: parsed.fields || parsed, header: parsed.header || {} };
+    return {
+      extracted: parsed.fields || parsed,
+      header: parsed.header || {},
+      field_confidence: parsed.field_confidence || {},
+    };
   }
   throw new Error("AI returned no structured output");
 }
@@ -265,6 +273,11 @@ function extractStructuredPayload(result: any) {
 
 function buildExtractionTool(fields: any[], forVision: boolean) {
   const fieldProperties: Record<string, any> = {};
+  // Anti-fabrication rule shared by every ticked/circled field type.
+  // A wrong assertion on a certificate is worse than a blank — so any time the
+  // model is not certain a mark exists, it MUST omit the field entirely.
+  // "n/a" is a positive assertion an engineer WROTE — never a default.
+  const OMIT_IF_UNCERTAIN = ` CRITICAL: If NO mark is clearly visible next to any option on this row (no tick, no circle, no strikethrough, no handwritten override), OMIT this field entirely — do NOT default to "n/a", do NOT guess, do NOT infer from the surrounding rows. "n/a" is ONLY valid when an engineer has explicitly ticked/circled a printed "N/A" option OR handwritten "N/A" on the row. When in doubt, OMIT.`;
   for (const f of fields) {
     if (f.type === "pass_fail") {
       const lowerLabel = f.label.toLowerCase();
@@ -274,12 +287,12 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
         : "";
       fieldProperties[f.id] = {
         type: "string",
-        description: `"${f.label}" — ALWAYS extract this field if the row exists on the sheet. If clearly ticked YES/P/PASS or circled → "pass". If clearly ticked NO/F/FAIL or circled → "fail". If marked N/A → "n/a". If a handwritten exception note is written beside the row (e.g. "NOT VISIBLE", "NO ACCESS", "EXPOSED VALVE") return that FULL text instead. Do NOT omit this field — if the row is on the sheet, it MUST have a value.${extraInstruction}`,
+        description: `"${f.label}" — If clearly ticked YES/P/PASS or circled → "pass". If clearly ticked NO/F/FAIL or circled → "fail". If explicitly ticked/circled N/A or handwritten "N/A" → "n/a". If a handwritten exception note is written beside the row (e.g. "NOT VISIBLE", "NO ACCESS", "EXPOSED VALVE") return that FULL text instead.${OMIT_IF_UNCERTAIN}${extraInstruction}`,
       };
     } else if (f.type === "checkbox") {
       fieldProperties[f.id] = {
         type: "string",
-        description: `"${f.label}" — Return "yes" if marked YES/ticked, "no" if marked NO, and "n/a" if explicitly marked N/A. IMPORTANT: If the row contains descriptive text or a printed/handwritten exception (e.g. "NOT VISIBLE", "NO ACCESS", "NOT INSTALLED", "N/A - EXPOSED VALVE"), return the FULL text exactly as written instead of forcing yes/no/n/a. Omit if blank.`,
+        description: `"${f.label}" — Return "yes" if clearly marked YES/ticked, "no" if clearly marked NO, and "n/a" ONLY if an explicit N/A tick or handwritten "N/A" is present on the row. If the row contains descriptive text or a printed/handwritten exception (e.g. "NOT VISIBLE", "NO ACCESS", "NOT INSTALLED", "N/A - EXPOSED VALVE"), return the FULL text exactly as written instead of forcing yes/no/n/a.${OMIT_IF_UNCERTAIN}`,
       };
     } else if (f.type === "number") {
       fieldProperties[f.id] = {
@@ -294,7 +307,7 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
         : "";
       fieldProperties[f.id] = {
         type: "string",
-        description: `"${f.label}" — pick the closest match: ${f.options.join(", ")}. If the handwritten answer is descriptive text instead of one of those options (e.g. "NOT VISIBLE", "NO ACCESS", "N/A – EXPOSED INLET"), return the FULL text exactly as written and do NOT force it to the nearest option.${extraInstruction}`,
+        description: `"${f.label}" — pick the closest match: ${f.options.join(", ")}. Return an option value ONLY if the engineer has clearly ticked, circled, struck through, or otherwise marked one of them (or written a matching answer). If the handwritten answer is descriptive text (e.g. "NOT VISIBLE", "NO ACCESS", "N/A – EXPOSED INLET"), return the FULL text exactly as written and do NOT force it to the nearest option.${OMIT_IF_UNCERTAIN}${extraInstruction}`,
       };
     } else {
       const lowerLabel = (f.label || "").toLowerCase();
@@ -368,6 +381,11 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
             properties: fieldProperties,
             required: [],
           },
+          field_confidence: {
+            type: "object",
+            description: "Per-field extraction confidence keyed by the SAME field IDs used in `fields`. Value is a number 0.0–1.0 reflecting how sure you are that the value you returned matches what is actually written on the paper. Use <0.6 whenever you had to guess between two plausible marks, could not clearly see a tick/circle, the row was partially cut off, or the answer was inferred rather than directly read. Populate an entry for every field you extracted; omit for fields you did not extract.",
+            additionalProperties: { type: "number" },
+          },
         },
         required: ["header", "fields"],
         additionalProperties: false,
@@ -383,7 +401,7 @@ async function gptFieldMapping(
   templateName: string,
   fields: any[],
   lovableApiKey: string,
-): Promise<{ extracted: Record<string, any>; header: Record<string, any> } | null> {
+): Promise<{ extracted: Record<string, any>; header: Record<string, any>; field_confidence: Record<string, number> } | null> {
   const extractionTool = buildExtractionTool(fields, false);
 
   const systemPrompt = `You are a data mapping assistant. You receive STRUCTURED TEXT extracted from a handwritten form by Azure Document Intelligence. Map the extracted key-value pairs, table data, and text to the correct schema fields.
@@ -391,7 +409,9 @@ async function gptFieldMapping(
 RULES:
 1. You are working with PRE-EXTRACTED TEXT, not raw images. The OCR has already been done.
 2. The template name "${templateName}" is for context only — NEVER use it as a field value.
-3. Only map values that actually appear in the extracted text. If a field has no data, OMIT it.
+3. Only map values that actually appear in the extracted text. If a field has no data, OMIT it (do NOT fabricate "n/a" as a filler — see rule 3a).
+3a. NEVER FABRICATE "N/A". "n/a" is a positive assertion an engineer WROTE on the sheet. If the extracted text does not clearly contain a tick/circle/handwritten mark for a row, OMIT that field entirely. Returning "n/a" for a row where no answer exists is a critical error — it puts a false assertion onto a certificate.
+3b. CONFIDENCE (field_confidence): For every field you DO return, populate an entry in field_confidence with a number 0.0–1.0. Use <0.6 whenever the answer was ambiguous (e.g. the mark could belong to two rows, OCR text was noisy, or you had to guess between two plausible options). Use ≥0.85 only when the answer is unambiguous.
 4. HEADER vs SIGNATURE BLOCK: "Customer:" in HEADER = COMPANY name. "Customer:" in SIGNATURE BLOCK = PERSON's name.
 4b. LETTERHEAD / PAPERWORK OWNER: The company whose LOGO or NAME appears at the very TOP of the sheet (the letterhead / branding block) is the paperwork_owner_company — put it in header.paperwork_owner_company. This is often DIFFERENT from the 'Customer:' field. On subcontractor jobs the details box may only contain a site address and NO customer name — that is expected; leave header.customer blank in that case rather than guessing.
 5. SITE ADDRESS: Look for "Site:", "Site Address:", "Address:", "Location:" in the text. Include the FULL address with street, town/city, and postcode. Do NOT omit any part of the address.
@@ -401,6 +421,8 @@ RULES:
    c) HANDWRITING NEXT TO PRE-PRINTED TEXT: If the technician writes additional text next to YES/NO (e.g. numbers, notes, annotations), still determine the YES/NO answer AND capture the annotation. The YES/NO answer maps to pass/fail; any inline notes or numbers next to it should be captured in a notes field or the appropriate separate field (e.g. "NO OF OUTLETS: 4" → number_of_outlets).
    d) GENERAL RULE: If "YES" appears anywhere in the answer cell as the marked/selected option → "pass". If "NO" appears as the marked option → "fail". Be generous — any clear indication of YES or NO should be captured.
    e) DESCRIPTIVE OVERRIDES: If instead of YES/NO the text contains descriptive annotations like "NOT VISIBLE", "NO ACCESS", "NOT INSTALLED", or any other written-out text, return that FULL text instead of forcing pass/fail/n/a. Note: "NO ACCESS" is NOT the same as answering "NO" — it is a descriptive exception.
+   f) UNMARKED: If none of YES/NO/N/A carries any tick, circle, strikethrough, or other mark, and there is no handwritten override, OMIT the field. Do NOT default to "n/a".
+6a. ROW-ASSOCIATION FOR CIRCLED MARKS (CRITICAL — this is where most extraction errors happen): When you see a circle/tick/strikethrough on a YES/NO/N/A token, attach it to the row whose printed answer TOKENS the mark actually surrounds or overlaps, NOT the row whose question label is nearest vertically. Multi-line questions (where the printed question wraps across 2+ printed lines) are especially dangerous: the answer-column YES/NO/N/A tokens sit on ONE specific baseline within the row's block. Determine the CORRECT row by matching the mark's horizontal position to a specific YES/NO/N/A token in the answer column, then attributing to whichever question owns that token line. When the mark sits between two rows and could belong to either, mark that field with confidence <0.6 rather than guessing.
 7. AIR RELEASE / VALVE FIELDS: Map each air release row to its own field independently. Do NOT duplicate values across rows. If a value says "N/A", "NOT INSTALLED", "NOT VISIBLE", or similar, return that full text.
 8. Ditto marks (" or ″ or similar repeat marks) mean the value is the SAME as the row immediately above. Copy the value from the previous row.
 9. Comments field: ONLY freeform remarks, not structured data from other fields.
@@ -412,7 +434,7 @@ RULES:
 13. "N/A - EXPOSED VALVE" OR "N/A – EXPOSED VALVE" PRE-PRINTED TEXT: Some rows have "N/A - EXPOSED VALVE" or "N/A – EXPOSED VALVE" pre-printed in the answer column (common on glass and cabinet condition rows for breeching inlets). This is NOT a "NO" answer — return the FULL text "N/A - EXPOSED VALVE" exactly. NEVER shorten it to "NO" or "N/A". The text "N/A" at the start does NOT mean "NO".
 14. SECTION HEADERS vs FIELD VALUES: Row labels like "EXTERNAL EQUIPMENT:", "INTERNAL EQUIPMENT:", or section titles are NOT fields to extract — they are section headers. Do NOT create a field or value for them. Only extract rows that have an actual question with an answer.
 15. ADJACENT FIELD CONTAMINATION: When a row has YES circled (e.g. "Is the Breeching Inlet in good condition? → YES") and the NEXT row has "N/A - EXPOSED VALVE", do NOT let the "N/A" from the next row contaminate the current row. Each row must be read independently. "N/A" in one row does NOT negate "YES" in the row above or below.
-16. MISSING ROWS: The template may contain fields that do NOT physically appear on the scanned sheet. If a template field has no matching row on the sheet, OMIT it — do NOT fill it with values borrowed from other sections. BUT if a row IS present on the sheet, you MUST extract its value (pass, fail, n/a, or descriptive text). Do NOT omit rows that exist. Only omit rows that are genuinely absent from the physical sheet.
+16. MISSING ROWS: The template may contain fields that do NOT physically appear on the scanned sheet. If a template field has no matching row on the sheet, OMIT it — do NOT fill it with values borrowed from other sections. If a row IS present AND has a clear mark, extract its value. If a row IS present but has no mark, OMIT it (do NOT default to "n/a" — see rule 3a).
 17. SECTION-SPECIFIC TERMINOLOGY: "EXPOSED INLET" and "EXPOSED OUTLETS" are EXTERNAL equipment concepts that refer to breeching inlets and landing valves. They NEVER apply to INTERNAL equipment fields (like outlet cabinets, landing valve padlocks inside, internal condition fields). If an INTERNAL section field has "N/A" written on the sheet, return exactly "n/a" — do NOT append "EXPOSED INLET" or "EXPOSED OUTLETS" to internal fields. These annotations only belong to EXTERNAL section fields where the physical inlet or outlet is exposed.
 
 Use the extract_job_sheet tool.`;
@@ -479,27 +501,30 @@ async function gptVisionFallback(
   templateName: string,
   fields: any[],
   lovableApiKey: string,
-): Promise<{ extracted: Record<string, any>; header: Record<string, any> } | null> {
+): Promise<{ extracted: Record<string, any>; header: Record<string, any>; field_confidence: Record<string, number> } | null> {
   const extractionTool = buildExtractionTool(fields, true);
 
   const systemPrompt = `You are an expert OCR assistant. Extract data from the handwritten form in the image(s). Do NOT invent or guess values — ONLY transcribe what is physically written on the form.
 
+NEVER FABRICATE "N/A": "n/a" is a positive assertion an engineer WROTE on the sheet. If a row has no clearly visible tick, circle, strikethrough, or handwritten mark, OMIT that field. Do NOT default absent answers to "n/a" — putting a false assertion on a certificate is worse than leaving it blank.
+CONFIDENCE (field_confidence): For every field you return, populate an entry in field_confidence with a number 0.0–1.0. Use <0.6 whenever the mark was ambiguous, the row spanned multiple printed lines and the mark's owning row was unclear, the image was blurry, or you had to guess. Use ≥0.85 only when the mark is unambiguous.
+ROW-ASSOCIATION FOR CIRCLED/TICKED MARKS (CRITICAL — most wrong answers come from this): Attach each YES/NO/N/A/PASS/FAIL circle-or-tick to the row whose printed answer TOKEN it actually surrounds or overlaps horizontally in the answer column — NOT to the row whose question label is nearest vertically. Multi-line questions (labels that wrap onto 2+ printed lines) are the danger zone: the answer-column tokens sit on ONE specific baseline within that row's block. Anchor the mark by identifying which printed YES/NO/N/A token it encloses, then attribute it to the question that owns THAT token line. When a mark sits ambiguously between two rows, mark that field with confidence <0.6 rather than guessing (or omit if you truly cannot tell).
 HEADER: "Customer:" at TOP = COMPANY name. "Customer:" at BOTTOM signature block = PERSON's name.
 LETTERHEAD / PAPERWORK OWNER: The company whose LOGO or NAME is printed at the very TOP of the sheet (the letterhead / branding block) is the paperwork_owner_company — extract it into header.paperwork_owner_company by reading the top-of-page logo/branding. It is often DIFFERENT from the 'Customer:' field. On subcontractor sheets the details box may only contain a SITE address and no 'Customer:' value — that is expected; leave header.customer blank in that case rather than inventing one from the letterhead or address.
 SITE ADDRESS: Look for "Site:", "Site Address:", "Address:", or "Location:" in the header. Transcribe the FULL address including street, town/city, and postcode. Include ALL lines. If the address spans multiple lines, join with ", ".
 Site postcodes: read character by character (0↔O, 6↔G, 8↔B).
 AIR RELEASE / VALVE FIELDS: Read EACH air release row independently. Do NOT copy values from adjacent rows. If a field says "N/A", "NOT INSTALLED", "NOT VISIBLE", or similar descriptive text, return that FULL text.
-YES/NO INTERPRETATION: Be very flexible. CIRCLED option = that answer. STRIKETHROUGH on one option = the OTHER is the answer (e.g. YES/̶N̶O̶ → "pass"). Handwriting next to pre-printed YES/NO = still determine the YES/NO answer; capture inline notes separately. "NO ACCESS" is a descriptive exception, NOT the same as "NO". OCR artifacts ($, ©, parens) around circled words should be ignored.
-P/F/N/A: tick beside P = "pass", F = "fail", N/A = "n/a".
+YES/NO INTERPRETATION: Be very flexible. CIRCLED option = that answer. STRIKETHROUGH on one option = the OTHER is the answer (e.g. YES/̶N̶O̶ → "pass"). Handwriting next to pre-printed YES/NO = still determine the YES/NO answer; capture inline notes separately. "NO ACCESS" is a descriptive exception, NOT the same as "NO". OCR artifacts ($, ©, parens) around circled words should be ignored. If NONE of YES/NO/N/A carries any mark, OMIT the field — do NOT guess.
+P/F/N/A: tick beside P = "pass", F = "fail", tick beside a printed N/A option = "n/a". An UNMARKED P/F/N/A row must be OMITTED, never defaulted to "n/a".
 Descriptive text (e.g. "N/A – EXPOSED INLET") → return FULL text.
 FIELD ISOLATION: Annotations like "EXPOSED VALVE" belong ONLY to the specific field they are written next to. Do NOT bleed them into adjacent fields. For ALL cabinet-related fields (CABINET KEYS, cabinet condition, cabinet door, cabinet glass/panel, cabinet lock), if the row literally only says "N/A", return exactly "n/a". But if the row itself says "N/A - EXPOSED VALVE" (or similar descriptive exception text), return the FULL text exactly as shown.
 "N/A - EXPOSED VALVE" PRE-PRINTED TEXT: Some rows (especially glass and cabinet condition for breeching inlets) have "N/A - EXPOSED VALVE" pre-printed in the answer column. Return the FULL text "N/A - EXPOSED VALVE" — do NOT shorten to "NO" or just "N/A". The "N/A" prefix does NOT mean "NO".
 SECTION HEADERS: Row labels like "EXTERNAL EQUIPMENT:", "INTERNAL EQUIPMENT:" are section headers, NOT fields. Do NOT extract values for them.
 ADJACENT FIELD CONTAMINATION: Read each row independently. If one row has YES circled and the next row has "N/A - EXPOSED VALVE", do NOT let the "N/A" contaminate the YES row. Each answer belongs ONLY to its own row.
 INLINE COUNT ANNOTATIONS (HIGHEST PRIORITY ON DRY RISER FORMS): The number of outlets / landing valves is the single most important value on any dry riser sheet. It is almost never in its own labelled row — techs scribble it inline in the answer column (often on the landing valve YES/NO row, or in a margin, or next to the riser location/address). Scan the WHOLE page for any of: "NO OF OUTLETS: N", "OUTLETS: N", "OUTLETS x N", "N OUTLETS", "N LANDING VALVES", "N x LV", "LV x N". If you see any digit next to outlet(s) / landing valve(s) / LV anywhere on the sheet, extract that integer into header.number_of_outlets — even if the row it sits on asks about something else. Still capture the row's YES/NO answer separately. More generally: a handwritten note in the answer column often belongs to a different field than the row it was written on; route it to the correct schema field by meaning, not by position.
-Blank fields → OMIT entirely.
+Blank / unmarked fields → OMIT entirely (never default to "n/a").
 MULTI-LINE COMMENTS / REMARKS / NOTES: For any freeform notes/comments/remarks textarea, read the block strictly LEFT-TO-RIGHT per handwritten line, then TOP-TO-BOTTOM. Preserve each physical line as a SEPARATE line in the output (join with real newlines "\\n"). NEVER re-flow, split, merge or reorder lines. If a location qualifier ("LEVEL 2 + 4", "3rd floor", "riser 1") sits on the same handwritten line as a defect ("OUTLET LOCKS REQ"), it MUST stay on that same line ("OUTLET LOCKS REQ - LEVEL 2 + 4"). Detaching the location from its defect line loses which defect it refers to and is a critical error.
-MISSING ROWS: If a template field has no matching row on the scanned sheet, OMIT it. Do NOT fill it with values from other sections. BUT if a row IS present, you MUST extract its value — do NOT skip rows that exist on the sheet.
+MISSING / UNMARKED ROWS: If a template field has no matching row on the scanned sheet, OMIT it. If a row IS present but has no clear mark, OMIT it too — do NOT default to "n/a".
 Template name "${templateName}" is NEVER a valid field value.
 
 SIGNATURE EXTRACTION (CRITICAL):
@@ -635,7 +660,7 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     let ocrPath = "unknown";
-    let bestExtraction: { extracted: Record<string, any>; header: Record<string, any> } | null = null;
+    let bestExtraction: { extracted: Record<string, any>; header: Record<string, any>; field_confidence: Record<string, number> } | null = null;
 
     // ── Try Azure Document Intelligence first ──
     const AZURE_ENDPOINT = Deno.env.get("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT");
@@ -688,14 +713,24 @@ serve(async (req) => {
         const val = bestExtraction.extracted[fieldId];
         if (typeof val === "string" && /exposed\s*inlet/i.test(val)) {
           const cleaned = val.replace(/[-–—]\s*exposed\s*inlet/i, "").replace(/exposed\s*inlet/i, "").trim();
-          bestExtraction.extracted[fieldId] = cleaned || "n/a";
-          console.log(`Post-process: stripped "EXPOSED INLET" from internal field ${fieldId}: "${val}" → "${bestExtraction.extracted[fieldId]}"`);
+          if (cleaned) {
+            bestExtraction.extracted[fieldId] = cleaned;
+            console.log(`Post-process: stripped "EXPOSED INLET" from internal field ${fieldId}: "${val}" → "${cleaned}"`);
+          } else {
+            // Rather than fabricating "n/a" for a field that only ever said
+            // "EXPOSED INLET" (which shouldn't be there), OMIT the field so
+            // the renderer shows a dash and the office is prompted to check.
+            delete bestExtraction.extracted[fieldId];
+            console.log(`Post-process: dropped internal field ${fieldId} — only value was "EXPOSED INLET" (would fabricate n/a otherwise)`);
+          }
         }
       }
 
       // Post-processing: if ANY field in a section says "EXPOSED OUTLETS", then all
       // subsequent fields in that same section that reference "cabinet" must be "n/a"
       // AND the immediately next field in the same section is also forced to "n/a".
+      // NOTE: this is INTENTIONAL n/a assertion — EXPOSED OUTLETS on the printed
+      // sheet is a legitimate engineer-written N/A. Not a fabrication.
       const fieldArray = fields || [];
       const exposedOutletSections = new Set<string>();
       let hasExposedOutlets = false;
@@ -745,9 +780,20 @@ serve(async (req) => {
         header: bestExtraction.header,
       };
 
+      // Confidence: default any extracted field without an explicit score to 0.85
+      // (a "we returned it but didn't score it" middle value) and any field the
+      // model omitted stays absent — the reviewer treats absent as unanswered.
+      const confidenceMap: Record<string, number> = { ...(bestExtraction.field_confidence || {}) };
+      for (const key of Object.keys(normalizedExtraction.extracted)) {
+        if (typeof confidenceMap[key] !== "number") {
+          confidenceMap[key] = 0.85;
+        }
+      }
+
       return new Response(JSON.stringify({
         extracted: normalizedExtraction.extracted,
         header: normalizedExtraction.header,
+        field_confidence: confidenceMap,
         _ocr_path: ocrPath,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
