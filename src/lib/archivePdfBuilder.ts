@@ -140,6 +140,8 @@ export async function generateAndUploadArchivePdf(
     siteAddress,
     documentDate,
     technicianName,
+    manualCustomerSignaturePath,
+    manualEngineerSignaturePath,
   } = input;
 
   // Hydrate the same shape a job PDF would receive. Customer is taken *only*
