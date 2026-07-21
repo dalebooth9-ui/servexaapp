@@ -415,6 +415,8 @@ export default function ArchiveReviewDialog({
         documentType: docType || null,
         customerId: asUnmatched ? null : customerId || null,
         siteId: asUnmatched ? null : siteId || null,
+        siteName: asUnmatched ? null : siteName || null,
+        siteAddress: asUnmatched ? null : siteAddress || null,
         documentDate: docDate || null,
         title: title || null,
         notes: notes || null,
