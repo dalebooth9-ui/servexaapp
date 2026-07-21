@@ -1211,21 +1211,21 @@ export default function JobPdfReport({ jobId, job }: Props) {
         finalBytes = doc.output("arraybuffer");
       }
 
-      // Trigger download of the (possibly merged) bytes.
+      // Open in-app preview — user can Download inside the viewer.
       const blob = new Blob([finalBytes as BlobPart], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${job.reference_number}-report.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast({ title: "PDF generated", description: `${job.reference_number}-report.pdf downloaded.` });
+      const fileName = `${job.reference_number}-report.pdf`;
+      setPreviewBlob(blob);
+      setPreviewName(fileName);
+      setPreviewOpen(true);
+      setDialogOpen(false);
+      toast({ title: "PDF ready", description: `${fileName} — preview opened.` });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setGenerating(false);
     }
   };
+
 
   return (
     <>
