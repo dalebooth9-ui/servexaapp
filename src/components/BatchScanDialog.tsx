@@ -85,20 +85,14 @@ export default function BatchScanDialog() {
     categories: any[],
     categoryNames: string[]
   ): Promise<{ extracted: Record<string, any>; header: Record<string, any>; category?: { slug: string; name: string }; template?: { id: string; name: string; fields: TemplateField[] } }> => {
-    // Stage 1: Identify category
-    const categoryIdentifyFields = [
-      { id: "detected_category", label: "Document Category", type: "select", options: categoryNames },
-      { id: "confidence", label: "Confidence", type: "select", options: ["high", "medium", "low"] },
-    ];
-
-    const { data: identifyData, error: identifyError } = await supabase.functions.invoke("ocr-job-sheet", {
-      body: { images: imagePayloads, template_name: "Category Identification", fields: categoryIdentifyFields },
-    });
-    if (identifyError) throw identifyError;
-    if (identifyData?.error) throw new Error(identifyData.error);
-
-    const detectedName = identifyData?.extracted?.detected_category;
-    const matchedCat = categories.find((c: any) => c.name.toLowerCase() === (detectedName || "").toLowerCase());
+    // Stage 1: Identify category via shared pipeline
+    const detectedName = await runScanCategoryIdentify(
+      imagePayloads,
+      categories.map((c: any) => ({ name: c.name })),
+    );
+    const matchedCat = categories.find(
+      (c: any) => c.name.toLowerCase() === (detectedName || "").toLowerCase(),
+    );
 
     // Stage 2: Fetch template
     let templateFields: TemplateField[] = [];
@@ -133,19 +127,15 @@ export default function BatchScanDialog() {
       ];
     }
 
-    // Stage 3: Full extraction
-    const { data, error } = await supabase.functions.invoke("ocr-job-sheet", {
-      body: {
-        images: imagePayloads,
-        template_name: templateName,
-        fields: templateFields.map((f) => ({ id: f.id, label: f.label, type: f.type, section: f.section, options: f.options })),
-      },
+    // Stage 3: Full extraction via shared pipeline
+    const { extracted, header: headerData } = await runScanExtraction({
+      images: imagePayloads,
+      templateName,
+      fields: templateFields.map((f) => ({
+        id: f.id, label: f.label, type: f.type, section: f.section, options: f.options,
+      })),
     });
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error);
 
-    const extracted = data.extracted || {};
-    const headerData = data.header || {};
 
     // Auto-fill pressure test defaults
     const isPressureTest = matchedCat?.slug?.includes("pressure_test") || templateName?.toLowerCase().includes("pressure");
