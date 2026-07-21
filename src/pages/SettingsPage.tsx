@@ -296,6 +296,7 @@ export default function SettingsPage() {
           <PoIntakeEmailCard />
           <EmailBrandingSettings />
           <EmailFromSettings />
+          <MicrosoftSendSettings />
           <FollowUpReminderSettings />
           <ComplianceReminderSettings />
           <EmailAutomationSettings />
