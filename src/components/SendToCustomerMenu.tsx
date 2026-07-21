@@ -42,6 +42,22 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
   const [message, setMessage] = useState("");
   const [reportBase64, setReportBase64] = useState<string | null>(null);
   const [reportFileName, setReportFileName] = useState("");
+  const [graphStatus, setGraphStatus] = useState<GraphSendStatus | null>(null);
+  const [route, setRoute] = useState<"graph_send" | "graph_draft" | "app_mailer">("app_mailer");
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+    let cancelled = false;
+    (async () => {
+      const s = await getGraphSendStatus();
+      if (cancelled) return;
+      setGraphStatus(s);
+      if (s.ready && s.mode === "send") setRoute("graph_send");
+      else if (s.ready && s.mode === "draft") setRoute("graph_draft");
+      else setRoute("app_mailer");
+    })();
+    return () => { cancelled = true; };
+  }, [dialogOpen]);
 
   // Invoice selection
   const [invoices, setInvoices] = useState<any[]>([]);
