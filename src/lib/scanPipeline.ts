@@ -30,8 +30,13 @@ export type ScanTemplateField = {
   allow_notes?: boolean;
 };
 
+export type ScanImagePayload = {
+  image_base64: string;
+  mime_type?: string;
+};
+
 export interface RunScanExtractionInput {
-  imagesBase64: string[]; // raw base64, no data-url prefix
+  images: ScanImagePayload[];
   templateName: string;
   fields: ScanTemplateField[];
   /** When set, engineer header name is matched against org profiles. */
