@@ -84,7 +84,7 @@ const PARENT_OVERRIDES: Array<[RegExp, string]> = [
   [/^\/sites\/.+/, "/sites"],
   [/^\/customers\/[^/]+$/, "/customers"],
   [/^\/jobs\/[^/]+$/, "/jobs"],
-  [/^\/archive\/.+/, "/archive"],
+  [/^\/paper-scans\/.+/, "/paper-scans"],
   [/^\/platform\/.+/, "/"],
   [/^\/admin\/.+/, "/"],
   [/^\/support\/.+/, "/"],
