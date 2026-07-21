@@ -91,6 +91,8 @@ export default function PdfPreviewDialog({
   hasNext,
 }: PdfPreviewDialogProps) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [fetching, setFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const { settings: savedWatermark, loaded: watermarkLoaded } = useWatermarkSettings();
   // Local override the dialog applies on top of the saved org-wide setting.
   // Reset to "use saved value" each time the dialog opens.
@@ -139,15 +141,47 @@ export default function PdfPreviewDialog({
     }
   };
 
+  // Turn either a Blob or a remote URL (signed URL, etc.) into a same-origin
+  // blob: object URL. Fetching the remote URL client-side sidesteps
+  // content-disposition / cross-origin quirks that stop browsers rendering
+  // the PDF inline inside an <iframe>.
   useEffect(() => {
-    if (!blob) {
+    if (!open) return;
+    let cancelled = false;
+    let created: string | null = null;
+    setFetchError(null);
+    if (blob) {
+      const u = URL.createObjectURL(blob);
+      created = u;
+      setObjectUrl(u);
+      setFetching(false);
+    } else if (urlProp) {
+      setFetching(true);
       setObjectUrl(null);
-      return;
+      (async () => {
+        try {
+          const res = await fetch(urlProp);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const b = await res.blob();
+          if (cancelled) return;
+          const u = URL.createObjectURL(b);
+          created = u;
+          setObjectUrl(u);
+        } catch (e: any) {
+          if (!cancelled) setFetchError(e?.message || "Failed to load document");
+        } finally {
+          if (!cancelled) setFetching(false);
+        }
+      })();
+    } else {
+      setObjectUrl(null);
+      setFetching(false);
     }
-    const u = URL.createObjectURL(blob);
-    setObjectUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [blob]);
+    return () => {
+      cancelled = true;
+      if (created) URL.revokeObjectURL(created);
+    };
+  }, [blob, urlProp, open]);
 
   const isImage = mimeType.startsWith("image/");
   const ext = useMemo(() => {
@@ -186,7 +220,7 @@ export default function PdfPreviewDialog({
   // Append the filename as a URL fragment so the browser's built-in PDF
   // viewer (and any fallback UI) shows a human-readable name instead of the
   // blob UUID. The fragment is ignored when fetching the blob.
-  const rawSrc = objectUrl || urlProp || null;
+  const rawSrc = objectUrl || null;
   const src = rawSrc
     ? `${rawSrc.split("#")[0]}#filename=${encodeURIComponent(downloadName)}`
     : null;
@@ -429,9 +463,24 @@ export default function PdfPreviewDialog({
           </div>
         </DialogHeader>
         <div className="flex-1 min-h-0 bg-muted/40 relative">
-          {!src ? (
+          {!src && !fetchError ? (
             <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Preparing preview…
+              <Loader2 className="h-4 w-4 animate-spin" /> {fetching ? "Loading document…" : "Preparing preview…"}
+            </div>
+          ) : fetchError && !src ? (
+            <div className="h-full w-full flex flex-col items-center justify-center text-center gap-3 p-6">
+              <FileText className="h-10 w-10 text-destructive/70" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Couldn't load the document</p>
+                <p className="text-xs text-muted-foreground max-w-sm">{fetchError}</p>
+              </div>
+              {urlProp && (
+                <Button size="sm" variant="outline" asChild>
+                  <a href={urlProp} target="_blank" rel="noopener noreferrer" className="gap-1.5">
+                    <ExternalLink className="h-3.5 w-3.5" /> Open in new tab
+                  </a>
+                </Button>
+              )}
             </div>
           ) : isImage ? (
             <div className="h-full w-full overflow-auto flex items-start justify-center p-4">
