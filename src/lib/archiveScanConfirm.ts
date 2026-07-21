@@ -43,6 +43,15 @@ export type ArchiveScanConfirmInput = {
    * original bears this engineer's handwritten signature.
    */
   technicianName?: string | null;
+  /**
+   * Storage paths (signatures bucket) of manually-cropped signatures picked
+   * by the office via "Select from photo" on the archive review dialog.
+   * When set, override the auto-crop / profile-stamped signatures on the
+   * generated electronic report. Persisted on header_data so re-converts
+   * never re-derive over a human's choice.
+   */
+  manualCustomerSignaturePath?: string | null;
+  manualEngineerSignaturePath?: string | null;
 };
 
 export async function archiveScanConfirm(
