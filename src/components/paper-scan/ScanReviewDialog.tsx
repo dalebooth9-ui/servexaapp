@@ -1352,11 +1352,14 @@ export default function ScanReviewDialog({
             <AlertDialogDescription>
               {duplicatePrompt ? (
                 <>
-                  Job <strong>{duplicatePrompt.reference}</strong> is on the
-                  same customer, site and date as this sheet. Attach this
-                  sheet as an <strong>additional report</strong> on that job,
-                  or file it as a separate job? Each attached report keeps
-                  its own answers, signatures and scan image.
+                  Job <strong>{duplicatePrompt.reference}</strong>{" "}
+                  {duplicatePrompt.reason === "po"
+                    ? "already has this PO number on the same customer."
+                    : "is on the same customer, site and date as this sheet."}{" "}
+                  Attach this sheet as an{" "}
+                  <strong>additional report</strong> on that job, or file it
+                  as a separate job? Each attached report keeps its own
+                  answers, signatures and scan image.
                 </>
               ) : null}
             </AlertDialogDescription>
