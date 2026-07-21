@@ -268,7 +268,7 @@ export async function runScanCategoryIdentify(
   ];
   const { data, error } = await supabase.functions.invoke("ocr-job-sheet", {
     body: {
-      images: imagesBase64,
+      images,
       template_name: "Category Identification",
       fields: identifyFields,
     },
