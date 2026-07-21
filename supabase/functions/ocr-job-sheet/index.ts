@@ -297,10 +297,21 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
         description: `"${f.label}" — pick the closest match: ${f.options.join(", ")}. If the handwritten answer is descriptive text instead of one of those options (e.g. "NOT VISIBLE", "NO ACCESS", "N/A – EXPOSED INLET"), return the FULL text exactly as written and do NOT force it to the nearest option.${extraInstruction}`,
       };
     } else {
-      fieldProperties[f.id] = {
-        type: "string",
-        description: `"${f.label}" — transcribe the value exactly. Pay attention to each character.`,
-      };
+      const lowerLabel = (f.label || "").toLowerCase();
+      const isRemarkField =
+        f.type === "textarea" ||
+        /remark|comment|note|defect|observation|issue|action|works?\s*carried|description of works/.test(lowerLabel);
+      if (isRemarkField) {
+        fieldProperties[f.id] = {
+          type: "string",
+          description: `"${f.label}" — freeform handwritten notes. CRITICAL LINE INTEGRITY RULES: (1) Read each physical handwritten line LEFT-TO-RIGHT in full before moving to the next line. (2) Preserve line breaks as "\\n" — one handwritten line = one statement = one output line. (3) Return lines in TOP-TO-BOTTOM order. (4) NEVER reorder, merge, or split lines: if a location annotation (e.g. "LEVEL 2 + 4", "on floors 3-5", "riser 1") appears on the same handwritten line as a defect ("OUTLET LOCKS REQ"), it MUST stay attached on the same output line ("OUTLET LOCKS REQ - LEVEL 2 + 4"). Detaching the location from its defect line is a critical error because it loses which defect that location refers to. (5) Do NOT insert bullets, dashes, or commas between lines — use only real newlines. (6) Transcribe verbatim; do not paraphrase.`,
+        };
+      } else {
+        fieldProperties[f.id] = {
+          type: "string",
+          description: `"${f.label}" — transcribe the value exactly. Pay attention to each character.`,
+        };
+      }
     }
   }
 
