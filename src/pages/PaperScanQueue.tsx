@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -14,6 +15,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { formatDistanceToNow } from "date-fns";
 import {
   ScanLine,
@@ -23,6 +34,8 @@ import {
   CheckCircle2,
   XCircle,
   RotateCw,
+  Trash2,
+  Wand2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ScanCompletedJobDialog, {
@@ -31,6 +44,9 @@ import ScanCompletedJobDialog, {
 import ArchiveReviewDialog, {
   type ArchiveQueueItemInput,
 } from "@/components/paper-scan/ArchiveReviewDialog";
+import BulkActionBar from "@/components/BulkActionBar";
+import { deletePaperScanItems } from "@/lib/deletePaperScanItems";
+import { bulkFileAndConvertArchiveItems } from "@/lib/bulkFileAndConvertArchiveItems";
 
 
 type Item = {
@@ -83,7 +99,7 @@ const STATUS_VARIANT: Record<
 };
 
 export default function PaperScanQueue() {
-  const { userRole } = useAuth();
+  const { userRole, user, orgId } = useAuth();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"pending" | "all">("pending");
@@ -93,10 +109,18 @@ export default function PaperScanQueue() {
     useState<ArchiveQueueItemInput | null>(null);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [retrying, setRetrying] = useState<Record<string, boolean>>({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const { toast } = useToast();
 
 
   const isAdmin = userRole === "admin";
+
+  // Clear selection whenever the tab changes.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [modeTab]);
 
   const retryItem = useCallback(async (item: Item) => {
     setRetrying((r) => ({ ...r, [item.id]: true }));
@@ -257,6 +281,148 @@ export default function PaperScanQueue() {
     return c;
   }, [items, modeTab]);
 
+  // Prune selection to only ids present in the current filtered view so
+  // hidden-and-selected rows can't be silently deleted/converted. Runs
+  // whenever the filter or the underlying items list changes.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const visible = new Set(filtered.map((r) => r.id));
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (visible.has(id)) next.add(id);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [filtered]);
+
+  const selectedItems = useMemo(
+    () => filtered.filter((i) => selectedIds.has(i.id)),
+    [filtered, selectedIds],
+  );
+  const selectedFailed = selectedItems.filter((i) => i.status === "failed");
+  const selectedProcessing = selectedItems.filter(
+    (i) => i.status === "processing" || i.status === "pending",
+  );
+  const selectedReadyArchive = selectedItems.filter(
+    (i) =>
+      (i.mode || "job") === "archive" &&
+      (i.status === "ready" || i.status === "low_confidence"),
+  );
+
+  const toggleId = (id: string, on: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+  const toggleAllVisible = (on: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (on) filtered.forEach((r) => next.add(r.id));
+      else filtered.forEach((r) => next.delete(r.id));
+      return next;
+    });
+  };
+
+  const runBulkDelete = async () => {
+    setBulkBusy(true);
+    try {
+      const ids = Array.from(selectedIds);
+      await deletePaperScanItems(ids);
+      toast({
+        title: `Deleted ${ids.length} item${ids.length === 1 ? "" : "s"}`,
+      });
+      setSelectedIds(new Set());
+      setConfirmBulkDelete(false);
+      await load();
+    } catch (e: any) {
+      toast({
+        title: "Bulk delete failed",
+        description: e?.message,
+        variant: "destructive",
+      });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const runBulkRetry = async () => {
+    if (selectedFailed.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const ids = selectedFailed.map((i) => i.id);
+      const batchIds = Array.from(new Set(selectedFailed.map((i) => i.batch_id)));
+      const { error } = await (supabase as any)
+        .from("paper_scan_batch_items")
+        .update({ status: "pending", error: null })
+        .in("id", ids);
+      if (error) throw error;
+      for (const bId of batchIds) {
+        supabase.functions
+          .invoke("process-paper-scan-batch", { body: { batch_id: bId } })
+          .catch(() => {});
+      }
+      toast({
+        title: `Retrying ${ids.length} item${ids.length === 1 ? "" : "s"}`,
+      });
+      setSelectedIds(new Set());
+    } catch (e: any) {
+      toast({
+        title: "Bulk retry failed",
+        description: e?.message,
+        variant: "destructive",
+      });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const runBulkConvertArchive = async () => {
+    if (!user || !orgId || selectedReadyArchive.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const { filed, failed } = await bulkFileAndConvertArchiveItems({
+        items: selectedReadyArchive.map((i) => ({
+          id: i.id,
+          batch_id: i.batch_id,
+          detected_template_id: i.detected_template_id,
+          extracted: i.extracted,
+          header_data: i.header_data,
+          guess_customer_id: i.guess_customer_id,
+          guess_site_id: i.guess_site_id,
+          guess_date: i.guess_date,
+          image_paths: i.image_paths,
+          template_name: i.template_name || null,
+        })),
+        userId: user.id,
+        orgId,
+      });
+      toast({
+        title: `Filed ${filed} and queued for conversion`,
+        description:
+          failed > 0
+            ? `${failed} failed to file — check the queue.`
+            : "AI will extract answers and generate the electronic report in the background.",
+        variant: failed > 0 ? "destructive" : "default",
+      });
+      setSelectedIds(new Set());
+      await load();
+    } catch (e: any) {
+      toast({
+        title: "Bulk convert failed",
+        description: e?.message,
+        variant: "destructive",
+      });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const openReview = (i: Item) => {
     if ((i.mode || "job") === "archive") {
       setOpenArchiveItem({
@@ -380,6 +546,16 @@ export default function PaperScanQueue() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      aria-label="Select all rows in view"
+                      checked={
+                        filtered.length > 0 &&
+                        filtered.every((r) => selectedIds.has(r.id))
+                      }
+                      onCheckedChange={(v) => toggleAllVisible(v === true)}
+                    />
+                  </TableHead>
                   <TableHead className="w-16"></TableHead>
                   <TableHead>Template</TableHead>
                   <TableHead>Customer / Site (guessed)</TableHead>
@@ -396,7 +572,17 @@ export default function PaperScanQueue() {
                     ? thumbs[i.image_paths[0]]
                     : null;
                   return (
-                    <TableRow key={i.id}>
+                    <TableRow
+                      key={i.id}
+                      data-state={selectedIds.has(i.id) ? "selected" : undefined}
+                    >
+                      <TableCell>
+                        <Checkbox
+                          aria-label={`Select item ${i.id}`}
+                          checked={selectedIds.has(i.id)}
+                          onCheckedChange={(v) => toggleId(i.id, v === true)}
+                        />
+                      </TableCell>
                       <TableCell>
                         {thumb ? (
                           <img
@@ -526,7 +712,74 @@ export default function PaperScanQueue() {
             </Table>
           )}
         </Card>
+
+        <BulkActionBar
+          count={selectedIds.size}
+          onClear={() => setSelectedIds(new Set())}
+        >
+          {selectedFailed.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={bulkBusy}
+              onClick={runBulkRetry}
+            >
+              <RotateCw className="mr-1 h-3.5 w-3.5" /> Retry ({selectedFailed.length})
+            </Button>
+          )}
+          {modeTab === "archive" && selectedReadyArchive.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={bulkBusy}
+              onClick={runBulkConvertArchive}
+            >
+              <Wand2 className="mr-1 h-3.5 w-3.5" /> Convert ({selectedReadyArchive.length})
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={bulkBusy}
+            onClick={() => setConfirmBulkDelete(true)}
+          >
+            <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete ({selectedIds.size})
+          </Button>
+        </BulkActionBar>
       </div>
+
+      <AlertDialog open={confirmBulkDelete} onOpenChange={setConfirmBulkDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selectedIds.size} queue item{selectedIds.size === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the selected review-queue rows and their stored
+              page images.
+              {selectedProcessing.length > 0 && (
+                <>
+                  {" "}
+                  <span className="text-destructive font-medium">
+                    {selectedProcessing.length} of these are still processing —
+                    deleting mid-conversion will cancel them.
+                  </span>
+                </>
+              )}
+              {" "}This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={runBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {openItem && (
         <ScanCompletedJobDialog

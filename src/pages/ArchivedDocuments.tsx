@@ -61,6 +61,8 @@ import {
 import type { ProposedDefect } from "@/lib/proposeArchiveDefects";
 import { createArchiveSourcedDefects } from "@/lib/proposeArchiveDefects";
 import ProposedDefectsSection from "@/components/paper-scan/ProposedDefectsSection";
+import { Checkbox } from "@/components/ui/checkbox";
+import BulkActionBar from "@/components/BulkActionBar";
 
 type ArchivedDoc = {
   id: string;
@@ -104,6 +106,9 @@ export default function ArchivedDocuments() {
   const [openLoading, setOpenLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<ArchivedDoc | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const isAdmin = userRole === "admin";
 
@@ -263,6 +268,88 @@ export default function ArchivedDocuments() {
   const [confirmBulk, setConfirmBulk] = useState(false);
 
   const summary = useArchiveConversionSummary();
+
+  // Prune selection to only ids currently in view.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const visible = new Set(filtered.map((d) => d.id));
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (visible.has(id)) next.add(id);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [filtered]);
+
+  const selectedDocs = useMemo(
+    () => filtered.filter((d) => selectedIds.has(d.id)),
+    [filtered, selectedIds],
+  );
+  const selectedConvertible = selectedDocs.filter(
+    (d) => !d.report_pdf_path && d.file_paths?.length > 0,
+  );
+  const selectedInFlight = selectedDocs.filter((d) => {
+    const entry = archiveConversionQueue.getEntry(d.id);
+    return entry?.state === "queued" || entry?.state === "converting";
+  });
+
+  const toggleId = (id: string, on: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+  const toggleAllVisible = (on: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (on) filtered.forEach((d) => next.add(d.id));
+      else filtered.forEach((d) => next.delete(d.id));
+      return next;
+    });
+  };
+
+  const runBulkDelete = async () => {
+    setBulkBusy(true);
+    try {
+      const ids = Array.from(selectedIds);
+      for (const id of ids) {
+        try {
+          await deleteArchivedDocument(id);
+        } catch (e) {
+          console.error("[archive bulk delete] failed for", id, e);
+        }
+      }
+      toast({
+        title: `Deleted ${ids.length} document${ids.length === 1 ? "" : "s"}`,
+      });
+      setSelectedIds(new Set());
+      setConfirmBulkDelete(false);
+      await load();
+    } catch (e: any) {
+      toast({
+        title: "Bulk delete failed",
+        description: e?.message,
+        variant: "destructive",
+      });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const runBulkConvert = () => {
+    if (selectedConvertible.length === 0) return;
+    archiveConversionQueue.enqueue(selectedConvertible.map((d) => d.id));
+    toast({
+      title: `Queued ${selectedConvertible.length} conversion${selectedConvertible.length === 1 ? "" : "s"}`,
+      description: "Running 2 at a time in the background.",
+    });
+    setSelectedIds(new Set());
+  };
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
@@ -428,6 +515,16 @@ export default function ArchivedDocuments() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      aria-label="Select all rows in view"
+                      checked={
+                        filtered.length > 0 &&
+                        filtered.every((r) => selectedIds.has(r.id))
+                      }
+                      onCheckedChange={(v) => toggleAllVisible(v === true)}
+                    />
+                  </TableHead>
                   <TableHead>Customer / Site</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Date</TableHead>
@@ -440,7 +537,17 @@ export default function ArchivedDocuments() {
                 {filtered.map((d) => {
                   const canConvert = !d.report_pdf_path && d.file_paths?.length > 0;
                   return (
-                    <TableRow key={d.id}>
+                    <TableRow
+                      key={d.id}
+                      data-state={selectedIds.has(d.id) ? "selected" : undefined}
+                    >
+                      <TableCell>
+                        <Checkbox
+                          aria-label={`Select document ${d.id}`}
+                          checked={selectedIds.has(d.id)}
+                          onCheckedChange={(v) => toggleId(d.id, v === true)}
+                        />
+                      </TableCell>
                       <TableCell className="text-sm">
                         <div>
                           {d.customer_id
@@ -512,9 +619,66 @@ export default function ArchivedDocuments() {
             </Table>
           )}
         </Card>
+
+        <BulkActionBar
+          count={selectedIds.size}
+          onClear={() => setSelectedIds(new Set())}
+        >
+          {selectedConvertible.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={bulkBusy}
+              onClick={runBulkConvert}
+            >
+              <Wand2 className="mr-1 h-3.5 w-3.5" /> Convert ({selectedConvertible.length})
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={bulkBusy}
+            onClick={() => setConfirmBulkDelete(true)}
+          >
+            <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete ({selectedIds.size})
+          </Button>
+        </BulkActionBar>
       </div>
 
       <ArchiveScanDialog open={scanOpen} onOpenChange={setScanOpen} />
+
+      <AlertDialog open={confirmBulkDelete} onOpenChange={setConfirmBulkDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selectedIds.size} archived document{selectedIds.size === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the selected archive rows, their stored pages and
+              any generated electronic reports.
+              {selectedInFlight.length > 0 && (
+                <>
+                  {" "}
+                  <span className="text-destructive font-medium">
+                    {selectedInFlight.length} of these are still being converted —
+                    deleting mid-conversion will cancel them.
+                  </span>
+                </>
+              )}
+              {" "}This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={runBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog
         open={!!openDoc}
