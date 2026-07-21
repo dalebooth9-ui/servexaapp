@@ -60,14 +60,17 @@ const DRY_RISER_PRESSURE_TEST_FIELDS: FieldDef[] = [
   { id: "test_pressure_bar", type: "number", label: "Test Pressure (bar):", section: "Pressure Test Results", required: true, allow_notes: true, placeholder: "e.g. 12" },
   { id: "hold_time_minutes", type: "number", label: "Hold Time (minutes):", section: "Pressure Test Results", required: true, allow_notes: true, placeholder: "e.g. 15" },
   { id: "leaks_detected", type: "text", label: "Leaks Detected?", section: "Pressure Test Results", required: true, allow_notes: true, placeholder: "e.g. None / describe" },
-  { id: "site_left_clean_tidy", type: "checkbox", label: "Site left clean & tidy?", required: true, allow_notes: true },
-  { id: "custom_field_1771517560408", type: "checkbox", label: "Has the drop leg been drained?", required: true, allow_notes: true },
   { id: "customer_name", type: "text", label: "Customer Name:", required: true },
   { id: "comments", type: "textarea", label: "Comments:", required: true },
   { id: "materials_required", type: "textarea", label: "Materials required:", required: true },
   { id: "technician_name", type: "select", label: "Engineers Name:", options: ["Dale Booth", "Martin Whatmough"], required: true },
   { id: "external_equipment_pass", type: "pass_fail", label: "External equipment: ", section: "External Equipment", required: true, allow_notes: true },
   { id: "internal_equipment_pass", type: "pass_fail", label: "Internal equipment: ", section: "Internal Equipment", required: true, allow_notes: true },
+  // End-of-job sign-off questions — kept at the very end so they render in a
+  // dedicated "Completion" section after Air Release Valve / Pressure Test,
+  // matching the paper form order engineers follow on site.
+  { id: "site_left_clean_tidy", type: "checkbox", label: "Site left clean & tidy?", section: "Completion", required: true, allow_notes: true },
+  { id: "custom_field_1771517560408", type: "checkbox", label: "Has the drop leg been drained?", section: "Completion", required: true, allow_notes: true },
 ];
 
 type IndustryTemplate = {

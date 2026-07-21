@@ -297,10 +297,21 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
         description: `"${f.label}" — pick the closest match: ${f.options.join(", ")}. If the handwritten answer is descriptive text instead of one of those options (e.g. "NOT VISIBLE", "NO ACCESS", "N/A – EXPOSED INLET"), return the FULL text exactly as written and do NOT force it to the nearest option.${extraInstruction}`,
       };
     } else {
-      fieldProperties[f.id] = {
-        type: "string",
-        description: `"${f.label}" — transcribe the value exactly. Pay attention to each character.`,
-      };
+      const lowerLabel = (f.label || "").toLowerCase();
+      const isRemarkField =
+        f.type === "textarea" ||
+        /remark|comment|note|defect|observation|issue|action|works?\s*carried|description of works/.test(lowerLabel);
+      if (isRemarkField) {
+        fieldProperties[f.id] = {
+          type: "string",
+          description: `"${f.label}" — freeform handwritten notes. CRITICAL LINE INTEGRITY RULES: (1) Read each physical handwritten line LEFT-TO-RIGHT in full before moving to the next line. (2) Preserve line breaks as "\\n" — one handwritten line = one statement = one output line. (3) Return lines in TOP-TO-BOTTOM order. (4) NEVER reorder, merge, or split lines: if a location annotation (e.g. "LEVEL 2 + 4", "on floors 3-5", "riser 1") appears on the same handwritten line as a defect ("OUTLET LOCKS REQ"), it MUST stay attached on the same output line ("OUTLET LOCKS REQ - LEVEL 2 + 4"). Detaching the location from its defect line is a critical error because it loses which defect that location refers to. (5) Do NOT insert bullets, dashes, or commas between lines — use only real newlines. (6) Transcribe verbatim; do not paraphrase.`,
+        };
+      } else {
+        fieldProperties[f.id] = {
+          type: "string",
+          description: `"${f.label}" — transcribe the value exactly. Pay attention to each character.`,
+        };
+      }
     }
   }
 
@@ -393,6 +404,7 @@ RULES:
 7. AIR RELEASE / VALVE FIELDS: Map each air release row to its own field independently. Do NOT duplicate values across rows. If a value says "N/A", "NOT INSTALLED", "NOT VISIBLE", or similar, return that full text.
 8. Ditto marks (" or ″ or similar repeat marks) mean the value is the SAME as the row immediately above. Copy the value from the previous row.
 9. Comments field: ONLY freeform remarks, not structured data from other fields.
+9a. MULTI-LINE COMMENTS / REMARKS / NOTES: Read the handwritten block strictly LEFT-TO-RIGHT per line, then TOP-TO-BOTTOM. Preserve each physical line as a SEPARATE line in the output (join with real newlines "\\n"). NEVER re-flow, split, merge or reorder lines. If a location qualifier ("LEVEL 2 + 4", "3rd floor", "riser 1") sits on the same handwritten line as a defect ("OUTLET LOCKS REQ"), it MUST stay on that same line ("OUTLET LOCKS REQ - LEVEL 2 + 4"). Losing that attachment loses which defect the location refers to and is a critical error.
 10. Character accuracy: For names, prefer L over P unless a closed loop is clearly visible.
 11. FIELD ISOLATION: Annotations like "EXPOSED VALVE", "EXPOSED INLET", or "EXPOSED" belong ONLY to the specific field they are written next to. Do NOT copy or bleed these annotations into adjacent or unrelated fields. For example, if "EXPOSED VALVE" is written next to a valve condition field, do NOT also put it on the cabinet condition field. For "cabinet" fields (including CABINET KEYS, cabinet condition, cabinet door, cabinet glass/panel, cabinet lock), if the row literally only says "N/A" or "n/a", return EXACTLY "n/a". But if the same row shows a fuller exception like "N/A - EXPOSED VALVE", return the FULL text exactly as shown. Each field's value must come ONLY from what is written next to THAT specific field.
 12. INLINE COUNT ANNOTATIONS (CRITICAL FOR DRY RISER FORMS): The number of outlets / landing valves is the single most important data point on any dry riser sheet. It is almost never in a dedicated labelled row — technicians write it as a small handwritten annotation inline in the answer column, usually next to the landing valve YES/NO row, sometimes in a margin, next to the riser location, or next to the address. Actively scan the ENTIRE sheet for any of: "NO OF OUTLETS: N", "NO. OF OUTLETS N", "NUMBER OF OUTLETS = N", "OUTLETS: N", "OUTLETS x N", "N OUTLETS", "N LANDING VALVES", "N x LV", "LV x N". If you see any digit adjacent to the words outlet(s) / landing valve(s) / LV anywhere on the page, extract that integer into header.number_of_outlets — even if the annotation physically sits on a row whose pre-printed question is about something else (e.g. landing valve condition). The YES/NO answer for that row should still be captured separately in its own field, but do NOT let the outlet number get lost.
@@ -486,6 +498,7 @@ SECTION HEADERS: Row labels like "EXTERNAL EQUIPMENT:", "INTERNAL EQUIPMENT:" ar
 ADJACENT FIELD CONTAMINATION: Read each row independently. If one row has YES circled and the next row has "N/A - EXPOSED VALVE", do NOT let the "N/A" contaminate the YES row. Each answer belongs ONLY to its own row.
 INLINE COUNT ANNOTATIONS (HIGHEST PRIORITY ON DRY RISER FORMS): The number of outlets / landing valves is the single most important value on any dry riser sheet. It is almost never in its own labelled row — techs scribble it inline in the answer column (often on the landing valve YES/NO row, or in a margin, or next to the riser location/address). Scan the WHOLE page for any of: "NO OF OUTLETS: N", "OUTLETS: N", "OUTLETS x N", "N OUTLETS", "N LANDING VALVES", "N x LV", "LV x N". If you see any digit next to outlet(s) / landing valve(s) / LV anywhere on the sheet, extract that integer into header.number_of_outlets — even if the row it sits on asks about something else. Still capture the row's YES/NO answer separately. More generally: a handwritten note in the answer column often belongs to a different field than the row it was written on; route it to the correct schema field by meaning, not by position.
 Blank fields → OMIT entirely.
+MULTI-LINE COMMENTS / REMARKS / NOTES: For any freeform notes/comments/remarks textarea, read the block strictly LEFT-TO-RIGHT per handwritten line, then TOP-TO-BOTTOM. Preserve each physical line as a SEPARATE line in the output (join with real newlines "\\n"). NEVER re-flow, split, merge or reorder lines. If a location qualifier ("LEVEL 2 + 4", "3rd floor", "riser 1") sits on the same handwritten line as a defect ("OUTLET LOCKS REQ"), it MUST stay on that same line ("OUTLET LOCKS REQ - LEVEL 2 + 4"). Detaching the location from its defect line loses which defect it refers to and is a critical error.
 MISSING ROWS: If a template field has no matching row on the scanned sheet, OMIT it. Do NOT fill it with values from other sections. BUT if a row IS present, you MUST extract its value — do NOT skip rows that exist on the sheet.
 Template name "${templateName}" is NEVER a valid field value.
 
