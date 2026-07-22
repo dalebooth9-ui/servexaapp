@@ -21,7 +21,7 @@ import {
 } from "@/lib/archivePdfBuilder";
 
 export type ElectronicReportInput = ArchivePdfInput;
-export type ElectronicReportResult = { path: string };
+export type ElectronicReportResult = { path: string; pageCount: number };
 
 export async function buildElectronicReportPdf(
   input: ElectronicReportInput,

@@ -176,7 +176,7 @@ export async function convertArchivedDocument(
     mergedHeader._manual_engineer_signature_path = manualEngineerSignaturePath;
   }
 
-  const { path } = await generateAndUploadArchivePdf({
+  const { path, pageCount } = await generateAndUploadArchivePdf({
     archivedId,
     template: {
       id: (tpl as any).id,
@@ -209,7 +209,12 @@ export async function convertArchivedDocument(
       template_name: (tpl as any).name,
       document_type: (doc as any).document_type || (tpl as any).name,
       extracted,
-      header_data: { ...mergedHeader, _field_confidence: fieldConfidence },
+      header_data: {
+        ...mergedHeader,
+        _field_confidence: fieldConfidence,
+        _report_pdf_page_count: pageCount,
+        ...(pageCount > 1 ? { _report_pdf_page_warning: `Electronic report rendered as ${pageCount} pages` } : {}),
+      },
       report_pdf_path: path,
       status: "filed",
       site_name:

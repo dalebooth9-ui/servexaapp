@@ -848,7 +848,7 @@ export default function ScanReviewDialog({
                 manualEngineerSignaturePath = await uploadSig("engineer", engineerSig);
             }
             const chosenEng = engineers.find((x) => x.user_id === technicianUserId);
-            const { path } = await buildElectronicReportPdf({
+            const { path, pageCount } = await buildElectronicReportPdf({
               archivedId: result.jobId, // used only for filename
               template: tpl as any,
               responses: answers,
@@ -869,6 +869,13 @@ export default function ScanReviewDialog({
               manualCustomerSignaturePath,
               manualEngineerSignaturePath,
             });
+            if (pageCount > 1) {
+              console.warn("[scan-review] electronic report rendered over more than one page", {
+                pageCount,
+                templateName: (tpl as any).name,
+                jobId: result.jobId,
+              });
+            }
             reportPdfPath = path;
             // Attach as a job_document so it appears on the job's Documents tab.
             const { data: signed } = await supabase.storage

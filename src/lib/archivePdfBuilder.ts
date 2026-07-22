@@ -127,7 +127,7 @@ function seedHeaderIntoResponses(
 
 export async function generateAndUploadArchivePdf(
   input: ArchivePdfInput,
-): Promise<{ path: string }> {
+): Promise<{ path: string; pageCount: number }> {
   const {
     archivedId,
     template,
@@ -306,7 +306,7 @@ export async function generateAndUploadArchivePdf(
   // lookups and relies purely on the jobInfo we pass in.
   const fakeJobId = `archive-${archivedId}`;
 
-  const { base64 } = await generateJobSheetPdf(
+  const { base64, pageCount } = await generateJobSheetPdf(
     template as any,
     responsesWithDate,
     jobInfo,
@@ -341,5 +341,5 @@ export async function generateAndUploadArchivePdf(
       contentType: "application/pdf",
     });
   if (error) throw error;
-  return { path: fullPath };
+  return { path: fullPath, pageCount };
 }

@@ -14,7 +14,7 @@ import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
 import { fetchOrientedImage } from "@/lib/exifOrient";
 import { collectEmbeddedPhotoPaths, loadJobPhotosForPdf, type JobPhotoForPdf } from "@/lib/jobPhotos";
 import ExportBundlePickerDialog, { type ExportBundleSelection } from "@/components/exports/ExportBundlePickerDialog";
-import { generateJobSheetPdf } from "@/components/JobSheetPdfExport";
+import { generateJobSheetPdf, warnIfUnexpectedPdfPageSpill } from "@/components/JobSheetPdfExport";
 import { PDFDocument } from "pdf-lib";
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 
@@ -594,12 +594,13 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const doc = new jsPDF();
       let y = 15;
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       const margin = PDF_DIMENSIONS.margin; // standardised at 10mm across all PDFs
       const maxWidth = pageWidth - margin * 2;
       const rowH = 8;
 
       const addPage = () => { doc.addPage(); y = 15; };
-      const checkPage = (needed: number) => { if (y + needed > 275) addPage(); };
+      const checkPage = (needed: number) => { if (y + needed > pageHeight - margin) addPage(); };
 
       // ── HEADER ──
       // Use the shared renderPdfHeader helper with a JOB-REPORT-specific
@@ -1047,7 +1048,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
         return Array.from(byKey.values());
       })();
       if (dedupedSignatures.length > 0) {
-        const PAGE_BOTTOM = 275;
+        const PAGE_BOTTOM = pageHeight - margin;
         const SIG_BLOCK_H = 32; // mm — title(7) + name row(6) + image(16) + gap(3)
         // Section title — only force a new page when the whole block won't fit.
         if (y + SIG_BLOCK_H > PAGE_BOTTOM) addPage();
@@ -1092,7 +1093,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const hasVisual = templates.some((t: any) => (t.name || "").toLowerCase().includes("visual") && sheetResponses.some((r: any) => r.template_id === t.id));
 
       if (hasPressureTest || hasVisual) {
-        checkPage(20);
+        checkPage(16);
         y += 4;
         doc.setDrawColor(0);
         doc.setFontSize(11);
@@ -1141,7 +1142,12 @@ export default function JobPdfReport({ jobId, job }: Props) {
             : `Amended by office ${fmt(latestAmendment)}`)
         : null;
 
-      const pageCount = doc.getNumberOfPages();
+      const pageCount = warnIfUnexpectedPdfPageSpill(doc, job.category || job.name || "Job report", `${job.reference_number}-report.pdf`, {
+        jobId,
+        bodyEndY: y,
+        includeFilledSheets,
+        selectedSheetCount: sheetResponses.length,
+      });
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         doc.setFontSize(9);
