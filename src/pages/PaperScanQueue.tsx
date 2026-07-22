@@ -495,8 +495,8 @@ export default function PaperScanQueue({ embedded = false, onGoUpload }: PaperSc
 
         </div>
 
-        <div className="flex gap-2 flex-wrap">
-          <div className="flex gap-1 rounded-md border p-0.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="inline-flex items-center gap-1 rounded-md border p-0.5">
             <Button
               size="sm"
               variant={modeTab === "job" ? "default" : "ghost"}
@@ -511,21 +511,22 @@ export default function PaperScanQueue({ embedded = false, onGoUpload }: PaperSc
             >
               Archive scans
             </Button>
+            <div className="w-px bg-border self-stretch mx-0.5" />
+            <Button
+              size="sm"
+              variant={filter === "pending" ? "default" : "ghost"}
+              onClick={() => setFilter("pending")}
+            >
+              Awaiting review
+            </Button>
+            <Button
+              size="sm"
+              variant={filter === "all" ? "default" : "ghost"}
+              onClick={() => setFilter("all")}
+            >
+              All (last 200)
+            </Button>
           </div>
-          <Button
-            size="sm"
-            variant={filter === "pending" ? "default" : "outline"}
-            onClick={() => setFilter("pending")}
-          >
-            Awaiting review
-          </Button>
-          <Button
-            size="sm"
-            variant={filter === "all" ? "default" : "outline"}
-            onClick={() => setFilter("all")}
-          >
-            All (last 200)
-          </Button>
         </div>
 
 
