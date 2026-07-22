@@ -261,6 +261,13 @@ function toOcrFieldPayload(fields: ScanTemplateField[]) {
     type: f.type,
     section: f.section,
     options: f.options,
+    // Rich sub-schema previously stripped. `columns` is required for
+    // repeating_table fields (zone valves grid, dwelling access log,
+    // room-by-room head counts, flow & pressure test rows, etc.) so the
+    // OCR extractor can emit an array-of-objects, one entry per printed
+    // row on the sheet.
+    columns: (f as any).columns,
+    allow_notes: (f as any).allow_notes,
   }));
 }
 
