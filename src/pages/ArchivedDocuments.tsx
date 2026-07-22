@@ -72,6 +72,7 @@ import BulkActionBar from "@/components/BulkActionBar";
 import { usePaperScanPendingCount } from "@/hooks/usePaperScanQueue";
 import { formatDate } from "@/lib/dateFormat";
 import { ClipboardCheck, CheckCircle2 } from "lucide-react";
+import PdfCanvasViewer from "@/components/PdfCanvasViewer";
 import ZoomPane from "@/components/ZoomPane";
 
 type EmailSend = {
@@ -1119,13 +1120,24 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                     <div className="px-3 py-2 border-b bg-muted/40 text-xs font-medium flex items-center gap-1.5">
                       <FileText className="h-3.5 w-3.5" /> Electronic report
                     </div>
-                    {openPdfUrl ? (
+                    {openPdfUrls.length > 0 ? (
                       <ZoomPane className="flex-1 min-h-0">
-                        <PdfCanvasViewer
-                          src={openPdfUrl}
-                          title="Electronic report"
-                          className="w-full"
-                        />
+                        <div className="space-y-3">
+                          {openPdfUrls.map((u, i) => (
+                            <div key={`${i}-${u}`} className="space-y-1">
+                              {openPdfUrls.length > 1 && (
+                                <div className="text-[10px] uppercase tracking-wide text-muted-foreground px-1">
+                                  Sheet {i + 1} of {openPdfUrls.length}
+                                </div>
+                              )}
+                              <PdfCanvasViewer
+                                src={u}
+                                title={`Electronic report ${openPdfUrls.length > 1 ? i + 1 : ""}`.trim()}
+                                className="w-full"
+                              />
+                            </div>
+                          ))}
+                        </div>
                       </ZoomPane>
                     ) : (
                       <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-muted-foreground">
