@@ -523,7 +523,26 @@ export async function generateJobSheetPdf(
         resolvedFormData,
         omittedSections,
       );
-      const rows = sf.reduce((a, f) => a + (f.type === "signature" ? 2 : 1), 0);
+      // Estimate row count — repeating tables contribute one row per data
+      // entry (plus a header row), otherwise 1 per field, 2 for signatures.
+      // This keeps the pagination/page-break estimate honest for grids like
+      // the sprinkler zone-valve checks or flow & pressure test tables.
+      const rows = sf.reduce((a, f: any) => {
+        if (f.type === "signature") return a + 2;
+        if (f.type === "repeating_table" && Array.isArray((f as any).columns)) {
+          const cols: any[] = (f as any).columns;
+          const hasGallery = cols.some((c: any) => c?.type === "photo_gallery" || c?.type === "photo");
+          if (hasGallery) return a; // dedicated renderer below the main body
+          const raw = resolvedFormData[f.id];
+          let n = 0;
+          if (Array.isArray(raw)) n = raw.length;
+          else if (typeof raw === "string" && raw.trim().startsWith("[")) {
+            try { n = JSON.parse(raw).length; } catch { n = 0; }
+          }
+          return a + 1 + Math.max(1, n); // header + data rows
+        }
+        return a + 1;
+      }, 0);
       return { sec, sf, rows, height: sectionSecHeaderH + rows * comfortableRowH + 1 };
     })
     .filter((s) => s.sf.length > 0);

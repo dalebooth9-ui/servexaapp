@@ -222,6 +222,95 @@ export function filterNonBlankRows(rows: unknown): any[] {
   return rows.filter((row) => !isBlankAnswer(row));
 }
 
+/**
+ * Render a repeating_table field as a compact bordered table with a header
+ * row (Viva blue) and one data row per non-blank entry. Auto-wraps long text
+ * and grows row height accordingly. Column widths are distributed evenly
+ * across the printable width, with a slight bias toward the first column
+ * (usually the row identifier — Zone/Level, Unit No., etc.).
+ */
+export function renderRepeatingTableBlock(
+  doc: any,
+  field: any,
+  cols: any[],
+  rows: any[],
+  y: number,
+  opts: { margin: number; maxWidth: number },
+): number {
+  const { margin, maxWidth } = opts;
+  const headerH = 5.5;
+  const cellPadX = 1.2;
+  const lineH = 3.2;
+  const minRowH = 5;
+  const BLUE: [number, number, number] = [31, 78, 121]; // brand dark blue
+
+  // Column widths — first column ~1.4× share, remainder equal.
+  const totalShare = 1 + 0.4 + (cols.length - 1); // = cols.length + 0.4
+  const firstW = (maxWidth * 1.4) / totalShare;
+  const restW = (maxWidth - firstW) / Math.max(1, cols.length - 1);
+  const colWs = cols.map((_, i) => (i === 0 ? firstW : restW));
+  const colXs: number[] = [];
+  let acc = margin;
+  for (const w of colWs) { colXs.push(acc); acc += w; }
+
+  // Header row
+  doc.setFillColor(BLUE[0], BLUE[1], BLUE[2]);
+  doc.rect(margin, y, maxWidth, headerH, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  cols.forEach((c, i) => {
+    const label = String(c.label || c.id || "");
+    const wrapped = doc.splitTextToSize(label, colWs[i] - cellPadX * 2);
+    doc.text(wrapped[0] || label, colXs[i] + cellPadX, y + 3.7);
+  });
+  y += headerH;
+
+  // Data rows
+  doc.setTextColor(0, 0, 0);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setDrawColor(180);
+  doc.setLineWidth(0.2);
+
+  for (const row of rows) {
+    // Compute row height from the tallest wrapped cell.
+    const wrappedCells: string[][] = cols.map((c, i) => {
+      const raw = row?.[c.id];
+      const text = raw == null || raw === "" ? "—" : String(raw);
+      return doc.splitTextToSize(text, colWs[i] - cellPadX * 2);
+    });
+    const tallest = Math.max(1, ...wrappedCells.map((w) => w.length));
+    const rowH = Math.max(minRowH, tallest * lineH + 1.5);
+
+    // Cell borders
+    cols.forEach((_, i) => {
+      doc.rect(colXs[i], y, colWs[i], rowH);
+    });
+    // Cell text
+    wrappedCells.forEach((lines, i) => {
+      const col = cols[i];
+      const raw = row?.[col.id];
+      const text = raw == null || raw === "" ? "—" : String(raw);
+      const lower = text.toLowerCase().trim();
+      // Colour cue for yes/no/na cells
+      if (col.type === "yn_na" || /^(yes|no|n\/?a|pass|fail)$/i.test(text)) {
+        if (/^(yes|pass)$/i.test(text)) doc.setTextColor(0, 128, 0);
+        else if (/^(no|fail)$/i.test(text)) doc.setTextColor(200, 0, 0);
+        else if (/^n\/?a$/i.test(lower)) doc.setTextColor(100, 100, 100);
+        doc.setFont("helvetica", "bold");
+      }
+      lines.forEach((ln: string, li: number) => {
+        doc.text(ln, colXs[i] + cellPadX, y + 3.3 + li * lineH);
+      });
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "normal");
+    });
+    y += rowH;
+  }
+  return y + 1;
+}
+
 function renderBlankYesNoBoxes(doc: jsPDF, x: number, y: number, autoVal?: string, includeNa?: boolean): void {
   doc.setFontSize(7);
   doc.rect(x, y + 1, 3, 3);
@@ -606,6 +695,24 @@ export function renderFilledFieldRow(
   const margin = opts.margin ?? 10;
   const maxWidth = opts.maxWidth ?? (doc.internal.pageSize.getWidth() - margin * 2);
   const colSplit = opts.colSplit ?? maxWidth * 0.68;
+  // Repeating tables (grids like zone-valve-checks per floor, flow &
+  // pressure test rows). Rendered as a bordered table with column headers.
+  // Photo-gallery tables (dwelling access log) are skipped here — a dedicated
+  // renderer in JobSheetPdfExport draws them with photos below the main body.
+  if (field.type === "repeating_table" && Array.isArray((field as any).columns)) {
+    const cols: any[] = (field as any).columns;
+    const hasGallery = cols.some((c: any) => c?.type === "photo_gallery" || c?.type === "photo");
+    if (hasGallery) return y; // handled elsewhere
+    let rows: any[] = [];
+    if (Array.isArray(value)) rows = value;
+    else if (typeof value === "string" && value.trim().startsWith("[")) {
+      try { rows = JSON.parse(value); } catch { rows = []; }
+    }
+    rows = filterNonBlankRows(rows);
+    if (rows.length === 0) return y;
+    return renderRepeatingTableBlock(doc, field, cols, rows, y, { margin, maxWidth });
+  }
+
   const baseRowH = field.type === "signature" ? Math.max(opts.rowH * 2, 10) : opts.rowH;
   const resultCellWidth = maxWidth - colSplit - 2;
 

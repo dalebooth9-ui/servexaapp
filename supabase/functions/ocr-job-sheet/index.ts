@@ -309,6 +309,37 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
         type: "string",
         description: `"${f.label}" — pick the closest match: ${f.options.join(", ")}. Return an option value ONLY if the engineer has clearly ticked, circled, struck through, or otherwise marked one of them (or written a matching answer). If the handwritten answer is descriptive text (e.g. "NOT VISIBLE", "NO ACCESS", "N/A – EXPOSED INLET"), return the FULL text exactly as written and do NOT force it to the nearest option.${OMIT_IF_UNCERTAIN}${extraInstruction}`,
       };
+    } else if (f.type === "repeating_table" && Array.isArray(f.columns) && f.columns.length > 0) {
+      // Repeating table (grid) — one array entry per printed data row on the
+      // sheet. Used for zone-valve-per-floor grids, dwelling-access-log
+      // per-apartment rows, flow & pressure test tables, and any other
+      // multi-row section. Without this branch the entire grid collapses
+      // into a single free-text field and rows are lost.
+      const columnDescriptors = f.columns.map((c: any) => {
+        const parts = [`"${c.label || c.id}"`];
+        if (c.type === "number") parts.push("numeric");
+        else if (c.type === "yn_na") parts.push('one of "yes" / "no" / "n/a" (blank if unmarked)');
+        else if (c.type === "dropdown" && Array.isArray(c.options) && c.options.length)
+          parts.push(`one of: ${c.options.join(", ")}`);
+        else if (c.type === "photo_gallery" || c.type === "photo") parts.push("(OMIT — photos are not extracted from OCR)");
+        return `  • ${c.id} → ${parts.join(" — ")}`;
+      }).join("\n");
+      const columnProps: Record<string, any> = {};
+      for (const c of f.columns) {
+        if (c.type === "photo_gallery" || c.type === "photo") continue;
+        columnProps[c.id] = c.type === "number"
+          ? { type: ["number", "string"], description: `${c.label || c.id} — numeric value; omit if blank.` }
+          : { type: "string", description: `${c.label || c.id} — transcribe exactly. Omit the property if the cell is blank.` };
+      }
+      fieldProperties[f.id] = {
+        type: "array",
+        description: `"${f.label}" — REPEATING TABLE. Emit ONE object per PRINTED ROW that has any handwritten data. Do NOT invent rows for headers, blank rows, or crossed-through rows. Do NOT collapse multiple rows into one. If the sheet spans multiple pages and the table continues on the next page, KEEP APPENDING rows in reading order. Column keys:\n${columnDescriptors}\nAn entire row that is empty (no cells filled) must be OMITTED — do NOT return an empty object.${OMIT_IF_UNCERTAIN}`,
+        items: {
+          type: "object",
+          properties: columnProps,
+          additionalProperties: false,
+        },
+      };
     } else {
       const lowerLabel = (f.label || "").toLowerCase();
       const isRemarkField =
@@ -440,6 +471,8 @@ RULES:
 16. MISSING ROWS: The template may contain fields that do NOT physically appear on the scanned sheet. If a template field has no matching row on the sheet, OMIT it — do NOT fill it with values borrowed from other sections. If a row IS present AND has a clear mark, extract its value. If a row IS present but has no mark, OMIT it (do NOT default to "n/a" — see rule 3a).
 17. SECTION-SPECIFIC TERMINOLOGY: "EXPOSED INLET" and "EXPOSED OUTLETS" are EXTERNAL equipment concepts that refer to breeching inlets and landing valves. They NEVER apply to INTERNAL equipment fields (like outlet cabinets, landing valve padlocks inside, internal condition fields). If an INTERNAL section field has "N/A" written on the sheet, return exactly "n/a" — do NOT append "EXPOSED INLET" or "EXPOSED OUTLETS" to internal fields. These annotations only belong to EXTERNAL section fields where the physical inlet or outlet is exposed.
 18. FREEFORM OFF-FORM NOTES: After you've placed every row's answer into its field, scan the WHOLE image for handwritten text that is NOT part of any recognised form row — margins, blank areas below the sign-off, top corners, sides of the header, back of the sheet. These are usually access/key codes, block info, contact names, or reminders (e.g. "BLOCK B, D & E — KEY FOB CODE: 5140", "KEYS AT RECEPTION", "CALL SITE MANAGER 1HR BEFORE"). Capture ALL such text VERBATIM into header.additional_notes (join multiple scribbled lines with "\\n"). Do NOT duplicate text you already placed into a field. Leave blank if no off-form notes exist. Never invent text if scribbles are illegible.
+19. REPEATING TABLES (GRIDS — CRITICAL FOR MULTI-ROW SECTIONS): Any schema field whose JSON type is "array" (e.g. sprinkler zone-valve checks per floor, dwelling access log per apartment, flow & pressure test rows, room-by-room head counts) represents a PRINTED GRID on the sheet. You MUST emit ONE array entry per printed data row that has any handwritten content. Do NOT collapse multiple rows into one blob. Do NOT skip rows because the earlier rows share the same answers. Do NOT invent rows that are not on the sheet. If the grid continues across page breaks, keep reading and appending rows in the printed order. For each row, key the object by the column ids described in that field's schema — omit any cell that is blank. A crossed-through / "no access" / "N/A" whole row is still a real row: capture the identifier column (e.g. floor name, unit number) and the exception text in whichever column is closest to "notes" or "comments".
+20. MULTI-PAGE SHEETS: The sheet bundle you are reading may span multiple pages (e.g. a 6-page residential sprinkler service report with cover page, per-section pages, dwelling access log, and sign-off). Process EVERY page. Sections that only appear on later pages (zone valves, dwelling access log, sign-off) are just as important as page 1. Do not stop at page 1.
 
 Use the extract_job_sheet tool.`;
 
@@ -533,6 +566,8 @@ Blank / unmarked fields → OMIT entirely (never default to "n/a").
 MULTI-LINE COMMENTS / REMARKS / NOTES: For any freeform notes/comments/remarks textarea, read the block strictly LEFT-TO-RIGHT per handwritten line, then TOP-TO-BOTTOM. Preserve each physical line as a SEPARATE line in the output (join with real newlines "\\n"). NEVER re-flow, split, merge or reorder lines. If a location qualifier ("LEVEL 2 + 4", "3rd floor", "riser 1") sits on the same handwritten line as a defect ("OUTLET LOCKS REQ"), it MUST stay on that same line ("OUTLET LOCKS REQ - LEVEL 2 + 4"). Detaching the location from its defect line loses which defect it refers to and is a critical error.
 MISSING / UNMARKED ROWS: If a template field has no matching row on the scanned sheet, OMIT it. If a row IS present but has no clear mark, OMIT it too — do NOT default to "n/a".
 FREEFORM OFF-FORM NOTES: After every form row is placed, scan the WHOLE page for handwritten text OUTSIDE the recognised form rows (margins, below the sign-off block, top corners, back of the sheet, white space between sections). These are often access/key codes, block info, or reminders (e.g. "BLOCK B, D & E — KEY FOB CODE: 5140", "KEYS AT RECEPTION"). Capture ALL such text VERBATIM into header.additional_notes (join separate scribbles with "\\n"). Do NOT duplicate content you already placed into a field. Leave blank if none — never invent text for illegible scribbles.
+REPEATING TABLES (GRIDS — CRITICAL): Any schema field whose JSON type is "array" represents a printed GRID on the sheet (sprinkler zone-valve checks per floor, dwelling access log per apartment, flow & pressure test rows, room-by-room head counts). Emit ONE object per PRINTED DATA ROW — never collapse a grid into one blob. Do NOT skip rows because the earlier rows look the same. Do NOT invent rows that are not printed. Preserve reading order top-to-bottom. If a whole row is crossed through or annotated "NO ACCESS" / "N/A", still emit the row with the identifier column filled and the exception text in the notes/comments column. If the grid continues on a later page in the bundle, keep appending rows across pages.
+MULTI-PAGE BUNDLES: You may receive multiple page images in one request (e.g. a 6-page residential sprinkler service report). Process EVERY page. Sections that only appear on later pages (zone valves grid on page 4, dwelling access log on page 6, sign-off block) are just as important as page 1.
 Template name "${templateName}" is NEVER a valid field value.
 
 SIGNATURE EXTRACTION (CRITICAL):
