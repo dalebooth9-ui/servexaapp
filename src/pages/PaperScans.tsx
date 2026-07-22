@@ -116,7 +116,7 @@ export default function PaperScans() {
           </TabsContent>
 
           <TabsContent value="history" className="mt-2">
-            <ArchivedDocuments embedded />
+            <ArchivedDocuments embedded onGoReview={() => setTab("review")} />
           </TabsContent>
         </Tabs>
       </div>
