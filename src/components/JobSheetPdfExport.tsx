@@ -1035,16 +1035,20 @@ export async function generateJobSheetPdf(
   }
 
 
-  // Signature section flows naturally after content. The signature block
-  // itself only needs ~15mm — logos + declaration footer are anchored at the
-  // bottom regardless. Only force a new page when there's literally no room
-  // to draw the sig block above the accreditation strip. This prevents an
-  // orphan trailing page that would otherwise contain only the sig/footer.
+  // Signature section flows naturally after content. The sign-off block
+  // occupies ~22mm (date + technician row + 11mm sig image + optional
+  // source-note caption) and MUST fit above the accreditation strip on the
+  // same page, or the whole report spills onto page 2. Reserve 22mm — this
+  // number is intentionally aligned with the layout budget documented in
+  // `pdfFooter.ts` (`renderPdfSignatures`). If you grow the sig block there,
+  // grow this too and re-run `dryRiserSinglePage.test.ts`.
+  const SIG_BLOCK_RESERVE_MM = 22;
   const remainingSpaceForSig = pageHeight - y - footerSpace;
-  if (remainingSpaceForSig < 15) {
+  if (remainingSpaceForSig < SIG_BLOCK_RESERVE_MM) {
     doc.addPage();
     y = margin;
   }
+
 
 
 
