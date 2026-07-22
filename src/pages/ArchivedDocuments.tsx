@@ -70,6 +70,7 @@ import { usePaperScanPendingCount } from "@/hooks/usePaperScanQueue";
 import { formatDate } from "@/lib/dateFormat";
 import { ClipboardCheck, CheckCircle2 } from "lucide-react";
 import PdfCanvasViewer from "@/components/PdfCanvasViewer";
+import ZoomPane from "@/components/ZoomPane";
 
 type EmailSend = {
   sent_at?: string;
