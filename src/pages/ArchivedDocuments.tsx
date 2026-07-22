@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AppLayout from "@/components/AppLayout";
@@ -140,6 +140,8 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
   const [openFailed, setOpenFailed] = useState<string[]>([]);
   const [openPdfUrl, setOpenPdfUrl] = useState<string | null>(null);
   const [openPdfUrls, setOpenPdfUrls] = useState<string[]>([]);
+  const openPdfUrlRef = useRef<string | null>(null);
+  const openPdfUrlsRef = useRef<string[]>([]);
   const [openPdfError, setOpenPdfError] = useState<string | null>(null);
   const [openView, setOpenView] = useState<"pdf" | "scan" | "split">("split");
   const [openLoading, setOpenLoading] = useState(false);
@@ -387,14 +389,19 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
   };
 
   useEffect(() => {
+    openPdfUrlRef.current = openPdfUrl;
+    openPdfUrlsRef.current = openPdfUrls;
+  }, [openPdfUrl, openPdfUrls]);
+
+  useEffect(() => {
     return () => {
       const blobUrls = new Set([
-        ...(openPdfUrl?.startsWith("blob:") ? [openPdfUrl] : []),
-        ...openPdfUrls.filter((u) => u.startsWith("blob:")),
+        ...(openPdfUrlRef.current?.startsWith("blob:") ? [openPdfUrlRef.current] : []),
+        ...openPdfUrlsRef.current.filter((u) => u.startsWith("blob:")),
       ]);
       blobUrls.forEach((u) => URL.revokeObjectURL(u));
     };
-  }, [openPdfUrl, openPdfUrls]);
+  }, []);
 
 
   const types = useMemo(() => {
