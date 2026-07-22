@@ -1133,7 +1133,7 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                               <PdfCanvasViewer
                                 src={u}
                                 title={`Electronic report ${openPdfUrls.length > 1 ? i + 1 : ""}`.trim()}
-                                className="w-full"
+                                className="h-[680px] w-full"
                               />
                             </div>
                           ))}
