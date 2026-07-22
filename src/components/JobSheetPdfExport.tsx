@@ -1130,8 +1130,25 @@ export async function generateJobSheetPdf(
   const fileName = [filenameRef, safeSite || null, template.name.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
   const base64 = doc.output("datauristring").split(",")[1];
 
+  // Single-page safeguard. Report/job-sheet PDFs are supposed to fit on one
+  // page — a page-2 spill is almost always a layout regression (sig block
+  // grown, header logo bumped, extra body row added). Log a loud warning
+  // rather than throwing so users still get their PDF, but the regression is
+  // visible in browser + edge logs and easy to grep for.
+  try {
+    const pageCount = doc.getNumberOfPages();
+    if (pageCount > 1) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[JobSheetPdfExport] SINGLE-PAGE REGRESSION: ${pageCount} pages for template "${template.name}" (${fileName}). ` +
+          `Investigate sig block sizing, header logo height, or body row overflow.`,
+      );
+    }
+  } catch { /* getNumberOfPages unavailable on this jsPDF build — skip */ }
+
   return { base64, fileName };
 }
+
 
 export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, submittedBy, submittedAt, onPdfGenerated, trigger, mode = "preview", categoryName: categoryNameProp }: Props) {
   const [generating, setGenerating] = useState(false);
