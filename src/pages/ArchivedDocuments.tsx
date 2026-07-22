@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AppLayout from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
@@ -50,9 +50,10 @@ import {
   Send,
 } from "lucide-react";
 import SendArchiveDialog from "@/components/paper-scan/SendArchiveDialog";
+import SendJobScanDialog from "@/components/paper-scan/SendJobScanDialog";
 import ArchiveScanDialog from "@/components/paper-scan/ArchiveScanDialog";
 import { useAuth } from "@/hooks/useAuth";
-import { resolveSubmissionsSignedUrls, resolveSubmissionsSignedUrl } from "@/lib/resolveSubmissionsPath";
+import { resolveSubmissionsSignedUrls, resolveSubmissionsSignedUrl, submissionsPathFromSignedUrl } from "@/lib/resolveSubmissionsPath";
 import { useToast } from "@/hooks/use-toast";
 import { deleteArchivedDocument } from "@/lib/deleteArchivedDocument";
 import {
@@ -92,6 +93,14 @@ type ArchivedDoc = {
   status: "filed" | "unmatched";
   created_at: string;
   header_data: Record<string, any> | null;
+  /** Row origin — "archive" (archived_documents row) or "job" (a jobs row
+   *  that was created via the paper-scan flow, surfaced here so History is
+   *  the single place to see everything scanned). */
+  kind: "archive" | "job";
+  /** Populated only for kind='job' rows so the row can link back to the
+   *  full job detail page and Send can address the correct job. */
+  job_id?: string | null;
+  job_reference?: string | null;
 };
 
 interface ArchivedDocumentsProps {
@@ -134,6 +143,8 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
   const [bulkBusy, setBulkBusy] = useState(false);
 
   const [sendDoc, setSendDoc] = useState<ArchivedDoc | null>(null);
+  const [sendJobId, setSendJobId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const isAdmin = userRole === "admin";
 
@@ -141,7 +152,9 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
 
   const load = async () => {
     setLoading(true);
-    const { data } = await (supabase as any)
+
+    // 1. Native archive rows.
+    const { data: archiveData } = await (supabase as any)
       .from("archived_documents")
       .select(
         "id, customer_id, site_id, document_date, document_type, template_id, template_name, title, notes, file_paths, report_pdf_path, page_count, status, created_at, header_data",
@@ -149,7 +162,100 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
       .order("document_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(500);
-    const rows = ((data as any) || []) as ArchivedDoc[];
+    const archiveRows: ArchivedDoc[] = ((archiveData as any) || []).map(
+      (r: any) => ({ ...r, kind: "archive" as const }),
+    );
+
+    // 2. Jobs that originated from a paper-scan filing (source starts with
+    //    "paper backfill"). We surface them alongside archive rows so the
+    //    History tab is the single place to find every digitised sheet.
+    const { data: jobData } = await (supabase as any)
+      .from("jobs")
+      .select(
+        "id, reference_number, name, customer_id, site_id, completed_at, due_date, created_at, source, customer_po",
+      )
+      .ilike("source", "paper backfill%")
+      .order("completed_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(300);
+    const jobRowsRaw = (jobData as any[]) || [];
+    const jobIds = jobRowsRaw.map((j) => j.id);
+
+    // 3. Pull the electronic-report + source-scan documents for those jobs
+    //    in one query so we can synthesise report_pdf_path / file_paths.
+    let jobDocsByJob: Record<
+      string,
+      { report?: any; scans: any[] }
+    > = {};
+    if (jobIds.length > 0) {
+      const { data: jobDocs } = await (supabase as any)
+        .from("job_documents")
+        .select("job_id, document_type, label, file_url, file_name, created_at")
+        .in("job_id", jobIds)
+        .in("document_type", ["report", "source_scan"]);
+      for (const d of (jobDocs as any[]) || []) {
+        const bucket = jobDocsByJob[d.job_id] || { scans: [] };
+        if (d.document_type === "report") {
+          if (
+            !bucket.report ||
+            /electronic report/i.test(d.label || "")
+          ) {
+            // Prefer the "Electronic report — …" doc we author from the
+            // scan flow; fall back to any other report doc if not present.
+            if (
+              /electronic report/i.test(d.label || "") ||
+              !bucket.report
+            ) {
+              bucket.report = d;
+            }
+          }
+        } else if (d.document_type === "source_scan") {
+          bucket.scans.push(d);
+        }
+        jobDocsByJob[d.job_id] = bucket;
+      }
+    }
+
+    const jobRows: ArchivedDoc[] = jobRowsRaw.map((j) => {
+      const bundle = jobDocsByJob[j.id] || { scans: [] as any[] };
+      const reportPath =
+        submissionsPathFromSignedUrl(bundle.report?.file_url) || null;
+      const scanPaths = bundle.scans
+        .map((s: any) => submissionsPathFromSignedUrl(s.file_url))
+        .filter((p): p is string => !!p);
+      const templateName = (bundle.report?.label || "")
+        .toString()
+        .replace(/^electronic report\s*[—-]\s*/i, "")
+        .trim() || (j.name || null);
+      return {
+        id: `job:${j.id}`,
+        customer_id: j.customer_id,
+        site_id: j.site_id,
+        document_date: j.completed_at || j.due_date || null,
+        document_type: templateName,
+        template_id: null,
+        template_name: templateName,
+        title: j.reference_number || j.name,
+        notes: null,
+        file_paths: scanPaths,
+        report_pdf_path: reportPath,
+        page_count: 0,
+        status: (reportPath ? "filed" : "unmatched") as "filed" | "unmatched",
+        created_at: j.created_at,
+        header_data: j.customer_po ? { po_ref: j.customer_po } : null,
+        kind: "job",
+        job_id: j.id,
+        job_reference: j.reference_number || null,
+      };
+    });
+
+    // Merge and sort by date (document_date desc, created_at desc).
+    const rows = [...archiveRows, ...jobRows].sort((a, b) => {
+      const ad = a.document_date || a.created_at || "";
+      const bd = b.document_date || b.created_at || "";
+      if (ad !== bd) return ad < bd ? 1 : -1;
+      return (a.created_at || "") < (b.created_at || "") ? 1 : -1;
+    });
     setDocs(rows);
 
     const cIds = Array.from(new Set(rows.map((r) => r.customer_id).filter(Boolean))) as string[];
@@ -664,15 +770,30 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                         )}
                       </TableCell>
                       <TableCell className="text-xs">
-                        {d.report_pdf_path ? (
-                          <Badge variant="secondary" className="gap-1">
-                            <FileText className="h-3 w-3" /> Electronic
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="gap-1">
-                            <Images className="h-3 w-3" /> Scan only
-                          </Badge>
-                        )}
+                        <div className="flex flex-wrap gap-1">
+                          {d.report_pdf_path ? (
+                            <Badge variant="secondary" className="gap-1">
+                              <FileText className="h-3 w-3" /> Electronic
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1">
+                              <Images className="h-3 w-3" /> Scan only
+                            </Badge>
+                          )}
+                          {d.kind === "job" ? (
+                            <Badge
+                              variant="outline"
+                              className="gap-1 border-blue-400 text-blue-700 bg-blue-50"
+                              title={`Filed as job ${d.job_reference || ""}`.trim()}
+                            >
+                              Filed as job
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1">
+                              Archive only
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {(() => {
@@ -698,14 +819,20 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          {canConvert && (
+                          {canConvert && d.kind === "archive" && (
                             <ConvertCell doc={d} onConvert={handleConvert} />
                           )}
                           {d.report_pdf_path && (
                             <Button
                               size="sm"
                               variant="default"
-                              onClick={() => setSendDoc(d)}
+                              onClick={() => {
+                                if (d.kind === "job" && d.job_id) {
+                                  setSendJobId(d.job_id);
+                                } else {
+                                  setSendDoc(d);
+                                }
+                              }}
                               title="Email report to customer"
                             >
                               <Send className="h-3.5 w-3.5 mr-1" /> Send
@@ -719,16 +846,28 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                           >
                             Open
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => setConfirmDelete(d)}
-                            disabled={busyId === d.id}
-                            title="Delete archived document"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          {d.kind === "job" && d.job_id && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => navigate(`/jobs/${d.job_id}`)}
+                              title="Open full job detail"
+                            >
+                              Open job
+                            </Button>
+                          )}
+                          {d.kind === "archive" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => setConfirmDelete(d)}
+                              disabled={busyId === d.id}
+                              title="Delete archived document"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -873,7 +1012,14 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                     size="sm"
                     variant="default"
                     className="h-7 gap-1"
-                    onClick={() => openDoc && setSendDoc(openDoc)}
+                    onClick={() => {
+                      if (!openDoc) return;
+                      if (openDoc.kind === "job" && openDoc.job_id) {
+                        setSendJobId(openDoc.job_id);
+                      } else {
+                        setSendDoc(openDoc);
+                      }
+                    }}
                   >
                     <Send className="h-3.5 w-3.5" /> Send to customer
                   </Button>
@@ -1005,6 +1151,15 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
           archivedId={sendDoc.id}
           open={!!sendDoc}
           onOpenChange={(o) => !o && setSendDoc(null)}
+        />
+      )}
+
+      {sendJobId && (
+        <SendJobScanDialog
+          jobId={sendJobId}
+          open={!!sendJobId}
+          onOpenChange={(o) => !o && setSendJobId(null)}
+          onSent={() => load()}
         />
       )}
     </>

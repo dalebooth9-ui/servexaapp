@@ -55,3 +55,20 @@ export async function resolveSubmissionsSignedUrls(
   }
   return { urls, failed };
 }
+
+/**
+ * Parse the storage path back out of a Supabase signed/public URL that points
+ * at the `submissions` bucket. Used when a table stored only a signed URL
+ * (e.g. legacy `job_documents.file_url`) and we need to re-issue a fresh
+ * signed URL or read the raw file.
+ */
+export function submissionsPathFromSignedUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const m = url.match(/\/object\/(?:sign|public)\/submissions\/([^?#]+)/);
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch {
+    return m[1];
+  }
+}
