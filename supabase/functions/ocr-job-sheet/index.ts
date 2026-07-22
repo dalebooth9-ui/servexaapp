@@ -309,6 +309,37 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
         type: "string",
         description: `"${f.label}" — pick the closest match: ${f.options.join(", ")}. Return an option value ONLY if the engineer has clearly ticked, circled, struck through, or otherwise marked one of them (or written a matching answer). If the handwritten answer is descriptive text (e.g. "NOT VISIBLE", "NO ACCESS", "N/A – EXPOSED INLET"), return the FULL text exactly as written and do NOT force it to the nearest option.${OMIT_IF_UNCERTAIN}${extraInstruction}`,
       };
+    } else if (f.type === "repeating_table" && Array.isArray(f.columns) && f.columns.length > 0) {
+      // Repeating table (grid) — one array entry per printed data row on the
+      // sheet. Used for zone-valve-per-floor grids, dwelling-access-log
+      // per-apartment rows, flow & pressure test tables, and any other
+      // multi-row section. Without this branch the entire grid collapses
+      // into a single free-text field and rows are lost.
+      const columnDescriptors = f.columns.map((c: any) => {
+        const parts = [`"${c.label || c.id}"`];
+        if (c.type === "number") parts.push("numeric");
+        else if (c.type === "yn_na") parts.push('one of "yes" / "no" / "n/a" (blank if unmarked)');
+        else if (c.type === "dropdown" && Array.isArray(c.options) && c.options.length)
+          parts.push(`one of: ${c.options.join(", ")}`);
+        else if (c.type === "photo_gallery" || c.type === "photo") parts.push("(OMIT — photos are not extracted from OCR)");
+        return `  • ${c.id} → ${parts.join(" — ")}`;
+      }).join("\n");
+      const columnProps: Record<string, any> = {};
+      for (const c of f.columns) {
+        if (c.type === "photo_gallery" || c.type === "photo") continue;
+        columnProps[c.id] = c.type === "number"
+          ? { type: ["number", "string"], description: `${c.label || c.id} — numeric value; omit if blank.` }
+          : { type: "string", description: `${c.label || c.id} — transcribe exactly. Omit the property if the cell is blank.` };
+      }
+      fieldProperties[f.id] = {
+        type: "array",
+        description: `"${f.label}" — REPEATING TABLE. Emit ONE object per PRINTED ROW that has any handwritten data. Do NOT invent rows for headers, blank rows, or crossed-through rows. Do NOT collapse multiple rows into one. If the sheet spans multiple pages and the table continues on the next page, KEEP APPENDING rows in reading order. Column keys:\n${columnDescriptors}\nAn entire row that is empty (no cells filled) must be OMITTED — do NOT return an empty object.${OMIT_IF_UNCERTAIN}`,
+        items: {
+          type: "object",
+          properties: columnProps,
+          additionalProperties: false,
+        },
+      };
     } else {
       const lowerLabel = (f.label || "").toLowerCase();
       const isRemarkField =
