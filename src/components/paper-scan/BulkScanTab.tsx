@@ -116,7 +116,7 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
             }
             toast({
               title: "Filed as single PDF",
-              description: `This scanner format couldn't be split page-by-page (likely CCITT G4 / JBIG2 fax compression). ${filedIds.length} file(s) filed to the archive as unmatched — open them from the archive to tag customer/site.`,
+              description: `Couldn't render this PDF page-by-page. ${filedIds.length} file(s) filed to the archive as unmatched — open them from the archive to tag customer/site.`,
             });
             onClose();
             navigate(`/archive?doc=${filedIds[0]}`);
@@ -124,8 +124,7 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
           }
 
           throw new Error(
-            "This scanner format isn't supported for auto-split (looks like CCITT G4 or JBIG2 fax compression). " +
-              "Try re-scanning as an 'image PDF' / colour PDF, or drop photos of each sheet instead.",
+            "Couldn't render any pages from this PDF. The file may be corrupted or password-protected — try re-saving it, or drop photos of each sheet instead.",
           );
         }
 
