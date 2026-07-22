@@ -265,6 +265,9 @@ export default function ScanReviewDialog({
     setTitle(item.templateName || "");
     setNotes("");
     setAnswers({ ...(item.extracted || {}) });
+    setAdditionalNotes(
+      String((item.header as any)?.additional_notes || "").trim(),
+    );
     setTemplateFields([]);
     setTemplateMeta({ name: null, category: null, job_category: null });
     setDefectSelection({});
