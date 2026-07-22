@@ -374,7 +374,7 @@ export default function SendJobScanDialog({
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
             <div>{error || "Couldn't load job."}</div>
           </div>
-        ) : !reportPath ? (
+        ) : reportPaths.length === 0 ? (
           <div className="rounded border border-amber-400 bg-amber-50 text-amber-900 text-sm p-3 flex gap-2">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
             <div>
