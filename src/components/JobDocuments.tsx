@@ -118,13 +118,17 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     loading: boolean;
     scanUrls: string[];
     scanFailed: number;
-    pdfUrl: string | null;
-  }>({ open: false, loading: false, scanUrls: [], scanFailed: 0, pdfUrl: null });
+    pdfUrls: string[];
+  }>({ open: false, loading: false, scanUrls: [], scanFailed: 0, pdfUrls: [] });
 
   const sourceScanDocs = docs.filter((d) => d.document_type === "source_scan");
-  const reportDoc = docs.find(
-    (d) => d.document_type === "report" && !!d.file_url,
-  );
+  // All report docs (one per digitised sheet). Ordered by created_at so the
+  // Nth electronic report on the right pane lines up with the Nth source
+  // scan on the left pane.
+  const reportDocs = docs
+    .filter((d) => d.document_type === "report" && !!d.file_url)
+    .sort((a: any, b: any) => String(a.created_at || "").localeCompare(String(b.created_at || "")));
+  const reportDoc = reportDocs[0];
   const hasSideBySide = sourceScanDocs.length > 0;
 
   const openPaperVsElectronic = async () => {
@@ -133,7 +137,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       loading: true,
       scanUrls: [],
       scanFailed: 0,
-      pdfUrl: null,
+      pdfUrls: [],
     });
     const scanUrls: string[] = [];
     let scanFailed = 0;
@@ -142,18 +146,20 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       if (u) scanUrls.push(u);
       else scanFailed++;
     }
-    let pdfUrl: string | null = null;
-    if (reportDoc?.file_url) {
-      pdfUrl = await resolveToSignedUrl(reportDoc.file_url, "submissions", 600);
+    const pdfUrls: string[] = [];
+    for (const d of reportDocs) {
+      const u = await resolveToSignedUrl(d.file_url || "", "submissions", 600);
+      if (u) pdfUrls.push(u);
     }
     setPaperVsElectronic({
       open: true,
       loading: false,
       scanUrls,
       scanFailed,
-      pdfUrl,
+      pdfUrls,
     });
   };
+
 
   const handleFillOnline = (templateId: string) => {
     document.getElementById("job-sheets-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1005,7 +1011,7 @@ ${sections}
         loading={paperVsElectronic.loading}
         scanUrls={paperVsElectronic.scanUrls}
         scanFailedCount={paperVsElectronic.scanFailed}
-        electronicPdfUrl={paperVsElectronic.pdfUrl}
+        electronicPdfUrls={paperVsElectronic.pdfUrls}
       />
     </div>
   );
