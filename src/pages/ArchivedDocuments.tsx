@@ -104,7 +104,7 @@ interface ArchivedDocumentsProps {
   onGoReview?: () => void;
 }
 
-export default function ArchivedDocuments({ embedded = false }: ArchivedDocumentsProps = {}) {
+export default function ArchivedDocuments({ embedded = false, onGoReview }: ArchivedDocumentsProps = {}) {
   const [params, setParams] = useSearchParams();
   const { userRole } = useAuth();
   const { toast } = useToast();
