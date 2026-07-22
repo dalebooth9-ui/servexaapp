@@ -8,6 +8,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, Download, FileText, Images, Loader2 } from "lucide-react";
 import PdfCanvasViewer from "@/components/PdfCanvasViewer";
+import ZoomPane from "@/components/ZoomPane";
 
 interface PaperVsElectronicViewerProps {
   open: boolean;
