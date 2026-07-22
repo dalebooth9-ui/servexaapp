@@ -338,6 +338,17 @@ serve(async (req) => {
       });
     }
 
+    // Unstick any items left in "processing" from a previous invocation that
+    // died (OOM, timeout). Without this, a single failure blocks the whole
+    // batch forever because the re-invoke only picks up "pending" rows.
+    const stuckCutoff = new Date(Date.now() - STUCK_PROCESSING_MS).toISOString();
+    await service
+      .from("paper_scan_batch_items")
+      .update({ status: "pending" })
+      .eq("batch_id", batchId)
+      .eq("status", "processing")
+      .lt("updated_at", stuckCutoff);
+
     // Pick up to CHUNK_SIZE pending items
     const { data: items } = await service
       .from("paper_scan_batch_items")
@@ -348,7 +359,7 @@ serve(async (req) => {
 
     if (!items || items.length === 0) {
       // Mark batch complete if nothing pending or processing left
-      const { data: leftover } = await service
+      const { count: leftover } = await service
         .from("paper_scan_batch_items")
         .select("id", { count: "exact", head: true })
         .eq("batch_id", batchId)
@@ -362,18 +373,28 @@ serve(async (req) => {
       return;
     }
 
-    for (const item of items) {
-      const itemId = (item as any).id;
-      const orgId = (item as any).org_id;
-      const paths: string[] = (item as any).image_paths || [];
+    // Reserve the picked items in one shot so a concurrent invocation of this
+    // same function (fired by the auto-kick below) won't try to double-process
+    // the same rows.
+    const pickedIds = items.map((it: any) => it.id as string);
+    await service
+      .from("paper_scan_batch_items")
+      .update({ status: "processing" })
+      .in("id", pickedIds);
 
-      await service
-        .from("paper_scan_batch_items")
-        .update({ status: "processing" })
-        .eq("id", itemId);
+    // Process items in parallel. Each item is I/O bound (download + classify +
+    // OCR), so wall time collapses to ~= the slowest single item rather than
+    // the sum of them. Previously CHUNK_SIZE=1 with re-invoke meant a fresh
+    // cold-boot per sheet — 2 sheets took the sum of two boots plus two OCRs.
+    await Promise.all(items.map(async (item: any) => {
+      const itemId = item.id as string;
+      const orgId = item.org_id as string;
+      const paths: string[] = item.image_paths || [];
 
       try {
-        // Download and base64 the images
+        // Download and base64 the images. Images are already downscaled
+        // client-side by fileToScanBase64 / PDF splitter, so we ship them
+        // straight to OCR without re-decoding here (which was OOMing).
         const payloads: { image_base64: string; mime_type?: string }[] = [];
         const downloadErrors: string[] = [];
         for (const p of paths) {
@@ -426,16 +447,7 @@ serve(async (req) => {
           ? (tpl as any).fields
           : [];
 
-        // Downscale big phone-camera photos before sending to OCR — full-res
-        // 4000px+ images regularly blow the 150s gateway idle timeout.
-        const ocrPayloads = [] as { image_base64: string; mime_type?: string }[];
-        for (const p of payloads) {
-          ocrPayloads.push(await downscaleForOcr(p.image_base64, p.mime_type));
-        }
-
-        // OCR/extract — retry with backoff on 5xx / idle-timeout. The upstream
-        // AI extraction can be slow on complex sheets and occasionally the
-        // gateway kills the connection; a second attempt usually succeeds.
+        // OCR/extract — retry with backoff on 5xx / idle-timeout.
         let ocrResp: Response | null = null;
         let ocrErrText = "";
         for (let attempt = 1; attempt <= OCR_MAX_ATTEMPTS; attempt++) {
@@ -450,7 +462,7 @@ serve(async (req) => {
                   apikey: SUPABASE_ANON_KEY,
                 },
                 body: JSON.stringify({
-                  images: ocrPayloads,
+                  images: payloads,
                   template_name: (tpl as any).name,
                   fields: fields.map((f: any) => ({
                     id: f.id,
@@ -475,7 +487,6 @@ serve(async (req) => {
               throw new Error(`ocr failed: ${ocrErrText.substring(0, 200)}`);
             }
           }
-          // Exponential backoff: 2s, 5s
           const waitMs = attempt === 1 ? 2000 : 5000;
           console.warn(`OCR attempt ${attempt} failed (${ocrErrText.substring(0, 100)}), retrying in ${waitMs}ms`);
           await new Promise((r) => setTimeout(r, waitMs));
@@ -486,19 +497,12 @@ serve(async (req) => {
         const ocrJson = await ocrResp.json();
         const extracted = ocrJson.extracted || {};
         const header = ocrJson.header || {};
-        // Mirror per-field confidence onto header so the review UI (which
-        // only receives header_data) can surface amber "check this" flags
-        // on low-confidence / unmarked rows.
         if (ocrJson.field_confidence && typeof ocrJson.field_confidence === "object") {
           (header as any)._field_confidence = ocrJson.field_confidence;
         }
 
-        // Guess customer/site (letterhead wins over form 'Customer:' field)
         const { customerId, siteId, paperworkOwnerMatchedCustomerId } =
           await fuzzyGuessSite(service, orgId, header);
-        // Stamp match diagnostics onto header so the review UI can surface a
-        // "Detected letterhead: X — no matching customer" banner when the
-        // paperwork owner was recognised but doesn't match any customer.
         const paperworkOwner = String(
           (header as any).paperwork_owner_company || "",
         ).trim();
@@ -507,8 +511,6 @@ serve(async (req) => {
             paperworkOwnerMatchedCustomerId;
         }
 
-
-        // Guess date
         let guessDate: string | null = null;
         const rawDate = String(header.date || "").trim();
         if (rawDate) {
@@ -553,19 +555,19 @@ serve(async (req) => {
           })
           .eq("id", itemId);
       }
+    }));
 
-      // Increment processed_items
-      const { data: b } = await service
+    // Bump processed_items by the size of this chunk in one update.
+    const { data: b } = await service
+      .from("paper_scan_batches")
+      .select("processed_items")
+      .eq("id", batchId)
+      .maybeSingle();
+    if (b) {
+      await service
         .from("paper_scan_batches")
-        .select("processed_items")
-        .eq("id", batchId)
-        .maybeSingle();
-      if (b) {
-        await service
-          .from("paper_scan_batches")
-          .update({ processed_items: ((b as any).processed_items || 0) + 1 })
-          .eq("id", batchId);
-      }
+        .update({ processed_items: ((b as any).processed_items || 0) + items.length })
+        .eq("id", batchId);
     }
 
     // Check if more pending — re-invoke self
@@ -576,7 +578,6 @@ serve(async (req) => {
       .eq("status", "pending");
 
     if ((pendingLeft || 0) > 0) {
-      // Fire and forget re-invocation (do not await response)
       fetch(`${SUPABASE_URL}/functions/v1/process-paper-scan-batch`, {
         method: "POST",
         headers: {
