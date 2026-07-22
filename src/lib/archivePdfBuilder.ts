@@ -208,7 +208,11 @@ export async function generateAndUploadArchivePdf(
         }
       : null,
     generating_org: generatingOrg,
-    reference_number: `ARCH-${archivedId.substring(0, 8).toUpperCase()}`,
+    // Never substitute the internal archive id into the customer-facing
+    // PO/Ref header. If the sheet had no PO and there's no job reference,
+    // the header stays blank. The archive id may surface as a labelled
+    // "Doc ref:" in the footer for traceability, never as the PO/Ref.
+    reference_number: null,
     site: effectiveSite,
   } as any;
 
