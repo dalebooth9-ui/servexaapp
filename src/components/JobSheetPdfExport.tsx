@@ -13,7 +13,8 @@ import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/p
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
-import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
+import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText, PDF_SIGNATURE_BLOCK_HEIGHT_MM } from "@/lib/pdfFooter";
+import { logError } from "@/lib/errorLogger";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
 import { collectEmbeddedPhotoPaths, createSubmissionPhotoSignedUrl, normalisePhotoPathForDedupe } from "@/lib/jobPhotos";
@@ -110,6 +111,32 @@ interface Props {
   trigger?: React.ReactNode;
   mode?: "preview" | "download";
   categoryName?: string;
+}
+
+export function warnIfUnexpectedPdfPageSpill(
+  doc: jsPDF,
+  templateName: string,
+  fileName: string,
+  context: Record<string, unknown> = {},
+): number {
+  try {
+    const pageCount = doc.getNumberOfPages();
+    if (pageCount > 1) {
+      const message =
+        `[JobSheetPdfExport] SINGLE-PAGE REGRESSION: ${pageCount} pages for template "${templateName}" (${fileName}). ` +
+        `Investigate sig block sizing, header logo height, or body row overflow.`;
+      // eslint-disable-next-line no-console
+      console.warn(message);
+      logError({
+        source: "client",
+        message,
+        context: { templateName, fileName, pageCount, ...context },
+      });
+    }
+    return pageCount;
+  } catch {
+    return 1;
+  }
 }
 
 /**
@@ -1035,32 +1062,41 @@ export async function generateJobSheetPdf(
   }
 
 
-  // Signature section flows naturally after content. The sign-off block
-  // occupies ~22mm (date + technician row + 11mm sig image + optional
-  // source-note caption) and MUST fit above the accreditation strip on the
-  // same page, or the whole report spills onto page 2. Reserve 22mm — this
-  // number is intentionally aligned with the layout budget documented in
-  // `pdfFooter.ts` (`renderPdfSignatures`). If you grow the sig block there,
-  // grow this too and re-run `dryRiserSinglePage.test.ts`.
-  const SIG_BLOCK_RESERVE_MM = 22;
-  const remainingSpaceForSig = pageHeight - y - footerSpace;
-  if (remainingSpaceForSig < SIG_BLOCK_RESERVE_MM) {
+  // Signature/footer flow: the previous implementation double-reserved the
+  // footer area (`footerSpace` + signature reserve) and then anchored the
+  // signature near the page bottom. That created a false page break where
+  // page 1 had plenty of blank space and page 2 contained only sign-off. Keep
+  // this stack flowing immediately after the final body row; only add a page
+  // when the actual stack cannot fit.
+  const logoH = 12;
+  const declarationH = footerText && footerText.trim() ? 9 : 0;
+  const sigGap = 2;
+  const footerGap = declarationH ? 2 : 0;
+  const accreditationGap = 3;
+  const helperAccredGapToFooter = 3;
+  const bottomAccredFooterY = pageHeight - margin;
+
+  const computeFlowStack = (startY: number) => {
+    const sigY = startY + sigGap;
+    const signatureEndY = sigY + PDF_SIGNATURE_BLOCK_HEIGHT_MM;
+    const declarationFooterY = declarationH ? signatureEndY + footerGap : signatureEndY;
+    const footerEndY = declarationH ? declarationFooterY + declarationH : signatureEndY;
+    const bottomLogoTop = bottomAccredFooterY - logoH - helperAccredGapToFooter;
+    const canUseBottomLogos = footerEndY <= bottomLogoTop - 2;
+    const logoTop = canUseBottomLogos ? bottomLogoTop : footerEndY + accreditationGap;
+    const accredFooterY = canUseBottomLogos
+      ? bottomAccredFooterY
+      : logoTop + logoH + helperAccredGapToFooter;
+    const stackEndY = canUseBottomLogos ? footerEndY : logoTop + logoH;
+    return { sigY, declarationFooterY, footerEndY, accredFooterY, stackEndY };
+  };
+
+  let footerFlow = computeFlowStack(y);
+  if (footerFlow.stackEndY > pageHeight - margin) {
     doc.addPage();
     y = margin;
+    footerFlow = computeFlowStack(y);
   }
-
-
-
-
-
-
-  // --- Bottom stack layout (calculated from bottom up) ---
-  // addAccreditationLogosToAllPages internally does: rowY = footerY - logoH - 3
-  // So passing declarationFooterY places logos at declarationFooterY - logoH - 3
-  const logoH = 12;
-  const declarationFooterY = pageHeight - margin - 9;                    // e.g. 278mm
-  const logoRowY = declarationFooterY - logoH - 3;                       // e.g. 263mm
-  const sigY = Math.max(y + 2, logoRowY - 18);                           // e.g. 245mm (18mm for sig block)
 
   // Use the form's date field (job/inspection date) for the signature date, falling back to submittedAt then today
   const dateField = template.fields.find(f => {
@@ -1097,7 +1133,7 @@ export async function generateJobSheetPdf(
     "";
   const techName = techFieldValue || responseTechName || submittedBy || engineerSig?.signer_name || "";
 
-  renderPdfSignatures(doc, sigY, {
+  renderPdfSignatures(doc, footerFlow.sigY, {
     dateStr: sigDateStr,
     technicianName: techName,
     customerName: customerSignedDisplayName,
@@ -1108,7 +1144,9 @@ export async function generateJobSheetPdf(
     customerSourceNote: preloadedSignatures?.customerSourceNote ?? null,
   });
 
-  renderPdfFooter(doc, declarationFooterY, footerText);
+  if (declarationH) {
+    renderPdfFooter(doc, footerFlow.declarationFooterY, footerText);
+  }
 
   const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
   const [watermark, accredLogos] = await Promise.all([
@@ -1119,7 +1157,7 @@ export async function generateJobSheetPdf(
     watermark,
     brandColor: accentColor,
     accredLogos,
-    accredFooterY: declarationFooterY,
+    accredFooterY: footerFlow.accredFooterY,
     accredLogoH: logoH,
     // Keep the flame as a subtle background so dwelling-photo pages aren't dominated by it.
     override: { opacity: 0.06 },
@@ -1130,21 +1168,13 @@ export async function generateJobSheetPdf(
   const fileName = [filenameRef, safeSite || null, template.name.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
   const base64 = doc.output("datauristring").split(",")[1];
 
-  // Single-page safeguard. Report/job-sheet PDFs are supposed to fit on one
-  // page — a page-2 spill is almost always a layout regression (sig block
-  // grown, header logo bumped, extra body row added). Log a loud warning
-  // rather than throwing so users still get their PDF, but the regression is
-  // visible in browser + edge logs and easy to grep for.
-  try {
-    const pageCount = doc.getNumberOfPages();
-    if (pageCount > 1) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[JobSheetPdfExport] SINGLE-PAGE REGRESSION: ${pageCount} pages for template "${template.name}" (${fileName}). ` +
-          `Investigate sig block sizing, header logo height, or body row overflow.`,
-      );
-    }
-  } catch { /* getNumberOfPages unavailable on this jsPDF build — skip */ }
+  warnIfUnexpectedPdfPageSpill(doc, template.name, fileName, {
+    jobId,
+    bodyEndY: y,
+    signatureY: footerFlow.sigY,
+    footerY: declarationH ? footerFlow.declarationFooterY : null,
+    footerStackEndY: footerFlow.stackEndY,
+  });
 
   return { base64, fileName };
 }

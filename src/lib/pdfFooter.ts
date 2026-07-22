@@ -1,5 +1,11 @@
 import jsPDF from "jspdf";
 
+/**
+ * Maximum vertical footprint of the filled signature block in millimetres.
+ * Keep page-break/reservation checks in PDF builders aligned to this value.
+ */
+export const PDF_SIGNATURE_BLOCK_HEIGHT_MM = 22;
+
 export interface PdfSignatureData {
   dateStr: string;
   technicianName: string;
@@ -158,7 +164,7 @@ export function renderPdfSignatures(
     doc.setTextColor(0, 0, 0);
   }
 
-  return sigY + 15;
+  return sigY + PDF_SIGNATURE_BLOCK_HEIGHT_MM;
 }
 
 
