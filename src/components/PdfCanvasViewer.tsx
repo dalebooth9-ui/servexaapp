@@ -37,7 +37,7 @@ export default function PdfCanvasViewer({
 
     let cancelled = false;
     let pdf: PDFDocumentProxy | null = null;
-    const loadingTask = pdfjsLib.getDocument(src.split("#")[0]);
+    const loadingTask = pdfjsLib.getDocument({ url: src.split("#")[0] });
 
     const render = async () => {
       setLoading(true);
@@ -72,6 +72,7 @@ export default function PdfCanvasViewer({
           container.appendChild(wrapper);
 
           await page.render({
+            canvas,
             canvasContext: context,
             viewport,
             transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
@@ -90,7 +91,7 @@ export default function PdfCanvasViewer({
     return () => {
       cancelled = true;
       loadingTask.destroy().catch(() => undefined);
-      pdf?.destroy().catch(() => undefined);
+      pdf?.cleanup();
       container.replaceChildren();
     };
   }, [src, title, maxPages]);
