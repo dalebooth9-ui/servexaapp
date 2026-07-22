@@ -29,6 +29,10 @@ export interface PdfFooterFlow {
   accredFooterY: number;
   stackEndY: number;
   canUseBottomLogos: boolean;
+  /** Actual vertical room available for the accreditation strip in mm.
+   *  Callers should shrink the logo height to fit rather than dropping the
+   *  strip entirely — accreditations are near-mandatory branding. */
+  maxLogoHeightAvailable: number;
 }
 
 /**
@@ -55,7 +59,7 @@ export function computePdfFooterFlow(input: PdfFooterFlowInput): PdfFooterFlow {
   const signatureEndY = sigY + signatureHeight;
   const declarationFooterY = declarationHeight ? signatureEndY + declarationGap : signatureEndY;
   const footerEndY = declarationHeight ? declarationFooterY + declarationHeight : signatureEndY;
-  const bottomLogoTop = bottomY - accreditationLogoHeight - accreditationGapToFooter;
+  const maxLogoHeightAvailable = Math.max(0, bottomY - footerEndY - accreditationGapToFooter);
 
   return {
     sigY,
@@ -64,8 +68,36 @@ export function computePdfFooterFlow(input: PdfFooterFlowInput): PdfFooterFlow {
     footerEndY,
     accredFooterY: bottomY,
     stackEndY: footerEndY,
-    canUseBottomLogos: footerEndY <= bottomLogoTop - 2,
+    // Permissive by design: accreditations should render whenever ANY room
+    // (down to the minimum ~6mm) exists. Callers should use
+    // resolveAccreditationLogoHeight() to pick the actual render height.
+    canUseBottomLogos: maxLogoHeightAvailable >= 6,
+    maxLogoHeightAvailable,
   };
+}
+
+/**
+ * Resolve the actual accreditation-logo height to use given available room.
+ * Prefers `preferredH`, shrinks down to `minH` if space is tight, and returns
+ * 0 only when there is genuinely no room. Logs a warning when the strip is
+ * suppressed or shrunk so regressions are visible in the console.
+ */
+export function resolveAccreditationLogoHeight(
+  flow: PdfFooterFlow,
+  preferredH = 12,
+  minH = 6,
+  context = "pdf",
+): number {
+  const avail = flow.maxLogoHeightAvailable;
+  if (avail >= preferredH) return preferredH;
+  if (avail >= minH) {
+    // eslint-disable-next-line no-console
+    console.warn(`[${context}] Accreditation strip shrunk to ${avail.toFixed(1)}mm (preferred ${preferredH}mm) to keep one-page layout.`);
+    return Math.floor(avail);
+  }
+  // eslint-disable-next-line no-console
+  console.warn(`[${context}] Accreditation strip suppressed — only ${avail.toFixed(1)}mm available (min ${minH}mm). Page content is too tall.`);
+  return 0;
 }
 
 export interface PdfSignatureData {
