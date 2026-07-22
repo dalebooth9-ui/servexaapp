@@ -770,15 +770,30 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                         )}
                       </TableCell>
                       <TableCell className="text-xs">
-                        {d.report_pdf_path ? (
-                          <Badge variant="secondary" className="gap-1">
-                            <FileText className="h-3 w-3" /> Electronic
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="gap-1">
-                            <Images className="h-3 w-3" /> Scan only
-                          </Badge>
-                        )}
+                        <div className="flex flex-wrap gap-1">
+                          {d.report_pdf_path ? (
+                            <Badge variant="secondary" className="gap-1">
+                              <FileText className="h-3 w-3" /> Electronic
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1">
+                              <Images className="h-3 w-3" /> Scan only
+                            </Badge>
+                          )}
+                          {d.kind === "job" ? (
+                            <Badge
+                              variant="outline"
+                              className="gap-1 border-blue-400 text-blue-700 bg-blue-50"
+                              title={`Filed as job ${d.job_reference || ""}`.trim()}
+                            >
+                              Filed as job
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1">
+                              Archive only
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {(() => {
@@ -804,14 +819,20 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          {canConvert && (
+                          {canConvert && d.kind === "archive" && (
                             <ConvertCell doc={d} onConvert={handleConvert} />
                           )}
                           {d.report_pdf_path && (
                             <Button
                               size="sm"
                               variant="default"
-                              onClick={() => setSendDoc(d)}
+                              onClick={() => {
+                                if (d.kind === "job" && d.job_id) {
+                                  setSendJobId(d.job_id);
+                                } else {
+                                  setSendDoc(d);
+                                }
+                              }}
                               title="Email report to customer"
                             >
                               <Send className="h-3.5 w-3.5 mr-1" /> Send
@@ -825,16 +846,28 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                           >
                             Open
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => setConfirmDelete(d)}
-                            disabled={busyId === d.id}
-                            title="Delete archived document"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          {d.kind === "job" && d.job_id && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => navigate(`/jobs/${d.job_id}`)}
+                              title="Open full job detail"
+                            >
+                              Open job
+                            </Button>
+                          )}
+                          {d.kind === "archive" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => setConfirmDelete(d)}
+                              disabled={busyId === d.id}
+                              title="Delete archived document"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -979,7 +1012,14 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                     size="sm"
                     variant="default"
                     className="h-7 gap-1"
-                    onClick={() => openDoc && setSendDoc(openDoc)}
+                    onClick={() => {
+                      if (!openDoc) return;
+                      if (openDoc.kind === "job" && openDoc.job_id) {
+                        setSendJobId(openDoc.job_id);
+                      } else {
+                        setSendDoc(openDoc);
+                      }
+                    }}
                   >
                     <Send className="h-3.5 w-3.5" /> Send to customer
                   </Button>
@@ -1111,6 +1151,15 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
           archivedId={sendDoc.id}
           open={!!sendDoc}
           onOpenChange={(o) => !o && setSendDoc(null)}
+        />
+      )}
+
+      {sendJobId && (
+        <SendJobScanDialog
+          jobId={sendJobId}
+          open={!!sendJobId}
+          onOpenChange={(o) => !o && setSendJobId(null)}
+          onSent={() => load()}
         />
       )}
     </>
