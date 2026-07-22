@@ -41,6 +41,14 @@ export interface RunScanExtractionInput {
   fields: ScanTemplateField[];
   /** When set, engineer header name is matched against org profiles. */
   matchEngineerToProfiles?: boolean;
+  /** Optional reference date used for date plausibility checks. Usually the
+   *  scan upload time (defaults to now). Extracted date fields more than ~13
+   *  months before this, or after it, are flagged low-confidence. */
+  scanReferenceDate?: Date;
+  /** Optional planned/scheduled/completed date for the job the scan belongs
+   *  to. When present, extracted dates that differ by >60 days from this are
+   *  flagged low-confidence so the reviewer can double-check. */
+  plannedJobDate?: Date | null;
 }
 
 export interface ScanExtractionResult {
