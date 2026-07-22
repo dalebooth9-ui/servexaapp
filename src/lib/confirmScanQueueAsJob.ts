@@ -87,6 +87,15 @@ export async function confirmScanQueueAsJob(
   if (header.engineer && !fullResponses["technician_name"]) {
     fullResponses.technician_name = header.engineer;
   }
+  // Freeform off-form notes captured by OCR (access codes, key fobs, block
+  // info). Stored on the job's responses so it's visible in the job detail
+  // alongside the extracted answers, not only on the electronic PDF.
+  const extraNotes = header.additional_notes
+    ? String(header.additional_notes).trim()
+    : "";
+  if (extraNotes && !fullResponses["additional_notes"]) {
+    fullResponses.additional_notes = extraNotes;
+  }
 
   const poFromPaper =
     (header.po_ref ? String(header.po_ref) : "") ||
