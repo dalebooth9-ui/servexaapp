@@ -214,6 +214,41 @@ export async function runScanExtraction(
     }
   }
 
+  // LETTERHEAD GUARD (defense-in-depth mirror of ocr-job-sheet post-process):
+  // never let the sheet's own printed branding land in a customer / client
+  // template field. Edge function should already have cleared these but we
+  // repeat the check here so any older cached edge deploy is still safe.
+  const normaliseCompany = (s: unknown) =>
+    String(s ?? "")
+      .toLowerCase()
+      .replace(/https?:\/\//g, "")
+      .replace(/^www\./, "")
+      .replace(/\.(co\.uk|com|net|org|io|uk|ltd)\b/g, "")
+      .replace(/\b(ltd|limited|plc|llp|inc|fire|protection|services|solutions|group|systems|company|co)\b\.?/g, "")
+      .replace(/[^a-z0-9]/g, "");
+  const letterhead = normaliseCompany(header.paperwork_owner_company);
+  const collidesWithLetterhead = (v: unknown) => {
+    if (!letterhead || letterhead.length < 3) return false;
+    const c = normaliseCompany(v);
+    if (!c || c.length < 3) return false;
+    return c === letterhead || c.includes(letterhead) || letterhead.includes(c);
+  };
+  if (collidesWithLetterhead(header.customer)) {
+    header.customer = "";
+  }
+  for (const field of input.fields) {
+    const label = `${field.section || ""} ${field.label || ""}`
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+    const isCustomerish = /\b(customer|client)\b/.test(label) && !/site|address|postcode/.test(label);
+    if (!isCustomerish) continue;
+    if (collidesWithLetterhead(extracted[field.id])) {
+      delete extracted[field.id];
+      fieldConfidence[field.id] = Math.min(fieldConfidence[field.id] ?? 0.4, 0.4);
+    }
+  }
+
   // Engineer fuzzy match against org profiles (opt-in; the identify pass
   // shouldn't waste a DB round-trip).
   let engineerMatch: ScanExtractionResult["engineerMatch"] = {

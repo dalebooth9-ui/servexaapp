@@ -756,6 +756,51 @@ serve(async (req) => {
         }
       }
 
+      // LETTERHEAD GUARD: the sheet's own printed branding (paperwork_owner_company)
+      // must NEVER surface as the customer / client / party value. If the model
+      // has echoed the letterhead into header.customer or into any customer-ish
+      // template field, blank it and flag low-confidence so the reviewer fills
+      // it in from the handwritten customer entry (or leaves it blank).
+      const normaliseCompany = (s: unknown) =>
+        String(s ?? "")
+          .toLowerCase()
+          .replace(/https?:\/\//g, "")
+          .replace(/^www\./, "")
+          .replace(/\.(co\.uk|com|net|org|io|uk|ltd)\b/g, "")
+          .replace(/\b(ltd|limited|plc|llp|inc|fire|protection|services|solutions|group|systems|company|co)\b\.?/g, "")
+          .replace(/[^a-z0-9]/g, "");
+      const letterhead = normaliseCompany(bestExtraction.header?.paperwork_owner_company);
+      const collides = (candidate: unknown) => {
+        if (!letterhead || letterhead.length < 3) return false;
+        const c = normaliseCompany(candidate);
+        if (!c || c.length < 3) return false;
+        return c === letterhead || c.includes(letterhead) || letterhead.includes(c);
+      };
+      if (collides(bestExtraction.header?.customer)) {
+        console.log(
+          `Post-process: blanked header.customer ("${bestExtraction.header?.customer}") — matched letterhead paperwork_owner_company ("${bestExtraction.header?.paperwork_owner_company}")`,
+        );
+        bestExtraction.header.customer = "";
+      }
+      const isCustomerAnswerField = (field: any) => {
+        const label = normaliseLabel(`${field.section || ""} ${field.label || ""}`);
+        return /\b(customer|client)\b/.test(label) && !/site|address|postcode/.test(label);
+      };
+      for (const f of fieldArray) {
+        if (!isCustomerAnswerField(f)) continue;
+        if (collides(bestExtraction.extracted[f.id])) {
+          console.log(
+            `Post-process: cleared customer field "${f.id}" — value matched letterhead branding`,
+          );
+          delete bestExtraction.extracted[f.id];
+          bestExtraction.field_confidence = bestExtraction.field_confidence || {};
+          bestExtraction.field_confidence[f.id] = Math.min(
+            bestExtraction.field_confidence[f.id] ?? 0.4,
+            0.4,
+          );
+        }
+      }
+
       const exposedOutletSections = new Set<string>();
       let hasExposedOutlets = false;
       for (const f of fieldArray) {
