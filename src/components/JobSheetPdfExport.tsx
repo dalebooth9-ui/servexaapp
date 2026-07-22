@@ -504,31 +504,113 @@ export async function generateJobSheetPdf(
   const renderableFieldsForLayout = sections.flatMap((sec) =>
     getRenderableSectionFields(template.fields, sec, skipIds, resolvedFormData, omittedSections),
   );
-  const layout = computeSectionLayout(renderableFieldsForLayout, sections, skipIds, availableH, {
-    extraSpaceUsed: commentsH,
-    sectionHeaderH: isDryRiser ? DRY_RISER_LAYOUT.body.sectionHeaderRowMm : undefined,
-    minRowH: isDryRiser ? DRY_RISER_LAYOUT.body.fieldRowMm : undefined,
-    maxRowH: isDryRiser ? DRY_RISER_LAYOUT.body.fieldRowMm : undefined,
-  });
 
-  for (const section of sections) {
-    const sectionFields = getRenderableSectionFields(
-      template.fields,
-      section,
-      skipIds,
-      resolvedFormData,
-      omittedSections,
-    );
-    if (sectionFields.length === 0) continue;
+  // Precompute section metadata + comfortable-height estimate. We use this to
+  // decide whether the report can live on a single page (short templates like
+  // Dry Riser — Pressure Test) or needs to breathe across multiple pages
+  // (longer templates like Sprinkler Service). Compressing a long template
+  // onto a single page produces cramped, hard-to-read rows; spreading it
+  // across N pages with comfortable spacing and section-boundary breaks is
+  // the desired outcome.
+  const sectionSecHeaderH = isDryRiser ? DRY_RISER_LAYOUT.body.sectionHeaderRowMm : 6;
+  const comfortableRowH = isDryRiser ? DRY_RISER_LAYOUT.body.fieldRowMm : 7;
+  const sectionData = sections
+    .map((sec) => {
+      const sf = getRenderableSectionFields(
+        template.fields,
+        sec,
+        skipIds,
+        resolvedFormData,
+        omittedSections,
+      );
+      const rows = sf.reduce((a, f) => a + (f.type === "signature" ? 2 : 1), 0);
+      return { sec, sf, rows, height: sectionSecHeaderH + rows * comfortableRowH + 1 };
+    })
+    .filter((s) => s.sf.length > 0);
+  const totalContentH = sectionData.reduce((a, s) => a + s.height, 0) + commentsH;
+  const fitsOnePage = totalContentH <= availableH;
 
-    y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
-
-    for (const field of sectionFields) {
-      y = renderFilledFieldRow(doc, field, resolvedFormData[field.id], resolvedFormData[`${field.id}_notes`], y, {
-        margin, maxWidth, colSplit, rowH: layout.rowH,
-      });
+  // Slim continuation-page header used only in multi-page mode. Keeps the
+  // sheet identifiable on page 2+ without repeating the full logo/branding
+  // block, so continuation pages stay focused on content.
+  const drawContinuationHeader = (): number => {
+    const topY = margin;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(headerAccent[0], headerAccent[1], headerAccent[2]);
+    doc.text(`${sheetTitle} (continued)`, margin, topY + 4);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(80, 80, 80);
+    doc.setFontSize(8);
+    const right = [customerName, siteDisplay].filter(Boolean).join(" — ");
+    if (right) {
+      const tw = doc.getTextWidth(right);
+      doc.text(right, margin + maxWidth - tw, topY + 4);
     }
-    y += 1;
+    doc.setDrawColor(headerAccent[0], headerAccent[1], headerAccent[2]);
+    doc.setLineWidth(0.4);
+    doc.line(margin, topY + 6, margin + maxWidth, topY + 6);
+    doc.setTextColor(0, 0, 0);
+    doc.setLineWidth(0.2);
+    return topY + 10;
+  };
+
+  if (isDryRiser || fitsOnePage) {
+    // Single-page path (short templates / Dry Riser). Original behaviour:
+    // rowH is elastically compressed to fit everything on page 1.
+    const layout = computeSectionLayout(renderableFieldsForLayout, sections, skipIds, availableH, {
+      extraSpaceUsed: commentsH,
+      sectionHeaderH: isDryRiser ? DRY_RISER_LAYOUT.body.sectionHeaderRowMm : undefined,
+      minRowH: isDryRiser ? DRY_RISER_LAYOUT.body.fieldRowMm : undefined,
+      maxRowH: isDryRiser ? DRY_RISER_LAYOUT.body.fieldRowMm : undefined,
+    });
+
+    for (const { sec, sf } of sectionData) {
+      y = renderSectionHeader(doc, sec, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
+      for (const field of sf) {
+        y = renderFilledFieldRow(doc, field, resolvedFormData[field.id], resolvedFormData[`${field.id}_notes`], y, {
+          margin, maxWidth, colSplit, rowH: layout.rowH,
+        });
+      }
+      y += 1;
+    }
+  } else {
+    // Multi-page path (long templates like Sprinkler Service). Use comfortable
+    // row heights and distribute sections roughly evenly across the pages we
+    // need, breaking only at section boundaries (never mid-section or mid-row).
+    const pageBodyH = pageHeight - margin - footerSpace; // usable body height on continuation pages (no full header)
+    const pagesNeeded = Math.max(
+      2,
+      Math.ceil((totalContentH + Math.max(0, margin - 0)) / Math.min(availableH, pageBodyH)),
+    );
+    const perPageTarget = totalContentH / pagesNeeded;
+    const rowH = comfortableRowH;
+    let usedThisPage = 0;
+    let pageIndex = 0;
+
+    for (let i = 0; i < sectionData.length; i++) {
+      const { sec, sf, height } = sectionData[i];
+      const pageBottomLimit = pageHeight - footerSpace;
+      const wouldOverflow = y + height > pageBottomLimit;
+      const balanceBreak =
+        usedThisPage > 0 &&
+        pageIndex < pagesNeeded - 1 &&
+        usedThisPage + height > perPageTarget * 1.15;
+      if (wouldOverflow || balanceBreak) {
+        doc.addPage();
+        pageIndex++;
+        y = drawContinuationHeader();
+        usedThisPage = 0;
+      }
+      y = renderSectionHeader(doc, sec, y, { margin, maxWidth, colSplit, sectionHeaderH: sectionSecHeaderH });
+      for (const field of sf) {
+        y = renderFilledFieldRow(doc, field, resolvedFormData[field.id], resolvedFormData[`${field.id}_notes`], y, {
+          margin, maxWidth, colSplit, rowH,
+        });
+      }
+      y += 1;
+      usedThisPage += height;
+    }
   }
 
 
