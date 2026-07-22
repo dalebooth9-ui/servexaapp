@@ -41,6 +41,14 @@ export interface RunScanExtractionInput {
   fields: ScanTemplateField[];
   /** When set, engineer header name is matched against org profiles. */
   matchEngineerToProfiles?: boolean;
+  /** Optional reference date used for date plausibility checks. Usually the
+   *  scan upload time (defaults to now). Extracted date fields more than ~13
+   *  months before this, or after it, are flagged low-confidence. */
+  scanReferenceDate?: Date;
+  /** Optional planned/scheduled/completed date for the job the scan belongs
+   *  to. When present, extracted dates that differ by >60 days from this are
+   *  flagged low-confidence so the reviewer can double-check. */
+  plannedJobDate?: Date | null;
 }
 
 export interface ScanExtractionResult {
@@ -129,6 +137,88 @@ const HEADER_TO_FIELD_MAP: Record<string, string[]> = {
   customer: ["customer_details"],
   engineer: ["technician_name", "engineer_name"],
 };
+
+// ── Date plausibility validation ─────────────────────────────────────────
+// Compliance dates are safety-critical: a mis-read year (e.g. "26" → "20")
+// silently backdates a certificate by years. We parse extracted dates in
+// several common formats and downgrade confidence when they land outside a
+// sensible recency window relative to the scan date.
+
+const DATE_FIELD_ID_HINT = /(^|_)date($|_)|inspection_date|sign_date|completed_at|service_date|visit_date/i;
+const DATE_FIELD_LABEL_HINT = /date|dated|day\b|when/i;
+
+function isDateField(f: ScanTemplateField): boolean {
+  if (f.type === "date" || f.type === "datetime") return true;
+  if (DATE_FIELD_ID_HINT.test(f.id)) return true;
+  const label = (f.label || "").toLowerCase();
+  return DATE_FIELD_LABEL_HINT.test(label) && /date|dated/.test(label);
+}
+
+/** Parse DD/MM/YY, DD/MM/YYYY, DD-MM-YY(YY), DD.MM.YY(YY), or ISO YYYY-MM-DD.
+ *  Two-digit years are interpreted as 2000+YY. Returns null on unparseable input. */
+export function parseSheetDate(s: unknown): Date | null {
+  if (!s || typeof s !== "string") return null;
+  const raw = s.trim();
+  if (!raw) return null;
+  const iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) {
+    const y = +iso[1], m = +iso[2], d = +iso[3];
+    return buildDate(y, m, d);
+  }
+  const dmy = raw.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (dmy) {
+    const d = +dmy[1], m = +dmy[2];
+    let y = +dmy[3];
+    if (y < 100) y += 2000;
+    return buildDate(y, m, d);
+  }
+  return null;
+}
+
+function buildDate(y: number, m: number, d: number): Date | null {
+  if (m < 1 || m > 12 || d < 1 || d > 31 || y < 1900 || y > 2999) return null;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
+  return dt;
+}
+
+export interface DatePlausibilityCheck {
+  ok: boolean;
+  reason?: "future" | "too_old" | "differs_from_planned";
+  message?: string;
+}
+
+export function checkDatePlausibility(
+  d: Date,
+  scanRef: Date,
+  plannedDate?: Date | null,
+): DatePlausibilityCheck {
+  const MS_DAY = 86_400_000;
+  // Allow up to 24h of clock skew in the "future" direction.
+  if (d.getTime() > scanRef.getTime() + MS_DAY) {
+    return { ok: false, reason: "future", message: "Date is in the future — please confirm the year." };
+  }
+  const cutoff = new Date(scanRef);
+  cutoff.setUTCMonth(cutoff.getUTCMonth() - 13);
+  if (d.getTime() < cutoff.getTime()) {
+    return {
+      ok: false,
+      reason: "too_old",
+      message: `Date is more than 13 months before the scan (${d.toISOString().slice(0, 10)}) — likely an OCR misread of the year.`,
+    };
+  }
+  if (plannedDate) {
+    const diffDays = Math.abs(d.getTime() - plannedDate.getTime()) / MS_DAY;
+    if (diffDays > 60) {
+      return {
+        ok: false,
+        reason: "differs_from_planned",
+        message: `Date differs by ${Math.round(diffDays)} days from the planned job date — please confirm.`,
+      };
+    }
+  }
+  return { ok: true };
+}
 
 export function mirrorHeaderIntoAnswers(
   answers: Record<string, any>,
@@ -248,6 +338,48 @@ export async function runScanExtraction(
       fieldConfidence[field.id] = Math.min(fieldConfidence[field.id] ?? 0.4, 0.4);
     }
   }
+
+  // ── DATE PLAUSIBILITY GUARD ─────────────────────────────────────────────
+  // Compliance dates that failed sanity (wrong-year OCR misreads, future
+  // dates, or wildly off the planned job date) are downgraded to
+  // low-confidence so the review UI forces the reviewer to confirm/correct
+  // them. The value is NEVER silently rewritten — we keep the OCR reading
+  // exactly as extracted so the reviewer sees what the model returned.
+  const scanRef = input.scanReferenceDate ?? new Date();
+  const plannedDate = input.plannedJobDate ?? null;
+  const dateIssues: Record<string, DatePlausibilityCheck> = {};
+
+  const evaluateDateValue = (fieldId: string, value: unknown) => {
+    const parsed = parseSheetDate(value);
+    if (!parsed) return;
+    const check = checkDatePlausibility(parsed, scanRef, plannedDate);
+    if (check.ok) return;
+    fieldConfidence[fieldId] = Math.min(fieldConfidence[fieldId] ?? 0.4, 0.35);
+    dateIssues[fieldId] = check;
+    console.warn(`[scanPipeline] Date plausibility failed for ${fieldId}="${value}" — ${check.message}`);
+  };
+
+  // Header-level dates: mirror the flag onto every field id the header maps to
+  // so ReviewDialogs that render answers-first still show the amber badge.
+  if (header.date) {
+    evaluateDateValue("__header_date__", header.date);
+    if (dateIssues["__header_date__"]) {
+      for (const fid of HEADER_TO_FIELD_MAP.date) {
+        fieldConfidence[fid] = Math.min(fieldConfidence[fid] ?? 0.4, 0.35);
+        dateIssues[fid] = dateIssues["__header_date__"];
+      }
+    }
+  }
+  if (header.customer_sign_date) {
+    evaluateDateValue("__header_customer_sign_date__", header.customer_sign_date);
+  }
+  // Any template field that looks like a date field.
+  for (const field of input.fields) {
+    if (!isDateField(field)) continue;
+    evaluateDateValue(field.id, extracted[field.id]);
+  }
+  header._date_issues = dateIssues;
+
 
   // Engineer fuzzy match against org profiles (opt-in; the identify pass
   // shouldn't waste a DB round-trip).
