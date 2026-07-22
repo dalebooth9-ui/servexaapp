@@ -346,14 +346,34 @@ export async function renderPdfHeader(
   doc.setTextColor(30, 30, 30);
 
   // ── Standard 3–4 row detail grid ───────────────────────────────────
+  // Shared helper: fit a value into `maxW` at font size 9, wrapping to
+  // multiple lines (compliance requires the FULL site address, incl. postcode,
+  // to appear — we never truncate mid-word). Long values shrink one step
+  // before wrapping so short-medium addresses still sit on one line.
+  const wrapValue = (
+    text: string,
+    maxW: number,
+    { minSize = 7.5, maxLines = 4 }: { minSize?: number; maxLines?: number } = {},
+  ): { lines: string[]; size: number; lineH: number } => {
+    doc.setFont("helvetica", "normal");
+    let size = 9;
+    let lines = doc.splitTextToSize(text || "", maxW) as string[];
+    while (lines.length > maxLines && size > minSize) {
+      size -= 0.5;
+      doc.setFontSize(size);
+      lines = doc.splitTextToSize(text || "", maxW) as string[];
+    }
+    if (lines.length > maxLines) lines = lines.slice(0, maxLines);
+    doc.setFontSize(9);
+    return { lines, size, lineH: size * 0.4 };
+  };
+
   if (showDetailGrid && style.detailGridVariant === "fourColumn") {
     doc.setDrawColor(180, 180, 180);
     doc.setLineWidth(0.2);
 
-    const headerRowH = 6;
+    const baseRowH = 6;
     const hasW3W = !!data.w3wAddress;
-    const rowCount = hasW3W ? 4 : 3;
-    const detailH = headerRowH * rowCount;
     const c1 = maxWidth * 0.18;
     const c2 = maxWidth * 0.34;
     const c3 = maxWidth * 0.12;
@@ -363,34 +383,68 @@ export async function renderPdfHeader(
     const x3 = x2 + c3;
     const x4 = margin + maxWidth;
 
-    doc.rect(x0, y, maxWidth, detailH);
-    for (let r = 1; r < rowCount; r++) doc.line(x0, y + headerRowH * r, x4, y + headerRowH * r);
-    doc.line(x1, y, x1, y + headerRowH * 2);
-    doc.line(x2, y, x2, y + headerRowH * 2);
-    doc.line(x3, y, x3, y + headerRowH * 2);
-    doc.line(x1, y + headerRowH * 2, x1, y + headerRowH * 3);
+    const siteStr = [data.siteName, data.siteAddress].filter(Boolean).join(", ");
+    const custFit = wrapValue(data.customerName || "", c2 - 4, { maxLines: 2 });
+    const siteFit = wrapValue(siteStr, c2 - 4, { maxLines: 4 });
+    const row1H = Math.max(baseRowH, custFit.lines.length * custFit.lineH + 2.4);
+    const row2H = Math.max(baseRowH, siteFit.lines.length * siteFit.lineH + 2.4);
+    const row3H = baseRowH;
+    const row4H = hasW3W ? baseRowH : 0;
+    const detailH = row1H + row2H + row3H + row4H;
 
-    const drawCell = (label: string, value: string, lx: number, vx: number, maxValueW: number, yy: number) => {
+    const yRow1 = y;
+    const yRow2 = y + row1H;
+    const yRow3 = yRow2 + row2H;
+    const yRow4 = yRow3 + row3H;
+
+    doc.rect(x0, y, maxWidth, detailH);
+    doc.line(x0, yRow2, x4, yRow2);
+    doc.line(x0, yRow3, x4, yRow3);
+    if (hasW3W) doc.line(x0, yRow4, x4, yRow4);
+    // Vertical dividers only span the first two data rows.
+    doc.line(x1, yRow1, x1, yRow3);
+    doc.line(x2, yRow1, x2, yRow3);
+    doc.line(x3, yRow1, x3, yRow3);
+    // Riser row keeps a label divider between col1/col2.
+    doc.line(x1, yRow3, x1, yRow3 + row3H);
+
+    const drawLabel = (label: string, lx: number, yy: number) => {
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.text(label, lx + 2, yy + 4);
+    };
+    const drawWrappedValue = (
+      lines: string[],
+      size: number,
+      lineH: number,
+      vx: number,
+      yy: number,
+    ) => {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(size);
+      lines.forEach((ln, i) => doc.text(ln, vx + 2, yy + 4 + i * lineH));
+      doc.setFontSize(9);
+    };
+    const drawSingle = (label: string, value: string, lx: number, vx: number, maxValueW: number, yy: number) => {
+      drawLabel(label, lx, yy);
       doc.setFont("helvetica", "normal");
       doc.text(doc.splitTextToSize(value || "", maxValueW).slice(0, 1).join(""), vx + 2, yy + 4);
     };
 
-    drawCell("Customer:", data.customerName, x0, x1, c2 - 4, y);
-    drawCell("DATE:", String(data.dateVal || ""), x2, x3, x4 - x3 - 4, y);
-    const siteStr = [data.siteName, data.siteAddress].filter(Boolean).join(", ");
-    drawCell("Site:", siteStr, x0, x1, c2 - 4, y + headerRowH);
-    drawCell("PO/REF:", data.refNumber, x2, x3, x4 - x3 - 4, y + headerRowH);
-    drawCell("Riser Location:", data.riserLocation, x0, x1, x4 - x1 - 4, y + headerRowH * 2);
+    drawLabel("Customer:", x0, yRow1);
+    drawWrappedValue(custFit.lines, custFit.size, custFit.lineH, x1, yRow1);
+    drawSingle("DATE:", String(data.dateVal || ""), x2, x3, x4 - x3 - 4, yRow1);
+    drawLabel("Site:", x0, yRow2);
+    drawWrappedValue(siteFit.lines, siteFit.size, siteFit.lineH, x1, yRow2);
+    drawSingle("PO/REF:", data.refNumber, x2, x3, x4 - x3 - 4, yRow2);
+    drawSingle("Riser Location:", data.riserLocation, x0, x1, x4 - x1 - 4, yRow3);
 
     if (hasW3W) {
       doc.setFont("helvetica", "bold");
       doc.setTextColor(225, 31, 38);
-      doc.text("///what3words:", x0 + 2, y + headerRowH * 3 + 4);
+      doc.text("///what3words:", x0 + 2, yRow4 + 4);
       doc.setFont("helvetica", "normal");
-      doc.text(data.w3wAddress!.replace(/^\/\/\//, ""), x1 + 2, y + headerRowH * 3 + 4);
+      doc.text(data.w3wAddress!.replace(/^\/\/\//, ""), x1 + 2, yRow4 + 4);
       doc.setTextColor(30, 30, 30);
     }
 
@@ -399,63 +453,75 @@ export async function renderPdfHeader(
     doc.setDrawColor(0);
     doc.setLineWidth(0.2);
 
-    const headerRowH = 6;
+    const baseRowH = 6;
     const hasW3W = !!data.w3wAddress;
-    const rowCount = hasW3W ? 4 : 3;
-    const detailH = headerRowH * rowCount;
-    doc.rect(margin, y, maxWidth, detailH);
     const splitX = margin + maxWidth * 0.7;
-    doc.line(splitX, y, splitX, y + headerRowH * 2);
-    doc.line(margin, y + headerRowH, margin + maxWidth, y + headerRowH);
-    doc.line(margin, y + headerRowH * 2, margin + maxWidth, y + headerRowH * 2);
-    doc.line(margin, y + headerRowH * 3, margin + maxWidth, y + headerRowH * 3);
 
     doc.setFontSize(9);
+    const siteStr = [data.siteName, data.siteAddress].filter(Boolean).join(", ");
+    const custFit = wrapValue(data.customerName || "", maxWidth * 0.7 - 22, { maxLines: 2 });
+    const siteFit = wrapValue(siteStr, maxWidth * 0.7 - 12, { maxLines: 4 });
+    const row1H = Math.max(baseRowH, custFit.lines.length * custFit.lineH + 2.4);
+    const row2H = Math.max(baseRowH, siteFit.lines.length * siteFit.lineH + 2.4);
+    const row3H = baseRowH;
+    const row4H = hasW3W ? baseRowH : 0;
+    const detailH = row1H + row2H + row3H + row4H;
+
+    const yRow1 = y;
+    const yRow2 = y + row1H;
+    const yRow3 = yRow2 + row2H;
+    const yRow4 = yRow3 + row3H;
+
+    doc.rect(margin, y, maxWidth, detailH);
+    // Vertical Customer/DATE + Site/PO-REF divider spans first two rows.
+    doc.line(splitX, yRow1, splitX, yRow3);
+    doc.line(margin, yRow2, margin + maxWidth, yRow2);
+    doc.line(margin, yRow3, margin + maxWidth, yRow3);
+    if (hasW3W) doc.line(margin, yRow4, margin + maxWidth, yRow4);
 
     // Row 1: Customer | DATE
     doc.setFont("helvetica", "bold");
-    doc.text("Customer:", margin + 1, y + 4);
+    doc.text("Customer:", margin + 1, yRow1 + 4);
     doc.setFont("helvetica", "normal");
-    doc.text(
-      doc.splitTextToSize(data.customerName, maxWidth * 0.7 - 22).slice(0, 1).join(""),
-      margin + 19,
-      y + 4
+    doc.setFontSize(custFit.size);
+    custFit.lines.forEach((ln, i) =>
+      doc.text(ln, margin + 19, yRow1 + 4 + i * custFit.lineH),
     );
+    doc.setFontSize(9);
 
     doc.setFont("helvetica", "bold");
-    doc.text("DATE:", splitX + 1, y + 4);
+    doc.text("DATE:", splitX + 1, yRow1 + 4);
     doc.setFont("helvetica", "normal");
-    doc.text(String(data.dateVal), splitX + 14, y + 4);
+    doc.text(String(data.dateVal), splitX + 14, yRow1 + 4);
 
-    // Row 2: Site | PO/REF
-    const siteStr = [data.siteName, data.siteAddress].filter(Boolean).join(", ");
+    // Row 2: Site | PO/REF — site wraps to preserve full address + postcode.
     doc.setFont("helvetica", "bold");
-    doc.text("Site:", margin + 1, y + headerRowH + 4);
+    doc.text("Site:", margin + 1, yRow2 + 4);
     doc.setFont("helvetica", "normal");
-    doc.text(
-      doc.splitTextToSize(siteStr, maxWidth * 0.7 - 12).slice(0, 1).join(""),
-      margin + 10,
-      y + headerRowH + 4
+    doc.setFontSize(siteFit.size);
+    siteFit.lines.forEach((ln, i) =>
+      doc.text(ln, margin + 10, yRow2 + 4 + i * siteFit.lineH),
     );
+    doc.setFontSize(9);
 
     doc.setFont("helvetica", "bold");
-    doc.text("PO/REF:", splitX + 1, y + headerRowH + 4);
+    doc.text("PO/REF:", splitX + 1, yRow2 + 4);
     doc.setFont("helvetica", "normal");
-    doc.text(data.refNumber, splitX + 16, y + headerRowH + 4);
+    doc.text(data.refNumber, splitX + 16, yRow2 + 4);
 
     // Row 3: Riser Location
     doc.setFont("helvetica", "bold");
-    doc.text("Riser Location:", margin + 1, y + headerRowH * 2 + 4);
+    doc.text("Riser Location:", margin + 1, yRow3 + 4);
     doc.setFont("helvetica", "normal");
-    doc.text(data.riserLocation, margin + 28, y + headerRowH * 2 + 4);
+    doc.text(data.riserLocation, margin + 28, yRow3 + 4);
 
     // Row 4 (optional): what3words location in W3W red
     if (hasW3W) {
       doc.setFont("helvetica", "bold");
       doc.setTextColor(225, 31, 38); // W3W red
-      doc.text("///what3words:", margin + 1, y + headerRowH * 3 + 4);
+      doc.text("///what3words:", margin + 1, yRow4 + 4);
       doc.setFont("helvetica", "normal");
-      doc.text(data.w3wAddress!.replace(/^\/\/\//, ""), margin + 30, y + headerRowH * 3 + 4);
+      doc.text(data.w3wAddress!.replace(/^\/\/\//, ""), margin + 30, yRow4 + 4);
       doc.setTextColor(30, 30, 30);
     }
 
