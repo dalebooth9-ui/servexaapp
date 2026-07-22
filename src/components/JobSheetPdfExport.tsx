@@ -13,7 +13,7 @@ import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/p
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
-import { computePdfFooterFlow, renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
+import { computePdfFooterFlow, renderPdfSignatures, renderPdfFooter, getDefaultFooterText, resolveAccreditationLogoHeight } from "@/lib/pdfFooter";
 import { logError } from "@/lib/errorLogger";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
@@ -1148,13 +1148,14 @@ export async function generateJobSheetPdf(
     loadWatermarkImage(),
     loadAccreditationLogos(custAccredUrls),
   ]);
-  const accredLogosForRender = footerFlow.canUseBottomLogos ? accredLogos : [];
+  const resolvedLogoH = resolveAccreditationLogoHeight(footerFlow, logoH, 6, `JobSheetPdfExport:${template.name}`);
+  const accredLogosForRender = resolvedLogoH > 0 ? accredLogos : [];
   await renderBrandingOverlay(doc, {
     watermark,
     brandColor: accentColor,
     accredLogos: accredLogosForRender,
     accredFooterY: footerFlow.accredFooterY,
-    accredLogoH: logoH,
+    accredLogoH: resolvedLogoH || logoH,
     // Keep the flame as a subtle background so dwelling-photo pages aren't dominated by it.
     override: { opacity: 0.06 },
   });

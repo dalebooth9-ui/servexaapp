@@ -13,7 +13,7 @@ import ScanReviewPanel from "@/components/ScanReviewPanel";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { renderPdfHeader } from "@/lib/pdfHeader";
-import { computePdfFooterFlow, renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
+import { computePdfFooterFlow, renderPdfSignatures, renderPdfFooter, getDefaultFooterText, resolveAccreditationLogoHeight } from "@/lib/pdfFooter";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { applyExposedOutletOverrides } from "@/lib/ocrResultNormalization";
 import { runScanExtraction } from "@/lib/scanPipeline";
@@ -487,12 +487,13 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
+      const resolvedLogoH = resolveAccreditationLogoHeight(footerFlow, PDF_DIMENSIONS.accredLogoH, 6, `ScanJobSheet:${template.name}`);
       await renderBrandingOverlay(doc, {
         watermark,
         brandColor: accentColor,
-        accredLogos: footerFlow.canUseBottomLogos ? accredLogos : [],
+        accredLogos: resolvedLogoH > 0 ? accredLogos : [],
         accredFooterY: footerFlow.accredFooterY,
-        accredLogoH: PDF_DIMENSIONS.accredLogoH,
+        accredLogoH: resolvedLogoH || PDF_DIMENSIONS.accredLogoH,
       });
 
       const safeSite = siteName.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();

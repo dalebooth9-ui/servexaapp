@@ -29,6 +29,10 @@ export interface PdfFooterFlow {
   accredFooterY: number;
   stackEndY: number;
   canUseBottomLogos: boolean;
+  /** Actual vertical room available for the accreditation strip in mm.
+   *  Callers should shrink the logo height to fit rather than dropping the
+   *  strip entirely — accreditations are near-mandatory branding. */
+  maxLogoHeightAvailable: number;
 }
 
 /**
@@ -55,7 +59,7 @@ export function computePdfFooterFlow(input: PdfFooterFlowInput): PdfFooterFlow {
   const signatureEndY = sigY + signatureHeight;
   const declarationFooterY = declarationHeight ? signatureEndY + declarationGap : signatureEndY;
   const footerEndY = declarationHeight ? declarationFooterY + declarationHeight : signatureEndY;
-  const bottomLogoTop = bottomY - accreditationLogoHeight - accreditationGapToFooter;
+  const maxLogoHeightAvailable = Math.max(0, bottomY - footerEndY - accreditationGapToFooter);
 
   return {
     sigY,
@@ -64,8 +68,36 @@ export function computePdfFooterFlow(input: PdfFooterFlowInput): PdfFooterFlow {
     footerEndY,
     accredFooterY: bottomY,
     stackEndY: footerEndY,
-    canUseBottomLogos: footerEndY <= bottomLogoTop - 2,
+    // Permissive by design: accreditations should render whenever ANY room
+    // (down to the minimum ~6mm) exists. Callers should use
+    // resolveAccreditationLogoHeight() to pick the actual render height.
+    canUseBottomLogos: maxLogoHeightAvailable >= 6,
+    maxLogoHeightAvailable,
   };
+}
+
+/**
+ * Resolve the actual accreditation-logo height to use given available room.
+ * Prefers `preferredH`, shrinks down to `minH` if space is tight, and returns
+ * 0 only when there is genuinely no room. Logs a warning when the strip is
+ * suppressed or shrunk so regressions are visible in the console.
+ */
+export function resolveAccreditationLogoHeight(
+  flow: PdfFooterFlow,
+  preferredH = 12,
+  minH = 6,
+  context = "pdf",
+): number {
+  const avail = flow.maxLogoHeightAvailable;
+  if (avail >= preferredH) return preferredH;
+  if (avail >= minH) {
+    // eslint-disable-next-line no-console
+    console.warn(`[${context}] Accreditation strip shrunk to ${avail.toFixed(1)}mm (preferred ${preferredH}mm) to keep one-page layout.`);
+    return Math.floor(avail);
+  }
+  // eslint-disable-next-line no-console
+  console.warn(`[${context}] Accreditation strip suppressed — only ${avail.toFixed(1)}mm available (min ${minH}mm). Page content is too tall.`);
+  return 0;
 }
 
 export interface PdfSignatureData {
@@ -110,15 +142,37 @@ export function renderPdfSignatures(
   const maxWidth = pageWidth - margin * 2;
   const halfW = maxWidth / 2 - 2;
   const sigImages = data.sigImages || {};
-  // Constrained to keep the sign-off block within its ~22mm budget so the
-  // report stays single-page. Don't grow these without re-running
-  // dryRiserSinglePage.test.ts against a fully-populated fixture — the block
-  // has repeatedly caused page-spill regressions on completed sheets.
-  const sigImgH = 11; // ~42px @ 96dpi
-  const sigImgW = 36;
+  // Signature rendering uses the full available line width between the label
+  // and the right edge of the column, scaled with the image's natural aspect
+  // ratio (never distorted). Height is capped so the sign-off block stays
+  // within its ~22mm budget and the report keeps to one page.
+  const SIG_MAX_H = 12; // mm — hard vertical cap
+  const SIG_MIN_H = 6;  // mm — visual floor for very wide signatures
   const labelX = 20;
   const lineSpacing = 5;
   const cx = margin + halfW + 4;
+  // Signature ink area: starts just after the label column, ends at column edge.
+  const sigAreaX = margin + labelX - 2;
+  const sigAreaMaxW = halfW - (labelX - 2);
+  const sigAreaCX = cx + labelX - 2;
+  const sigAreaTop = 8; // relative to sigY
+  const sigAreaBottom = 20; // relative to sigY (~caption line)
+  const sigAreaMaxH = Math.max(SIG_MIN_H, Math.min(SIG_MAX_H, sigAreaBottom - sigAreaTop));
+
+  const drawSig = (img: HTMLImageElement, xLeft: number, yTop: number, maxW: number, maxH: number) => {
+    const nw = (img.naturalWidth || img.width || maxW * 4);
+    const nh = (img.naturalHeight || img.height || maxH * 4);
+    if (!nw || !nh) {
+      doc.addImage(img, "PNG", xLeft, yTop, maxW, maxH);
+      return;
+    }
+    const scale = Math.min(maxW / nw, maxH / nh);
+    const w = nw * scale;
+    const h = nh * scale;
+    // Left-align horizontally, vertically centre within the row.
+    const y = yTop + (maxH - h) / 2;
+    doc.addImage(img, "PNG", xLeft, y, w, h);
+  };
 
   doc.setFontSize(opts.blank ? 8.5 : 7);
   doc.setTextColor(0, 0, 0);
@@ -156,8 +210,8 @@ export function renderPdfSignatures(
   // Vertical layout budget (relative to sigY):
   //   +3   Date row
   //   +7   Technician name row
-  //   +8..+19  Signature image (H=11)
-  //   +20  Optional source-note / timestamp caption (tiny italic)
+  //   +8..+20  Signature ink area (aspect-preserving, up to 12mm tall)
+  //   +21  Optional source-note / timestamp caption (tiny italic)
   // Total ≈ 22mm — keep sig block + reservation check in JobSheetPdfExport
   // aligned with this budget.
   doc.setFont("helvetica", "bold");
@@ -169,23 +223,22 @@ export function renderPdfSignatures(
   doc.setFont("helvetica", "normal");
   doc.text(data.technicianName, margin + 20, sigY + 7);
   if (data.engineerSig && sigImages[data.engineerSig.id]) {
-    doc.addImage(sigImages[data.engineerSig.id], "PNG", margin + 18, sigY + 8, sigImgW, sigImgH);
-  } else {
-    doc.text("Signature:", margin, sigY + 11);
-    doc.line(margin + 18, sigY + 11, margin + halfW, sigY + 11);
+    drawSig(sigImages[data.engineerSig.id], sigAreaX, sigY + sigAreaTop, sigAreaMaxW, sigAreaMaxH);
   }
+  // NOTE: intentionally no underline fallback — a blank line under the label
+  // would look like an unsigned box on generated reports.
   const engTs = formatSigTimestamp(data.engineerSig?.created_at);
   if (engTs) {
     doc.setFontSize(5.5);
     doc.setTextColor(90, 90, 90);
-    doc.text(`Signed ${engTs}`, margin, sigY + 20);
+    doc.text(`Signed ${engTs}`, margin, sigY + 21);
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
   } else if (data.technicianSourceNote) {
     doc.setFontSize(5.5);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(110, 110, 110);
-    doc.text(data.technicianSourceNote, margin, sigY + 20);
+    doc.text(data.technicianSourceNote, margin, sigY + 21);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
@@ -204,20 +257,20 @@ export function renderPdfSignatures(
     : customerDisplayName;
   if (customerPositionLine) doc.text(customerPositionLine, cx + 18, sigY + 7);
   if (data.customerSig && sigImages[data.customerSig.id]) {
-    doc.addImage(sigImages[data.customerSig.id], "PNG", cx + 18, sigY + 8, sigImgW, sigImgH);
+    drawSig(sigImages[data.customerSig.id], sigAreaCX, sigY + sigAreaTop, sigAreaMaxW, sigAreaMaxH);
   }
   const custTs = formatSigTimestamp(data.customerSig?.created_at);
   if (custTs) {
     doc.setFontSize(5.5);
     doc.setTextColor(90, 90, 90);
-    doc.text(`Signed ${custTs}`, cx, sigY + 20);
+    doc.text(`Signed ${custTs}`, cx, sigY + 21);
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
   } else if (data.customerSourceNote) {
     doc.setFontSize(5.5);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(110, 110, 110);
-    doc.text(data.customerSourceNote, cx, sigY + 20);
+    doc.text(data.customerSourceNote, cx, sigY + 21);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
