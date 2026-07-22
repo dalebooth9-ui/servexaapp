@@ -151,6 +151,16 @@ export function mirrorHeaderIntoAnswers(
   return merged;
 }
 
+function isCustomerSignerNameField(field: ScanTemplateField): boolean {
+  const label = `${field.section || ""} ${field.label || ""}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  const hasSignerContext = /signature|sign off|signoff|declaration|completion|footer|signed|signatory|printed name/.test(label);
+  const isCustomerName = /customer|client/.test(label) && /name|signatory|signed|printed/.test(label);
+  return hasSignerContext && isCustomerName;
+}
+
 // Trim the field list down to the shape ocr-job-sheet needs, so callers can
 // pass full TemplateField objects without leaking extra properties into the
 // prompt payload.
@@ -189,6 +199,20 @@ export async function runScanExtraction(
     (header._field_confidence as Record<string, number>) ||
     {};
   header._field_confidence = fieldConfidence;
+
+  // Customer signer names/signature rows are a high-risk hallucination area on
+  // scanned forms. If the header did not confidently identify a customer signer,
+  // keep any template-level customer sign-off name field blank as well; the
+  // reviewer can type it manually when it is genuinely present.
+  const hasCustomerSigner = typeof header.customer_signed_name === "string" && header.customer_signed_name.trim().length > 0;
+  if (!hasCustomerSigner) {
+    for (const field of input.fields) {
+      if (isCustomerSignerNameField(field)) {
+        delete extracted[field.id];
+        fieldConfidence[field.id] = Math.min(fieldConfidence[field.id] ?? 0.4, 0.45);
+      }
+    }
+  }
 
   // Engineer fuzzy match against org profiles (opt-in; the identify pass
   // shouldn't waste a DB round-trip).

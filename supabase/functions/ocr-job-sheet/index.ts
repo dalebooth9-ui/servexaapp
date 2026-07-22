@@ -733,6 +733,29 @@ serve(async (req) => {
       // NOTE: this is INTENTIONAL n/a assertion — EXPOSED OUTLETS on the printed
       // sheet is a legitimate engineer-written N/A. Not a fabrication.
       const fieldArray = fields || [];
+      const normaliseLabel = (value: string) =>
+        value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      const isCustomerSignerNameField = (field: any) => {
+        const label = normaliseLabel(`${field.section || ""} ${field.label || ""}`);
+        const hasSignerContext = /signature|sign off|signoff|declaration|completion|footer|signed|signatory|printed name/.test(label);
+        const isCustomerName = /customer|client/.test(label) && /name|signatory|signed|printed/.test(label);
+        return hasSignerContext && isCustomerName;
+      };
+
+      const customerSigner = String(bestExtraction.header?.customer_signed_name || "").trim();
+      for (const f of fieldArray) {
+        if (!isCustomerSignerNameField(f)) continue;
+        const confidence = bestExtraction.field_confidence?.[f.id];
+        if (!customerSigner || (typeof confidence === "number" && confidence < 0.65)) {
+          if (bestExtraction.extracted[f.id] !== undefined) {
+            console.log(`Post-process: removed customer sign-off name field "${f.id}" because signer name was not confidently read`);
+          }
+          delete bestExtraction.extracted[f.id];
+          bestExtraction.field_confidence = bestExtraction.field_confidence || {};
+          bestExtraction.field_confidence[f.id] = Math.min(confidence ?? 0.4, 0.45);
+        }
+      }
+
       const exposedOutletSections = new Set<string>();
       let hasExposedOutlets = false;
       for (const f of fieldArray) {
