@@ -129,3 +129,6 @@ verify_jwt = false
 
 [functions.stripe-webhook]
 verify_jwt = false
+
+[functions.inbound-po-email]
+verify_jwt = false
