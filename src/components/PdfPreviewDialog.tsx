@@ -23,6 +23,7 @@ import {
   type WatermarkMode,
   type WatermarkSettings,
 } from "@/hooks/useWatermarkSettings";
+import PdfCanvasViewer from "@/components/PdfCanvasViewer";
 
 export interface PdfPreviewDialogProps {
   open: boolean;
@@ -61,6 +62,11 @@ function sanitizeFileName(name: string, ext: string): string {
     .replace(/^-|-$/g, "")
     .toLowerCase();
   return `${base || "document"}.${ext}`;
+}
+
+function forceMimeType(input: Blob, type: string): Blob {
+  if (input.type === type) return input;
+  return input.slice(0, input.size, type);
 }
 
 /**
@@ -151,7 +157,10 @@ export default function PdfPreviewDialog({
     let created: string | null = null;
     setFetchError(null);
     if (blob) {
-      const u = URL.createObjectURL(blob);
+      const renderBlob = mimeType === "application/pdf"
+        ? forceMimeType(blob, "application/pdf")
+        : blob;
+      const u = URL.createObjectURL(renderBlob);
       created = u;
       setObjectUrl(u);
       setFetching(false);
@@ -162,7 +171,10 @@ export default function PdfPreviewDialog({
         try {
           const res = await fetch(urlProp);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const b = await res.blob();
+          const raw = await res.blob();
+          const b = mimeType === "application/pdf"
+            ? forceMimeType(raw, "application/pdf")
+            : raw;
           if (cancelled) return;
           const u = URL.createObjectURL(b);
           created = u;
@@ -250,7 +262,13 @@ export default function PdfPreviewDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) setIframeError(false);
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="max-w-5xl w-[95vw] h-[90vh] p-0 flex flex-col gap-0">
         <DialogHeader className="px-4 py-3 border-b shrink-0 flex-row items-center justify-between space-y-0 gap-2">
           <DialogTitle className="text-sm truncate pr-2 flex-1 min-w-0">
@@ -523,13 +541,7 @@ export default function PdfPreviewDialog({
               </div>
             </div>
           ) : (
-            <iframe
-              key={src}
-              src={src}
-              title={downloadName}
-              className="w-full h-full border-0 bg-background"
-              onError={() => setIframeError(true)}
-            />
+            <PdfCanvasViewer src={src} title={downloadName} className="h-full w-full" />
           )}
           {rebuilding && src && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm pointer-events-none">
