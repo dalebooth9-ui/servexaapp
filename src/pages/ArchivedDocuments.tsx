@@ -443,6 +443,30 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
           )}
         </div>
 
+        {pendingReviewCount > 0 && (
+          <Card className="p-3 flex items-center gap-3 border-amber-300 bg-amber-50 text-amber-900">
+            <ClipboardCheck className="h-5 w-5 shrink-0" />
+            <div className="text-sm flex-1">
+              <div className="font-medium">
+                {pendingReviewCount} sheet{pendingReviewCount === 1 ? "" : "s"} awaiting review
+              </div>
+              <div className="text-xs opacity-90">
+                Scanned sheets only appear here once you confirm them in the Review tab.
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="bg-white"
+              onClick={() => (onGoReview ? onGoReview() : window.location.assign("/paper-scans?tab=review"))}
+            >
+              Open review queue
+            </Button>
+          </Card>
+        )}
+
+
+
 
         <Card className="p-3 flex flex-wrap gap-2 items-center">
           <Input
