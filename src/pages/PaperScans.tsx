@@ -10,7 +10,6 @@
 
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import AppLayout from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScanLine, ClipboardCheck, Archive, Upload } from "lucide-react";
@@ -52,19 +51,16 @@ export default function PaperScans() {
 
   if (userRole !== "admin") {
     return (
-      <AppLayout>
-        <div className="p-6">
-          <p className="text-sm text-muted-foreground">
-            Paper scans are managed by administrators only.
-          </p>
-        </div>
-      </AppLayout>
+      <div className="p-6">
+        <p className="text-sm text-muted-foreground">
+          Paper scans are managed by administrators only.
+        </p>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="p-6 space-y-4">
+    <div className="p-6 space-y-4">
         <div>
           <h1 className="text-2xl font-semibold flex items-center gap-2">
             <ScanLine className="h-6 w-6" /> Paper scans
@@ -124,6 +120,5 @@ export default function PaperScans() {
           </TabsContent>
         </Tabs>
       </div>
-    </AppLayout>
   );
 }
