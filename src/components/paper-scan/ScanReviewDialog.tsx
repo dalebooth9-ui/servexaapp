@@ -198,6 +198,11 @@ export default function ScanReviewDialog({
     job_category: string | null;
   }>({ name: null, category: null, job_category: null });
   const [answers, setAnswers] = useState<Record<string, any>>({});
+  // Freeform off-form handwritten notes captured by OCR (access codes,
+  // key fobs, block info, reminders). Editable by the reviewer, then folded
+  // back into header.additional_notes on save so both the archive and job
+  // PDFs render it and the job stores it alongside responses.
+  const [additionalNotes, setAdditionalNotes] = useState("");
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [engineers, setEngineers] = useState<
     { user_id: string; full_name: string; has_signature: boolean }[]
@@ -260,6 +265,9 @@ export default function ScanReviewDialog({
     setTitle(item.templateName || "");
     setNotes("");
     setAnswers({ ...(item.extracted || {}) });
+    setAdditionalNotes(
+      String((item.header as any)?.additional_notes || "").trim(),
+    );
     setTemplateFields([]);
     setTemplateMeta({ name: null, category: null, job_category: null });
     setDefectSelection({});
@@ -580,7 +588,10 @@ export default function ScanReviewDialog({
         title: title || null,
         notes: notes || null,
         extracted: answers || {},
-        header: item.header || {},
+        header: {
+          ...(item.header || {}),
+          additional_notes: additionalNotes.trim() || null,
+        },
         storagePhotoPaths: item.imagePaths || [],
         status: asUnmatched ? "unmatched" : "filed",
         templateFields: asUnmatched ? null : templateFields,
@@ -790,6 +801,7 @@ export default function ScanReviewDialog({
       const headerWithPo: Record<string, any> = {
         ...(item.header || {}),
         po_ref: poNumber.trim() || (item.header as any)?.po_ref || null,
+        additional_notes: additionalNotes.trim() || null,
       };
       const result = await confirmScanQueueAsJob({
         userId: user.id,
@@ -1356,6 +1368,28 @@ export default function ScanReviewDialog({
                 })()}
               </div>
             )}
+
+            {/* Freeform off-form handwritten notes (access/key codes, block
+                info, reminders) captured by OCR from margins & whitespace.
+                Editable, always visible so the reviewer can add / correct /
+                clear before filing. Empty = no "Additional notes" block on
+                the electronic PDF. */}
+            <div className="rounded border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <FileText className="h-4 w-4" /> Additional notes
+                <span className="text-[10px] font-normal text-muted-foreground">
+                  (freeform notes written outside the form — access codes,
+                  key fobs, block info)
+                </span>
+              </div>
+              <Textarea
+                rows={2}
+                value={additionalNotes}
+                onChange={(e) => setAdditionalNotes(e.target.value)}
+                placeholder="e.g. BLOCK B, D & E — KEY FOB CODE: 5140"
+              />
+            </div>
+
 
             {/* Destination-specific section — the ONLY per-mode UI */}
             {isJob && (

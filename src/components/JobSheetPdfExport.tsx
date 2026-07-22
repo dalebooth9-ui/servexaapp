@@ -487,7 +487,17 @@ export async function generateJobSheetPdf(
   const materialsField = template.fields.find(f => f.label.toLowerCase().includes("material"));
   const commentsVal = commentsField ? resolvedFormData[commentsField.id] || "" : "";
   const materialsVal = materialsField ? resolvedFormData[materialsField.id] || "" : "";
-  const commentsH = (commentsVal || materialsVal) ? 9 : 0;
+  // Freeform off-form handwritten notes (access codes, key fobs, block info)
+  // captured by the OCR pipeline into header.additional_notes and seeded into
+  // responses as `_additional_notes`. Rendered as its own "Additional notes"
+  // block below Comments/Materials — only when present.
+  const additionalNotesVal = String((resolvedFormData as any)._additional_notes || "").trim();
+  const additionalNotesLines = additionalNotesVal
+    ? doc.splitTextToSize(additionalNotesVal, (pageWidth - margin * 2) - 24).length
+    : 0;
+  const commentsH =
+    ((commentsVal || materialsVal) ? 9 : 0) +
+    (additionalNotesVal ? Math.max(4, additionalNotesLines * 3) + 1 : 0);
 
   // Layout sizing is driven off the same renderable-field set so we don't
   // reserve vertical space for rows that will never actually be drawn.
@@ -540,6 +550,20 @@ export async function generateJobSheetPdf(
     const wrappedMaterials = doc.splitTextToSize(String(materialsVal) || "None", commentTextWidth);
     doc.text(wrappedMaterials, margin + 18, y + 3);
     y += Math.max(4, wrappedMaterials.length * 3) + 1;
+  }
+
+  // --- Additional notes (freeform off-form handwritten notes from scan) ---
+  // Only rendered when the OCR captured genuine off-form text (access codes,
+  // key fobs, block info, reminders). Never renders an empty section.
+  if (additionalNotesVal) {
+    const notesTextWidth = maxWidth - 24;
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.text("Additional notes:", margin, y + 3);
+    doc.setFont("helvetica", "normal");
+    const wrappedNotes = doc.splitTextToSize(additionalNotesVal, notesTextWidth);
+    doc.text(wrappedNotes, margin + 23, y + 3);
+    y += Math.max(4, wrappedNotes.length * 3) + 1;
   }
 
   // Site photo resolution + backfill is deferred to the PHOTOGRAPHIC EVIDENCE

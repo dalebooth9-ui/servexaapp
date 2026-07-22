@@ -107,6 +107,15 @@ function seedHeaderIntoResponses(
   if (header.number_of_outlets != null && !next._number_of_outlets) {
     next._number_of_outlets = header.number_of_outlets;
   }
+  // Freeform off-form notes (access codes, key fobs, block info) captured by
+  // OCR from margins/whitespace. Rendered by the PDF as an "Additional notes"
+  // block below Comments/Materials. Underscore-prefixed so it never collides
+  // with a template field id (some templates already have `additional_notes`
+  // as a native field).
+  if (header.additional_notes && !next._additional_notes) {
+    const raw = String(header.additional_notes).trim();
+    if (raw) next._additional_notes = raw;
+  }
   // Map header values onto template field ids by label match.
   for (const alias of HEADER_FIELD_ALIASES) {
     const val = header[alias.headerKey];
