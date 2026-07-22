@@ -16,9 +16,15 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const out = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(out).set(bytes);
+  return out;
+}
+
 export async function pdfUrlToBlobUrl(url: string): Promise<string> {
   const bytes = await fetchPdfBytes(url);
-  const blob = new Blob([bytes], { type: "application/pdf" });
+  const blob = new Blob([bytesToArrayBuffer(bytes)], { type: "application/pdf" });
   return URL.createObjectURL(blob);
 }
 
@@ -38,7 +44,7 @@ export async function mergePdfUrlsToBytes(urls: string[]): Promise<Uint8Array> {
 
 export async function mergePdfUrlsToBlobUrl(urls: string[]): Promise<string> {
   const bytes = await mergePdfUrlsToBytes(urls);
-  const blob = new Blob([bytes], { type: "application/pdf" });
+  const blob = new Blob([bytesToArrayBuffer(bytes)], { type: "application/pdf" });
   return URL.createObjectURL(blob);
 }
 

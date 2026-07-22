@@ -84,7 +84,7 @@ export async function ensureJobScanReportBundle(
       .maybeSingle(),
   ]);
 
-  const rows = (docs as JobDocRow[]) || [];
+  const rows = (docs as unknown as JobDocRow[]) || [];
   const reportDocs = sortByCreatedAt(rows.filter((d) => d.document_type === "report"));
   const sourceDocs = sortByCreatedAt(rows.filter((d) => d.document_type === "source_scan"));
   const batchItems = sortByCreatedAt((items as BatchItemRow[]) || []);
