@@ -506,7 +506,10 @@ async function gptVisionFallback(
 ): Promise<{ extracted: Record<string, any>; header: Record<string, any>; field_confidence: Record<string, number> } | null> {
   const extractionTool = buildExtractionTool(fields, true);
 
-  const systemPrompt = `You are an expert OCR assistant. Extract data from the handwritten form in the image(s). Do NOT invent or guess values — ONLY transcribe what is physically written on the form.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const systemPrompt = `You are an expert OCR assistant. Today's date is ${todayIso}. The image you are reading is a RECENTLY scanned handwritten job sheet — any date on it should be on/before ${todayIso} and normally within the last 12 months. Extract data from the handwritten form in the image(s). Do NOT invent or guess values — ONLY transcribe what is physically written on the form.
+
+DATE FIELDS: When a written date has an ambiguous final year digit (e.g. "15/7/2_" where the last digit could be 0 or 6), resolve it using recency — this sheet was scanned this week, so the current year is overwhelmingly more likely than any year 6+ years ago. But if the digit is genuinely unreadable or the whole date is illegible, leave the field blank and set field_confidence <0.5. NEVER commit a possibly-wrong date to a compliance certificate — a blank flagged for review is always safer than a plausible-looking wrong year.
 
 NEVER FABRICATE "N/A": "n/a" is a positive assertion an engineer WROTE on the sheet. If a row has no clearly visible tick, circle, strikethrough, or handwritten mark, OMIT that field. Do NOT default absent answers to "n/a" — putting a false assertion on a certificate is worse than leaving it blank.
 CONFIDENCE (field_confidence): For every field you return, populate an entry in field_confidence with a number 0.0–1.0. Use <0.6 whenever the mark was ambiguous, the row spanned multiple printed lines and the mark's owning row was unclear, the image was blurry, or you had to guess. Use ≥0.85 only when the mark is unambiguous.
