@@ -69,6 +69,13 @@ import { usePaperScanPendingCount } from "@/hooks/usePaperScanQueue";
 import { formatDate } from "@/lib/dateFormat";
 import { ClipboardCheck, CheckCircle2 } from "lucide-react";
 
+type EmailSend = {
+  sent_at?: string;
+  recipient?: string;
+  subject?: string;
+  channel?: string;
+};
+
 type ArchivedDoc = {
   id: string;
   customer_id: string | null;
@@ -84,6 +91,7 @@ type ArchivedDoc = {
   page_count: number;
   status: "filed" | "unmatched";
   created_at: string;
+  header_data: Record<string, any> | null;
 };
 
 interface ArchivedDocumentsProps {
@@ -91,6 +99,9 @@ interface ArchivedDocumentsProps {
    *  be embedded as a tab inside the unified `/paper-scans` shell. Also hides
    *  the "Archive scan" launcher since Upload has its own tab. */
   embedded?: boolean;
+  /** Called when the user clicks the "N sheets awaiting review" hint — the
+   *  parent tab shell switches to the review tab. */
+  onGoReview?: () => void;
 }
 
 export default function ArchivedDocuments({ embedded = false }: ArchivedDocumentsProps = {}) {
