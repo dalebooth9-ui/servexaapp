@@ -632,8 +632,16 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                         {d.document_type || d.template_name || "—"}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {d.document_date || (
-                          <span className="text-muted-foreground">—</span>
+                        {d.document_date ? (
+                          formatDate(d.document_date)
+                        ) : (
+                          <span
+                            className="text-muted-foreground"
+                            title="Document date not detected on the sheet — showing when it was scanned."
+                          >
+                            {formatDate(d.created_at)}{" "}
+                            <span className="text-[10px] italic">(scanned)</span>
+                          </span>
                         )}
                       </TableCell>
                       <TableCell className="text-xs">
@@ -648,11 +656,26 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant={d.status === "unmatched" ? "outline" : "secondary"}
-                        >
-                          {d.status}
-                        </Badge>
+                        {(() => {
+                          const sends = (d.header_data?._email_sends as EmailSend[] | undefined) || [];
+                          const last = sends[sends.length - 1];
+                          if (last?.sent_at) {
+                            return (
+                              <Badge
+                                variant="secondary"
+                                className="gap-1 bg-emerald-100 text-emerald-900 hover:bg-emerald-100"
+                                title={`Sent to ${last.recipient || "customer"} on ${formatDate(last.sent_at)}`}
+                              >
+                                <CheckCircle2 className="h-3 w-3" /> Sent {formatDate(last.sent_at)}
+                              </Badge>
+                            );
+                          }
+                          return (
+                            <Badge variant={d.status === "unmatched" ? "outline" : "secondary"}>
+                              {d.status}
+                            </Badge>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
@@ -662,13 +685,14 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                           {d.report_pdf_path && (
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="default"
                               onClick={() => setSendDoc(d)}
                               title="Email report to customer"
                             >
                               <Send className="h-3.5 w-3.5 mr-1" /> Send
                             </Button>
                           )}
+
                           <Button
                             size="sm"
                             variant="outline"
