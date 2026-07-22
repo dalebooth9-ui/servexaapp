@@ -1369,6 +1369,28 @@ export default function ScanReviewDialog({
               </div>
             )}
 
+            {/* Freeform off-form handwritten notes (access/key codes, block
+                info, reminders) captured by OCR from margins & whitespace.
+                Editable, always visible so the reviewer can add / correct /
+                clear before filing. Empty = no "Additional notes" block on
+                the electronic PDF. */}
+            <div className="rounded border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <FileText className="h-4 w-4" /> Additional notes
+                <span className="text-[10px] font-normal text-muted-foreground">
+                  (freeform notes written outside the form — access codes,
+                  key fobs, block info)
+                </span>
+              </div>
+              <Textarea
+                rows={2}
+                value={additionalNotes}
+                onChange={(e) => setAdditionalNotes(e.target.value)}
+                placeholder="e.g. BLOCK B, D & E — KEY FOB CODE: 5140"
+              />
+            </div>
+
+
             {/* Destination-specific section — the ONLY per-mode UI */}
             {isJob && (
               <div className="rounded border bg-muted/30 p-3 space-y-3">
