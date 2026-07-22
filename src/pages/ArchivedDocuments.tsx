@@ -1044,42 +1044,47 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
               )}
 
               {!openLoading && openView === "split" && openDoc.report_pdf_path && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="border rounded-md bg-muted/20 flex flex-col min-h-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 h-[75vh]">
+                  <div className="border rounded-md bg-muted/20 flex flex-col min-h-0 overflow-hidden">
                     <div className="px-3 py-2 border-b bg-muted/40 text-xs font-medium flex items-center gap-1.5">
                       <Images className="h-3.5 w-3.5" /> Original scan
                     </div>
-                    <div className="p-2 space-y-2 max-h-[75vh] overflow-y-auto">
-                      {openUrls.length === 0 ? (
-                        <div className="rounded border border-amber-300 bg-amber-50 text-amber-900 text-xs p-3 flex gap-2">
-                          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                          <div>Scan pages unavailable.</div>
+                    {openUrls.length === 0 ? (
+                      <div className="m-2 rounded border border-amber-300 bg-amber-50 text-amber-900 text-xs p-3 flex gap-2">
+                        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                        <div>Scan pages unavailable.</div>
+                      </div>
+                    ) : (
+                      <ZoomPane className="flex-1 min-h-0">
+                        <div className="p-2 space-y-2">
+                          {openUrls.map((u, i) => (
+                            <img
+                              key={i}
+                              src={u}
+                              alt={`Page ${i + 1}`}
+                              className="w-full rounded border bg-white select-none"
+                              draggable={false}
+                              loading="lazy"
+                            />
+                          ))}
                         </div>
-                      ) : (
-                        openUrls.map((u, i) => (
-                          <img
-                            key={i}
-                            src={u}
-                            alt={`Page ${i + 1}`}
-                            className="w-full rounded border bg-white"
-                            loading="lazy"
-                          />
-                        ))
-                      )}
-                    </div>
+                      </ZoomPane>
+                    )}
                   </div>
-                  <div className="border rounded-md bg-muted/20 flex flex-col min-h-0">
+                  <div className="border rounded-md bg-muted/20 flex flex-col min-h-0 overflow-hidden">
                     <div className="px-3 py-2 border-b bg-muted/40 text-xs font-medium flex items-center gap-1.5">
                       <FileText className="h-3.5 w-3.5" /> Electronic report
                     </div>
                     {openPdfUrl ? (
-                      <PdfCanvasViewer
-                        src={openPdfUrl}
-                        title="Electronic report"
-                        className="h-[75vh] w-full rounded-b-md"
-                      />
+                      <ZoomPane className="flex-1 min-h-0">
+                        <PdfCanvasViewer
+                          src={openPdfUrl}
+                          title="Electronic report"
+                          className="w-full"
+                        />
+                      </ZoomPane>
                     ) : (
-                      <div className="flex h-[75vh] items-center justify-center p-4 text-center text-xs text-muted-foreground">
+                      <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-muted-foreground">
                         {openPdfError || "Electronic report preview unavailable."}
                       </div>
                     )}
@@ -1088,11 +1093,15 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
               )}
 
               {!openLoading && openView === "pdf" && openPdfUrl && (
-                <PdfCanvasViewer
-                  src={openPdfUrl}
-                  title="Electronic report"
-                  className="h-[70vh] w-full rounded border"
-                />
+                <div className="h-[70vh] rounded border overflow-hidden">
+                  <ZoomPane className="h-full w-full">
+                    <PdfCanvasViewer
+                      src={openPdfUrl}
+                      title="Electronic report"
+                      className="w-full"
+                    />
+                  </ZoomPane>
+                </div>
               )}
 
               {!openLoading && openView === "pdf" && !openPdfUrl && openPdfError && (
@@ -1102,9 +1111,9 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
               )}
 
               {!openLoading && openView === "scan" && (
-                <div className="space-y-2">
-                  {openUrls.length === 0 && (
-                    <div className="rounded border border-amber-300 bg-amber-50 text-amber-900 text-sm p-3 flex gap-2">
+                <div className="h-[70vh] rounded border overflow-hidden">
+                  {openUrls.length === 0 ? (
+                    <div className="m-3 rounded border border-amber-300 bg-amber-50 text-amber-900 text-sm p-3 flex gap-2">
                       <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                       <div>
                         <div className="font-medium">Pages unavailable</div>
@@ -1115,20 +1124,26 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                         </div>
                       </div>
                     </div>
-                  )}
-                  {openUrls.map((u, i) => (
-                    <img
-                      key={i}
-                      src={u}
-                      alt={`Page ${i + 1}`}
-                      className="w-full rounded border"
-                    />
-                  ))}
-                  {openFailed.length > 0 && openUrls.length > 0 && (
-                    <p className="text-xs text-amber-700">
-                      {openFailed.length} page
-                      {openFailed.length === 1 ? "" : "s"} could not be loaded.
-                    </p>
+                  ) : (
+                    <ZoomPane className="h-full w-full">
+                      <div className="p-2 space-y-2">
+                        {openUrls.map((u, i) => (
+                          <img
+                            key={i}
+                            src={u}
+                            alt={`Page ${i + 1}`}
+                            className="w-full rounded border bg-white select-none"
+                            draggable={false}
+                          />
+                        ))}
+                        {openFailed.length > 0 && (
+                          <p className="text-xs text-amber-700">
+                            {openFailed.length} page
+                            {openFailed.length === 1 ? "" : "s"} could not be loaded.
+                          </p>
+                        )}
+                      </div>
+                    </ZoomPane>
                   )}
                 </div>
               )}
@@ -1136,6 +1151,7 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
           )}
         </DialogContent>
       </Dialog>
+
 
       <AlertDialog
         open={!!confirmDelete}
