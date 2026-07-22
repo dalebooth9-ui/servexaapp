@@ -220,7 +220,10 @@ export function checkDatePlausibility(
   return { ok: true };
 }
 
-
+export function mirrorHeaderIntoAnswers(
+  answers: Record<string, any>,
+  header: Record<string, any>,
+  fields: ScanTemplateField[],
 ): Record<string, any> {
   const ids = new Set(fields.map((f) => f.id));
   const merged = { ...answers };
