@@ -13,7 +13,7 @@ import ScanReviewPanel from "@/components/ScanReviewPanel";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { renderPdfHeader } from "@/lib/pdfHeader";
-import { computePdfFooterFlow, renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
+import { computePdfFooterFlow, renderPdfSignatures, renderPdfFooter, getDefaultFooterText, resolveAccreditationLogoHeight } from "@/lib/pdfFooter";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { applyExposedOutletOverrides } from "@/lib/ocrResultNormalization";
 import { runScanExtraction } from "@/lib/scanPipeline";
