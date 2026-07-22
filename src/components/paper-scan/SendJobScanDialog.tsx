@@ -39,8 +39,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import {
   resolveSubmissionsSignedUrl,
-  submissionsPathFromSignedUrl,
 } from "@/lib/resolveSubmissionsPath";
+import { ensureJobScanReportBundle } from "@/lib/jobScanReports";
+import { mergePdfUrlsToBase64 } from "@/lib/pdfMerge";
 import {
   getGraphSendStatus,
   sendViaGraph,
@@ -92,7 +93,7 @@ export default function SendJobScanDialog({
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [row, setRow] = useState<JobRow | null>(null);
-  const [reportPath, setReportPath] = useState<string | null>(null);
+  const [reportPaths, setReportPaths] = useState<string[]>([]);
   const [reportLabel, setReportLabel] = useState<string>("electronic-report");
   const [scanPaths, setScanPaths] = useState<string[]>([]);
   const [email, setEmail] = useState("");
@@ -143,39 +144,21 @@ export default function SendJobScanDialog({
       const j = data as unknown as JobRow;
       setRow(j);
 
-      const { data: docs } = await supabase
-        .from("job_documents" as any)
-        .select("document_type, label, file_url, file_name")
-        .eq("job_id", jobId)
-        .in("document_type", ["report", "source_scan"]);
-
-      const rows = (docs as any[]) || [];
-      const reportDoc =
-        rows.find(
-          (d) => d.document_type === "report" && /electronic report/i.test(d.label || ""),
-        ) || rows.find((d) => d.document_type === "report");
-      const scanDocs = rows.filter((d) => d.document_type === "source_scan");
-
-      const rPath = submissionsPathFromSignedUrl(reportDoc?.file_url);
-      setReportPath(rPath);
-      if (reportDoc?.file_name) {
-        setReportLabel(
-          String(reportDoc.file_name).replace(/\.pdf$/i, "") || "electronic-report",
-        );
-      } else if (reportDoc?.label) {
-        setReportLabel(
-          String(reportDoc.label)
-            .replace(/^electronic report\s*[—-]\s*/i, "")
-            .toLowerCase()
-            .replace(/[^\w\-. ]+/g, "-")
-            .replace(/\s+/g, "-"),
-        );
-      }
-
-      const paths = scanDocs
-        .map((d) => submissionsPathFromSignedUrl(d.file_url))
-        .filter((p): p is string => !!p);
-      setScanPaths(paths);
+      const { data: userData } = await supabase.auth.getUser();
+      const bundle = await ensureJobScanReportBundle(jobId, { userId: userData.user?.id });
+      setReportPaths(bundle.reportPaths);
+      setScanPaths(bundle.scanPaths);
+      const firstLabel = bundle.reportLabels[0] || j.name || "electronic-report";
+      setReportLabel(
+        (bundle.reportPaths.length > 1
+          ? `${j.reference_number || "job"}-electronic-reports`
+          : firstLabel.replace(/^electronic report\s*[—-]\s*/i, "")
+        )
+          .toLowerCase()
+          .replace(/\.pdf$/i, "")
+          .replace(/[^\w\-. ]+/g, "-")
+          .replace(/\s+/g, "-"),
+      );
 
       const seedEmail = j.customer?.email || "";
       setEmail(seedEmail);
@@ -184,11 +167,11 @@ export default function SendJobScanDialog({
         j.customer_po ||
         j.reference_number ||
         j.name ||
-        reportDoc?.label ||
+        firstLabel ||
         "Report";
       const siteName = j.site?.name || j.site?.address || "";
       const templateName =
-        (reportDoc?.label || "")
+        (firstLabel || "")
           .toString()
           .replace(/^electronic report\s*[—-]\s*/i, "") ||
         j.name ||
@@ -222,7 +205,7 @@ export default function SendJobScanDialog({
   }, [row]);
 
   const canSend =
-    !loading && !sending && !!reportPath && email.trim().length > 3;
+    !loading && !sending && reportPaths.length > 0 && email.trim().length > 3;
 
   const handleSend = async () => {
     if (!row) return;
@@ -234,7 +217,7 @@ export default function SendJobScanDialog({
       });
       return;
     }
-    if (!reportPath) {
+    if (reportPaths.length === 0) {
       toast({
         title: "No electronic report",
         description: "This job doesn't have an electronic PDF attached yet.",
@@ -247,10 +230,13 @@ export default function SendJobScanDialog({
     try {
       const attachments: { filename: string; content: string }[] = [];
 
-      const signed = await resolveSubmissionsSignedUrl(reportPath);
-      if (!signed?.signedUrl) throw new Error("Couldn't retrieve the electronic PDF.");
-      const b64 = await urlToBase64(signed.signedUrl);
-      if (!b64) throw new Error("Couldn't read the electronic PDF file.");
+      const signedReports = [];
+      for (const path of reportPaths) {
+        const signed = await resolveSubmissionsSignedUrl(path);
+        if (signed?.signedUrl) signedReports.push(signed.signedUrl);
+      }
+      if (signedReports.length === 0) throw new Error("Couldn't retrieve the electronic PDFs.");
+      const b64 = await mergePdfUrlsToBase64(signedReports);
       attachments.push({ filename: `${reportLabel}.pdf`, content: b64 });
 
       if (includeScan && scanPaths.length) {
@@ -388,7 +374,7 @@ export default function SendJobScanDialog({
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
             <div>{error || "Couldn't load job."}</div>
           </div>
-        ) : !reportPath ? (
+        ) : reportPaths.length === 0 ? (
           <div className="rounded border border-amber-400 bg-amber-50 text-amber-900 text-sm p-3 flex gap-2">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
             <div>
