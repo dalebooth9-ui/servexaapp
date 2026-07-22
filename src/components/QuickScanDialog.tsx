@@ -8,11 +8,7 @@ import { Camera, Loader2, ScanLine, Trash2, Upload, Plus, Copy, Check, Video, Vi
 import { generateJobSheetPdf } from "@/components/JobSheetPdfExport";
 import { fuzzyMatchEngineer } from "@/lib/fuzzyEngineerMatch";
 import {
-  createOcrPayloadFromScanSource,
   cropSignatureFromScanSource,
-  hasUsableSignatureBoundingBox,
-  remapBoundingBoxFromCrop,
-  type SignatureBoundingBox,
 } from "@/lib/signatureCrop";
 import { useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -378,77 +374,11 @@ export default function QuickScanDialog() {
   };
 
   const detectCustomerSignatureFieldFallback = async (currentHeader: Record<string, any>) => {
-    const existingName = normalizeScanText(currentHeader.customer_signed_name);
-    const existingDate = normalizeScanText(currentHeader.customer_sign_date);
-    const hasValidFieldBox = hasUsableSignatureBoundingBox(currentHeader.customer_signature_bbox, {
-      minWidth: 12,
-      minHeight: 3,
-      minArea: 90,
-    });
-
-    if ((hasValidFieldBox && existingName) || images.length === 0) {
-      return currentHeader;
-    }
-
-    const fallbackPageIndex = hasValidFieldBox
-      ? (((currentHeader.customer_signature_bbox as SignatureBoundingBox | undefined)?.page_index) || 0)
-      : Math.max(images.length - 1, 0);
-    const sourceImage = images[fallbackPageIndex];
-
-    if (!sourceImage || sourceImage.file.type === "application/pdf") {
-      return currentHeader;
-    }
-
-    try {
-      const searchArea: SignatureBoundingBox = {
-        x_min: 0,
-        y_min: 58,
-        x_max: 100,
-        y_max: 100,
-        page_index: fallbackPageIndex,
-      };
-
-      const croppedBottomSection = await createOcrPayloadFromScanSource(sourceImage, searchArea, {
-        mimeType: "image/jpeg",
-        quality: 0.88,
-      });
-
-      const fallbackDetection = await invokeOcr(
-        [{
-          image_base64: croppedBottomSection.image_base64,
-          mime_type: croppedBottomSection.mime_type,
-        }],
-        "Customer Signature Field Detection",
-        [],
-      );
-
-      const fallbackHeader = fallbackDetection.header || {};
-      const nextHeader = { ...currentHeader };
-
-      if (!existingName && normalizeScanText(fallbackHeader.customer_signed_name)) {
-        nextHeader.customer_signed_name = fallbackHeader.customer_signed_name;
-      }
-
-      if (!existingDate && normalizeScanText(fallbackHeader.customer_sign_date)) {
-        nextHeader.customer_sign_date = fallbackHeader.customer_sign_date;
-      }
-
-      if (hasUsableSignatureBoundingBox(fallbackHeader.customer_signature_bbox, {
-        minWidth: 12,
-        minHeight: 3,
-        minArea: 90,
-      })) {
-        nextHeader.customer_signature_bbox = remapBoundingBoxFromCrop(
-          fallbackHeader.customer_signature_bbox as SignatureBoundingBox,
-          croppedBottomSection.area,
-          fallbackPageIndex,
-        );
-      }
-
-      return nextHeader;
-    } catch {
-      return currentHeader;
-    }
+    // Disabled: the old fallback re-OCR'd the bottom of the sheet and could
+    // manufacture a customer name/signature bbox from blank ruled rows. The
+    // unified review flow now requires an explicit user crop for customer
+    // signatures, so unclear signer names remain blank.
+    return currentHeader;
   };
 
   const scan = async () => {
@@ -731,7 +661,7 @@ export default function QuickScanDialog() {
         {
           ...exportResult,
           _customer_sign_date: exportHeader.customer_sign_date,
-          _customer_signed_name: exportHeader.customer_signed_name,
+          _customer_signed_name: "",
           _number_of_outlets:
             exportHeader.number_of_outlets ??
             exportResult.number_of_outlets ??

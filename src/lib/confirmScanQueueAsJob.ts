@@ -155,10 +155,13 @@ export async function confirmScanQueueAsJob(
       console.error("[scan-confirm] signature upload failed", role, upErr);
       return;
     }
+    const signerName = role === "customer"
+      ? String(header.customer_signed_name || "").trim()
+      : String(header.engineer || "Engineer").trim();
     await supabase.from("job_signatures" as any).insert({
       job_id: jobId,
       signer_id: userId,
-      signer_name: role === "customer" ? "Customer" : "Engineer",
+      signer_name: signerName,
       signer_role: role,
       file_path: rel,
     });

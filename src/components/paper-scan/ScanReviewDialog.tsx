@@ -1209,9 +1209,7 @@ export default function ScanReviewDialog({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <SigSlot
                     label="Customer signature"
-                    autoDetected={
-                      !!(item.header as any)?.customer_signature_bbox
-                    }
+                    autoDetected={false}
                     sig={customerSig}
                     onClear={() => setCustomerSig(null)}
                     onSelect={(pageIdx) =>
