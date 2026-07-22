@@ -10,7 +10,6 @@
 // re-invokes itself to continue (so we never exhaust one edge invocation).
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { decode, Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,51 +17,26 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const CHUNK_SIZE = 1;
+// Process several items per invocation, in parallel. Each item is one
+// classify + one OCR call — both I/O bound — so the edge worker sits idle
+// waiting for network anyway. Parallelising 3-at-a-time cuts wall time ~3x
+// without meaningfully raising memory (we no longer decode images server-side).
+const CHUNK_SIZE = 3;
 const BUCKET = "submissions";
 const CONFIDENCE_READY_THRESHOLD = 0.7;
-const MAX_IMAGE_DIM = 1800; // px — plenty for OCR, avoids gateway timeouts
 const OCR_MAX_ATTEMPTS = 3;
+// Anything left in "processing" longer than this is assumed dead (previous
+// invocation OOM'd or timed out). We flip it back to pending so the next
+// chunk retries it instead of blocking the batch forever.
+const STUCK_PROCESSING_MS = 4 * 60 * 1000;
 
-// Downscale phone-camera photos before sending to OCR. Large 4000px+ images
-// blow the gateway idle-timeout on slow AI extraction runs; 1800px is more
-// than enough for GPT-vision / Azure layout to read a job sheet.
-async function downscaleForOcr(
-  image_base64: string,
-  mime_type?: string,
-): Promise<{ image_base64: string; mime_type: string }> {
-  try {
-    if (mime_type === "application/pdf") {
-      return { image_base64, mime_type };
-    }
-    const bytes = Uint8Array.from(atob(image_base64), (c) => c.charCodeAt(0));
-    const img = await decode(bytes);
-    if (!(img instanceof Image)) {
-      return { image_base64, mime_type: mime_type || "image/jpeg" };
-    }
-    const maxSide = Math.max(img.width, img.height);
-    if (maxSide <= MAX_IMAGE_DIM && bytes.length < 2_500_000) {
-      return { image_base64, mime_type: mime_type || "image/jpeg" };
-    }
-    if (maxSide > MAX_IMAGE_DIM) {
-      const scale = MAX_IMAGE_DIM / maxSide;
-      img.resize(Math.round(img.width * scale), Math.round(img.height * scale));
-    }
-    const jpeg = await img.encodeJPEG(82);
-    let bin = "";
-    const CHUNK = 0x8000;
-    for (let i = 0; i < jpeg.length; i += CHUNK) {
-      bin += String.fromCharCode.apply(
-        null,
-        Array.from(jpeg.subarray(i, i + CHUNK)) as any,
-      );
-    }
-    return { image_base64: btoa(bin), mime_type: "image/jpeg" };
-  } catch (e) {
-    console.warn("downscaleForOcr failed, sending original:", (e as any)?.message);
-    return { image_base64, mime_type: mime_type || "image/jpeg" };
-  }
-}
+// NOTE: image downscaling used to happen HERE via imagescript, which regularly
+// tripped the edge worker's memory limit on 4000px phone photos and killed the
+// whole invocation mid-batch (items stuck in "processing", batch never
+// completes, UI shows "Not detected"). Uploaders (`fileToScanBase64` and the
+// PDF splitter) already downscale to ~1800px before upload, so re-decoding
+// server-side was pure downside. Removed.
+
 
 // Translate raw upstream errors into an operator-friendly one-liner. The
 // review queue surfaces this string directly; keep it actionable.
