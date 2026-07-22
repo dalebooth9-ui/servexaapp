@@ -198,6 +198,11 @@ export default function ScanReviewDialog({
     job_category: string | null;
   }>({ name: null, category: null, job_category: null });
   const [answers, setAnswers] = useState<Record<string, any>>({});
+  // Freeform off-form handwritten notes captured by OCR (access codes,
+  // key fobs, block info, reminders). Editable by the reviewer, then folded
+  // back into header.additional_notes on save so both the archive and job
+  // PDFs render it and the job stores it alongside responses.
+  const [additionalNotes, setAdditionalNotes] = useState("");
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [engineers, setEngineers] = useState<
     { user_id: string; full_name: string; has_signature: boolean }[]
