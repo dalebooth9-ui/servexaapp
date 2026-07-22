@@ -588,7 +588,10 @@ export default function ScanReviewDialog({
         title: title || null,
         notes: notes || null,
         extracted: answers || {},
-        header: item.header || {},
+        header: {
+          ...(item.header || {}),
+          additional_notes: additionalNotes.trim() || null,
+        },
         storagePhotoPaths: item.imagePaths || [],
         status: asUnmatched ? "unmatched" : "filed",
         templateFields: asUnmatched ? null : templateFields,
