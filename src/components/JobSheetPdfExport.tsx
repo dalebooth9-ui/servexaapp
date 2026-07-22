@@ -487,7 +487,17 @@ export async function generateJobSheetPdf(
   const materialsField = template.fields.find(f => f.label.toLowerCase().includes("material"));
   const commentsVal = commentsField ? resolvedFormData[commentsField.id] || "" : "";
   const materialsVal = materialsField ? resolvedFormData[materialsField.id] || "" : "";
-  const commentsH = (commentsVal || materialsVal) ? 9 : 0;
+  // Freeform off-form handwritten notes (access codes, key fobs, block info)
+  // captured by the OCR pipeline into header.additional_notes and seeded into
+  // responses as `_additional_notes`. Rendered as its own "Additional notes"
+  // block below Comments/Materials — only when present.
+  const additionalNotesVal = String((resolvedFormData as any)._additional_notes || "").trim();
+  const additionalNotesLines = additionalNotesVal
+    ? doc.splitTextToSize(additionalNotesVal, (pageWidth - margin * 2) - 24).length
+    : 0;
+  const commentsH =
+    ((commentsVal || materialsVal) ? 9 : 0) +
+    (additionalNotesVal ? Math.max(4, additionalNotesLines * 3) + 1 : 0);
 
   // Layout sizing is driven off the same renderable-field set so we don't
   // reserve vertical space for rows that will never actually be drawn.
