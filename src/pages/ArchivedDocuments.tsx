@@ -52,9 +52,8 @@ import {
 import SendArchiveDialog from "@/components/paper-scan/SendArchiveDialog";
 import SendJobScanDialog from "@/components/paper-scan/SendJobScanDialog";
 import ArchiveScanDialog from "@/components/paper-scan/ArchiveScanDialog";
-import PaperVsElectronicViewer from "@/components/paper-scan/PaperVsElectronicViewer";
 import { useAuth } from "@/hooks/useAuth";
-import { resolveSubmissionsSignedUrls, resolveSubmissionsSignedUrl, submissionsPathFromSignedUrl } from "@/lib/resolveSubmissionsPath";
+import { resolveSubmissionsSignedUrls, submissionsPathFromSignedUrl } from "@/lib/resolveSubmissionsPath";
 import { useToast } from "@/hooks/use-toast";
 import { ensureJobScanReportBundle } from "@/lib/jobScanReports";
 import { mergePdfUrlsToBlobUrl, pdfUrlToBlobUrl } from "@/lib/pdfMerge";
@@ -389,10 +388,11 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
 
   useEffect(() => {
     return () => {
-      if (openPdfUrl?.startsWith("blob:")) URL.revokeObjectURL(openPdfUrl);
-      openPdfUrls.forEach((u) => {
-        if (u.startsWith("blob:")) URL.revokeObjectURL(u);
-      });
+      const blobUrls = new Set([
+        ...(openPdfUrl?.startsWith("blob:") ? [openPdfUrl] : []),
+        ...openPdfUrls.filter((u) => u.startsWith("blob:")),
+      ]);
+      blobUrls.forEach((u) => URL.revokeObjectURL(u));
     };
   }, [openPdfUrl, openPdfUrls]);
 
