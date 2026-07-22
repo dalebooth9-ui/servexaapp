@@ -55,16 +55,31 @@ export default function ScanResultView({
       return;
     }
     let cancelled = false;
+    let created: string | null = null;
     (async () => {
       const { data } = await supabase.storage
         .from("submissions")
         .createSignedUrl(reportPdfPath, 60 * 60);
-      if (!cancelled) setSignedUrl(data?.signedUrl || null);
+      if (cancelled || !data?.signedUrl) return;
+      // Fetch to a same-origin blob URL so the iframe renders inline even
+      // when the browser is set to auto-download application/pdf.
+      try {
+        const res = await fetch(data.signedUrl);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const b = await res.blob();
+        if (cancelled) return;
+        created = URL.createObjectURL(b);
+        setSignedUrl(created);
+      } catch {
+        if (!cancelled) setSignedUrl(data.signedUrl);
+      }
     })();
     return () => {
       cancelled = true;
+      if (created) URL.revokeObjectURL(created);
     };
   }, [reportPdfPath]);
+
 
   const fileName = useMemo(() => {
     const stub = (templateName || "electronic-report")

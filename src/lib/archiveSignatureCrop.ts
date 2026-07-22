@@ -68,6 +68,31 @@ export async function cropSignatureFromScan(
   if (!ctx) return null;
   ctx.drawImage(src, x, y, cw, ch, 0, 0, cw, ch);
 
+  // Blank-signature guard: if the crop has almost no dark ink, the customer
+  // never signed the sheet — return null so the PDF leaves the signature
+  // slot empty rather than embedding a grey rectangle labelled "Signature
+  // carried from original scan".
+  try {
+    const img = ctx.getImageData(0, 0, cw, ch).data;
+    let dark = 0;
+    const totalPixels = cw * ch;
+    // Sample every 4th pixel to keep this cheap on large crops.
+    for (let i = 0; i < img.length; i += 16) {
+      const r = img[i], g = img[i + 1], b = img[i + 2], a = img[i + 3];
+      if (a < 40) continue;
+      // luminance < 140 counts as "ink" (pen on paper is usually well below).
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      if (lum < 140) dark++;
+    }
+    const sampled = Math.max(1, Math.floor(totalPixels / 4));
+    const inkRatio = dark / sampled;
+    // Require at least 0.6% dark pixels — typical signatures are 3-15%.
+    if (inkRatio < 0.006) return null;
+  } catch {
+    // getImageData can throw on tainted canvases; fall through and let the
+    // downstream flow decide.
+  }
+
   const dataUrl = canvas.toDataURL("image/png");
   return await new Promise((resolve) => {
     const out = new Image();

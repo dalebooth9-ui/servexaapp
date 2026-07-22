@@ -197,12 +197,30 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
     setOpenDoc(d);
     setOpenUrls([]);
     setOpenFailed([]);
+    // Revoke any previous blob URL so we don't leak memory across opens.
+    if (openPdfUrl && openPdfUrl.startsWith("blob:")) URL.revokeObjectURL(openPdfUrl);
     setOpenPdfUrl(null);
     setOpenView(d.report_pdf_path ? "split" : "scan");
     setOpenLoading(true);
     if (d.report_pdf_path) {
       const pdf = await resolveSubmissionsSignedUrl(d.report_pdf_path);
-      setOpenPdfUrl(pdf?.signedUrl || null);
+      // Fetch to a same-origin blob URL so the iframe renders inline even
+      // when the browser is set to auto-download application/pdf. The signed
+      // URL alone triggers a download on some Chromium/Firefox configs.
+      if (pdf?.signedUrl) {
+        try {
+          const res = await fetch(pdf.signedUrl);
+          if (res.ok) {
+            const b = await res.blob();
+            const blobUrl = URL.createObjectURL(b);
+            setOpenPdfUrl(blobUrl);
+          } else {
+            setOpenPdfUrl(pdf.signedUrl);
+          }
+        } catch {
+          setOpenPdfUrl(pdf.signedUrl);
+        }
+      }
     }
     const { urls, failed } = await resolveSubmissionsSignedUrls(d.file_paths);
     if (failed.length) {
@@ -216,6 +234,7 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
     setOpenFailed(failed);
     setOpenLoading(false);
   };
+
 
   const types = useMemo(() => {
     const t = new Set<string>();
