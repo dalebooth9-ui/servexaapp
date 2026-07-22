@@ -137,12 +137,14 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
 
   const isAdmin = userRole === "admin";
 
+  const pendingReviewCount = usePaperScanPendingCount();
+
   const load = async () => {
     setLoading(true);
     const { data } = await (supabase as any)
       .from("archived_documents")
       .select(
-        "id, customer_id, site_id, document_date, document_type, template_id, template_name, title, notes, file_paths, report_pdf_path, page_count, status, created_at",
+        "id, customer_id, site_id, document_date, document_type, template_id, template_name, title, notes, file_paths, report_pdf_path, page_count, status, created_at, header_data",
       )
       .order("document_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
@@ -167,6 +169,19 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
 
   useEffect(() => {
     load();
+    // Realtime: newly-filed archive docs (or converts that add a
+    // report_pdf_path) should show up without switching tabs.
+    const channel = supabase
+      .channel("archived_documents_list")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "archived_documents" },
+        () => load(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
