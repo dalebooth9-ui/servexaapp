@@ -205,9 +205,6 @@ export function renderPdfSignatures(
   if (customerPositionLine) doc.text(customerPositionLine, cx + 18, sigY + 7);
   if (data.customerSig && sigImages[data.customerSig.id]) {
     doc.addImage(sigImages[data.customerSig.id], "PNG", cx + 18, sigY + 8, sigImgW, sigImgH);
-  } else if (data.customerSig) {
-    doc.text("Signature:", cx, sigY + 11);
-    doc.line(cx + 18, sigY + 11, cx + halfW, sigY + 11);
   }
   const custTs = formatSigTimestamp(data.customerSig?.created_at);
   if (custTs) {

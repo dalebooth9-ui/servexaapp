@@ -276,24 +276,93 @@ const isInkPixel = (r: number, g: number, b: number, alpha: number) => {
   const minChannel = Math.min(r, g, b);
   const saturation = maxChannel === 0 ? 0 : (maxChannel - minChannel) / maxChannel;
 
-  // Widened thresholds to capture lighter/thinner pen strokes and pencil signatures
-  return luminance < 220 || (luminance < 240 && saturation > 0.08 && maxChannel < 245);
+  // Treat dark pen/pencil as ink but avoid counting pale grey ruled table lines
+  // as a signature. Colourful pen strokes still pass via the saturation branch.
+  return luminance < 185 || (luminance < 225 && saturation > 0.12 && maxChannel < 235);
 };
 
 const isCanvasMostlyBlank = (canvas: HTMLCanvasElement, minimumInkRatio = 0.003) => {
   const ctx = canvas.getContext("2d");
   if (!ctx) return true;
 
-  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  let inkPixels = 0;
+  const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const pixelCount = Math.max(width * height, 1);
+  const mask = new Uint8Array(pixelCount);
+  const rowCounts = new Uint16Array(height);
+  const colCounts = new Uint16Array(width);
 
-  for (let i = 0; i < data.length; i += 4) {
-    if (isInkPixel(data[i], data[i + 1], data[i + 2], data[i + 3])) {
-      inkPixels += 1;
+  for (let index = 0; index < pixelCount; index += 1) {
+    const offset = index * 4;
+    if (isInkPixel(data[offset], data[offset + 1], data[offset + 2], data[offset + 3])) {
+      mask[index] = 1;
+      const x = index % width;
+      const y = Math.floor(index / width);
+      rowCounts[y] += 1;
+      colCounts[x] += 1;
     }
   }
 
-  return inkPixels / Math.max(data.length / 4, 1) < minimumInkRatio;
+  // Ignore long straight structures from printed boxes/table rules. A ruled
+  // signature cell can otherwise exceed the simple dark-pixel ratio with no
+  // handwriting present.
+  const lineRows = new Uint8Array(height);
+  const lineCols = new Uint8Array(width);
+  for (let y = 0; y < height; y += 1) {
+    if (rowCounts[y] >= width * 0.34) lineRows[y] = 1;
+  }
+  for (let x = 0; x < width; x += 1) {
+    if (colCounts[x] >= height * 0.34) lineCols[x] = 1;
+  }
+
+  const visited = new Uint8Array(pixelCount);
+  let significantInk = 0;
+
+  for (let start = 0; start < pixelCount; start += 1) {
+    if (!mask[start] || visited[start]) continue;
+    const sx = start % width;
+    const sy = Math.floor(start / width);
+    if (lineRows[sy] || lineCols[sx]) continue;
+
+    const queue = [start];
+    visited[start] = 1;
+    let queueIndex = 0;
+    let count = 0;
+    let minX = width;
+    let minY = height;
+    let maxX = 0;
+    let maxY = 0;
+
+    while (queueIndex < queue.length) {
+      const current = queue[queueIndex++];
+      const x = current % width;
+      const y = Math.floor(current / width);
+      if (lineRows[y] || lineCols[x]) continue;
+      count += 1;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+
+      for (const neighbour of [current - 1, current + 1, current - width, current + width]) {
+        if (neighbour < 0 || neighbour >= pixelCount || visited[neighbour] || !mask[neighbour]) continue;
+        const nx = neighbour % width;
+        const ny = Math.floor(neighbour / width);
+        if (Math.abs(nx - x) + Math.abs(ny - y) !== 1) continue;
+        visited[neighbour] = 1;
+        queue.push(neighbour);
+      }
+    }
+
+    const componentW = maxX - minX + 1;
+    const componentH = maxY - minY + 1;
+    const aspect = componentW / Math.max(componentH, 1);
+    const looksLikeRule = aspect > 18 || aspect < 0.06 || componentW <= 2 || componentH <= 2;
+    if (!looksLikeRule && count >= 10) {
+      significantInk += count;
+    }
+  }
+
+  return significantInk / pixelCount < minimumInkRatio;
 };
 
 const findSignatureBounds = (canvas: HTMLCanvasElement, anchorRect: Rect): Rect | null => {
@@ -529,8 +598,7 @@ export async function cropSignatureFromScanSource(
     }
 
     if (!finalCanvas) return null;
-    // For field mode, skip blank check — always return the field area crop
-    if (mode !== "field" && isCanvasMostlyBlank(finalCanvas, 0.003)) return null;
+    if (isCanvasMostlyBlank(finalCanvas, mode === "field" ? 0.01 : 0.0035)) return null;
 
     const blob = await new Promise<Blob | null>((resolve) => finalCanvas.toBlob((value) => resolve(value), "image/png"));
     if (!blob) return null;

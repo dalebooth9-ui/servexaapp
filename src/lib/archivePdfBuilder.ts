@@ -30,9 +30,8 @@ export type ArchivePdfInput = {
    */
   header?: Record<string, any> | null;
   /**
-   * Source scan page paths (submissions bucket) — used to crop the customer
-   * / engineer signature regions from the original scan so the electronic
-   * report carries across the real ink instead of dropping the signature.
+   * Source scan page paths (submissions bucket) — used only for technician
+   * fallback crops. Customer signatures must come from an explicit office crop.
    */
   sourcePaths?: string[] | null;
   customerId: string | null;
@@ -51,10 +50,9 @@ export type ArchivePdfInput = {
   technicianName?: string | null;
   /**
    * Storage paths in the `signatures` bucket for manually-cropped signatures
-   * picked by the office via "Select from photo". When set, override the
-   * auto-crop (customer_signature_bbox / engineer_signature_bbox) and any
-   * profile-signature stamping. Same single-source-of-truth rule as the
-   * customer link — never re-derive over a human's choice.
+   * picked by the office via "Select from photo". Customer signatures are
+   * never auto-derived from OCR boxes; no manual crop means no customer
+   * signature block in the generated report.
    */
   manualCustomerSignaturePath?: string | null;
   manualEngineerSignaturePath?: string | null;
@@ -100,10 +98,9 @@ function seedHeaderIntoResponses(
 ): Record<string, any> {
   if (!header) return responses;
   const next = { ...responses };
-  // Top-level aliases the PDF generator already reads directly.
-  if (header.customer_signed_name && !next._customer_signed_name) {
-    next._customer_signed_name = header.customer_signed_name;
-  }
+  // Top-level aliases the PDF generator already reads directly. Do not seed
+  // _customer_signed_name from OCR: customer signer names are only trusted when
+  // paired with an explicit manual customer signature crop.
   if (header.customer_sign_date && !next._customer_sign_date) {
     next._customer_sign_date = header.customer_sign_date;
   }
@@ -269,20 +266,8 @@ export async function generateAndUploadArchivePdf(
   }
 
   if (paths.length > 0 && header) {
-    if (!customerSig && header.customer_signature_bbox) {
-      const img = await cropSignatureFromScan(paths, header.customer_signature_bbox);
-      if (img) {
-        const id = `archive-cust-${archivedId}`;
-        sigImages[id] = img;
-        customerSig = {
-          id,
-          signer_name: header.customer_signed_name || "",
-          signer_role: "customer",
-          signer_position: null,
-        };
-        customerSourceNote = "Signature carried from original scan";
-      }
-    }
+    // Customer signatures are deliberately NOT auto-cropped from OCR bboxes.
+    // The only valid source is manualCustomerSignaturePath above.
     // Only crop the engineer signature from the scan when we DON'T have a
     // manual override or a profile signature to apply — otherwise the
     // shared generator's profile-signature stamping wins (correct provenance).
