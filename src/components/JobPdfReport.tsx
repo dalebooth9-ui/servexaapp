@@ -594,12 +594,13 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const doc = new jsPDF();
       let y = 15;
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       const margin = PDF_DIMENSIONS.margin; // standardised at 10mm across all PDFs
       const maxWidth = pageWidth - margin * 2;
       const rowH = 8;
 
       const addPage = () => { doc.addPage(); y = 15; };
-      const checkPage = (needed: number) => { if (y + needed > 275) addPage(); };
+      const checkPage = (needed: number) => { if (y + needed > pageHeight - margin) addPage(); };
 
       // ── HEADER ──
       // Use the shared renderPdfHeader helper with a JOB-REPORT-specific
