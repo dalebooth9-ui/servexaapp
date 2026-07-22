@@ -65,6 +65,9 @@ import { createArchiveSourcedDefects } from "@/lib/proposeArchiveDefects";
 import ProposedDefectsSection from "@/components/paper-scan/ProposedDefectsSection";
 import { Checkbox } from "@/components/ui/checkbox";
 import BulkActionBar from "@/components/BulkActionBar";
+import { usePaperScanPendingCount } from "@/hooks/usePaperScanQueue";
+import { formatDate } from "@/lib/dateFormat";
+import { ClipboardCheck, CheckCircle2 } from "lucide-react";
 
 type ArchivedDoc = {
   id: string;
