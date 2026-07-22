@@ -404,7 +404,8 @@ async function gptFieldMapping(
 ): Promise<{ extracted: Record<string, any>; header: Record<string, any>; field_confidence: Record<string, number> } | null> {
   const extractionTool = buildExtractionTool(fields, false);
 
-  const systemPrompt = `You are a data mapping assistant. You receive STRUCTURED TEXT extracted from a handwritten form by Azure Document Intelligence. Map the extracted key-value pairs, table data, and text to the correct schema fields.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const systemPrompt = `You are a data mapping assistant. Today's date is ${todayIso}. The sheet you are mapping was scanned recently (within days), so any date field on it should be on or before ${todayIso} and normally within the last 12 months. You receive STRUCTURED TEXT extracted from a handwritten form by Azure Document Intelligence. Map the extracted key-value pairs, table data, and text to the correct schema fields.
 
 RULES:
 1. You are working with PRE-EXTRACTED TEXT, not raw images. The OCR has already been done.
