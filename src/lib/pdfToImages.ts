@@ -1,27 +1,19 @@
-// Render every page of a PDF File into JPEG File objects using pdfjs-dist from CDN.
-// Also exposes a helper to normalise a mixed drop (images + PDFs) into a flat
-// list of page-image Files so callers can treat each element as "one page".
+// Render every page of a PDF File into JPEG File objects using the locally
+// bundled pdfjs-dist. Rendering-based splitting is codec-agnostic — it works
+// for image PDFs, mixed PDFs, and scanner-native black-and-white PDFs that
+// use CCITT G4 or JBIG2 fax compression (which pdf.js decodes internally).
 //
-// Scanner-produced PDFs (CCITT G4, JBIG2, or otherwise unusual) can fail to
-// rasterise here — we surface the underlying error to the console and to the
-// caller instead of silently returning an empty list.
+// Memory: pages are rendered sequentially and each canvas is released before
+// the next page is opened, so peak memory stays at ~one page worth of pixels.
 
-let pdfjsPromise: Promise<any> | null = null;
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.mjs?url";
 
-const PDFJS_VERSION = "3.11.174";
-const PDFJS_CDN = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}`;
-
-async function loadPdfJs(): Promise<any> {
-  if (!pdfjsPromise) {
-    pdfjsPromise = (async () => {
-      const lib: any = await import(
-        /* @vite-ignore */ (`${PDFJS_CDN}/+esm` as any)
-      );
-      lib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/build/pdf.worker.min.js`;
-      return lib;
-    })();
-  }
-  return pdfjsPromise;
+let workerConfigured = false;
+function ensureWorker() {
+  if (workerConfigured) return;
+  (pdfjsLib as any).GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+  workerConfigured = true;
 }
 
 export interface PdfRenderReport {
@@ -31,21 +23,30 @@ export interface PdfRenderReport {
   fatal?: string;
 }
 
+/** Target ~150 DPI equivalent. PDF user units are 1/72", so scale = DPI/72. */
+const DEFAULT_SCALE = 150 / 72;
+const MAX_CANVAS_PIXELS = 4200 * 4200; // guard against huge scanner pages
+
+function releaseCanvas(canvas: HTMLCanvasElement) {
+  // Free GPU/CPU-backed pixel memory before the next page renders.
+  canvas.width = 0;
+  canvas.height = 0;
+}
+
 export async function renderPdfToJpegFilesDetailed(
   file: File,
   opts?: { scale?: number; quality?: number; maxPages?: number },
 ): Promise<PdfRenderReport> {
-  const scale = opts?.scale ?? 1.6;
+  const baseScale = opts?.scale ?? DEFAULT_SCALE;
   const quality = opts?.quality ?? 0.82;
   const maxPages = opts?.maxPages ?? 200;
 
   const report: PdfRenderReport = { pages: [], totalPages: 0, errors: [] };
 
-  let pdfjs: any;
   try {
-    pdfjs = await loadPdfJs();
+    ensureWorker();
   } catch (e: any) {
-    report.fatal = `pdf.js failed to load: ${e?.message || e}`;
+    report.fatal = `pdf.js worker failed to initialise: ${e?.message || e}`;
     console.error(report.fatal, e);
     return report;
   }
@@ -53,17 +54,13 @@ export async function renderPdfToJpegFilesDetailed(
   let pdf: any;
   try {
     const buf = await file.arrayBuffer();
-    pdf = await pdfjs.getDocument({
-      data: buf,
-      cMapUrl: `${PDFJS_CDN}/cmaps/`,
-      cMapPacked: true,
-      standardFontDataUrl: `${PDFJS_CDN}/standard_fonts/`,
+    pdf = await (pdfjsLib as any).getDocument({
+      data: new Uint8Array(buf),
       isEvalSupported: false,
+      disableFontFace: true,
     }).promise;
   } catch (e: any) {
-    report.fatal =
-      `Could not open PDF "${file.name}": ${e?.message || e}. ` +
-      `This is common for scanner PDFs that use CCITT G4 or JBIG2 fax compression.`;
+    report.fatal = `Could not open PDF "${file.name}": ${e?.message || e}`;
     console.error("[pdfToImages] getDocument failed", file.name, e);
     return report;
   }
@@ -73,20 +70,36 @@ export async function renderPdfToJpegFilesDetailed(
   const stem = file.name.replace(/\.[^.]+$/, "") || "scan";
 
   for (let i = 1; i <= total; i++) {
+    let canvas: HTMLCanvasElement | null = null;
+    let page: any = null;
     try {
-      const page = await pdf.getPage(i);
-      const viewport = page.getViewport({ scale });
-      const canvas = document.createElement("canvas");
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
+      page = await pdf.getPage(i);
+
+      // Clamp scale so absurdly large pages don't blow up memory.
+      let scale = baseScale;
+      let viewport = page.getViewport({ scale });
+      const pixels = viewport.width * viewport.height;
+      if (pixels > MAX_CANVAS_PIXELS) {
+        scale = scale * Math.sqrt(MAX_CANVAS_PIXELS / pixels);
+        viewport = page.getViewport({ scale });
+      }
+
+      canvas = document.createElement("canvas");
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
       const ctx = canvas.getContext("2d");
       if (!ctx) {
         report.errors.push(`page ${i}: no 2d canvas context`);
         continue;
       }
+      // White backdrop so bitonal scanner pages export as B/W-on-white JPEG.
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
       await page.render({ canvasContext: ctx, viewport }).promise;
+
       const blob: Blob | null = await new Promise((resolve) =>
-        canvas.toBlob((b) => resolve(b), "image/jpeg", quality),
+        canvas!.toBlob((b) => resolve(b), "image/jpeg", quality),
       );
       if (!blob) {
         report.errors.push(`page ${i}: canvas.toBlob returned null`);
@@ -101,8 +114,19 @@ export async function renderPdfToJpegFilesDetailed(
       const msg = `page ${i}: ${e?.message || e}`;
       report.errors.push(msg);
       console.warn("[pdfToImages] page render failed", file.name, i, e);
+    } finally {
+      // Release memory before rendering the next page.
+      if (canvas) releaseCanvas(canvas);
+      try {
+        page?.cleanup?.();
+      } catch {}
     }
   }
+
+  try {
+    await pdf.cleanup?.();
+    await pdf.destroy?.();
+  } catch {}
 
   return report;
 }
@@ -135,8 +159,7 @@ export async function expandDropToPageFilesDetailed(
       const rep = await renderPdfToJpegFilesDetailed(f);
       if (rep.pages.length > 0) {
         out.push(...rep.pages);
-      }
-      if (rep.pages.length === 0) {
+      } else {
         unrenderable.push({
           file: f,
           reason:
