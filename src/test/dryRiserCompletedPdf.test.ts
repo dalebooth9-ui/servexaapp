@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { PDFDocument } from "pdf-lib";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 
 import { generateJobSheetPdf, warnIfUnexpectedPdfPageSpill } from "@/components/JobSheetPdfExport";
 import jsPDF from "jspdf";
@@ -177,6 +179,11 @@ describe("Dry Riser completed archive PDF", () => {
     );
 
     const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+    const proofPath = process.env.DRY_RISER_PROOF_PDF_PATH;
+    if (proofPath) {
+      mkdirSync(dirname(proofPath), { recursive: true });
+      writeFileSync(proofPath, bytes);
+    }
     const pdf = await PDFDocument.load(bytes);
 
     expect(pdf.getPageCount()).toBe(1);
