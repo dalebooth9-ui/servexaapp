@@ -42,8 +42,12 @@ export function renderPdfSignatures(
   const maxWidth = pageWidth - margin * 2;
   const halfW = maxWidth / 2 - 2;
   const sigImages = data.sigImages || {};
-  const sigImgH = 14;
-  const sigImgW = 40;
+  // Constrained to keep the sign-off block within its ~22mm budget so the
+  // report stays single-page. Don't grow these without re-running
+  // dryRiserSinglePage.test.ts against a fully-populated fixture — the block
+  // has repeatedly caused page-spill regressions on completed sheets.
+  const sigImgH = 11; // ~42px @ 96dpi
+  const sigImgW = 36;
   const labelX = 20;
   const lineSpacing = 5;
   const cx = margin + halfW + 4;
@@ -81,6 +85,13 @@ export function renderPdfSignatures(
   }
 
   // ---- Filled mode (with sig images) ----
+  // Vertical layout budget (relative to sigY):
+  //   +3   Date row
+  //   +7   Technician name row
+  //   +8..+19  Signature image (H=11)
+  //   +20  Optional source-note / timestamp caption (tiny italic)
+  // Total ≈ 22mm — keep sig block + reservation check in JobSheetPdfExport
+  // aligned with this budget.
   doc.setFont("helvetica", "bold");
   doc.text("Date: ", margin, sigY + 3);
   doc.setFont("helvetica", "normal");
@@ -97,17 +108,16 @@ export function renderPdfSignatures(
   }
   const engTs = formatSigTimestamp(data.engineerSig?.created_at);
   if (engTs) {
-    doc.setFontSize(6);
+    doc.setFontSize(5.5);
     doc.setTextColor(90, 90, 90);
-    doc.text(`Signed ${engTs}`, margin, sigY + 24);
+    doc.text(`Signed ${engTs}`, margin, sigY + 20);
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
-  }
-  if (data.technicianSourceNote) {
+  } else if (data.technicianSourceNote) {
     doc.setFontSize(5.5);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(110, 110, 110);
-    doc.text(data.technicianSourceNote, margin, sigY + 27);
+    doc.text(data.technicianSourceNote, margin, sigY + 20);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
@@ -128,31 +138,29 @@ export function renderPdfSignatures(
   if (data.customerSig && sigImages[data.customerSig.id]) {
     doc.addImage(sigImages[data.customerSig.id], "PNG", cx + 18, sigY + 8, sigImgW, sigImgH);
   } else if (data.customerSig) {
-    // Has a sig record but image failed to load — show underline
     doc.text("Signature:", cx, sigY + 11);
     doc.line(cx + 18, sigY + 11, cx + halfW, sigY + 11);
   }
   const custTs = formatSigTimestamp(data.customerSig?.created_at);
   if (custTs) {
-    doc.setFontSize(6);
+    doc.setFontSize(5.5);
     doc.setTextColor(90, 90, 90);
-    doc.text(`Signed ${custTs}`, cx, sigY + 24);
+    doc.text(`Signed ${custTs}`, cx, sigY + 20);
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
-  }
-  if (data.customerSourceNote) {
+  } else if (data.customerSourceNote) {
     doc.setFontSize(5.5);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(110, 110, 110);
-    doc.text(data.customerSourceNote, cx, sigY + 27);
+    doc.text(data.customerSourceNote, cx, sigY + 20);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
   }
-  // If no customerSig record at all, omit the signature line entirely
 
   return sigY + 15;
 }
+
 
 /**
  * Render the footer declaration box (centred, bold text inside a bordered rect).
