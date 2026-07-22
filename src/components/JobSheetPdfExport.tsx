@@ -552,6 +552,20 @@ export async function generateJobSheetPdf(
     y += Math.max(4, wrappedMaterials.length * 3) + 1;
   }
 
+  // --- Additional notes (freeform off-form handwritten notes from scan) ---
+  // Only rendered when the OCR captured genuine off-form text (access codes,
+  // key fobs, block info, reminders). Never renders an empty section.
+  if (additionalNotesVal) {
+    const notesTextWidth = maxWidth - 24;
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.text("Additional notes:", margin, y + 3);
+    doc.setFont("helvetica", "normal");
+    const wrappedNotes = doc.splitTextToSize(additionalNotesVal, notesTextWidth);
+    doc.text(wrappedNotes, margin + 23, y + 3);
+    y += Math.max(4, wrappedNotes.length * 3) + 1;
+  }
+
   // Site photo resolution + backfill is deferred to the PHOTOGRAPHIC EVIDENCE
   // section at the end of the document (after the Dwelling Access Log).
 
