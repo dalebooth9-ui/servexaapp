@@ -801,6 +801,7 @@ export default function ScanReviewDialog({
       const headerWithPo: Record<string, any> = {
         ...(item.header || {}),
         po_ref: poNumber.trim() || (item.header as any)?.po_ref || null,
+        additional_notes: additionalNotes.trim() || null,
       };
       const result = await confirmScanQueueAsJob({
         userId: user.id,
