@@ -18,7 +18,12 @@ interface PaperVsElectronicViewerProps {
   loading?: boolean;
   scanUrls: string[];
   scanFailedCount?: number;
-  electronicPdfUrl: string | null;
+  /** Single electronic PDF (back-compat). Prefer `electronicPdfUrls` when a
+   *  job has multiple digitised sheets so the right pane matches the left. */
+  electronicPdfUrl?: string | null;
+  /** All electronic/digitised sheets for the item, in the same order as
+   *  `scanUrls`. Rendered stacked and scrollable. */
+  electronicPdfUrls?: string[];
 }
 
 export default function PaperVsElectronicViewer({
@@ -30,7 +35,12 @@ export default function PaperVsElectronicViewer({
   scanUrls,
   scanFailedCount = 0,
   electronicPdfUrl,
+  electronicPdfUrls,
 }: PaperVsElectronicViewerProps) {
+  const pdfList = (electronicPdfUrls && electronicPdfUrls.length > 0)
+    ? electronicPdfUrls
+    : (electronicPdfUrl ? [electronicPdfUrl] : []);
+  const multi = pdfList.length > 1;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl w-[95vw] max-h-[92vh] overflow-hidden flex flex-col">
@@ -53,6 +63,11 @@ export default function PaperVsElectronicViewer({
             <div className="flex flex-col min-h-0 border rounded-md bg-muted/20 overflow-hidden">
               <div className="px-3 py-2 border-b bg-muted/40 text-xs font-medium flex items-center gap-1.5">
                 <Images className="h-3.5 w-3.5" /> Original scan
+                {scanUrls.length > 1 && (
+                  <span className="text-muted-foreground font-normal">
+                    · {scanUrls.length} sheets
+                  </span>
+                )}
               </div>
               {scanUrls.length === 0 ? (
                 <div className="m-2 rounded border border-amber-300 bg-amber-50 text-amber-900 text-xs p-3 flex gap-2">
@@ -68,31 +83,42 @@ export default function PaperVsElectronicViewer({
                 </div>
               ) : (
                 <ZoomPane className="flex-1 min-h-0">
-                  <div className="p-2 space-y-2">
+                  <div className="p-2 space-y-3">
                     {scanUrls.map((url, i) => (
-                      <img
-                        key={i}
-                        src={url}
-                        alt={`Scan page ${i + 1}`}
-                        className="w-full rounded border bg-white select-none"
-                        draggable={false}
-                        loading="lazy"
-                      />
+                      <div key={i} className="space-y-1">
+                        {scanUrls.length > 1 && (
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground px-0.5">
+                            Sheet {i + 1} of {scanUrls.length}
+                          </div>
+                        )}
+                        <img
+                          src={url}
+                          alt={`Scan page ${i + 1}`}
+                          className="w-full rounded border bg-white select-none"
+                          draggable={false}
+                          loading="lazy"
+                        />
+                      </div>
                     ))}
                   </div>
                 </ZoomPane>
               )}
             </div>
 
-            {/* Right: generated electronic report */}
+            {/* Right: generated electronic report(s) */}
             <div className="flex flex-col min-h-0 border rounded-md bg-muted/20 overflow-hidden">
               <div className="px-3 py-2 border-b bg-muted/40 text-xs font-medium flex items-center justify-between gap-2">
                 <span className="flex items-center gap-1.5">
                   <FileText className="h-3.5 w-3.5" /> Electronic report
+                  {multi && (
+                    <span className="text-muted-foreground font-normal">
+                      · {pdfList.length} sheets
+                    </span>
+                  )}
                 </span>
-                {electronicPdfUrl && (
+                {pdfList.length === 1 && (
                   <a
-                    href={electronicPdfUrl}
+                    href={pdfList[0]}
                     download
                     className="inline-flex items-center text-xs text-primary hover:underline"
                   >
@@ -101,18 +127,38 @@ export default function PaperVsElectronicViewer({
                 )}
               </div>
               <div className="flex-1 min-h-0">
-                {electronicPdfUrl ? (
-                  <ZoomPane className="h-full w-full">
-                    <PdfCanvasViewer
-                      src={electronicPdfUrl}
-                      title="Electronic report"
-                      className="w-full"
-                    />
-                  </ZoomPane>
-                ) : (
+                {pdfList.length === 0 ? (
                   <div className="p-4 text-xs text-muted-foreground">
                     No electronic report has been generated for this item yet.
                   </div>
+                ) : (
+                  <ZoomPane className="h-full w-full">
+                    <div className="space-y-3">
+                      {pdfList.map((url, i) => (
+                        <div key={`${i}-${url}`} className="space-y-1">
+                          {multi && (
+                            <div className="flex items-center justify-between px-1">
+                              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                Sheet {i + 1} of {pdfList.length}
+                              </div>
+                              <a
+                                href={url}
+                                download
+                                className="inline-flex items-center text-[10px] text-primary hover:underline"
+                              >
+                                <Download className="h-3 w-3 mr-1" /> Download
+                              </a>
+                            </div>
+                          )}
+                          <PdfCanvasViewer
+                            src={url}
+                            title={`Electronic report ${multi ? i + 1 : ""}`.trim()}
+                            className="w-full"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </ZoomPane>
                 )}
               </div>
             </div>
@@ -122,3 +168,4 @@ export default function PaperVsElectronicViewer({
     </Dialog>
   );
 }
+
