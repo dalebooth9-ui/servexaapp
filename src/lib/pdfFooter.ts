@@ -6,6 +6,68 @@ import jsPDF from "jspdf";
  */
 export const PDF_SIGNATURE_BLOCK_HEIGHT_MM = 22;
 
+export interface PdfFooterFlowInput {
+  /** Current Y immediately after the last body row/content block. */
+  startY: number;
+  pageHeight: number;
+  margin?: number;
+  signatureHeight?: number;
+  declarationHeight?: number;
+  signatureGap?: number;
+  declarationGap?: number;
+  accreditationLogoHeight?: number;
+  accreditationGapToFooter?: number;
+  /** Usually pageHeight - margin; override only for unusual page chrome. */
+  bottomY?: number;
+}
+
+export interface PdfFooterFlow {
+  sigY: number;
+  signatureEndY: number;
+  declarationFooterY: number;
+  footerEndY: number;
+  accredFooterY: number;
+  stackEndY: number;
+  canUseBottomLogos: boolean;
+}
+
+/**
+ * Compute where the sign-off/declaration stack should flow.
+ *
+ * This intentionally treats accreditation logos as optional page decoration:
+ * they may be suppressed if there is not enough room, but they must never be
+ * part of the page-break decision for report content. That false reservation
+ * was the recurring Dry Riser two-page regression: page 1 had enough room for
+ * signatures + declaration, but the optional logo strip pushed the sign-off
+ * block onto a blank page 2.
+ */
+export function computePdfFooterFlow(input: PdfFooterFlowInput): PdfFooterFlow {
+  const margin = input.margin ?? 10;
+  const signatureHeight = input.signatureHeight ?? PDF_SIGNATURE_BLOCK_HEIGHT_MM;
+  const declarationHeight = input.declarationHeight ?? 0;
+  const signatureGap = input.signatureGap ?? 2;
+  const declarationGap = declarationHeight ? (input.declarationGap ?? 2) : 0;
+  const accreditationLogoHeight = input.accreditationLogoHeight ?? 12;
+  const accreditationGapToFooter = input.accreditationGapToFooter ?? 3;
+  const bottomY = input.bottomY ?? input.pageHeight - margin;
+
+  const sigY = input.startY + signatureGap;
+  const signatureEndY = sigY + signatureHeight;
+  const declarationFooterY = declarationHeight ? signatureEndY + declarationGap : signatureEndY;
+  const footerEndY = declarationHeight ? declarationFooterY + declarationHeight : signatureEndY;
+  const bottomLogoTop = bottomY - accreditationLogoHeight - accreditationGapToFooter;
+
+  return {
+    sigY,
+    signatureEndY,
+    declarationFooterY,
+    footerEndY,
+    accredFooterY: bottomY,
+    stackEndY: footerEndY,
+    canUseBottomLogos: footerEndY <= bottomLogoTop - 2,
+  };
+}
+
 export interface PdfSignatureData {
   dateStr: string;
   technicianName: string;

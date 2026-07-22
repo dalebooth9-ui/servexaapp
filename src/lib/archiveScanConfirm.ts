@@ -167,7 +167,7 @@ export async function archiveScanConfirm(
     templateFields.length > 0
   ) {
     try {
-      const { path } = await generateAndUploadArchivePdf({
+      const { path, pageCount } = await generateAndUploadArchivePdf({
         archivedId,
         template: {
           id: templateId,
@@ -189,7 +189,14 @@ export async function archiveScanConfirm(
       reportPdfPath = path;
       await (supabase as any)
         .from("archived_documents")
-        .update({ report_pdf_path: path })
+        .update({
+          report_pdf_path: path,
+          header_data: {
+            ...headerWithManualSigs,
+            _report_pdf_page_count: pageCount,
+            ...(pageCount > 1 ? { _report_pdf_page_warning: `Electronic report rendered as ${pageCount} pages` } : {}),
+          },
+        })
         .eq("id", archivedId);
     } catch (e) {
       console.error(

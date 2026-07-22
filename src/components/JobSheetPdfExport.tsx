@@ -13,7 +13,7 @@ import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/p
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
-import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText, PDF_SIGNATURE_BLOCK_HEIGHT_MM } from "@/lib/pdfFooter";
+import { computePdfFooterFlow, renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import { logError } from "@/lib/errorLogger";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
@@ -1069,22 +1069,18 @@ export async function generateJobSheetPdf(
   // 1 had empty space but page 2 contained only date/customer/signature rows.
   const logoH = 12;
   const declarationH = footerText && footerText.trim() ? 9 : 0;
-  const sigGap = 2;
-  const footerGap = declarationH ? 2 : 0;
   const helperAccredGapToFooter = 3;
   const bottomAccredFooterY = pageHeight - margin;
 
-  const computeFlowStack = (startY: number) => {
-    const sigY = startY + sigGap;
-    const signatureEndY = sigY + PDF_SIGNATURE_BLOCK_HEIGHT_MM;
-    const declarationFooterY = declarationH ? signatureEndY + footerGap : signatureEndY;
-    const footerEndY = declarationH ? declarationFooterY + declarationH : signatureEndY;
-    const bottomLogoTop = bottomAccredFooterY - logoH - helperAccredGapToFooter;
-    const canUseBottomLogos = footerEndY <= bottomLogoTop - 2;
-    const accredFooterY = bottomAccredFooterY;
-    const stackEndY = footerEndY;
-    return { sigY, declarationFooterY, footerEndY, accredFooterY, stackEndY, canUseBottomLogos };
-  };
+  const computeFlowStack = (startY: number) => computePdfFooterFlow({
+    startY,
+    pageHeight,
+    margin,
+    declarationHeight: declarationH,
+    accreditationLogoHeight: logoH,
+    accreditationGapToFooter: helperAccredGapToFooter,
+    bottomY: bottomAccredFooterY,
+  });
 
   let footerFlow = computeFlowStack(y);
   if (footerFlow.stackEndY > pageHeight - margin) {

@@ -13,7 +13,7 @@ import ScanReviewPanel from "@/components/ScanReviewPanel";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { renderPdfHeader } from "@/lib/pdfHeader";
-import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
+import { computePdfFooterFlow, renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { applyExposedOutletOverrides } from "@/lib/ocrResultNormalization";
 import { runScanExtraction } from "@/lib/scanPipeline";
@@ -447,9 +447,32 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         : null;
 
       // --- SIGNATURE BLOCKS on last page ---
-      const sigY = pageHeight - 35;
+      // Flow immediately after the scanned content whenever there is room;
+      // do not pin to the page bottom or reserve accreditation logos as hard
+      // content, otherwise a mostly blank final page can be created.
+      const declarationH = footerText && footerText.trim() ? 9 : 0;
+      let footerFlow = computePdfFooterFlow({
+        startY: y,
+        pageHeight,
+        margin,
+        declarationHeight: declarationH,
+        accreditationLogoHeight: PDF_DIMENSIONS.accredLogoH,
+        accreditationGapToFooter: PDF_DIMENSIONS.accredLogoGapToFooter,
+      });
+      if (footerFlow.stackEndY > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
+        footerFlow = computePdfFooterFlow({
+          startY: y,
+          pageHeight,
+          margin,
+          declarationHeight: declarationH,
+          accreditationLogoHeight: PDF_DIMENSIONS.accredLogoH,
+          accreditationGapToFooter: PDF_DIMENSIONS.accredLogoGapToFooter,
+        });
+      }
 
-      const footerStartY = renderPdfSignatures(doc, sigY, {
+      renderPdfSignatures(doc, footerFlow.sigY, {
         dateStr: sigDateStr,
         technicianName: techName,
         customerName: customerSignedName || customerName,
@@ -459,7 +482,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       });
 
       // --- FOOTER DECLARATION on last page ---
-      renderPdfFooter(doc, footerStartY, footerText);
+      renderPdfFooter(doc, footerFlow.declarationFooterY, footerText);
 
       // Watermark + Accreditations
       const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
@@ -470,8 +493,8 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       await renderBrandingOverlay(doc, {
         watermark,
         brandColor: accentColor,
-        accredLogos,
-        accredFooterY: footerStartY,
+        accredLogos: footerFlow.canUseBottomLogos ? accredLogos : [],
+        accredFooterY: footerFlow.accredFooterY,
         accredLogoH: PDF_DIMENSIONS.accredLogoH,
       });
 
