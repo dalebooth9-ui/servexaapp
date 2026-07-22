@@ -64,7 +64,15 @@ export async function resolveSubmissionsSignedUrls(
  */
 export function submissionsPathFromSignedUrl(url: string | null | undefined): string | null {
   if (!url) return null;
-  const m = url.match(/\/object\/(?:sign|public)\/submissions\/([^?#]+)/);
+  const raw = url.trim();
+  if (!raw) return null;
+  if (raw.startsWith("storage://submissions/")) {
+    return raw.slice("storage://submissions/".length).replace(/^\/+/, "");
+  }
+  if (!/^https?:\/\//i.test(raw) && !raw.startsWith("storage://")) {
+    return raw.replace(/^\/+/, "");
+  }
+  const m = raw.match(/\/object\/(?:sign|public)\/submissions\/([^?#]+)/);
   if (!m) return null;
   try {
     return decodeURIComponent(m[1]);
