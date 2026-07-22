@@ -1011,7 +1011,7 @@ ${sections}
         loading={paperVsElectronic.loading}
         scanUrls={paperVsElectronic.scanUrls}
         scanFailedCount={paperVsElectronic.scanFailed}
-        electronicPdfUrl={paperVsElectronic.pdfUrl}
+        electronicPdfUrls={paperVsElectronic.pdfUrls}
       />
     </div>
   );
