@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import SendArchiveDialog from "@/components/paper-scan/SendArchiveDialog";
+import PdfCanvasViewer from "@/components/PdfCanvasViewer";
 import {
   CheckCircle2,
   Download,
@@ -66,7 +67,10 @@ export default function ScanResultView({
       try {
         const res = await fetch(data.signedUrl);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const b = await res.blob();
+        const raw = await res.blob();
+        const b = raw.type === "application/pdf"
+          ? raw
+          : raw.slice(0, raw.size, "application/pdf");
         if (cancelled) return;
         created = URL.createObjectURL(b);
         setSignedUrl(created);
@@ -144,9 +148,10 @@ export default function ScanResultView({
       <div className="rounded-lg border overflow-hidden bg-muted/20">
         <div className="aspect-[4/3] w-full bg-muted flex items-center justify-center">
           {reportPdfPath && signedUrl ? (
-            <iframe
+            <PdfCanvasViewer
               title="Electronic report preview"
               src={signedUrl}
+              maxPages={1}
               className="h-full w-full"
             />
           ) : (

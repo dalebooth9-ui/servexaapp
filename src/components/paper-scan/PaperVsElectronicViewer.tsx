@@ -7,6 +7,7 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, Download, FileText, Images, Loader2 } from "lucide-react";
+import PdfCanvasViewer from "@/components/PdfCanvasViewer";
 
 interface PaperVsElectronicViewerProps {
   open: boolean;
@@ -97,10 +98,10 @@ export default function PaperVsElectronicViewer({
               </div>
               <div className="flex-1 min-h-0">
                 {electronicPdfUrl ? (
-                  <iframe
+                  <PdfCanvasViewer
                     src={electronicPdfUrl}
                     title="Electronic report"
-                    className="w-full h-full bg-white"
+                    className="h-full w-full"
                   />
                 ) : (
                   <div className="p-4 text-xs text-muted-foreground">

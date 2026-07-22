@@ -69,6 +69,7 @@ import BulkActionBar from "@/components/BulkActionBar";
 import { usePaperScanPendingCount } from "@/hooks/usePaperScanQueue";
 import { formatDate } from "@/lib/dateFormat";
 import { ClipboardCheck, CheckCircle2 } from "lucide-react";
+import PdfCanvasViewer from "@/components/PdfCanvasViewer";
 
 type EmailSend = {
   sent_at?: string;
@@ -134,6 +135,7 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
   const [openUrls, setOpenUrls] = useState<string[]>([]);
   const [openFailed, setOpenFailed] = useState<string[]>([]);
   const [openPdfUrl, setOpenPdfUrl] = useState<string | null>(null);
+  const [openPdfError, setOpenPdfError] = useState<string | null>(null);
   const [openView, setOpenView] = useState<"pdf" | "scan" | "split">("split");
   const [openLoading, setOpenLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<ArchivedDoc | null>(null);
@@ -303,9 +305,8 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
     setOpenDoc(d);
     setOpenUrls([]);
     setOpenFailed([]);
-    // Revoke any previous blob URL so we don't leak memory across opens.
-    if (openPdfUrl && openPdfUrl.startsWith("blob:")) URL.revokeObjectURL(openPdfUrl);
     setOpenPdfUrl(null);
+    setOpenPdfError(null);
     setOpenView(d.report_pdf_path ? "split" : "scan");
     setOpenLoading(true);
     if (d.report_pdf_path) {
@@ -316,16 +317,18 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
       if (pdf?.signedUrl) {
         try {
           const res = await fetch(pdf.signedUrl);
-          if (res.ok) {
-            const b = await res.blob();
-            const blobUrl = URL.createObjectURL(b);
-            setOpenPdfUrl(blobUrl);
-          } else {
-            setOpenPdfUrl(pdf.signedUrl);
-          }
-        } catch {
-          setOpenPdfUrl(pdf.signedUrl);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const raw = await res.blob();
+          const pdfBlob = raw.type === "application/pdf"
+            ? raw
+            : raw.slice(0, raw.size, "application/pdf");
+          const blobUrl = URL.createObjectURL(pdfBlob);
+          setOpenPdfUrl(blobUrl);
+        } catch (e: any) {
+          setOpenPdfError(e?.message || "Could not load electronic report");
         }
+      } else {
+        setOpenPdfError("Could not create a secure preview link for the electronic report.");
       }
     }
     const { urls, failed } = await resolveSubmissionsSignedUrls(d.file_paths);
@@ -340,6 +343,12 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
     setOpenFailed(failed);
     setOpenLoading(false);
   };
+
+  useEffect(() => {
+    return () => {
+      if (openPdfUrl?.startsWith("blob:")) URL.revokeObjectURL(openPdfUrl);
+    };
+  }, [openPdfUrl]);
 
 
   const types = useMemo(() => {
@@ -1062,21 +1071,33 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                     <div className="px-3 py-2 border-b bg-muted/40 text-xs font-medium flex items-center gap-1.5">
                       <FileText className="h-3.5 w-3.5" /> Electronic report
                     </div>
-                    <iframe
-                      src={openPdfUrl || ""}
-                      title="Electronic report"
-                      className="w-full h-[75vh] bg-white rounded-b-md"
-                    />
+                    {openPdfUrl ? (
+                      <PdfCanvasViewer
+                        src={openPdfUrl}
+                        title="Electronic report"
+                        className="h-[75vh] w-full rounded-b-md"
+                      />
+                    ) : (
+                      <div className="flex h-[75vh] items-center justify-center p-4 text-center text-xs text-muted-foreground">
+                        {openPdfError || "Electronic report preview unavailable."}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
               {!openLoading && openView === "pdf" && openPdfUrl && (
-                <iframe
+                <PdfCanvasViewer
                   src={openPdfUrl}
                   title="Electronic report"
-                  className="w-full h-[70vh] rounded border bg-white"
+                  className="h-[70vh] w-full rounded border"
                 />
+              )}
+
+              {!openLoading && openView === "pdf" && !openPdfUrl && openPdfError && (
+                <div className="rounded border p-4 text-sm text-muted-foreground">
+                  {openPdfError}
+                </div>
               )}
 
               {!openLoading && openView === "scan" && (
