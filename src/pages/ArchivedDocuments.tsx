@@ -52,9 +52,12 @@ import {
 import SendArchiveDialog from "@/components/paper-scan/SendArchiveDialog";
 import SendJobScanDialog from "@/components/paper-scan/SendJobScanDialog";
 import ArchiveScanDialog from "@/components/paper-scan/ArchiveScanDialog";
+import PaperVsElectronicViewer from "@/components/paper-scan/PaperVsElectronicViewer";
 import { useAuth } from "@/hooks/useAuth";
 import { resolveSubmissionsSignedUrls, resolveSubmissionsSignedUrl, submissionsPathFromSignedUrl } from "@/lib/resolveSubmissionsPath";
 import { useToast } from "@/hooks/use-toast";
+import { ensureJobScanReportBundle } from "@/lib/jobScanReports";
+import { mergePdfUrlsToBlobUrl, pdfUrlToBlobUrl } from "@/lib/pdfMerge";
 import { deleteArchivedDocument } from "@/lib/deleteArchivedDocument";
 import {
   archiveConversionQueue,
@@ -69,7 +72,6 @@ import BulkActionBar from "@/components/BulkActionBar";
 import { usePaperScanPendingCount } from "@/hooks/usePaperScanQueue";
 import { formatDate } from "@/lib/dateFormat";
 import { ClipboardCheck, CheckCircle2 } from "lucide-react";
-import PdfCanvasViewer from "@/components/PdfCanvasViewer";
 import ZoomPane from "@/components/ZoomPane";
 
 type EmailSend = {
@@ -91,6 +93,7 @@ type ArchivedDoc = {
   notes: string | null;
   file_paths: string[];
   report_pdf_path: string | null;
+  report_pdf_paths?: string[];
   page_count: number;
   status: "filed" | "unmatched";
   created_at: string;
@@ -117,7 +120,7 @@ interface ArchivedDocumentsProps {
 
 export default function ArchivedDocuments({ embedded = false, onGoReview }: ArchivedDocumentsProps = {}) {
   const [params, setParams] = useSearchParams();
-  const { userRole } = useAuth();
+  const { userRole, user } = useAuth();
   const { toast } = useToast();
   const [docs, setDocs] = useState<ArchivedDoc[]>([]);
   const [customers, setCustomers] = useState<Record<string, string>>({});
@@ -136,6 +139,7 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
   const [openUrls, setOpenUrls] = useState<string[]>([]);
   const [openFailed, setOpenFailed] = useState<string[]>([]);
   const [openPdfUrl, setOpenPdfUrl] = useState<string | null>(null);
+  const [openPdfUrls, setOpenPdfUrls] = useState<string[]>([]);
   const [openPdfError, setOpenPdfError] = useState<string | null>(null);
   const [openView, setOpenView] = useState<"pdf" | "scan" | "split">("split");
   const [openLoading, setOpenLoading] = useState(false);
@@ -188,7 +192,7 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
     //    in one query so we can synthesise report_pdf_path / file_paths.
     let jobDocsByJob: Record<
       string,
-      { report?: any; scans: any[] }
+      { reports: any[]; scans: any[] }
     > = {};
     if (jobIds.length > 0) {
       const { data: jobDocs } = await (supabase as any)
@@ -197,21 +201,9 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
         .in("job_id", jobIds)
         .in("document_type", ["report", "source_scan"]);
       for (const d of (jobDocs as any[]) || []) {
-        const bucket = jobDocsByJob[d.job_id] || { scans: [] };
+        const bucket = jobDocsByJob[d.job_id] || { reports: [], scans: [] };
         if (d.document_type === "report") {
-          if (
-            !bucket.report ||
-            /electronic report/i.test(d.label || "")
-          ) {
-            // Prefer the "Electronic report — …" doc we author from the
-            // scan flow; fall back to any other report doc if not present.
-            if (
-              /electronic report/i.test(d.label || "") ||
-              !bucket.report
-            ) {
-              bucket.report = d;
-            }
-          }
+          bucket.reports.push(d);
         } else if (d.document_type === "source_scan") {
           bucket.scans.push(d);
         }
@@ -220,13 +212,20 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
     }
 
     const jobRows: ArchivedDoc[] = jobRowsRaw.map((j) => {
-      const bundle = jobDocsByJob[j.id] || { scans: [] as any[] };
-      const reportPath =
-        submissionsPathFromSignedUrl(bundle.report?.file_url) || null;
+      const bundle = jobDocsByJob[j.id] || { reports: [] as any[], scans: [] as any[] };
+      const reports = [...bundle.reports].sort((a: any, b: any) =>
+        String(a.created_at || "").localeCompare(String(b.created_at || "")),
+      );
+      const reportPaths = reports
+        .map((r: any) => submissionsPathFromSignedUrl(r.file_url))
+        .filter((p): p is string => !!p);
+      const reportPath = reportPaths[0] || null;
       const scanPaths = bundle.scans
+        .sort((a: any, b: any) => String(a.created_at || "").localeCompare(String(b.created_at || "")))
         .map((s: any) => submissionsPathFromSignedUrl(s.file_url))
         .filter((p): p is string => !!p);
-      const templateName = (bundle.report?.label || "")
+      const firstReport = reports[0];
+      const templateName = (firstReport?.label || "")
         .toString()
         .replace(/^electronic report\s*[—-]\s*/i, "")
         .trim() || (j.name || null);
@@ -242,6 +241,7 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
         notes: null,
         file_paths: scanPaths,
         report_pdf_path: reportPath,
+        report_pdf_paths: reportPaths,
         page_count: 0,
         status: (reportPath ? "filed" : "unmatched") as "filed" | "unmatched",
         created_at: j.created_at,
@@ -287,6 +287,16 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
         { event: "*", schema: "public", table: "archived_documents" },
         () => load(),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "job_documents" },
+        () => load(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "paper_scan_batch_items" },
+        () => load(),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -307,36 +317,67 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
     setOpenUrls([]);
     setOpenFailed([]);
     setOpenPdfUrl(null);
+    setOpenPdfUrls([]);
     setOpenPdfError(null);
     setOpenView(d.report_pdf_path ? "split" : "scan");
     setOpenLoading(true);
-    if (d.report_pdf_path) {
-      const pdf = await resolveSubmissionsSignedUrl(d.report_pdf_path);
-      // Fetch to a same-origin blob URL so the iframe renders inline even
-      // when the browser is set to auto-download application/pdf. The signed
-      // URL alone triggers a download on some Chromium/Firefox configs.
-      if (pdf?.signedUrl) {
+
+    let docForOpen = d;
+    let reportPaths = d.report_pdf_paths?.length
+      ? d.report_pdf_paths
+      : d.report_pdf_path
+        ? [d.report_pdf_path]
+        : [];
+    let scanPaths = d.file_paths || [];
+
+    if (d.kind === "job" && d.job_id) {
+      try {
+        const bundle = await ensureJobScanReportBundle(d.job_id, { userId: user?.id });
+        reportPaths = bundle.reportPaths;
+        scanPaths = bundle.scanPaths;
+        docForOpen = {
+          ...d,
+          report_pdf_path: reportPaths[0] || null,
+          report_pdf_paths: reportPaths,
+          file_paths: scanPaths,
+          status: reportPaths.length > 0 ? "filed" : d.status,
+        };
+        setOpenDoc(docForOpen);
+      } catch (e: any) {
+        console.warn("[archive-history] could not hydrate job scan bundle", e);
+        setOpenPdfError(e?.message || "Could not prepare the job's electronic reports.");
+      }
+    }
+
+    setOpenView(reportPaths.length > 0 ? "split" : "scan");
+    if (reportPaths.length > 0) {
+      const { urls, failed } = await resolveSubmissionsSignedUrls(reportPaths);
+      const signedUrls = urls.map((u) => u.signedUrl);
+      if (signedUrls.length > 0) {
         try {
-          const res = await fetch(pdf.signedUrl);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const raw = await res.blob();
-          const pdfBlob = raw.type === "application/pdf"
-            ? raw
-            : raw.slice(0, raw.size, "application/pdf");
-          const blobUrl = URL.createObjectURL(pdfBlob);
-          setOpenPdfUrl(blobUrl);
+          const blobUrls = await Promise.all(signedUrls.map((u) => pdfUrlToBlobUrl(u)));
+          setOpenPdfUrls(blobUrls);
+          setOpenPdfUrl(
+            signedUrls.length === 1
+              ? blobUrls[0]
+              : await mergePdfUrlsToBlobUrl(signedUrls),
+          );
         } catch (e: any) {
           setOpenPdfError(e?.message || "Could not load electronic report");
         }
       } else {
-        setOpenPdfError("Could not create a secure preview link for the electronic report.");
+        setOpenPdfError(
+          failed.length
+            ? `Could not create secure preview links for ${failed.length} electronic report${failed.length === 1 ? "" : "s"}.`
+            : "Could not create a secure preview link for the electronic report.",
+        );
       }
     }
-    const { urls, failed } = await resolveSubmissionsSignedUrls(d.file_paths);
+    const { urls, failed } = await resolveSubmissionsSignedUrls(scanPaths);
     if (failed.length) {
       console.error(
         "[archive] unresolved page paths for doc",
-        d.id,
+        docForOpen.id,
         failed,
       );
     }
@@ -348,8 +389,11 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
   useEffect(() => {
     return () => {
       if (openPdfUrl?.startsWith("blob:")) URL.revokeObjectURL(openPdfUrl);
+      openPdfUrls.forEach((u) => {
+        if (u.startsWith("blob:")) URL.revokeObjectURL(u);
+      });
     };
-  }, [openPdfUrl]);
+  }, [openPdfUrl, openPdfUrls]);
 
 
   const types = useMemo(() => {
