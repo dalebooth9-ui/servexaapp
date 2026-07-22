@@ -339,6 +339,48 @@ export async function runScanExtraction(
     }
   }
 
+  // ── DATE PLAUSIBILITY GUARD ─────────────────────────────────────────────
+  // Compliance dates that failed sanity (wrong-year OCR misreads, future
+  // dates, or wildly off the planned job date) are downgraded to
+  // low-confidence so the review UI forces the reviewer to confirm/correct
+  // them. The value is NEVER silently rewritten — we keep the OCR reading
+  // exactly as extracted so the reviewer sees what the model returned.
+  const scanRef = input.scanReferenceDate ?? new Date();
+  const plannedDate = input.plannedJobDate ?? null;
+  const dateIssues: Record<string, DatePlausibilityCheck> = {};
+
+  const evaluateDateValue = (fieldId: string, value: unknown) => {
+    const parsed = parseSheetDate(value);
+    if (!parsed) return;
+    const check = checkDatePlausibility(parsed, scanRef, plannedDate);
+    if (check.ok) return;
+    fieldConfidence[fieldId] = Math.min(fieldConfidence[fieldId] ?? 0.4, 0.35);
+    dateIssues[fieldId] = check;
+    console.warn(`[scanPipeline] Date plausibility failed for ${fieldId}="${value}" — ${check.message}`);
+  };
+
+  // Header-level dates: mirror the flag onto every field id the header maps to
+  // so ReviewDialogs that render answers-first still show the amber badge.
+  if (header.date) {
+    evaluateDateValue("__header_date__", header.date);
+    if (dateIssues["__header_date__"]) {
+      for (const fid of HEADER_TO_FIELD_MAP.date) {
+        fieldConfidence[fid] = Math.min(fieldConfidence[fid] ?? 0.4, 0.35);
+        dateIssues[fid] = dateIssues["__header_date__"];
+      }
+    }
+  }
+  if (header.customer_sign_date) {
+    evaluateDateValue("__header_customer_sign_date__", header.customer_sign_date);
+  }
+  // Any template field that looks like a date field.
+  for (const field of input.fields) {
+    if (!isDateField(field)) continue;
+    evaluateDateValue(field.id, extracted[field.id]);
+  }
+  header._date_issues = dateIssues;
+
+
   // Engineer fuzzy match against org profiles (opt-in; the identify pass
   // shouldn't waste a DB round-trip).
   let engineerMatch: ScanExtractionResult["engineerMatch"] = {
