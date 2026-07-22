@@ -65,6 +65,16 @@ import { createArchiveSourcedDefects } from "@/lib/proposeArchiveDefects";
 import ProposedDefectsSection from "@/components/paper-scan/ProposedDefectsSection";
 import { Checkbox } from "@/components/ui/checkbox";
 import BulkActionBar from "@/components/BulkActionBar";
+import { usePaperScanPendingCount } from "@/hooks/usePaperScanQueue";
+import { formatDate } from "@/lib/dateFormat";
+import { ClipboardCheck, CheckCircle2 } from "lucide-react";
+
+type EmailSend = {
+  sent_at?: string;
+  recipient?: string;
+  subject?: string;
+  channel?: string;
+};
 
 type ArchivedDoc = {
   id: string;
@@ -81,6 +91,7 @@ type ArchivedDoc = {
   page_count: number;
   status: "filed" | "unmatched";
   created_at: string;
+  header_data: Record<string, any> | null;
 };
 
 interface ArchivedDocumentsProps {
@@ -88,9 +99,12 @@ interface ArchivedDocumentsProps {
    *  be embedded as a tab inside the unified `/paper-scans` shell. Also hides
    *  the "Archive scan" launcher since Upload has its own tab. */
   embedded?: boolean;
+  /** Called when the user clicks the "N sheets awaiting review" hint — the
+   *  parent tab shell switches to the review tab. */
+  onGoReview?: () => void;
 }
 
-export default function ArchivedDocuments({ embedded = false }: ArchivedDocumentsProps = {}) {
+export default function ArchivedDocuments({ embedded = false, onGoReview }: ArchivedDocumentsProps = {}) {
   const [params, setParams] = useSearchParams();
   const { userRole } = useAuth();
   const { toast } = useToast();
@@ -123,12 +137,14 @@ export default function ArchivedDocuments({ embedded = false }: ArchivedDocument
 
   const isAdmin = userRole === "admin";
 
+  const pendingReviewCount = usePaperScanPendingCount();
+
   const load = async () => {
     setLoading(true);
     const { data } = await (supabase as any)
       .from("archived_documents")
       .select(
-        "id, customer_id, site_id, document_date, document_type, template_id, template_name, title, notes, file_paths, report_pdf_path, page_count, status, created_at",
+        "id, customer_id, site_id, document_date, document_type, template_id, template_name, title, notes, file_paths, report_pdf_path, page_count, status, created_at, header_data",
       )
       .order("document_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
@@ -153,6 +169,19 @@ export default function ArchivedDocuments({ embedded = false }: ArchivedDocument
 
   useEffect(() => {
     load();
+    // Realtime: newly-filed archive docs (or converts that add a
+    // report_pdf_path) should show up without switching tabs.
+    const channel = supabase
+      .channel("archived_documents_list")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "archived_documents" },
+        () => load(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
@@ -414,6 +443,30 @@ export default function ArchivedDocuments({ embedded = false }: ArchivedDocument
           )}
         </div>
 
+        {pendingReviewCount > 0 && (
+          <Card className="p-3 flex items-center gap-3 border-amber-300 bg-amber-50 text-amber-900">
+            <ClipboardCheck className="h-5 w-5 shrink-0" />
+            <div className="text-sm flex-1">
+              <div className="font-medium">
+                {pendingReviewCount} sheet{pendingReviewCount === 1 ? "" : "s"} awaiting review
+              </div>
+              <div className="text-xs opacity-90">
+                Scanned sheets only appear here once you confirm them in the Review tab.
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="bg-white"
+              onClick={() => (onGoReview ? onGoReview() : window.location.assign("/paper-scans?tab=review"))}
+            >
+              Open review queue
+            </Button>
+          </Card>
+        )}
+
+
+
 
         <Card className="p-3 flex flex-wrap gap-2 items-center">
           <Input
@@ -579,8 +632,16 @@ export default function ArchivedDocuments({ embedded = false }: ArchivedDocument
                         {d.document_type || d.template_name || "—"}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {d.document_date || (
-                          <span className="text-muted-foreground">—</span>
+                        {d.document_date ? (
+                          formatDate(d.document_date)
+                        ) : (
+                          <span
+                            className="text-muted-foreground"
+                            title="Document date not detected on the sheet — showing when it was scanned."
+                          >
+                            {formatDate(d.created_at)}{" "}
+                            <span className="text-[10px] italic">(scanned)</span>
+                          </span>
                         )}
                       </TableCell>
                       <TableCell className="text-xs">
@@ -595,11 +656,26 @@ export default function ArchivedDocuments({ embedded = false }: ArchivedDocument
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant={d.status === "unmatched" ? "outline" : "secondary"}
-                        >
-                          {d.status}
-                        </Badge>
+                        {(() => {
+                          const sends = (d.header_data?._email_sends as EmailSend[] | undefined) || [];
+                          const last = sends[sends.length - 1];
+                          if (last?.sent_at) {
+                            return (
+                              <Badge
+                                variant="secondary"
+                                className="gap-1 bg-emerald-100 text-emerald-900 hover:bg-emerald-100"
+                                title={`Sent to ${last.recipient || "customer"} on ${formatDate(last.sent_at)}`}
+                              >
+                                <CheckCircle2 className="h-3 w-3" /> Sent {formatDate(last.sent_at)}
+                              </Badge>
+                            );
+                          }
+                          return (
+                            <Badge variant={d.status === "unmatched" ? "outline" : "secondary"}>
+                              {d.status}
+                            </Badge>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
@@ -609,13 +685,14 @@ export default function ArchivedDocuments({ embedded = false }: ArchivedDocument
                           {d.report_pdf_path && (
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="default"
                               onClick={() => setSendDoc(d)}
                               title="Email report to customer"
                             >
                               <Send className="h-3.5 w-3.5 mr-1" /> Send
                             </Button>
                           )}
+
                           <Button
                             size="sm"
                             variant="outline"
