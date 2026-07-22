@@ -679,28 +679,8 @@ export default function QuickScanDialog() {
       const preloadedSignatures: any = {};
       const preloadedSigImages: Record<string, HTMLImageElement> = {};
 
-      // Customer signature from scan header
-      if (exportHeader.customer_signed_name) {
-        const custSigId = "scan-customer";
-        preloadedSignatures.customerSig = { id: custSigId, signer_name: exportHeader.customer_signed_name, signer_role: "customer" };
-
-        // Attempt to crop the customer signature image from the scanned sheet
-        if (exportHeader.customer_signature_bbox && images.length > 0) {
-          try {
-            const bbox = exportHeader.customer_signature_bbox as any;
-            const pageIdx = bbox.page_index || 0;
-            const sourceImage = images[pageIdx];
-            if (sourceImage) {
-              const cropped = await cropSignatureFromScanSource(sourceImage, bbox, { mode: "field" });
-              if (cropped?.image) {
-                preloadedSigImages[custSigId] = cropped.image;
-              } else {
-                console.log("[QuickScan] Customer signature crop could not be refined");
-              }
-            }
-          } catch { /* skip crop failure */ }
-        }
-      }
+      // Customer signatures are never auto-cropped from OCR boxes. They must
+      // be explicitly selected by the reviewer in the paper-scan review flow.
 
       // Engineer signature — try profile lookup
       if (exportHeader.engineer) {
@@ -927,34 +907,7 @@ export default function QuickScanDialog() {
         }
       }
 
-      // Auto-import customer signature — crop from scanned image
-      console.log("[QuickScan] Customer signed name from header:", header?.customer_signed_name);
-      console.log("[QuickScan] Customer signature bbox:", header?.customer_signature_bbox);
-      const customerSignedName = header?.customer_signed_name ? (header.customer_signed_name as string).trim() : "";
-      if (customerSignedName && userId) {
-        const customerBbox = header.customer_signature_bbox;
-        let imported = false;
-
-        if (customerBbox && typeof customerBbox === "object" && "x_min" in customerBbox) {
-          const pageIdx = (customerBbox as any).page_index || 0;
-          const sourceImage = images[pageIdx];
-          console.log("[QuickScan] Customer sig crop: pageIdx=", pageIdx, "sourceImage exists=", !!sourceImage, "bbox=", JSON.stringify(customerBbox));
-          const cropped = sourceImage ? await cropSignatureFromScanSource(sourceImage, customerBbox as any, { mode: "field" }) : null;
-          console.log("[QuickScan] Customer sig crop result:", cropped ? `blob=${cropped.blob.size}bytes` : "null (rejected as blank or failed)");
-          if (cropped?.blob) {
-            await uploadSignature(cropped.blob, job.id, customerSignedName, "customer", userId);
-            imported = true;
-          }
-        } else {
-          console.log("[QuickScan] No valid customer_signature_bbox found in header");
-        }
-
-        if (!imported) {
-          await supabase.from("job_signatures").insert({
-            job_id: job.id, signer_id: userId, signer_name: customerSignedName, signer_role: "customer", file_path: "",
-          });
-        }
-      }
+      // No customer signature record is created here without an explicit crop.
 
       toast({ title: "Job created", description: `${jobName}` });
       setOpen(false);

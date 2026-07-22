@@ -126,7 +126,7 @@ const HEADER_TO_FIELD_MAP: Record<string, string[]> = {
   riser_location: ["riser_location"],
   po_ref: ["po_number", "po_ref", "reference"],
   site: ["site_details", "site"],
-  customer: ["customer_details", "customer_name"],
+  customer: ["customer_details"],
   engineer: ["technician_name", "engineer_name"],
 };
 

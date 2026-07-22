@@ -1100,15 +1100,19 @@ export async function generateJobSheetPdf(
   const sigDateStr = resolvedFormData._customer_sign_date || dateStr;
 
   const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin") || preloadedSignatures?.engineerSig || null;
-  const customerSig = signatures.find((s: any) => s.signer_role === "customer") || preloadedSignatures?.customerSig || null;
+  const rawCustomerSig = signatures.find((s: any) => s.signer_role === "customer") || preloadedSignatures?.customerSig || null;
 
   // Merge preloaded sig images
   if (preloadedSignatures?.sigImages) {
     Object.assign(sigImages, preloadedSignatures.sigImages);
   }
 
-  // For customer display name, prefer the preloaded customer sig name (OCR-extracted signer like "R. Croft")
-  const customerSignedDisplayName = resolvedFormData._customer_signed_name || customerSig?.signer_name || jobInfo?.customers?.name || jobInfo?.customer || "";
+  const customerSig = rawCustomerSig && sigImages[rawCustomerSig.id] ? rawCustomerSig : null;
+
+  // Customer signer display text is only trusted when there is a real customer
+  // signature image. Never fall back to the company name/domain or OCR-only
+  // signer text, otherwise blank paper rows become fabricated names in PDFs.
+  const customerSignedDisplayName = customerSig?.signer_name || "";
 
   // Precedence: response's technician answer (either the template field labelled
   // "technician name" OR the top-level `technician_name` key persisted on the

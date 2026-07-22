@@ -41,12 +41,6 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import BulkScanTab from "@/components/paper-scan/BulkScanTab";
 import PaperSignatureCropper from "@/components/paper-scan/PaperSignatureCropper";
-import {
-  cropSignatureFromScanSource,
-  hasUsableSignatureBoundingBox,
-  type SignatureBoundingBox,
-  type ScanImageSource,
-} from "@/lib/signatureCrop";
 import { detectPaperMismatches } from "@/lib/paperScanMismatch";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import {
@@ -215,7 +209,7 @@ export default function ScanCompletedJobDialog({
   const [existingJobs, setExistingJobs] = useState<MatchableJob[]>([]);
   const [matchExistingJobId, setMatchExistingJobId] = useState<string>("");
 
-  // Cropped signatures (auto or manual) — uploaded on confirm
+  // Cropped signatures (manual only) — uploaded on confirm
   type SigCapture = { blob: Blob; previewUrl: string; name: string; pageIdx: number };
   const [customerSig, setCustomerSig] = useState<SigCapture | null>(null);
   const [manualCrop, setManualCrop] = useState<{
@@ -431,31 +425,15 @@ export default function ScanCompletedJobDialog({
   }, [customerId]);
 
 
-  // ── Auto-crop signatures out of the source photos using the bboxes the
-  // OCR function returned. Runs in both single and queue flows; either
-  // slot can be blank and the reviewer can crop it manually. ──
+  // ── Customer signatures are manual-only. OCR boxes may identify where a
+  // signature row sits, but they are not trusted as report evidence because
+  // empty ruled table cells look like ink. No explicit crop = no signature. ──
   const autoCropSignatures = async (
     src: ImgFile[],
     hdr: Record<string, any>,
   ) => {
-    if (!src.length) return;
-    // Engineer signatures come from the stored engineer library (managed
-    // in Settings → Documents → Engineer signatures) — never cropped from
-    // the paper photo. Only the customer signature is cropped from the scan.
-    const custBox = hdr?.customer_signature_bbox as SignatureBoundingBox | undefined;
-    if (hasUsableSignatureBoundingBox(custBox)) {
-      const pageIdx = Math.min(custBox?.page_index || 0, src.length - 1);
-      const source: ScanImageSource = { file: src[pageIdx].file, preview: src[pageIdx].url };
-      const cropped = await cropSignatureFromScanSource(source, custBox!, { mode: "field" });
-      if (cropped?.blob) {
-        setCustomerSig({
-          blob: cropped.blob,
-          previewUrl: URL.createObjectURL(cropped.blob),
-          name: String(hdr?.customer_signed_name || "").trim() || "Customer",
-          pageIdx,
-        });
-      }
-    }
+    void src;
+    void hdr;
   };
 
   // ── File input ──
@@ -1027,7 +1005,7 @@ export default function ScanCompletedJobDialog({
         await supabase.from("job_signatures" as any).insert({
           job_id: jobId,
           signer_id: user.id,
-          signer_name: sig.name || (role === "customer" ? "Customer" : "Engineer"),
+          signer_name: sig.name || (role === "customer" ? "" : "Engineer"),
           signer_role: role,
           file_path: path,
         });
@@ -1623,8 +1601,7 @@ export default function ScanCompletedJobDialog({
                     onCancel={() => setManualCrop(null)}
                     onCrop={(blob, previewUrl) => {
                       const name =
-                        String(header?.customer_signed_name || "").trim() ||
-                        "Customer";
+                        String(header?.customer_signed_name || "").trim();
                       setCustomerSig({
                         blob,
                         previewUrl,

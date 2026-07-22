@@ -438,13 +438,10 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         ? { id: profileSigId, signer_name: techName, signer_role: "engineer" }
         : null;
 
-      // Build a synthetic customer sig record from OCR-extracted name if no digital sig exists
-      // This ensures the customer name (e.g. "Calvin") always appears in the PDF signature block
-      const resolvedCustomerSig = customerSig
-        ? customerSig
-        : customerSignedName
-        ? { id: `ocr-customer`, signer_name: customerSignedName, signer_role: "customer", file_path: null }
-        : null;
+      // Customer signatures must have a real stored/loaded image. Never build a
+      // synthetic OCR-only customer signature record: that creates blank boxes
+      // when the customer row on the paper original was empty.
+      const resolvedCustomerSig = customerSig && sigImages[customerSig.id] ? customerSig : null;
 
       // --- SIGNATURE BLOCKS on last page ---
       // Flow immediately after the scanned content whenever there is room;
@@ -475,7 +472,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       renderPdfSignatures(doc, footerFlow.sigY, {
         dateStr: sigDateStr,
         technicianName: techName,
-        customerName: customerSignedName || customerName,
+        customerName: resolvedCustomerSig?.signer_name || "",
         sigImages,
         engineerSig: resolvedEngineerSig,
         customerSig: resolvedCustomerSig,
