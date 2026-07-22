@@ -152,7 +152,7 @@ export async function generateJobSheetPdf(
   submittedAt?: string | null,
   categoryName?: string,
   preloadedSignatures?: { engineerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string }; customerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string }; sigImages?: Record<string, HTMLImageElement>; technicianSourceNote?: string | null; customerSourceNote?: string | null },
-): Promise<{ base64: string; fileName: string }> {
+): Promise<{ base64: string; fileName: string; pageCount: number }> {
   // Resolve scope/category fields in formData using the human-readable category name
   const resolvedFormData = { ...formData };
   const normalizeFieldLabel = (label: string) => label.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -1062,17 +1062,15 @@ export async function generateJobSheetPdf(
   }
 
 
-  // Signature/footer flow: the previous implementation double-reserved the
-  // footer area (`footerSpace` + signature reserve) and then anchored the
-  // signature near the page bottom. That created a false page break where
-  // page 1 had plenty of blank space and page 2 contained only sign-off. Keep
-  // this stack flowing immediately after the final body row; only add a page
-  // when the actual stack cannot fit.
+  // Signature/footer flow: keep the sign-off stack flowing immediately after
+  // the final body row. Do NOT include the bottom accreditation strip in this
+  // page-break decision — that strip is branding decoration, not report
+  // content, and counting it here caused the recurring false break where page
+  // 1 had empty space but page 2 contained only date/customer/signature rows.
   const logoH = 12;
   const declarationH = footerText && footerText.trim() ? 9 : 0;
   const sigGap = 2;
   const footerGap = declarationH ? 2 : 0;
-  const accreditationGap = 3;
   const helperAccredGapToFooter = 3;
   const bottomAccredFooterY = pageHeight - margin;
 
@@ -1083,12 +1081,9 @@ export async function generateJobSheetPdf(
     const footerEndY = declarationH ? declarationFooterY + declarationH : signatureEndY;
     const bottomLogoTop = bottomAccredFooterY - logoH - helperAccredGapToFooter;
     const canUseBottomLogos = footerEndY <= bottomLogoTop - 2;
-    const logoTop = canUseBottomLogos ? bottomLogoTop : footerEndY + accreditationGap;
-    const accredFooterY = canUseBottomLogos
-      ? bottomAccredFooterY
-      : logoTop + logoH + helperAccredGapToFooter;
-    const stackEndY = canUseBottomLogos ? footerEndY : logoTop + logoH;
-    return { sigY, declarationFooterY, footerEndY, accredFooterY, stackEndY };
+    const accredFooterY = bottomAccredFooterY;
+    const stackEndY = footerEndY;
+    return { sigY, declarationFooterY, footerEndY, accredFooterY, stackEndY, canUseBottomLogos };
   };
 
   let footerFlow = computeFlowStack(y);
@@ -1153,10 +1148,11 @@ export async function generateJobSheetPdf(
     loadWatermarkImage(),
     loadAccreditationLogos(custAccredUrls),
   ]);
+  const accredLogosForRender = footerFlow.canUseBottomLogos ? accredLogos : [];
   await renderBrandingOverlay(doc, {
     watermark,
     brandColor: accentColor,
-    accredLogos,
+    accredLogos: accredLogosForRender,
     accredFooterY: footerFlow.accredFooterY,
     accredLogoH: logoH,
     // Keep the flame as a subtle background so dwelling-photo pages aren't dominated by it.
@@ -1166,17 +1162,18 @@ export async function generateJobSheetPdf(
   const safeSite = siteDisplay.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
   const filenameRef = (jobInfo as any)?.customer_po || jobInfo?.reference_number || "job-sheet";
   const fileName = [filenameRef, safeSite || null, template.name.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
-  const base64 = doc.output("datauristring").split(",")[1];
-
-  warnIfUnexpectedPdfPageSpill(doc, template.name, fileName, {
+  const pageCount = warnIfUnexpectedPdfPageSpill(doc, template.name, fileName, {
     jobId,
     bodyEndY: y,
     signatureY: footerFlow.sigY,
     footerY: declarationH ? footerFlow.declarationFooterY : null,
     footerStackEndY: footerFlow.stackEndY,
+    accreditationsRendered: accredLogosForRender.length,
+    accreditationsSuppressedForSpace: accredLogos.length > 0 && accredLogosForRender.length === 0,
   });
+  const base64 = doc.output("datauristring").split(",")[1];
 
-  return { base64, fileName };
+  return { base64, fileName, pageCount };
 }
 
 
