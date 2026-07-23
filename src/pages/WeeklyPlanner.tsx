@@ -107,9 +107,19 @@ function extractPostcode(address: string | null): string {
 
 export default function WeeklyPlanner() {
   const navigate = useNavigate();
-  const { userRole, user } = useAuth();
+  const { userRole, user, effectiveUserId, isPreviewingAsEngineer, previewEngineerId, previewEngineerName } = useAuth();
   const { toast } = useToast();
   const isAdmin = userRole === "admin";
+  // For non-admins the planner is strictly personal: use the effective engineer id
+  // (real user, or the previewed engineer when an admin is impersonating a specific one).
+  // In generic engineer preview (no engineer chosen) there is no real id — we show a
+  // single placeholder row so the admin still sees the true engineer experience.
+  const genericEngineerPreview = isPreviewingAsEngineer && !previewEngineerId;
+  const engineerScopeId: string | null = isAdmin
+    ? null
+    : genericEngineerPreview
+      ? null
+      : (effectiveUserId ?? user?.id ?? null);
 
   const [view, setView] = useState<"grid" | "month" | "list" | "map">("grid");
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -460,30 +470,64 @@ export default function WeeklyPlanner() {
     }
   }, [user, engineers, hiddenEngineers]);
 
-  const visibleEngineers = useMemo(
-    () => sortedEngineers.filter((e) => !hiddenEngineers.has(e.user_id)),
-    [sortedEngineers, hiddenEngineers],
-  );
+  const visibleEngineers = useMemo(() => {
+    if (!isAdmin) {
+      // Engineer view: only their own row. Generic preview shows a single "You" placeholder.
+      if (genericEngineerPreview) {
+        return [{ user_id: "__preview__", full_name: previewEngineerName || "You" }] as Engineer[];
+      }
+      if (!engineerScopeId) return [] as Engineer[];
+      const me = sortedEngineers.find((e) => e.user_id === engineerScopeId);
+      return me
+        ? [me]
+        : ([{ user_id: engineerScopeId, full_name: previewEngineerName || "You" }] as Engineer[]);
+    }
+    return sortedEngineers.filter((e) => !hiddenEngineers.has(e.user_id));
+  }, [isAdmin, sortedEngineers, hiddenEngineers, engineerScopeId, genericEngineerPreview, previewEngineerName]);
 
-  // Unallocated: active jobs with no schedule entry this period
+  // Unallocated: active jobs with no schedule entry this period (admin only — engineers
+  // never see other people's unallocated pool)
   const unallocatedJobs = useMemo(() => {
+    if (!isAdmin) return [] as Job[];
     const scheduledJobIds = new Set(schedule.map((s) => s.job_id));
     return jobs.filter((j) => !scheduledJobIds.has(j.id));
-  }, [jobs, schedule]);
+  }, [jobs, schedule, isAdmin]);
 
   // Filter schedule for non-admin AND drop rows for hidden engineers.
   const filteredSchedule = useMemo(() => {
-    const base = isAdmin ? schedule : schedule.filter((s) => s.engineer_id === user?.id);
-    if (hiddenEngineers.size === 0) return base;
-    return base.filter((s) => !hiddenEngineers.has(s.engineer_id));
-  }, [schedule, isAdmin, user, hiddenEngineers]);
+    if (!isAdmin) {
+      if (!engineerScopeId) return [] as ScheduleEntry[]; // generic preview has no real schedule
+      return schedule.filter((s) => s.engineer_id === engineerScopeId);
+    }
+    if (hiddenEngineers.size === 0) return schedule;
+    return schedule.filter((s) => !hiddenEngineers.has(s.engineer_id));
+  }, [schedule, isAdmin, engineerScopeId, hiddenEngineers]);
 
   // Filter adhoc entries for non-admin AND drop rows for hidden engineers.
   const filteredAdhoc = useMemo(() => {
-    const base = isAdmin ? adhocEntries : adhocEntries.filter((a) => a.engineer_id === user?.id);
-    if (hiddenEngineers.size === 0) return base;
-    return base.filter((a) => !a.engineer_id || !hiddenEngineers.has(a.engineer_id));
-  }, [adhocEntries, isAdmin, user, hiddenEngineers]);
+    if (!isAdmin) {
+      if (!engineerScopeId) return [] as AdhocEntry[];
+      return adhocEntries.filter((a) => a.engineer_id === engineerScopeId);
+    }
+    if (hiddenEngineers.size === 0) return adhocEntries;
+    return adhocEntries.filter((a) => !a.engineer_id || !hiddenEngineers.has(a.engineer_id));
+  }, [adhocEntries, isAdmin, engineerScopeId, hiddenEngineers]);
+
+  // For engineers, restrict the jobs prop to only jobs assigned to them
+  // (either scheduled or preassigned via job_assignments). Belt-and-braces:
+  // the child views only render entries from filteredSchedule, but scoping
+  // `jobs` too prevents any leak through pool/map/list lookups.
+  const scopedJobs = useMemo(() => {
+    if (isAdmin) return jobs;
+    if (!engineerScopeId) return [] as Job[];
+    const scheduledIds = new Set(filteredSchedule.map((s) => s.job_id));
+    return jobs.filter(
+      (j) => scheduledIds.has(j.id) || (j as any).preassigned_engineer_id === engineerScopeId
+    );
+  }, [jobs, filteredSchedule, isAdmin, engineerScopeId]);
+
+
+
 
   // Add adhoc entry handler
   const handleAddAdhoc = async () => {
@@ -908,11 +952,13 @@ export default function WeeklyPlanner() {
               </Button>
             </>
           )}
-          <EngineerVisibilityFilter
-            engineers={sortedEngineers}
-            hidden={hiddenEngineers}
-            onChange={updateHiddenEngineers}
-          />
+          {isAdmin && (
+            <EngineerVisibilityFilter
+              engineers={sortedEngineers}
+              hidden={hiddenEngineers}
+              onChange={updateHiddenEngineers}
+            />
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
@@ -920,10 +966,10 @@ export default function WeeklyPlanner() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => exportWorksheetPdf(weekStart, filteredSchedule, jobs as any, engineers, jobParts, submissionComments, optimisedJobOrder, jobVisitNotes)}>
+              <DropdownMenuItem onClick={() => exportWorksheetPdf(weekStart, filteredSchedule, scopedJobs as any, visibleEngineers, jobParts, submissionComments, optimisedJobOrder, jobVisitNotes)}>
                 <FileText className="mr-2 h-4 w-4" /> Download PDF
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportWorksheetXlsx(weekStart, filteredSchedule, jobs as any, engineers, jobParts, submissionComments, optimisedJobOrder, jobVisitNotes)}>
+              <DropdownMenuItem onClick={() => exportWorksheetXlsx(weekStart, filteredSchedule, scopedJobs as any, visibleEngineers, jobParts, submissionComments, optimisedJobOrder, jobVisitNotes)}>
                 <FileSpreadsheet className="mr-2 h-4 w-4" /> Download Excel (.xlsx)
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -963,7 +1009,7 @@ export default function WeeklyPlanner() {
             weekDays={weekDays}
             engineers={visibleEngineers}
             schedule={filteredSchedule}
-            jobs={jobs}
+            jobs={scopedJobs}
             unallocatedJobs={unallocatedJobs}
             adhocEntries={filteredAdhoc}
             isAdmin={isAdmin}
@@ -1003,7 +1049,7 @@ export default function WeeklyPlanner() {
           <MonthlyView
             currentDate={monthDate}
             schedule={filteredSchedule}
-            jobs={jobs}
+            jobs={scopedJobs}
             unallocatedJobs={isAdmin ? unallocatedJobs : []}
             engineers={visibleEngineers}
             isAdmin={isAdmin}
@@ -1017,7 +1063,7 @@ export default function WeeklyPlanner() {
           <ListView
             schedule={filteredSchedule}
             engineers={visibleEngineers}
-            jobs={jobs}
+            jobs={scopedJobs}
             isAdmin={isAdmin}
             onRemove={handleRemove}
             onBulkReassign={handleBulkReassign}
@@ -1030,7 +1076,7 @@ export default function WeeklyPlanner() {
         </TabsContent>
 
         <TabsContent value="map" className="mt-4">
-          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={visibleEngineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
+          <PlannerMapView schedule={filteredSchedule} jobs={scopedJobs} engineers={visibleEngineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
             const j = jobs.find((x) => x.id === jobId);
             if (j) setMapScheduleJob({ id: j.id, name: j.name, reference_number: j.reference_number });
           }} />
@@ -1040,7 +1086,7 @@ export default function WeeklyPlanner() {
       {/* Always-visible map for admins (hidden when map tab is active to avoid duplication) */}
       {isAdmin && view !== "map" && (
         <div className="mt-4">
-          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={visibleEngineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
+          <PlannerMapView schedule={filteredSchedule} jobs={scopedJobs} engineers={visibleEngineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
             const j = jobs.find((x) => x.id === jobId);
             if (j) setMapScheduleJob({ id: j.id, name: j.name, reference_number: j.reference_number });
           }} />
