@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle2, Briefcase, CalendarDays, Shield, FileText, Smartphone, MapPin,
   Zap, BarChart2, Users, ChevronRight, Layers, Brain, Flame, ClipboardCheck,
-  Bell, Wrench, AlertTriangle, Camera, Building2, FileCheck, Siren,
+  Bell, Wrench, Camera, Building2, FileCheck, Siren, ScanLine, Send,
 } from "lucide-react";
 
 const FEATURES = [
