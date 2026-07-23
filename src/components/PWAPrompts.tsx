@@ -6,6 +6,8 @@ import {
 } from "@/components/ui/dialog";
 import { Download, RefreshCw, X } from "lucide-react";
 import { setupPWA, setLastPromptedVersion, shouldPromptForUpdate } from "@/pwa/registerSW";
+import { startVersionPolling } from "@/pwa/versionPoll";
+
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
