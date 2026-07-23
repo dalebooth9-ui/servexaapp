@@ -68,7 +68,7 @@ function getCustomerName(job: any): string | null {
 
 export default function Jobs() {
   const navigate = useNavigate();
-  const { userRole, user } = useAuth();
+  const { userRole, user, effectiveUserId } = useAuth();
   const { toast } = useToast();
   const { categories } = useJobCategories();
   const { uploadFilesAsSubmissions } = useFileUpload();
@@ -280,7 +280,6 @@ export default function Jobs() {
 
     query = query.limit(pageSize + 1);
     if (userRole === "engineer" && user) {
-      const scopeId = (useAuth as any); // placeholder — replaced below
       const engineerId = effectiveUserId ?? user.id;
       const { data: assignments } = await supabase
         .from("job_assignments")
@@ -290,6 +289,7 @@ export default function Jobs() {
       if (ids.length === 0) { setJobs([]); setHasMore(false); return; }
       query = query.in("id", ids);
     }
+
 
     const { data } = await query;
     const rows = data || [];
