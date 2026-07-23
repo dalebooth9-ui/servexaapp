@@ -371,7 +371,11 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   }, {} as Record<string, typeof visibleNavItems>);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex flex-col h-screen overflow-hidden">
+      <EngineerPreviewBanner />
+      <EngineerPreviewDialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen} />
+      <div className="flex flex-1 overflow-hidden">
+
       {/* Sidebar */}
       <aside
         className={cn(
