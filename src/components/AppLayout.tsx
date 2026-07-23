@@ -64,9 +64,9 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/compliance", label: "Compliance", icon: Shield, section: "more", adminOnly: true },
   { to: "/audits", label: "Audits", icon: ClipboardCheck, section: "more", adminOnly: true },
   { to: "/rams/start", label: "New RAMS", icon: ShieldAlert, section: "more", adminOnly: true },
-  { to: "/defects", label: "Defects", icon: ShieldAlert, section: "more", adminOnly: false },
+  { to: "/defects", label: "Defects", icon: ShieldAlert, section: "more", adminOnly: true },
   { to: "/defects/review", label: "Defects Review", icon: ShieldAlert, section: "admin", adminOnly: true },
-  { to: "/report-downloads", label: "Report Downloads", icon: FileArchive, section: "more", adminOnly: false },
+  { to: "/report-downloads", label: "Report Downloads", icon: FileArchive, section: "more", adminOnly: true },
   { to: "/paper-scans", label: "Paper scans", icon: ScanLine, section: "more", adminOnly: true, badgeKey: "paper_scans_pending" as const },
 
   { to: "/sync-status", label: "Sync Status", icon: CloudUpload, section: "more", adminOnly: false },
@@ -312,8 +312,13 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   const extraItems = DEFAULT_NAV_ITEMS.filter((i) => !navOrder.includes(i.to));
   const allOrderedItems = [...orderedItems, ...extraItems];
   const visibleNavItems = allOrderedItems.filter((item) => {
-    // Platform-only entries: gated by platform_admin, not visible to tenants.
-    if ((item as any).platformOnly) return orgStatus.is_platform_admin;
+    // Platform-only entries: gated by platform_admin AND never shown while an
+    // admin is previewing as an engineer (the whole point of preview is to
+    // see the true engineer surface).
+    if ((item as any).platformOnly) {
+      if (userRole === "engineer") return false;
+      return orgStatus.is_platform_admin;
+    }
     // Dashboard ("/") is always visible to authenticated users.
     if (item.to === "/") return true;
     if (userRole === "admin") return true;
