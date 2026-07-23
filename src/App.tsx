@@ -236,7 +236,7 @@ const App = () => (
               <Route path="/templates" element={<Navigate to="/industry-templates" replace />} />
               <Route path="/compliance" element={<AccessRoute pageSlug="compliance"><Compliance /></AccessRoute>} />
               <Route path="/audits" element={<AccessRoute pageSlug="audits"><Audits /></AccessRoute>} />
-              <Route path="/defects" element={<AccessRoute pageSlug="audits"><Defects /></AccessRoute>} />
+              <Route path="/defects" element={<AdminRoute><Defects /></AdminRoute>} />
               <Route path="/defects/review" element={<AdminRoute><DefectsReview /></AdminRoute>} />
               <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
               <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
