@@ -36,6 +36,20 @@ export default defineConfig(({ mode }) => ({
     react(),
     mcpPlugin(),
     mode === "development" && componentTagger(),
+    // Emit /version.json at build time so long-lived tabs can poll for a new
+    // deploy even when the service-worker update path is delayed.
+    {
+      name: "servexa-version-json",
+      apply: "build" as const,
+      generateBundle() {
+        this.emitFile({
+          type: "asset",
+          fileName: "version.json",
+          source: JSON.stringify({ version: APP_VERSION, builtAt: BUILD_TIME }),
+        });
+      },
+    },
+
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: null, // we register via a guarded wrapper in src/pwa/registerSW.ts
