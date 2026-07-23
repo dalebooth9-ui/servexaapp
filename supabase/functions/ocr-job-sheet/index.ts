@@ -1054,7 +1054,6 @@ async function runWriteBackJob(
   }
 }
 
-const AZURE_CONFIDENCE_THRESHOLD = 0.6;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
