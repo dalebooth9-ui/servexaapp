@@ -2368,85 +2368,124 @@ function renderFormField(
   }
 }
 
+/**
+ * Live-sheet signature pad.
+ * - Pointer Events (touch, stylus, mouse) so we can capture coalesced samples
+ *   (event.getCoalescedEvents) — fast strokes weren't being sampled often
+ *   enough with touchmove alone, producing jagged straight segments at the
+ *   start of each stroke.
+ * - Midpoint quadratic smoothing from the very first segment so ink looks
+ *   smooth from the first millimetre.
+ * - Backing store scaled to devicePixelRatio for crisp lines on tablets.
+ */
 function SignatureField({ value, onChange }: { value: any; onChange: (v: any) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [drawing, setDrawing] = useState(false);
   const [hasSig, setHasSig] = useState(!!value);
-  const lastPos = useRef<{ x: number; y: number } | null>(null);
+  const drawing = useRef(false);
+  const points = useRef<{ x: number; y: number }[]>([]);
 
-  // Restore existing signature on mount
+  // Size the canvas backing store to the CSS box × devicePixelRatio.
   useEffect(() => {
-    if (value && canvasRef.current) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const cssW = rect.width || 300;
+    const cssH = rect.height || 80;
+    canvas.width = Math.max(1, Math.round(cssW * dpr));
+    canvas.height = Math.max(1, Math.round(cssH * dpr));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = "#000";
+    if (value) {
       const img = new Image();
       img.onload = () => {
-        const ctx = canvasRef.current?.getContext("2d");
-        if (ctx && canvasRef.current) {
-          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-          ctx.drawImage(img, 0, 0);
-          setHasSig(true);
-        }
+        ctx.clearRect(0, 0, cssW, cssH);
+        ctx.drawImage(img, 0, 0, cssW, cssH);
+        setHasSig(true);
       };
       img.src = value;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const getPos = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
+  const getPos = (ev: PointerEvent | React.PointerEvent) => {
+    const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    if ("touches" in e) {
-      return {
-        x: (e.touches[0].clientX - rect.left) * scaleX,
-        y: (e.touches[0].clientY - rect.top) * scaleY,
-      };
+    return { x: (ev as PointerEvent).clientX - rect.left, y: (ev as PointerEvent).clientY - rect.top };
+  };
+
+  const drawTip = (ctx: CanvasRenderingContext2D) => {
+    const pts = points.current;
+    const n = pts.length;
+    if (n < 2) return;
+    if (n === 2) {
+      // First segment: short line — better than nothing, avoids jagged jump.
+      const [p0, p1] = pts;
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.stroke();
+      return;
     }
-    return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
-    };
-  };
-
-  const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    setDrawing(true);
-    lastPos.current = getPos(e, canvas);
-  };
-
-  const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    if (!drawing) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx || !lastPos.current) return;
-    const pos = getPos(e, canvas);
+    // Midpoint smoothing: quadratic curve between the midpoints of the last
+    // three points, using the middle point as the control. This gives smooth
+    // ink from the very first stroke.
+    const p0 = pts[n - 3];
+    const p1 = pts[n - 2];
+    const p2 = pts[n - 1];
+    const m1 = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+    const m2 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
     ctx.beginPath();
-    ctx.moveTo(lastPos.current.x, lastPos.current.y);
-    ctx.lineTo(pos.x, pos.y);
-    ctx.strokeStyle = "#000";
-    ctx.lineWidth = 2;
-    ctx.lineCap = "round";
+    ctx.moveTo(m1.x, m1.y);
+    ctx.quadraticCurveTo(p1.x, p1.y, m2.x, m2.y);
     ctx.stroke();
-    lastPos.current = pos;
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const canvas = canvasRef.current!;
+    try { canvas.setPointerCapture(e.pointerId); } catch {}
+    drawing.current = true;
+    points.current = [getPos(e)];
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!drawing.current) return;
+    e.preventDefault();
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const native = e.nativeEvent as PointerEvent & { getCoalescedEvents?: () => PointerEvent[] };
+    const events = typeof native.getCoalescedEvents === "function"
+      ? native.getCoalescedEvents()
+      : [native];
+    for (const ev of events) {
+      points.current.push(getPos(ev));
+      drawTip(ctx);
+    }
     setHasSig(true);
   };
 
-  const endDraw = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    setDrawing(false);
-    lastPos.current = null;
-    // Save as data URL
+  const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!drawing.current) return;
+    drawing.current = false;
+    try { canvasRef.current?.releasePointerCapture(e.pointerId); } catch {}
+    points.current = [];
     const dataUrl = canvasRef.current?.toDataURL("image/png") || null;
-    if (hasSig || dataUrl) onChange(dataUrl);
+    onChange(dataUrl);
   };
 
   const clear = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
-    ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    const rect = canvas.getBoundingClientRect();
+    ctx?.clearRect(0, 0, rect.width, rect.height);
     setHasSig(false);
     onChange(null);
   };
@@ -2456,17 +2495,13 @@ function SignatureField({ value, onChange }: { value: any; onChange: (v: any) =>
       <div className="relative border border-border rounded bg-background">
         <canvas
           ref={canvasRef}
-          width={300}
-          height={80}
-          className="w-full touch-none cursor-crosshair rounded"
-          style={{ display: "block" }}
-          onMouseDown={startDraw}
-          onMouseMove={draw}
-          onMouseUp={endDraw}
-          onMouseLeave={endDraw}
-          onTouchStart={startDraw}
-          onTouchMove={draw}
-          onTouchEnd={endDraw}
+          className="w-full cursor-crosshair rounded"
+          style={{ display: "block", height: 80, touchAction: "none" }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          onPointerLeave={onPointerUp}
         />
         {!hasSig && (
           <span className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground pointer-events-none">
@@ -2486,7 +2521,10 @@ function SignatureField({ value, onChange }: { value: any; onChange: (v: any) =>
 function PhotoField({ value, onChange, fieldId, jobId, userId }: { value: any; onChange: (v: any) => void; fieldId: string; jobId?: string; userId?: string }) {
   const [uploading, setUploading] = useState(false);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  // Two inputs so the engineer can choose live camera OR the gallery.
+  // capture="environment" tells the OS to open the rear camera directly.
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (value) {
@@ -2501,11 +2539,30 @@ function PhotoField({ value, onChange, fieldId, jobId, userId }: { value: any; o
   const handleUpload = async (file: File) => {
     if (!file || !file.type.startsWith("image/")) return;
     setUploading(true);
-    const ext = file.name.split(".").pop() || "jpg";
+    // Gentle one-off cellular data notice; matches the recently added
+    // mobile-data warnings on other upload surfaces.
+    try {
+      const { maybeShowMobileDataAdvisory } = await import("@/lib/mobileDataNotice");
+      maybeShowMobileDataAdvisory("photo uploads");
+    } catch {}
+    // Client-side downscale + re-encode as JPEG to keep uploads reasonable
+    // over cellular. Falls back to the original file if compression bails.
+    let toUpload: Blob = file;
+    let ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    let contentType = file.type || "image/jpeg";
+    try {
+      const { compressImageForUpload } = await import("@/lib/imageCompress");
+      const compressed = await compressImageForUpload(file, 2000, 0.85);
+      if (compressed) {
+        toUpload = compressed;
+        ext = "jpg";
+        contentType = "image/jpeg";
+      }
+    } catch {}
     const fileName = `${fieldId}-${Date.now()}.${ext}`;
     const path = jobId ? `${jobId}/template-photos/${fileName}` : `template-photos/${fileName}`;
     const storagePath = await buildOrgPathAsync(path);
-    const { error } = await supabase.storage.from("submissions").upload(storagePath, file, { upsert: true, contentType: file.type });
+    const { error } = await supabase.storage.from("submissions").upload(storagePath, toUpload, { upsert: true, contentType });
     if (error) {
       console.error("Upload error:", error);
     } else {
@@ -2533,10 +2590,17 @@ function PhotoField({ value, onChange, fieldId, jobId, userId }: { value: any; o
   return (
     <div>
       <input
-        ref={fileRef}
+        ref={cameraRef}
         type="file"
         accept="image/*"
         capture="environment"
+        className="hidden"
+        onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
+      />
+      <input
+        ref={galleryRef}
+        type="file"
+        accept="image/*"
         className="hidden"
         onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
       />
@@ -2553,16 +2617,27 @@ function PhotoField({ value, onChange, fieldId, jobId, userId }: { value: any; o
           </Button>
         </div>
       ) : (
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 h-7 text-xs"
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-        >
-          {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
-          {uploading ? "Uploading..." : "Take Photo"}
-        </Button>
+        <div className="flex flex-wrap gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 h-7 text-xs"
+            onClick={() => cameraRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+            {uploading ? "Uploading..." : "Take photo"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 h-7 text-xs"
+            onClick={() => galleryRef.current?.click()}
+            disabled={uploading}
+          >
+            Choose existing
+          </Button>
+        </div>
       )}
     </div>
   );
