@@ -88,9 +88,9 @@ serve(async (req) => {
 
       console.log(`reverify: ${payloads.length} pages, template=${(tpl as any).name}, ${fields.length} fields`);
 
-      // Process pages in chunks of 2 to stay under the gateway idle timeout
-      // that fires on all-6-pages-in-one-OCR request.
-      const CHUNK = 2;
+      // ocr-job-sheet now parallelizes Azure per page and uses a single GPT
+      // mapping call, so a chunk of 3 pages completes well under 150s.
+      const CHUNK = 3;
       const mergedExtracted: Record<string, any> = {};
       const mergedHeader: Record<string, any> = {};
       const mergedConf: Record<string, number> = {};
