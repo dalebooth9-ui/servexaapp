@@ -8,7 +8,10 @@ import { useOrgStatus } from "@/hooks/useOrgStatus";
 import AccountPaused from "@/components/AccountPaused";
 import { ROUTE_TO_SLUG } from "@/lib/engineerPages";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History, Truck, CloudUpload, Rocket, LifeBuoy, Bug, CreditCard, ScanLine } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History, Truck, CloudUpload, Rocket, LifeBuoy, Bug, CreditCard, ScanLine, Eye } from "lucide-react";
+import EngineerPreviewBanner from "@/components/engineer/EngineerPreviewBanner";
+import EngineerPreviewDialog from "@/components/engineer/EngineerPreviewDialog";
+
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
@@ -198,7 +201,9 @@ function SortableNavItem({
 
 
 export default function AppLayout({ children }: {children: ReactNode;}) {
-  const { user, userRole, profile, signOut } = useAuth();
+  const { user, userRole, realUserRole, profile, signOut, isPreviewingAsEngineer } = useAuth();
+  const [previewDialogOpen, setPreviewDialogOpen] = useReactState(false);
+
   const location = useLocation();
   useEngineerLocation();
   const { hasAccess } = useEngineerPageAccess();
@@ -541,17 +546,32 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
               />
             </div>
           )}
+          {realUserRole === "admin" && !isPreviewingAsEngineer && desktopExpanded && (
+            <div className="mb-2">
+              <button
+                onClick={() => setPreviewDialogOpen(true)}
+                className="w-full flex items-center gap-2 rounded-lg border border-sidebar-border/40 bg-sidebar-accent/20 px-2 py-1.5 text-xs font-medium text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+                title="Preview the app as an engineer sees it"
+              >
+                <Eye className="h-3.5 w-3.5 shrink-0" />
+                <span>Preview as Engineer</span>
+              </button>
+            </div>
+          )}
           <div className={cn("flex items-center gap-2", desktopExpanded ? "justify-between" : "lg:justify-center justify-between")}>
             {desktopExpanded && (
               <div className="min-w-0 text-xs">
                 <p className="truncate font-semibold text-white">{profile?.full_name || user?.email}</p>
-                <p className="text-[hsl(25,95%,60%)] capitalize text-[10px] font-medium">{userRole || "user"}</p>
+                <p className="text-[hsl(25,95%,60%)] capitalize text-[10px] font-medium">
+                  {isPreviewingAsEngineer ? "engineer (preview)" : userRole || "user"}
+                </p>
               </div>
             )}
             <Button variant="ghost" size="icon" onClick={signOut} className="h-7 w-7 shrink-0 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" title="Sign Out">
               <LogOut className="h-3.5 w-3.5" />
             </Button>
           </div>
+
         </div>
       </aside>
 
