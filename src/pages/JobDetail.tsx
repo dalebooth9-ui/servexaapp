@@ -377,13 +377,46 @@ export default function JobDetail() {
   const categoryDisplayName = jobCategories.find((c: any) => c.slug === job.category)?.name
     || (job.category ? job.category.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : null);
 
+  // Engineers (and admins previewing as engineer) get the simplified,
+  // field-first view: report(s), site docs, defects, photos. No admin tabs.
+  if (userRole === "engineer") {
+    return (
+      <ChunkErrorBoundary>
+        <Suspense fallback={<LazyFallback />}>
+          <EngineerJobView
+            jobId={id!}
+            job={job}
+            engineers={engineers}
+            currentUserId={user?.id}
+            isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+          />
+          {id && (
+            <EngineerNextStepBar
+              jobId={id}
+              jobStatus={job.status}
+              isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+              onNavigateTab={() => { /* no tabs */ }}
+              onStatusChanged={(s) => setJob((prev: any) => ({ ...prev, status: s }))}
+            />
+          )}
+          {id && (
+            <EngineerCompletionGate
+              currentJobId={id}
+              currentJobStatus={job.status}
+              currentJobOrgId={job.org_id}
+              isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+              isAdmin={false}
+            />
+          )}
+        </Suspense>
+      </ChunkErrorBoundary>
+    );
+  }
+
   return (
     <ChunkErrorBoundary>
     <Suspense fallback={<LazyFallback />}>
     <div>
-      <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
-        <ArrowLeft className="mr-1 h-4 w-4" /> Back
-      </Button>
       <Breadcrumb className="mb-4">
         <BreadcrumbList>
           <BreadcrumbItem>
