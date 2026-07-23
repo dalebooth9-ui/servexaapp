@@ -5,20 +5,20 @@ import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle2, Briefcase, CalendarDays, Shield, FileText, Smartphone, MapPin,
   Zap, BarChart2, Users, ChevronRight, Layers, Brain, Flame, ClipboardCheck,
-  Bell, Wrench, AlertTriangle, Camera, Building2, FileCheck, Siren,
+  Bell, Wrench, Camera, Building2, FileCheck, Siren, ScanLine, Send,
 } from "lucide-react";
 
 const FEATURES = [
   { icon: Briefcase, title: "Intelligent Job Management", desc: "Create, assign and track fire & security jobs from first call to customer sign-off — full audit trail, priority flags and SLA breach alerts included." },
-  { icon: CalendarDays, title: "PPM Scheduling & Planner", desc: "Drag-and-drop weekly planner with auto-generated PPM visits for every fire system type. AI route optimisation gets engineers to site faster." },
-  { icon: Shield, title: "Compliance & Certification", desc: "Track BAFE, NICEIC and GasSafe expiry dates, attach certificates, and generate PDF reports aligned to BS 9990, BS 5306 and BS 5839." },
-  { icon: FileText, title: "RAMS & Digital Job Sheets", desc: "Build PAS 79-aligned Risk Assessments and Method Statements in minutes. Custom templates, digital signatures and one-click PDF export." },
-  { icon: Smartphone, title: "Engineer Mobile App", desc: "Engineers clock in, submit voice notes, capture annotated before/after photos and get client sign-offs — on or off site, even offline." },
-  { icon: Brain, title: "AI-Powered Fire Tools", desc: "AI RAMS auto-fill, predictive maintenance alerts, AI job briefs, AI scheduler and AI customer reports — built right in, no extra tools needed." },
+  { icon: CalendarDays, title: "PPM Scheduling & Planner", desc: "Drag-and-drop weekly planner with auto-generated PPM visits for every fire system type. AI-assisted route optimisation to sequence a day's jobs efficiently." },
+  { icon: Shield, title: "Compliance & Certification", desc: "Track certificate and engineer qualification expiry dates, attach documents, and generate PDF reports aligned to BS 9990, BS 5306 and BS 5839." },
+  { icon: FileText, title: "RAMS & Digital Job Sheets", desc: "Build PAS 79-aligned Risk Assessments and Method Statements with AI auto-fill from the job's category, site and customer. Custom templates, digital signatures and one-click PDF export." },
+  { icon: Smartphone, title: "Engineer Mobile App", desc: "Engineers clock in, submit voice notes, capture on-site photos and get client sign-offs — on or off site, even offline." },
+  { icon: Brain, title: "AI-Powered Fire Tools", desc: "AI RAMS auto-fill, AI job briefs, AI scheduler, AI customer report summaries and predictive maintenance alerts — built right in, no extra tools needed." },
   { icon: MapPin, title: "Live Engineer Tracking", desc: "See every engineer in real time. View assigned fire jobs, today's site visits and route history on one map." },
   { icon: BarChart2, title: "Reports & Analytics", desc: "Weekly management reports every Monday — revenue, jobs completed, top engineers, compliance status and more." },
-  { icon: Building2, title: "Floor Plans & Asset Register", desc: "Upload site floor plans, pin assets with QR codes and maintain a full digital logbook per asset — from fire panels to suppression cylinders." },
-  { icon: FileCheck, title: "Incident Reports & Audit Trail", desc: "Log incidents, near-misses and insurance claims with photos and AI summaries. Full tamper-proof audit trail exported with one click." },
+  { icon: ScanLine, title: "Paper Sheets → Digital", desc: "Post or email in your paper job sheets. Servexa's OCR + AI reads the handwriting, matches to a template, and produces a clean branded PDF ready for the customer." },
+  { icon: Send, title: "Customer Sign-Off & Send", desc: "Digital customer sign-off via a secure link. Send the finished report straight from the app — via Servexa or via your own Microsoft 365 mailbox." },
   { icon: Wrench, title: "Job Costing & Invoicing", desc: "Track parts, labour and margin per job. Raise invoices directly from the job sheet and sync with Xero, QuickBooks, Sage or FreeAgent." },
   { icon: ClipboardCheck, title: "Installation Projects", desc: "Manage multi-phase installation projects with milestone tracking, handover sign-off and certificate of conformity generation." },
 ];
@@ -195,12 +195,12 @@ export default function LandingPage() {
           </div>
           <div className="grid gap-6 md:grid-cols-3">
             {[
-              { icon: ClipboardCheck, title: "Digital RAMS Builder", body: "Generate PAS 79-aligned Risk Assessments and Method Statements in minutes. AI-assisted auto-fill from job details saves hours on every commission." },
-              { icon: Bell, title: "Compliance Expiry Alerts", body: "Automated reminders for certificate renewals, engineer qualification expiry (BAFE, GasSafe, IPAF), and customer service intervals." },
-              { icon: Wrench, title: "PPM Auto-Scheduling", body: "Define service frequencies per fire system type. Servexa auto-generates planned maintenance visits and assigns them to the nearest available engineer." },
-              { icon: Camera, title: "Annotated Photo Capture", body: "Engineers capture before/after photos directly on site, annotate them with drawings and notes, then bundle into a professional photo report." },
-              { icon: AlertTriangle, title: "Incident Reports & Insurance", body: "Log incidents and near-misses with AI summaries, attach evidence and export a full insurance-ready pack with supporting documents." },
-              { icon: Building2, title: "Floor Plans & QR Assets", body: "Upload site floor plans, pin and label every asset. Engineers scan QR codes on site to instantly pull up service history and logbook records." },
+              { icon: ClipboardCheck, title: "Digital RAMS Builder", body: "Generate PAS 79-aligned Risk Assessments and Method Statements from your own RAMS library, with AI auto-fill from the job's category, site and customer." },
+              { icon: Bell, title: "Compliance Expiry Alerts", body: "Automated reminders for customer certificate renewals, engineer qualification / training document expiry and upcoming service intervals — configurable per organisation." },
+              { icon: Wrench, title: "PPM Auto-Scheduling", body: "Define service frequencies per site and asset. Servexa auto-generates planned maintenance jobs against the schedule so nothing is missed." },
+              { icon: ScanLine, title: "Paper → Digital → Send", body: "Post or email your paper job sheets in. Servexa's OCR + AI reads the handwriting, matches to a template and produces a branded PDF ready to send to the customer." },
+              { icon: Camera, title: "Site Photos & Sketch Pad", body: "Engineers capture site photos and free-hand sketches / floor plans during a site survey, all bundled into the job record and PDF." },
+              { icon: Building2, title: "Asset Register & Service History", body: "Keep a per-site asset register with categories, service intervals and full service history. Every visit and certificate is filed against the asset." },
             ].map(({ icon: Icon, title, body }) => (
               <div key={title} className="flex gap-4 rounded-xl border bg-card p-6 shadow-sm">
                 <div className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg bg-accent/10">
@@ -251,7 +251,7 @@ export default function LandingPage() {
             <ProductWalkthrough />
           </div>
           <div className="mt-8 flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
-            {["Digital job sheets", "AI RAMS builder", "Live engineer tracking", "Customer sign-off", "Floor plans & QR assets", "Incident reports", "Job costing"].map((f) => (
+            {["Digital job sheets", "AI RAMS builder", "Live engineer tracking", "Customer sign-off", "Paper → digital scans", "Asset register", "Job costing"].map((f) => (
               <div key={f} className="flex items-center gap-1.5">
                 <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
                 <span>{f}</span>
