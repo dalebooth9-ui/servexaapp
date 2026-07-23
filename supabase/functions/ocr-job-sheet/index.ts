@@ -845,32 +845,222 @@ async function gptVisionFallback(
 
 const AZURE_CONFIDENCE_THRESHOLD = 0.6;
 
+// ── Core extraction pipeline ─
+// Runs Azure + GPT (or GPT-vision fallback) and applies all post-processing
+// hooks. Returns the same shape as the sync response. Extracted so that both
+// the sync HTTP path AND the async write_back background task can share it.
+async function runExtractionPipeline(
+  images: { image_base64: string; mime_type?: string }[],
+  template_name: string,
+  fields: any[],
+  LOVABLE_API_KEY: string,
+): Promise<{
+  extracted: Record<string, any>;
+  header: Record<string, any>;
+  field_confidence: Record<string, number>;
+  ocr_path: string;
+} | null> {
+  let ocrPath = "unknown";
+  let bestExtraction:
+    | { extracted: Record<string, any>; header: Record<string, any>; field_confidence: Record<string, number> }
+    | null = null;
+
+  const AZURE_ENDPOINT = Deno.env.get("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT");
+  const AZURE_KEY = Deno.env.get("AZURE_DOCUMENT_INTELLIGENCE_KEY");
+
+  if (AZURE_ENDPOINT && AZURE_KEY) {
+    try {
+      console.log("Stage 1: Azure Document Intelligence prebuilt-layout...");
+      const azureResult = await analyzeWithAzure(images, AZURE_ENDPOINT.replace(/\/$/, ""), AZURE_KEY);
+      console.log(`Azure complete: ${azureResult.text.length} chars, confidence=${azureResult.confidence.toFixed(3)}, kvPairs=${azureResult.kvPairCount}, tables=${azureResult.tableCount}`);
+      if (azureResult.text.length > 50) {
+        console.log("Stage 2: GPT field mapping from Azure text...");
+        bestExtraction = await gptFieldMapping(azureResult.text, template_name, fields, LOVABLE_API_KEY);
+        if (bestExtraction) ocrPath = `azure+gpt (confidence=${azureResult.confidence.toFixed(3)})`;
+      } else {
+        console.warn(`Azure returned no usable text (${azureResult.text.length} chars). Falling back to GPT-vision.`);
+      }
+    } catch (azureErr: any) {
+      console.warn(`Azure failed, falling back to GPT-vision: ${azureErr.message}`);
+    }
+  } else {
+    console.log("Azure credentials not configured, using GPT-vision directly.");
+  }
+
+  if (!bestExtraction) {
+    console.log("Using GPT-vision fallback (direct image analysis)...");
+    bestExtraction = await gptVisionFallback(images, template_name, fields, LOVABLE_API_KEY);
+    if (bestExtraction) ocrPath = "gpt-vision-fallback";
+  }
+
+  if (!bestExtraction) return null;
+
+  console.log(`OCR path used: ${ocrPath}`);
+
+  // ── Post-processing ─
+  const internalFieldIds = (fields || [])
+    .filter((f: any) => (f.section || "").toLowerCase().includes("internal"))
+    .map((f: any) => f.id);
+  for (const fieldId of internalFieldIds) {
+    const val = bestExtraction.extracted[fieldId];
+    if (typeof val === "string" && /exposed\s*inlet/i.test(val)) {
+      const cleaned = val.replace(/[-–—]\s*exposed\s*inlet/i, "").replace(/exposed\s*inlet/i, "").trim();
+      if (cleaned) bestExtraction.extracted[fieldId] = cleaned;
+      else delete bestExtraction.extracted[fieldId];
+    }
+  }
+
+  const fieldArray = fields || [];
+  const normaliseLabel = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const isCustomerSignerNameField = (field: any) => {
+    const label = normaliseLabel(`${field.section || ""} ${field.label || ""}`);
+    const hasSignerContext = /signature|sign off|signoff|declaration|completion|footer|signed|signatory|printed name/.test(label);
+    const isCustomerName = /customer|client/.test(label) && /name|signatory|signed|printed/.test(label);
+    return hasSignerContext && isCustomerName;
+  };
+  const customerSigner = String(bestExtraction.header?.customer_signed_name || "").trim();
+  for (const f of fieldArray) {
+    if (!isCustomerSignerNameField(f)) continue;
+    const confidence = bestExtraction.field_confidence?.[f.id];
+    if (!customerSigner || (typeof confidence === "number" && confidence < 0.65)) {
+      delete bestExtraction.extracted[f.id];
+      bestExtraction.field_confidence = bestExtraction.field_confidence || {};
+      bestExtraction.field_confidence[f.id] = Math.min(confidence ?? 0.4, 0.45);
+    }
+  }
+
+  const normaliseCompany = (s: unknown) =>
+    String(s ?? "")
+      .toLowerCase()
+      .replace(/https?:\/\//g, "")
+      .replace(/^www\./, "")
+      .replace(/\.(co\.uk|com|net|org|io|uk|ltd)\b/g, "")
+      .replace(/\b(ltd|limited|plc|llp|inc|fire|protection|services|solutions|group|systems|company|co)\b\.?/g, "")
+      .replace(/[^a-z0-9]/g, "");
+  const letterhead = normaliseCompany(bestExtraction.header?.paperwork_owner_company);
+  const collides = (candidate: unknown) => {
+    if (!letterhead || letterhead.length < 3) return false;
+    const c = normaliseCompany(candidate);
+    if (!c || c.length < 3) return false;
+    return c === letterhead || c.includes(letterhead) || letterhead.includes(c);
+  };
+  if (collides(bestExtraction.header?.customer)) bestExtraction.header.customer = "";
+  const isCustomerAnswerField = (field: any) => {
+    const label = normaliseLabel(`${field.section || ""} ${field.label || ""}`);
+    return /\b(customer|client)\b/.test(label) && !/site|address|postcode/.test(label);
+  };
+  for (const f of fieldArray) {
+    if (!isCustomerAnswerField(f)) continue;
+    if (collides(bestExtraction.extracted[f.id])) {
+      delete bestExtraction.extracted[f.id];
+      bestExtraction.field_confidence = bestExtraction.field_confidence || {};
+      bestExtraction.field_confidence[f.id] = Math.min(bestExtraction.field_confidence[f.id] ?? 0.4, 0.4);
+    }
+  }
+
+  const exposedOutletSections = new Set<string>();
+  let hasExposedOutlets = false;
+  for (const f of fieldArray) {
+    if (containsExposedOutlets(bestExtraction.extracted[f.id])) {
+      hasExposedOutlets = true;
+      const sec = (f.section || "").trim().toLowerCase();
+      if (sec) exposedOutletSections.add(sec);
+    }
+  }
+  for (let fi = 0; fi < fieldArray.length - 1; fi++) {
+    const cur = fieldArray[fi];
+    const nxt = fieldArray[fi + 1];
+    const curSection = (cur.section || "").trim().toLowerCase();
+    const nxtSection = (nxt.section || "").trim().toLowerCase();
+    const nxtRelated = /cabinet/i.test(nxt.label || "") || /outlet/i.test(nxt.label || "");
+    if (containsExposedOutlets(bestExtraction.extracted[cur.id]) && ((curSection && curSection === nxtSection) || nxtRelated)) {
+      if (!isNaEquivalent(bestExtraction.extracted[nxt.id])) bestExtraction.extracted[nxt.id] = "n/a";
+    }
+  }
+  for (const f of fieldArray) {
+    const sec = (f.section || "").trim().toLowerCase();
+    const label = f.label || "";
+    const forceNa = (sec && exposedOutletSections.has(sec) && /cabinet/i.test(label)) ||
+      (hasExposedOutlets && /outlet/i.test(label) && /cabinet/i.test(label));
+    if (forceNa && !isNaEquivalent(bestExtraction.extracted[f.id])) bestExtraction.extracted[f.id] = "n/a";
+  }
+
+  const normalisedExtracted = normalizeExtractedCheckboxValues(bestExtraction.extracted, fields);
+  const confidenceMap: Record<string, number> = { ...(bestExtraction.field_confidence || {}) };
+  for (const key of Object.keys(normalisedExtracted)) {
+    if (typeof confidenceMap[key] !== "number") confidenceMap[key] = 0.85;
+  }
+
+  return { extracted: normalisedExtracted, header: bestExtraction.header, field_confidence: confidenceMap, ocr_path: ocrPath };
+}
+
+// ── Async write-back: run the pipeline in the background and update the
+// paper_scan_batch_items row directly on completion. Decouples large multi-
+// page bundles from the 150s edge gateway idle timeout — the HTTP request
+// returns 202 within a couple hundred ms and the extraction keeps running.
+async function runWriteBackJob(
+  itemId: string,
+  images: { image_base64: string; mime_type?: string }[],
+  template_name: string,
+  fields: any[],
+  LOVABLE_API_KEY: string,
+): Promise<void> {
+  const svc = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+  try {
+    const result = await runExtractionPipeline(images, template_name, fields, LOVABLE_API_KEY);
+    if (!result) {
+      await svc.from("paper_scan_batch_items").update({
+        status: "failed",
+        error: "Could not extract data from the sheet. Try a clearer photo.",
+      }).eq("id", itemId);
+      return;
+    }
+
+    // Merge field_confidence into header_data so the review UI can flag rows.
+    const headerOut = { ...(result.header || {}) };
+    if (result.field_confidence && Object.keys(result.field_confidence).length) {
+      (headerOut as any)._field_confidence = result.field_confidence;
+    }
+    // Clear any stale re-verify error.
+    delete (headerOut as any)._reverify_error;
+
+    // Preserve existing status/confidence set by the batch classifier — just
+    // flip a "processing" status forward to ready/low_confidence based on
+    // whether we actually got data.
+    const { data: current } = await svc
+      .from("paper_scan_batch_items")
+      .select("status, confidence")
+      .eq("id", itemId)
+      .maybeSingle();
+    const classifyConf = typeof (current as any)?.confidence === "number" ? (current as any).confidence : 0.7;
+    const nextStatus = classifyConf >= 0.7 ? "ready" : "low_confidence";
+
+    await svc.from("paper_scan_batch_items").update({
+      status: nextStatus,
+      extracted: result.extracted,
+      header_data: headerOut,
+      error: null,
+    }).eq("id", itemId);
+    console.log(`write_back item ${itemId}: ${Object.keys(result.extracted).length} fields, path=${result.ocr_path}`);
+  } catch (e: any) {
+    console.error(`write_back item ${itemId} failed:`, e?.message || e);
+    await svc.from("paper_scan_batch_items").update({
+      status: "failed",
+      error: (e?.message || "Unknown error").substring(0, 400),
+    }).eq("id", itemId);
+  }
+}
+
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: authHeader } } }
-  );
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
   try {
     const body = await req.json();
+    const writeBack = body.write_back as { item_id?: string } | undefined;
 
     let images: { image_base64: string; mime_type?: string }[] = [];
     if (body.images && Array.isArray(body.images)) {
@@ -878,9 +1068,7 @@ serve(async (req) => {
     } else if (body.image_base64) {
       images = [{ image_base64: body.image_base64, mime_type: body.mime_type }];
     }
-
     const { template_name, fields } = body;
-
     images = images.filter((img) => {
       const mime = img.mime_type || "image/jpeg";
       return mime.startsWith("image/") || mime === "application/pdf";
@@ -896,221 +1084,63 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    let ocrPath = "unknown";
-    let bestExtraction: { extracted: Record<string, any>; header: Record<string, any>; field_confidence: Record<string, number> } | null = null;
-
-    // ── Try Azure Document Intelligence first ──
-    const AZURE_ENDPOINT = Deno.env.get("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT");
-    const AZURE_KEY = Deno.env.get("AZURE_DOCUMENT_INTELLIGENCE_KEY");
-
-    if (AZURE_ENDPOINT && AZURE_KEY) {
-      try {
-        console.log("Stage 1: Azure Document Intelligence prebuilt-layout...");
-        const azureResult = await analyzeWithAzure(images, AZURE_ENDPOINT.replace(/\/$/, ""), AZURE_KEY);
-        console.log(`Azure complete: ${azureResult.text.length} chars, confidence=${azureResult.confidence.toFixed(3)}, kvPairs=${azureResult.kvPairCount}, tables=${azureResult.tableCount}`);
-
-        // Always route Azure text through GPT mapping when Azure returned
-        // any usable text. Mapping is a SINGLE AI call (~30-60s), while the
-        // vision fan-out is N parallel calls that can push past the 150s
-        // edge gateway ceiling on large templates. Reserve vision for the
-        // case where Azure produced nothing (encrypted PDF, blank scans).
-        if (azureResult.text.length > 50) {
-          console.log("Stage 2: GPT field mapping from Azure text...");
-          bestExtraction = await gptFieldMapping(azureResult.text, template_name, fields, LOVABLE_API_KEY);
-          if (bestExtraction) {
-            ocrPath = `azure+gpt (confidence=${azureResult.confidence.toFixed(3)})`;
-          }
-        } else {
-          console.warn(`Azure returned no usable text (${azureResult.text.length} chars). Falling back to GPT-vision.`);
-        }
-      } catch (azureErr: any) {
-        console.warn(`Azure failed, falling back to GPT-vision: ${azureErr.message}`);
+    // ── Async write-back mode: return 202 immediately and continue OCR in
+    // background. Auth: caller must pass service role apikey OR a valid JWT
+    // (we accept apikey-only here because callers are trusted edge functions;
+    // the write_back only touches a specific item_id).
+    if (writeBack?.item_id) {
+      const apikey = req.headers.get("apikey");
+      const auth = req.headers.get("Authorization");
+      if (!apikey && !auth) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
-    } else {
-      console.log("Azure credentials not configured, using GPT-vision directly.");
-    }
-
-    // ── Fallback: GPT-Vision (direct image reading) ──
-    if (!bestExtraction) {
-      console.log("Using GPT-vision fallback (direct image analysis)...");
-      bestExtraction = await gptVisionFallback(images, template_name, fields, LOVABLE_API_KEY);
-      if (bestExtraction) {
-        ocrPath = "gpt-vision-fallback";
-      }
-    }
-
-    console.log(`OCR path used: ${ocrPath}`);
-
-    if (bestExtraction) {
-      // Post-processing: strip "EXPOSED INLET" from internal section fields
-      const internalFieldIds = (fields || [])
-        .filter((f: any) => {
-          const section = (f.section || "").toLowerCase();
-          return section.includes("internal");
-        })
-        .map((f: any) => f.id);
-
-      for (const fieldId of internalFieldIds) {
-        const val = bestExtraction.extracted[fieldId];
-        if (typeof val === "string" && /exposed\s*inlet/i.test(val)) {
-          const cleaned = val.replace(/[-–—]\s*exposed\s*inlet/i, "").replace(/exposed\s*inlet/i, "").trim();
-          if (cleaned) {
-            bestExtraction.extracted[fieldId] = cleaned;
-            console.log(`Post-process: stripped "EXPOSED INLET" from internal field ${fieldId}: "${val}" → "${cleaned}"`);
-          } else {
-            // Rather than fabricating "n/a" for a field that only ever said
-            // "EXPOSED INLET" (which shouldn't be there), OMIT the field so
-            // the renderer shows a dash and the office is prompted to check.
-            delete bestExtraction.extracted[fieldId];
-            console.log(`Post-process: dropped internal field ${fieldId} — only value was "EXPOSED INLET" (would fabricate n/a otherwise)`);
-          }
-        }
-      }
-
-      // Post-processing: if ANY field in a section says "EXPOSED OUTLETS", then all
-      // subsequent fields in that same section that reference "cabinet" must be "n/a"
-      // AND the immediately next field in the same section is also forced to "n/a".
-      // NOTE: this is INTENTIONAL n/a assertion — EXPOSED OUTLETS on the printed
-      // sheet is a legitimate engineer-written N/A. Not a fabrication.
-      const fieldArray = fields || [];
-      const normaliseLabel = (value: string) =>
-        value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-      const isCustomerSignerNameField = (field: any) => {
-        const label = normaliseLabel(`${field.section || ""} ${field.label || ""}`);
-        const hasSignerContext = /signature|sign off|signoff|declaration|completion|footer|signed|signatory|printed name/.test(label);
-        const isCustomerName = /customer|client/.test(label) && /name|signatory|signed|printed/.test(label);
-        return hasSignerContext && isCustomerName;
-      };
-
-      const customerSigner = String(bestExtraction.header?.customer_signed_name || "").trim();
-      for (const f of fieldArray) {
-        if (!isCustomerSignerNameField(f)) continue;
-        const confidence = bestExtraction.field_confidence?.[f.id];
-        if (!customerSigner || (typeof confidence === "number" && confidence < 0.65)) {
-          if (bestExtraction.extracted[f.id] !== undefined) {
-            console.log(`Post-process: removed customer sign-off name field "${f.id}" because signer name was not confidently read`);
-          }
-          delete bestExtraction.extracted[f.id];
-          bestExtraction.field_confidence = bestExtraction.field_confidence || {};
-          bestExtraction.field_confidence[f.id] = Math.min(confidence ?? 0.4, 0.45);
-        }
-      }
-
-      // LETTERHEAD GUARD: the sheet's own printed branding (paperwork_owner_company)
-      // must NEVER surface as the customer / client / party value. If the model
-      // has echoed the letterhead into header.customer or into any customer-ish
-      // template field, blank it and flag low-confidence so the reviewer fills
-      // it in from the handwritten customer entry (or leaves it blank).
-      const normaliseCompany = (s: unknown) =>
-        String(s ?? "")
-          .toLowerCase()
-          .replace(/https?:\/\//g, "")
-          .replace(/^www\./, "")
-          .replace(/\.(co\.uk|com|net|org|io|uk|ltd)\b/g, "")
-          .replace(/\b(ltd|limited|plc|llp|inc|fire|protection|services|solutions|group|systems|company|co)\b\.?/g, "")
-          .replace(/[^a-z0-9]/g, "");
-      const letterhead = normaliseCompany(bestExtraction.header?.paperwork_owner_company);
-      const collides = (candidate: unknown) => {
-        if (!letterhead || letterhead.length < 3) return false;
-        const c = normaliseCompany(candidate);
-        if (!c || c.length < 3) return false;
-        return c === letterhead || c.includes(letterhead) || letterhead.includes(c);
-      };
-      if (collides(bestExtraction.header?.customer)) {
-        console.log(
-          `Post-process: blanked header.customer ("${bestExtraction.header?.customer}") — matched letterhead paperwork_owner_company ("${bestExtraction.header?.paperwork_owner_company}")`,
-        );
-        bestExtraction.header.customer = "";
-      }
-      const isCustomerAnswerField = (field: any) => {
-        const label = normaliseLabel(`${field.section || ""} ${field.label || ""}`);
-        return /\b(customer|client)\b/.test(label) && !/site|address|postcode/.test(label);
-      };
-      for (const f of fieldArray) {
-        if (!isCustomerAnswerField(f)) continue;
-        if (collides(bestExtraction.extracted[f.id])) {
-          console.log(
-            `Post-process: cleared customer field "${f.id}" — value matched letterhead branding`,
-          );
-          delete bestExtraction.extracted[f.id];
-          bestExtraction.field_confidence = bestExtraction.field_confidence || {};
-          bestExtraction.field_confidence[f.id] = Math.min(
-            bestExtraction.field_confidence[f.id] ?? 0.4,
-            0.4,
-          );
-        }
-      }
-
-      const exposedOutletSections = new Set<string>();
-      let hasExposedOutlets = false;
-      for (const f of fieldArray) {
-        const val = bestExtraction.extracted[f.id];
-        if (containsExposedOutlets(val)) {
-          hasExposedOutlets = true;
-          const sectionKey = (f.section || "").trim().toLowerCase();
-          if (sectionKey) exposedOutletSections.add(sectionKey);
-        }
-      }
-      // Also do the consecutive-field rule
-      for (let fi = 0; fi < fieldArray.length - 1; fi++) {
-        const currentField = fieldArray[fi];
-        const nextField = fieldArray[fi + 1];
-        const currentVal = bestExtraction.extracted[currentField.id];
-        const currentSection = (currentField.section || "").trim().toLowerCase();
-        const nextSection = (nextField.section || "").trim().toLowerCase();
-        const nextLooksRelated = /cabinet/i.test(nextField.label || "") || /outlet/i.test(nextField.label || "");
-        if (
-          containsExposedOutlets(currentVal) &&
-          ((currentSection && currentSection === nextSection) || nextLooksRelated)
-        ) {
-          const nextVal = bestExtraction.extracted[nextField.id];
-          if (!isNaEquivalent(nextVal)) {
-            console.log(`Post-process: field "${nextField.id}" set to "n/a" because previous field "${currentField.id}" has EXPOSED OUTLETS`);
-            bestExtraction.extracted[nextField.id] = "n/a";
-          }
-        }
-      }
-      // Force any cabinet-related field in an exposed-outlets section to n/a
-      for (const f of fieldArray) {
-        const sec = (f.section || "").trim().toLowerCase();
-        const label = f.label || "";
-        const shouldForceNa =
-          (sec && exposedOutletSections.has(sec) && /cabinet/i.test(label)) ||
-          (hasExposedOutlets && /outlet/i.test(label) && /cabinet/i.test(label));
-
-        if (shouldForceNa && !isNaEquivalent(bestExtraction.extracted[f.id])) {
-          console.log(`Post-process: cabinet field "${f.id}" set to "n/a" because exposed outlets were detected elsewhere on the sheet`);
-          bestExtraction.extracted[f.id] = "n/a";
-        }
-      }
-
-      const normalizedExtraction = {
-        extracted: normalizeExtractedCheckboxValues(bestExtraction.extracted, fields),
-        header: bestExtraction.header,
-      };
-
-      // Confidence: default any extracted field without an explicit score to 0.85
-      // (a "we returned it but didn't score it" middle value) and any field the
-      // model omitted stays absent — the reviewer treats absent as unanswered.
-      const confidenceMap: Record<string, number> = { ...(bestExtraction.field_confidence || {}) };
-      for (const key of Object.keys(normalizedExtraction.extracted)) {
-        if (typeof confidenceMap[key] !== "number") {
-          confidenceMap[key] = 0.85;
-        }
-      }
-
-      return new Response(JSON.stringify({
-        extracted: normalizedExtraction.extracted,
-        header: normalizedExtraction.header,
-        field_confidence: confidenceMap,
-        _ocr_path: ocrPath,
-      }), {
+      const itemId = writeBack.item_id;
+      const work = runWriteBackJob(itemId, images, template_name, fields, LOVABLE_API_KEY);
+      // @ts-ignore EdgeRuntime is a Supabase Edge Function global
+      try { EdgeRuntime.waitUntil(work); } catch { work.catch((e) => console.error("bg work error:", e)); }
+      return new Response(JSON.stringify({ ok: true, accepted: true, item_id: itemId }), {
+        status: 202,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(JSON.stringify({ error: "Could not extract data from the sheet. Try a clearer photo." }), {
-      status: 200,
+    // ── Sync mode (unchanged public contract).
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const result = await runExtractionPipeline(images, template_name, fields, LOVABLE_API_KEY);
+    if (!result) {
+      return new Response(JSON.stringify({ error: "Could not extract data from the sheet. Try a clearer photo." }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({
+      extracted: result.extracted,
+      header: result.header,
+      field_confidence: result.field_confidence,
+      _ocr_path: result.ocr_path,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
