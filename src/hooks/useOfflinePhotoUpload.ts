@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { enqueuePhoto } from "@/lib/photoQueue";
 import { isNetworkError } from "@/lib/syncQueue";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { maybeShowMobileDataAdvisory } from "@/lib/mobileDataNotice";
+
 
 export type PhotoUploadResult =
   | { ok: true; queued: false; path: string }
@@ -27,11 +29,15 @@ export function useOfflinePhotoUpload() {
     // prefixed will not get double-prefixed.
     const scopedPath = await buildOrgPathAsync(input.path);
     const scopedInput = { ...input, path: scopedPath };
+    // Gentle one-off notice when uploading over cellular so field users
+    // aren't caught out by data-plan usage.
+    maybeShowMobileDataAdvisory("photo uploads");
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       const item = await enqueuePhoto(scopedInput);
       toast.info("Photo saved locally — will upload when back online");
       return { ok: true, queued: true, queueId: item.id, localUrl: URL.createObjectURL(scopedInput.blob) };
     }
+
     try {
       const res = await supabase.storage.from(scopedInput.bucket).upload(scopedInput.path, scopedInput.blob, {
         contentType: scopedInput.contentType || scopedInput.blob.type || "image/jpeg",

@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Loader2, MapPin, CalendarClock, Truck, AlertTriangle, CheckCircle2, LogIn, LogOut } from "lucide-react";
 import VehicleCheckSheet from "@/components/VehicleCheckSheet";
 import { OpenInMapsButton } from "@/components/OpenInMapsButton";
+import FieldConnectivityTip from "@/components/engineer/FieldConnectivityTip";
+
 
 type JobLite = {
   id: string;
@@ -253,6 +255,10 @@ export default function EngineerTodayHome() {
         <h1 className="text-3xl font-bold tracking-tight">Today</h1>
         <p className="text-sm text-muted-foreground mt-0.5">{format(new Date(), "EEEE d MMMM")}</p>
       </div>
+
+      <FieldConnectivityTip />
+
+
 
       {/* Clock in/out — always visible, large tap */}
       <button
