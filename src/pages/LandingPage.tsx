@@ -195,12 +195,12 @@ export default function LandingPage() {
           </div>
           <div className="grid gap-6 md:grid-cols-3">
             {[
-              { icon: ClipboardCheck, title: "Digital RAMS Builder", body: "Generate PAS 79-aligned Risk Assessments and Method Statements in minutes. AI-assisted auto-fill from job details saves hours on every commission." },
-              { icon: Bell, title: "Compliance Expiry Alerts", body: "Automated reminders for certificate renewals, engineer qualification expiry (BAFE, GasSafe, IPAF), and customer service intervals." },
-              { icon: Wrench, title: "PPM Auto-Scheduling", body: "Define service frequencies per fire system type. Servexa auto-generates planned maintenance visits and assigns them to the nearest available engineer." },
-              { icon: Camera, title: "Annotated Photo Capture", body: "Engineers capture before/after photos directly on site, annotate them with drawings and notes, then bundle into a professional photo report." },
-              { icon: AlertTriangle, title: "Incident Reports & Insurance", body: "Log incidents and near-misses with AI summaries, attach evidence and export a full insurance-ready pack with supporting documents." },
-              { icon: Building2, title: "Floor Plans & QR Assets", body: "Upload site floor plans, pin and label every asset. Engineers scan QR codes on site to instantly pull up service history and logbook records." },
+              { icon: ClipboardCheck, title: "Digital RAMS Builder", body: "Generate PAS 79-aligned Risk Assessments and Method Statements from your own RAMS library, with AI auto-fill from the job's category, site and customer." },
+              { icon: Bell, title: "Compliance Expiry Alerts", body: "Automated reminders for customer certificate renewals, engineer qualification / training document expiry and upcoming service intervals — configurable per organisation." },
+              { icon: Wrench, title: "PPM Auto-Scheduling", body: "Define service frequencies per site and asset. Servexa auto-generates planned maintenance jobs against the schedule so nothing is missed." },
+              { icon: ScanLine, title: "Paper → Digital → Send", body: "Post or email your paper job sheets in. Servexa's OCR + AI reads the handwriting, matches to a template and produces a branded PDF ready to send to the customer." },
+              { icon: Camera, title: "Site Photos & Sketch Pad", body: "Engineers capture site photos and free-hand sketches / floor plans during a site survey, all bundled into the job record and PDF." },
+              { icon: Building2, title: "Asset Register & Service History", body: "Keep a per-site asset register with categories, service intervals and full service history. Every visit and certificate is filed against the asset." },
             ].map(({ icon: Icon, title, body }) => (
               <div key={title} className="flex gap-4 rounded-xl border bg-card p-6 shadow-sm">
                 <div className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg bg-accent/10">
