@@ -124,7 +124,8 @@ export default defineConfig(({ mode }) => ({
         theme_color: "#1E3A5F",
         background_color: "#0f172a",
         display: "standalone",
-        orientation: "portrait",
+        // Follow device rotation on tablets — engineers rotate landscape for job sheets.
+        orientation: "any",
         scope: "/",
         start_url: "/",
         icons: [
