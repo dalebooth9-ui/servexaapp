@@ -280,14 +280,17 @@ export default function Jobs() {
 
     query = query.limit(pageSize + 1);
     if (userRole === "engineer" && user) {
+      const scopeId = (useAuth as any); // placeholder — replaced below
+      const engineerId = effectiveUserId ?? user.id;
       const { data: assignments } = await supabase
         .from("job_assignments")
         .select("job_id")
-        .eq("engineer_id", user.id);
+        .eq("engineer_id", engineerId);
       const ids = (assignments ?? []).map((a: any) => a.job_id);
       if (ids.length === 0) { setJobs([]); setHasMore(false); return; }
       query = query.in("id", ids);
     }
+
     const { data } = await query;
     const rows = data || [];
     setHasMore(rows.length > pageSize);
