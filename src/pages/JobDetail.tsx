@@ -1326,8 +1326,9 @@ export default function JobDetail() {
       />
     )}
 
-    {/* Sticky mobile "Complete Job" — visible to admins and assigned engineers */}
-    {job && userRole !== "engineer" && (
+    {/* Sticky mobile "Complete Job" — admin view only. The simplified
+        engineer view above handles its own next-step / completion UI. */}
+    {job && (
       <JobCompleteAction
         jobId={id!}
         jobStatus={job.status}
@@ -1335,27 +1336,6 @@ export default function JobDetail() {
         isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
         variant="sticky"
         onCompleted={fetchData}
-      />
-    )}
-    {/* Engineer guided next-step bar — one obvious action driven by job state */}
-    {job && userRole === "engineer" && (
-      <EngineerNextStepBar
-        jobId={id!}
-        jobStatus={job.status}
-        isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
-        onNavigateTab={(tab) => setActiveTab(tab as JobTab)}
-        onStatusChanged={(s) => setJob((prev: any) => ({ ...prev, status: s }))}
-      />
-    )}
-    {/* Soft completion gate — engineer-only interstitial when moving on
-        from a job while others they've started remain incomplete. */}
-    {job && userRole === "engineer" && id && (
-      <EngineerCompletionGate
-        currentJobId={id}
-        currentJobStatus={job.status}
-        currentJobOrgId={job.org_id}
-        isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
-        isAdmin={userRole !== "engineer"}
       />
     )}
     <SiteSheetPrintDialog
