@@ -85,6 +85,7 @@ import RamsRequiredBanner from "@/components/rams/RamsRequiredBanner";
 import { useJobRamsStatus } from "@/hooks/useJobRamsStatus";
 import EngineerNextStepBar from "@/components/engineer/EngineerNextStepBar";
 import EngineerJobHero from "@/components/engineer/EngineerJobHero";
+import EngineerJobView from "@/components/engineer/EngineerJobView";
 import EngineerCompletionGate from "@/components/engineer/EngineerCompletionGate";
 import JobCompletionFlagsBadge from "@/components/jobs/JobCompletionFlagsBadge";
 
