@@ -909,15 +909,19 @@ serve(async (req) => {
         const azureResult = await analyzeWithAzure(images, AZURE_ENDPOINT.replace(/\/$/, ""), AZURE_KEY);
         console.log(`Azure complete: ${azureResult.text.length} chars, confidence=${azureResult.confidence.toFixed(3)}, kvPairs=${azureResult.kvPairCount}, tables=${azureResult.tableCount}`);
 
-        if (azureResult.confidence >= AZURE_CONFIDENCE_THRESHOLD && azureResult.text.length > 50) {
-          // Azure confidence is good — use Azure text + GPT mapping
-          console.log("Stage 2: GPT field mapping from Azure text (high confidence)...");
+        // Always route Azure text through GPT mapping when Azure returned
+        // any usable text. Mapping is a SINGLE AI call (~30-60s), while the
+        // vision fan-out is N parallel calls that can push past the 150s
+        // edge gateway ceiling on large templates. Reserve vision for the
+        // case where Azure produced nothing (encrypted PDF, blank scans).
+        if (azureResult.text.length > 50) {
+          console.log("Stage 2: GPT field mapping from Azure text...");
           bestExtraction = await gptFieldMapping(azureResult.text, template_name, fields, LOVABLE_API_KEY);
           if (bestExtraction) {
             ocrPath = `azure+gpt (confidence=${azureResult.confidence.toFixed(3)})`;
           }
         } else {
-          console.warn(`Azure confidence too low (${azureResult.confidence.toFixed(3)}) or insufficient text (${azureResult.text.length} chars). Falling back to GPT-vision.`);
+          console.warn(`Azure returned no usable text (${azureResult.text.length} chars). Falling back to GPT-vision.`);
         }
       } catch (azureErr: any) {
         console.warn(`Azure failed, falling back to GPT-vision: ${azureErr.message}`);
