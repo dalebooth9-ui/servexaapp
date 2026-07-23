@@ -107,9 +107,19 @@ function extractPostcode(address: string | null): string {
 
 export default function WeeklyPlanner() {
   const navigate = useNavigate();
-  const { userRole, user } = useAuth();
+  const { userRole, user, effectiveUserId, isPreviewingAsEngineer, previewEngineerId, previewEngineerName } = useAuth();
   const { toast } = useToast();
   const isAdmin = userRole === "admin";
+  // For non-admins the planner is strictly personal: use the effective engineer id
+  // (real user, or the previewed engineer when an admin is impersonating a specific one).
+  // In generic engineer preview (no engineer chosen) there is no real id — we show a
+  // single placeholder row so the admin still sees the true engineer experience.
+  const genericEngineerPreview = isPreviewingAsEngineer && !previewEngineerId;
+  const engineerScopeId: string | null = isAdmin
+    ? null
+    : genericEngineerPreview
+      ? null
+      : (effectiveUserId ?? user?.id ?? null);
 
   const [view, setView] = useState<"grid" | "month" | "list" | "map">("grid");
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
