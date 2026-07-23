@@ -70,6 +70,8 @@ async function analyzePageAzure(
 
     if (!submitResponse.ok) {
       const errText = await submitResponse.text();
+      const host = (() => { try { return new URL(endpoint).host; } catch { return "invalid-endpoint"; } })();
+      console.error(`Azure submit failed p${pageIdx + 1} host=${host} status=${submitResponse.status} body=${errText.substring(0, 300)}`);
       throw new Error(`submit ${submitResponse.status}: ${errText.substring(0, 200)}`);
     }
 
