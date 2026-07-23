@@ -609,6 +609,8 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
       {userRole === "admin" && <CommandPalette />}
       {userRole === "admin" && <div data-tour="ai-help"><AiHelpWizard /></div>}
       <KeyboardShortcutsHelp open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      </div>
     </div>);
+
 
 }
