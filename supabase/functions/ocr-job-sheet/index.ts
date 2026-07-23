@@ -872,7 +872,8 @@ async function runExtractionPipeline(
 
   if (AZURE_ENDPOINT && AZURE_KEY) {
     try {
-      console.log("Stage 1: Azure Document Intelligence prebuilt-layout...");
+      const host = (() => { try { return new URL(AZURE_ENDPOINT).host; } catch { return "invalid-endpoint"; } })();
+      console.log(`Stage 1: Azure Document Intelligence (host=${host}, pages=${images.length})...`);
       const azureResult = await analyzeWithAzure(images, AZURE_ENDPOINT.replace(/\/$/, ""), AZURE_KEY);
       console.log(`Azure complete: ${azureResult.text.length} chars, confidence=${azureResult.confidence.toFixed(3)}, kvPairs=${azureResult.kvPairCount}, tables=${azureResult.tableCount}`);
       if (azureResult.text.length > 50) {
@@ -883,10 +884,10 @@ async function runExtractionPipeline(
         console.warn(`Azure returned no usable text (${azureResult.text.length} chars). Falling back to GPT-vision.`);
       }
     } catch (azureErr: any) {
-      console.warn(`Azure failed, falling back to GPT-vision: ${azureErr.message}`);
+      console.warn(`Azure failed, falling back to GPT-vision: ${azureErr?.message || azureErr}`);
     }
   } else {
-    console.log("Azure credentials not configured, using GPT-vision directly.");
+    console.log(`Azure credentials not configured (endpoint=${AZURE_ENDPOINT ? "set" : "missing"}, key=${AZURE_KEY ? "set" : "missing"}), using GPT-vision directly.`);
   }
 
   if (!bestExtraction) {
