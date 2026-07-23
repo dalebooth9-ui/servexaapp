@@ -48,11 +48,27 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
 
   const addFiles = async (fs: FileList | null) => {
     if (!fs) return;
+
+    // Refuse cleanly when offline — we need Storage + edge functions to
+    // process a scan. Files aren't captured yet so nothing is lost.
+    if (!getConnectivity().isOnline) {
+      toast({
+        title: "You're offline",
+        description:
+          "Paper-scan uploads need an internet connection. Your photos haven't been uploaded — reconnect and drop them in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    // Gentle heads-up when the device is on cellular data.
+    maybeShowMobileDataAdvisory("scan uploads");
+
     const raw = Array.from(fs);
     const pdfs = raw.filter(
       (f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name),
     );
     const images = raw.filter((f) => f.type.startsWith("image/"));
+
 
     // A PDF straight off the scanner is almost always a stack of completed
     // sheets. Expand + auto-split via the same batch pipeline, one sheet per
