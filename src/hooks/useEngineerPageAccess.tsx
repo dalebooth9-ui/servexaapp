@@ -14,10 +14,15 @@ const norm = (s: string) => (s ?? "").trim().toLowerCase();
  *   Slugs are normalised (trim + lowercase) on both sides of the compare.
  */
 export function useEngineerPageAccess() {
-  const { user, userRole } = useAuth();
+  const { user, userRole, isPreviewingAsEngineer, previewEngineerId, effectiveUserId } = useAuth();
   const [allowedPages, setAllowedPages] = useState<string[]>([]);
   const [hasAnyRows, setHasAnyRows] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
+
+  // Generic preview (no specific engineer) — allow everything so the admin
+  // can walk the full engineer UX. Specific engineer preview loads that
+  // engineer's real access rows.
+  const genericPreview = isPreviewingAsEngineer && !previewEngineerId;
 
   useEffect(() => {
     if (!user) {
@@ -34,11 +39,19 @@ export function useEngineerPageAccess() {
       return;
     }
 
+    if (genericPreview) {
+      setAllowedPages(["all"]);
+      setHasAnyRows(true);
+      setLoading(false);
+      return;
+    }
+
     if (userRole === "engineer") {
+      const targetId = effectiveUserId ?? user.id;
       supabase
         .from("engineer_page_access")
         .select("page_slug")
-        .eq("user_id", user.id)
+        .eq("user_id", targetId)
         .then(({ data }) => {
           const rows = data ?? [];
           setAllowedPages(rows.map((r) => norm(r.page_slug)));
@@ -49,13 +62,15 @@ export function useEngineerPageAccess() {
     }
 
     setLoading(false);
-  }, [user, userRole]);
+  }, [user, userRole, effectiveUserId, genericPreview]);
 
   const hasAccess = (slug: string) => {
     if (userRole === "admin") return true;
+    if (genericPreview) return true;
     if (userRole !== "engineer") return false;
     return allowedPages.includes(norm(slug));
   };
 
   return { allowedPages, loading, hasAccess, hasAnyRows };
 }
+

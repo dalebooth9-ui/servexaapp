@@ -105,7 +105,9 @@ function BigJobCard({ job, showDate = false }: { job: JobLite; showDate?: boolea
 }
 
 export default function EngineerTodayHome() {
-  const { user } = useAuth();
+  const { user, effectiveUserId } = useAuth();
+  const engineerId = effectiveUserId ?? user?.id ?? null;
+
   const { isClockedIn, clockIn, clockOut, loading: clockLoading } = useTimeClock();
   const [loading, setLoading] = useState(true);
   const [today, setToday] = useState<JobLite[]>([]);
