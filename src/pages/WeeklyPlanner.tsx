@@ -966,10 +966,10 @@ export default function WeeklyPlanner() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => exportWorksheetPdf(weekStart, filteredSchedule, jobs as any, engineers, jobParts, submissionComments, optimisedJobOrder, jobVisitNotes)}>
+              <DropdownMenuItem onClick={() => exportWorksheetPdf(weekStart, filteredSchedule, scopedJobs as any, visibleEngineers, jobParts, submissionComments, optimisedJobOrder, jobVisitNotes)}>
                 <FileText className="mr-2 h-4 w-4" /> Download PDF
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportWorksheetXlsx(weekStart, filteredSchedule, jobs as any, engineers, jobParts, submissionComments, optimisedJobOrder, jobVisitNotes)}>
+              <DropdownMenuItem onClick={() => exportWorksheetXlsx(weekStart, filteredSchedule, scopedJobs as any, visibleEngineers, jobParts, submissionComments, optimisedJobOrder, jobVisitNotes)}>
                 <FileSpreadsheet className="mr-2 h-4 w-4" /> Download Excel (.xlsx)
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -1009,7 +1009,7 @@ export default function WeeklyPlanner() {
             weekDays={weekDays}
             engineers={visibleEngineers}
             schedule={filteredSchedule}
-            jobs={jobs}
+            jobs={scopedJobs}
             unallocatedJobs={unallocatedJobs}
             adhocEntries={filteredAdhoc}
             isAdmin={isAdmin}
@@ -1049,7 +1049,7 @@ export default function WeeklyPlanner() {
           <MonthlyView
             currentDate={monthDate}
             schedule={filteredSchedule}
-            jobs={jobs}
+            jobs={scopedJobs}
             unallocatedJobs={isAdmin ? unallocatedJobs : []}
             engineers={visibleEngineers}
             isAdmin={isAdmin}
@@ -1063,7 +1063,7 @@ export default function WeeklyPlanner() {
           <ListView
             schedule={filteredSchedule}
             engineers={visibleEngineers}
-            jobs={jobs}
+            jobs={scopedJobs}
             isAdmin={isAdmin}
             onRemove={handleRemove}
             onBulkReassign={handleBulkReassign}
@@ -1076,7 +1076,7 @@ export default function WeeklyPlanner() {
         </TabsContent>
 
         <TabsContent value="map" className="mt-4">
-          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={visibleEngineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
+          <PlannerMapView schedule={filteredSchedule} jobs={scopedJobs} engineers={visibleEngineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
             const j = jobs.find((x) => x.id === jobId);
             if (j) setMapScheduleJob({ id: j.id, name: j.name, reference_number: j.reference_number });
           }} />
@@ -1086,7 +1086,7 @@ export default function WeeklyPlanner() {
       {/* Always-visible map for admins (hidden when map tab is active to avoid duplication) */}
       {isAdmin && view !== "map" && (
         <div className="mt-4">
-          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={visibleEngineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
+          <PlannerMapView schedule={filteredSchedule} jobs={scopedJobs} engineers={visibleEngineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
             const j = jobs.find((x) => x.id === jobId);
             if (j) setMapScheduleJob({ id: j.id, name: j.name, reference_number: j.reference_number });
           }} />
