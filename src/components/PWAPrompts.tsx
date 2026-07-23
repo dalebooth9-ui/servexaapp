@@ -6,6 +6,8 @@ import {
 } from "@/components/ui/dialog";
 import { Download, RefreshCw, X } from "lucide-react";
 import { setupPWA, setLastPromptedVersion, shouldPromptForUpdate } from "@/pwa/registerSW";
+import { startVersionPolling } from "@/pwa/versionPoll";
+
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -51,7 +53,22 @@ export default function PWAPrompts() {
         toast.success("App ready to work offline");
       },
     });
+
+    // Fallback for long-lived tabs where the SW update check is throttled:
+    // poll /version.json and surface the same banner if a newer build ships.
+    const stop = startVersionPolling((deployedVersion) => {
+      const currentVersion = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "unknown";
+      if (!shouldPromptForUpdate(deployedVersion)) return;
+      setLastPromptedVersion(deployedVersion);
+      setReload(() => async () => {
+        // User-initiated reload only — never auto — so in-flight forms stay safe.
+        void currentVersion;
+        window.location.reload();
+      });
+    });
+    return () => stop();
   }, []);
+
 
   // Capture the install prompt
   useEffect(() => {
