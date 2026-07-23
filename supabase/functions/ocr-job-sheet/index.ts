@@ -662,72 +662,69 @@ ${azureText}`;
   return null;
 }
 
-// ── GPT-Vision fallback (direct image → GPT, original method) ──
+// ── GPT-Vision fallback (direct image → GPT) ──
+//
+// Runs the GPT-vision extraction on one PAGE at a time and merges the
+// per-page results. Previously we sent every page in one request, which:
+//   (a) held all pages' base64 in one giant model input, so multi-page
+//       bundles routinely blew past the 150s edge gateway idle timeout;
+//   (b) meant a single failure lost the whole bundle.
+// Fanning out per page keeps each model call small, runs the pages in
+// parallel (bounded concurrency), and lets us merge partial success.
 
-async function gptVisionFallback(
-  images: { image_base64: string; mime_type?: string }[],
+async function gptVisionSinglePage(
+  image: { image_base64: string; mime_type?: string },
   templateName: string,
   fields: any[],
   lovableApiKey: string,
+  pageLabel: string,
 ): Promise<{ extracted: Record<string, any>; header: Record<string, any>; field_confidence: Record<string, number> } | null> {
   const extractionTool = buildExtractionTool(fields, true);
 
   const todayIso = new Date().toISOString().slice(0, 10);
-  const systemPrompt = `You are an expert OCR assistant. Today's date is ${todayIso}. The image you are reading is a RECENTLY scanned handwritten job sheet — any date on it should be on/before ${todayIso} and normally within the last 12 months. Extract data from the handwritten form in the image(s). Do NOT invent or guess values — ONLY transcribe what is physically written on the form.
+  const systemPrompt = `You are an expert OCR assistant. Today's date is ${todayIso}. The image you are reading is a RECENTLY scanned handwritten job sheet page — any date on it should be on/before ${todayIso} and normally within the last 12 months. Extract data from the handwritten form in the image. Do NOT invent or guess values — ONLY transcribe what is physically written on the form.
 
-DATE FIELDS: When a written date has an ambiguous final year digit (e.g. "15/7/2_" where the last digit could be 0 or 6), resolve it using recency — this sheet was scanned this week, so the current year is overwhelmingly more likely than any year 6+ years ago. But if the digit is genuinely unreadable or the whole date is illegible, leave the field blank and set field_confidence <0.5. NEVER commit a possibly-wrong date to a compliance certificate — a blank flagged for review is always safer than a plausible-looking wrong year.
+NOTE: You are being sent ONE PAGE (${pageLabel}) of a possibly multi-page bundle. Return only what appears on this page — the caller will merge each page's output. If the header block is not visible on this page, omit header fields; another page will supply them. For repeating tables (arrays), emit the rows visible on THIS page only, in reading order.
 
-NEVER FABRICATE "N/A": "n/a" is a positive assertion an engineer WROTE on the sheet. If a row has no clearly visible tick, circle, strikethrough, or handwritten mark, OMIT that field. Do NOT default absent answers to "n/a" — putting a false assertion on a certificate is worse than leaving it blank.
-CONFIDENCE (field_confidence): For every field you return, populate an entry in field_confidence with a number 0.0–1.0. Use <0.6 whenever the mark was ambiguous, the row spanned multiple printed lines and the mark's owning row was unclear, the image was blurry, or you had to guess. Use ≥0.85 only when the mark is unambiguous.
-ROW-ASSOCIATION FOR CIRCLED/TICKED MARKS (CRITICAL — most wrong answers come from this): Attach each YES/NO/N/A/PASS/FAIL circle-or-tick to the row whose printed answer TOKEN it actually surrounds or overlaps horizontally in the answer column — NOT to the row whose question label is nearest vertically. Multi-line questions (labels that wrap onto 2+ printed lines) are the danger zone: the answer-column tokens sit on ONE specific baseline within that row's block. Anchor the mark by identifying which printed YES/NO/N/A token it encloses, then attribute it to the question that owns THAT token line. When a mark sits ambiguously between two rows, mark that field with confidence <0.6 rather than guessing (or omit if you truly cannot tell).
-HEADER: "Customer:" at TOP = COMPANY name. "Customer:" at BOTTOM signature block = PERSON's name.
-LETTERHEAD / PAPERWORK OWNER: The company whose LOGO or NAME is printed at the very TOP of the sheet (the letterhead / branding block) is the paperwork_owner_company — extract it into header.paperwork_owner_company by reading the top-of-page logo/branding. It is often DIFFERENT from the 'Customer:' field. On subcontractor sheets the details box may only contain a SITE address and no 'Customer:' value — that is expected; leave header.customer blank in that case rather than inventing one from the letterhead or address.
-SITE ADDRESS: Look for "Site:", "Site Address:", "Address:", or "Location:" in the header. Transcribe the FULL address including street, town/city, and postcode. Include ALL lines. If the address spans multiple lines, join with ", ".
-Site postcodes: read character by character (0↔O, 6↔G, 8↔B).
-AIR RELEASE / VALVE FIELDS: Read EACH air release row independently. Do NOT copy values from adjacent rows. If a field says "N/A", "NOT INSTALLED", "NOT VISIBLE", or similar descriptive text, return that FULL text.
-YES/NO INTERPRETATION: Be very flexible. CIRCLED option = that answer. STRIKETHROUGH on one option = the OTHER is the answer (e.g. YES/̶N̶O̶ → "pass"). Handwriting next to pre-printed YES/NO = still determine the YES/NO answer; capture inline notes separately. "NO ACCESS" is a descriptive exception, NOT the same as "NO". OCR artifacts ($, ©, parens) around circled words should be ignored. If NONE of YES/NO/N/A carries any mark, OMIT the field — do NOT guess.
-P/F/N/A: tick beside P = "pass", F = "fail", tick beside a printed N/A option = "n/a". An UNMARKED P/F/N/A row must be OMITTED, never defaulted to "n/a".
-Descriptive text (e.g. "N/A – EXPOSED INLET") → return FULL text.
-FIELD ISOLATION: Annotations like "EXPOSED VALVE" belong ONLY to the specific field they are written next to. Do NOT bleed them into adjacent fields. For ALL cabinet-related fields (CABINET KEYS, cabinet condition, cabinet door, cabinet glass/panel, cabinet lock), if the row literally only says "N/A", return exactly "n/a". But if the row itself says "N/A - EXPOSED VALVE" (or similar descriptive exception text), return the FULL text exactly as shown.
-"N/A - EXPOSED VALVE" PRE-PRINTED TEXT: Some rows (especially glass and cabinet condition for breeching inlets) have "N/A - EXPOSED VALVE" pre-printed in the answer column. Return the FULL text "N/A - EXPOSED VALVE" — do NOT shorten to "NO" or just "N/A". The "N/A" prefix does NOT mean "NO".
-SECTION HEADERS: Row labels like "EXTERNAL EQUIPMENT:", "INTERNAL EQUIPMENT:" are section headers, NOT fields. Do NOT extract values for them.
-ADJACENT FIELD CONTAMINATION: Read each row independently. If one row has YES circled and the next row has "N/A - EXPOSED VALVE", do NOT let the "N/A" contaminate the YES row. Each answer belongs ONLY to its own row.
-INLINE COUNT ANNOTATIONS (HIGHEST PRIORITY ON DRY RISER FORMS): The number of outlets / landing valves is the single most important value on any dry riser sheet. It is almost never in its own labelled row — techs scribble it inline in the answer column (often on the landing valve YES/NO row, or in a margin, or next to the riser location/address). Scan the WHOLE page for any of: "NO OF OUTLETS: N", "OUTLETS: N", "OUTLETS x N", "N OUTLETS", "N LANDING VALVES", "N x LV", "LV x N". If you see any digit next to outlet(s) / landing valve(s) / LV anywhere on the sheet, extract that integer into header.number_of_outlets — even if the row it sits on asks about something else. Still capture the row's YES/NO answer separately. More generally: a handwritten note in the answer column often belongs to a different field than the row it was written on; route it to the correct schema field by meaning, not by position.
-Blank / unmarked fields → OMIT entirely (never default to "n/a").
-MULTI-LINE COMMENTS / REMARKS / NOTES: For any freeform notes/comments/remarks textarea, read the block strictly LEFT-TO-RIGHT per handwritten line, then TOP-TO-BOTTOM. Preserve each physical line as a SEPARATE line in the output (join with real newlines "\\n"). NEVER re-flow, split, merge or reorder lines. If a location qualifier ("LEVEL 2 + 4", "3rd floor", "riser 1") sits on the same handwritten line as a defect ("OUTLET LOCKS REQ"), it MUST stay on that same line ("OUTLET LOCKS REQ - LEVEL 2 + 4"). Detaching the location from its defect line loses which defect it refers to and is a critical error.
-MISSING / UNMARKED ROWS: If a template field has no matching row on the scanned sheet, OMIT it. If a row IS present but has no clear mark, OMIT it too — do NOT default to "n/a".
-FREEFORM OFF-FORM NOTES: After every form row is placed, scan the WHOLE page for handwritten text OUTSIDE the recognised form rows (margins, below the sign-off block, top corners, back of the sheet, white space between sections). These are often access/key codes, block info, or reminders (e.g. "BLOCK B, D & E — KEY FOB CODE: 5140", "KEYS AT RECEPTION"). Capture ALL such text VERBATIM into header.additional_notes (join separate scribbles with "\\n"). Do NOT duplicate content you already placed into a field. Leave blank if none — never invent text for illegible scribbles.
-REPEATING TABLES (GRIDS — CRITICAL): Any schema field whose JSON type is "array" represents a printed GRID on the sheet (sprinkler zone-valve checks per floor, dwelling access log per apartment, flow & pressure test rows, room-by-room head counts). Emit ONE object per PRINTED DATA ROW — never collapse a grid into one blob. Do NOT skip rows because the earlier rows look the same. Do NOT invent rows that are not printed. Preserve reading order top-to-bottom. If a whole row is crossed through or annotated "NO ACCESS" / "N/A", still emit the row with the identifier column filled and the exception text in the notes/comments column. If the grid continues on a later page in the bundle, keep appending rows across pages.
-MULTI-PAGE BUNDLES: You may receive multiple page images in one request (e.g. a 6-page residential sprinkler service report). Process EVERY page. Sections that only appear on later pages (zone valves grid on page 4, dwelling access log on page 6, sign-off block) are just as important as page 1.
+DATE FIELDS: When a written date has an ambiguous final year digit, resolve it using recency. If genuinely unreadable, leave blank and set field_confidence <0.5.
+
+NEVER FABRICATE "N/A": omit unmarked fields entirely.
+CONFIDENCE: populate field_confidence 0.0–1.0 per returned field; <0.6 when ambiguous.
+ROW-ASSOCIATION: attach each YES/NO/N/A mark to the row whose printed answer TOKEN it surrounds/overlaps in the answer column.
+HEADER: "Customer:" at TOP = COMPANY. "Customer:" at BOTTOM signature block = PERSON's name.
+LETTERHEAD: the company whose LOGO/NAME appears at the very TOP → header.paperwork_owner_company. Often different from the 'Customer:' field. If the details box only shows a site address and no customer name, leave header.customer blank.
+SITE ADDRESS: transcribe FULL address including street, town/city, postcode. Postcodes character-by-character (0↔O, 6↔G, 8↔B).
+YES/NO: circled/underlined/highlighted = that answer. Strikethrough on one option = the OTHER. "NO ACCESS" is a descriptive exception, not "NO". Ignore OCR artifacts around circled words. Unmarked → OMIT.
+P/F/N/A: tick beside P = "pass", F = "fail", tick beside printed N/A = "n/a". Unmarked → OMIT.
+FIELD ISOLATION: "EXPOSED VALVE" / "EXPOSED INLET" belong ONLY to the field they are written next to; do NOT bleed to adjacent fields. For cabinet fields showing only "N/A", return "n/a"; if the row says "N/A - EXPOSED VALVE", return the FULL text.
+SECTION HEADERS ("EXTERNAL EQUIPMENT:", "INTERNAL EQUIPMENT:") are NOT fields.
+INLINE COUNT ANNOTATIONS (dry riser): scan for any digit next to outlet(s)/landing valve(s)/LV anywhere on the page → header.number_of_outlets.
+MULTI-LINE COMMENTS/REMARKS/NOTES: preserve each physical handwritten line as a separate line ("\\n"); do NOT reorder or reflow. Location qualifiers stay attached to their defect line.
+FREEFORM OFF-FORM NOTES: capture handwritten text outside recognised form rows (margins, corners, below sign-off) verbatim into header.additional_notes.
+REPEATING TABLES (arrays): ONE object per PRINTED DATA ROW visible on this page, in reading order; never collapse rows; never invent rows. Whole crossed-through / "no access" rows are still real rows — capture their identifier and the exception text.
 Template name "${templateName}" is NEVER a valid field value.
 
-SIGNATURE EXTRACTION (CRITICAL):
-- Look at the VERY BOTTOM of the form for the sign-off / signature section.
-- There are typically TWO signature rows: one for the engineer/technician and one for the customer/client.
-- For EACH signature row, extract the printed/handwritten NAME of the signer and the DATE next to the signature only when clearly legible.
-- The customer's name goes in customer_signed_name. The engineer's name goes in engineer.
-- For customer_signature_bbox, return a box ONLY around real handwritten customer signature ink. Empty ruled boxes/lines are not signatures.
-- Do NOT capture the entire footer, blank signature line, or both rows together. Keep the box limited to visible customer signature ink only.
-- Bounding boxes must be in percentage coordinates (0-100).
-- If the customer signature row is blank, return no customer_signature_bbox and return an empty customer_signed_name. Never guess a customer name from an empty or illegible row.
+SIGNATURE EXTRACTION:
+- Look for the sign-off / signature section. There are usually two rows: engineer/technician and customer/client.
+- customer_signed_name and engineer name only when clearly legible.
+- customer_signature_bbox: only when real handwritten ink is visible; percentages 0-100; page_index = 0 (this single page).
+- Blank/illegible customer row → empty customer_signed_name and no customer_signature_bbox.
 
 Use the extract_job_sheet tool.`;
 
   const userContentParts: any[] = [
     {
       type: "text",
-      text: `Extract data from this handwritten form. Template: "${templateName}".`,
+      text: `Extract data from this handwritten form page. Template: "${templateName}". Page: ${pageLabel}.`,
     },
-  ];
-  for (const img of images) {
-    userContentParts.push({
+    {
       type: "image_url",
       image_url: {
-        url: `data:${img.mime_type || "image/jpeg"};base64,${img.image_base64}`,
+        url: `data:${image.mime_type || "image/jpeg"};base64,${image.image_base64}`,
         detail: "high",
       },
-    });
-  }
+    },
+  ];
 
   const models = ["google/gemini-2.5-pro", "google/gemini-2.5-flash"];
 
@@ -776,6 +773,73 @@ Use the extract_job_sheet tool.`;
   }
 
   return null;
+}
+
+async function gptVisionFallback(
+  images: { image_base64: string; mime_type?: string }[],
+  templateName: string,
+  fields: any[],
+  lovableApiKey: string,
+): Promise<{ extracted: Record<string, any>; header: Record<string, any>; field_confidence: Record<string, number> } | null> {
+  if (images.length === 0) return null;
+
+  // Bounded concurrency across pages. Each per-page GPT call is small
+  // (one image, ≤8k output tokens) and typically completes in 15–30s, so
+  // three in flight comfortably fits under the 150s edge gateway ceiling
+  // even for a 6-page bundle.
+  const CONCURRENCY = 3;
+  const results: (
+    | { pageIdx: number; payload: Awaited<ReturnType<typeof gptVisionSinglePage>> }
+    | { pageIdx: number; error: string }
+  )[] = new Array(images.length);
+  let cursor = 0;
+  const worker = async () => {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= images.length) return;
+      try {
+        const payload = await gptVisionSinglePage(
+          images[idx],
+          templateName,
+          fields,
+          lovableApiKey,
+          images.length > 1 ? `${idx + 1} of ${images.length}` : "1 of 1",
+        );
+        results[idx] = { pageIdx: idx, payload };
+      } catch (e: any) {
+        results[idx] = { pageIdx: idx, error: e?.message || String(e) };
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, images.length) }, worker));
+
+  const parts: Array<{
+    extracted: Record<string, any>;
+    header: Record<string, any>;
+    field_confidence: Record<string, number>;
+    sourcePageIdx: number;
+  }> = [];
+  const failed: string[] = [];
+  for (const r of results) {
+    if ("error" in r) { failed.push(`p${r.pageIdx + 1}: ${r.error}`); continue; }
+    if (!r.payload) { failed.push(`p${r.pageIdx + 1}: empty`); continue; }
+    parts.push({
+      extracted: r.payload.extracted || {},
+      header: r.payload.header || {},
+      field_confidence: r.payload.field_confidence || {},
+      sourcePageIdx: r.pageIdx,
+    });
+  }
+
+  if (failed.length) {
+    console.warn(`gpt-vision per-page: ${failed.length}/${images.length} page(s) failed — ${failed.join("; ").substring(0, 300)}`);
+    if (failed.some((s) => /429|402/.test(s))) {
+      throw new Error(failed.find((s) => /429|402/.test(s))!);
+    }
+  }
+
+  if (parts.length === 0) return null;
+  return mergeExtractionParts(parts);
 }
 
 // ── Main handler ──
