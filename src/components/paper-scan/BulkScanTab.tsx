@@ -11,6 +11,9 @@ import PhotoGrouper, {
   type PhotoItem,
 } from "./PhotoGrouper";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { maybeShowMobileDataAdvisory } from "@/lib/mobileDataNotice";
+import { getConnectivity } from "@/lib/connectivity";
+
 
 interface Props {
   onClose: () => void;
