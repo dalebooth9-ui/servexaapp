@@ -171,7 +171,7 @@ serve(async (req) => {
           .eq("job_id", (item as any).created_job_id)
           .eq("document_type", "report");
       }
-      console.log("reverify: done, fields=", Object.keys(extracted).length);
+      console.log("reverify: done, fields=", Object.keys(mergedExtracted).length);
     } catch (e: any) {
       console.error("reverify failed:", e.message);
       await svc
