@@ -132,3 +132,6 @@ verify_jwt = false
 
 [functions.inbound-po-email]
 verify_jwt = false
+
+[functions.reverify-scan-item]
+verify_jwt = false
