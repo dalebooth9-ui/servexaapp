@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Loader2, MapPin, CalendarClock, Truck, AlertTriangle, CheckCircle2, LogIn, LogOut } from "lucide-react";
 import VehicleCheckSheet from "@/components/VehicleCheckSheet";
 import { OpenInMapsButton } from "@/components/OpenInMapsButton";
+import FieldConnectivityTip from "@/components/engineer/FieldConnectivityTip";
+
 
 type JobLite = {
   id: string;
