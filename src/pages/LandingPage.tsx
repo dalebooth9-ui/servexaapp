@@ -10,15 +10,15 @@ import {
 
 const FEATURES = [
   { icon: Briefcase, title: "Intelligent Job Management", desc: "Create, assign and track fire & security jobs from first call to customer sign-off — full audit trail, priority flags and SLA breach alerts included." },
-  { icon: CalendarDays, title: "PPM Scheduling & Planner", desc: "Drag-and-drop weekly planner with auto-generated PPM visits for every fire system type. AI route optimisation gets engineers to site faster." },
-  { icon: Shield, title: "Compliance & Certification", desc: "Track BAFE, NICEIC and GasSafe expiry dates, attach certificates, and generate PDF reports aligned to BS 9990, BS 5306 and BS 5839." },
-  { icon: FileText, title: "RAMS & Digital Job Sheets", desc: "Build PAS 79-aligned Risk Assessments and Method Statements in minutes. Custom templates, digital signatures and one-click PDF export." },
-  { icon: Smartphone, title: "Engineer Mobile App", desc: "Engineers clock in, submit voice notes, capture annotated before/after photos and get client sign-offs — on or off site, even offline." },
-  { icon: Brain, title: "AI-Powered Fire Tools", desc: "AI RAMS auto-fill, predictive maintenance alerts, AI job briefs, AI scheduler and AI customer reports — built right in, no extra tools needed." },
+  { icon: CalendarDays, title: "PPM Scheduling & Planner", desc: "Drag-and-drop weekly planner with auto-generated PPM visits for every fire system type. AI-assisted route optimisation to sequence a day's jobs efficiently." },
+  { icon: Shield, title: "Compliance & Certification", desc: "Track certificate and engineer qualification expiry dates, attach documents, and generate PDF reports aligned to BS 9990, BS 5306 and BS 5839." },
+  { icon: FileText, title: "RAMS & Digital Job Sheets", desc: "Build PAS 79-aligned Risk Assessments and Method Statements with AI auto-fill from the job's category, site and customer. Custom templates, digital signatures and one-click PDF export." },
+  { icon: Smartphone, title: "Engineer Mobile App", desc: "Engineers clock in, submit voice notes, capture on-site photos and get client sign-offs — on or off site, even offline." },
+  { icon: Brain, title: "AI-Powered Fire Tools", desc: "AI RAMS auto-fill, AI job briefs, AI scheduler, AI customer report summaries and predictive maintenance alerts — built right in, no extra tools needed." },
   { icon: MapPin, title: "Live Engineer Tracking", desc: "See every engineer in real time. View assigned fire jobs, today's site visits and route history on one map." },
   { icon: BarChart2, title: "Reports & Analytics", desc: "Weekly management reports every Monday — revenue, jobs completed, top engineers, compliance status and more." },
-  { icon: Building2, title: "Floor Plans & Asset Register", desc: "Upload site floor plans, pin assets with QR codes and maintain a full digital logbook per asset — from fire panels to suppression cylinders." },
-  { icon: FileCheck, title: "Incident Reports & Audit Trail", desc: "Log incidents, near-misses and insurance claims with photos and AI summaries. Full tamper-proof audit trail exported with one click." },
+  { icon: ScanLine, title: "Paper Sheets → Digital", desc: "Post or email in your paper job sheets. Servexa's OCR + AI reads the handwriting, matches to a template, and produces a clean branded PDF ready for the customer." },
+  { icon: Send, title: "Customer Sign-Off & Send", desc: "Digital customer sign-off via a secure link. Send the finished report straight from the app — via Servexa or via your own Microsoft 365 mailbox." },
   { icon: Wrench, title: "Job Costing & Invoicing", desc: "Track parts, labour and margin per job. Raise invoices directly from the job sheet and sync with Xero, QuickBooks, Sage or FreeAgent." },
   { icon: ClipboardCheck, title: "Installation Projects", desc: "Manage multi-phase installation projects with milestone tracking, handover sign-off and certificate of conformity generation." },
 ];
