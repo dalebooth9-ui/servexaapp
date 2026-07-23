@@ -1,7 +1,7 @@
 // One-shot verification: re-runs OCR against a paper_scan_batch_items row
-// using the current pipeline and writes results back. Also nukes stored
-// job report_docs so the client regenerates the electronic PDF on next
-// open. Called manually by the agent for follow-up verification tasks.
+// by firing ocr-job-sheet in async write_back mode. Also nukes stored job
+// report_docs so the client regenerates the electronic PDF on next open.
+// Called manually by the agent for follow-up verification tasks.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -13,7 +13,6 @@ const corsHeaders = {
 const BUCKET = "submissions";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 async function pathToBase64(supabase: any, path: string, orgId: string | null) {
   const candidates = [path];
@@ -46,7 +45,7 @@ serve(async (req) => {
   if (poll) {
     const { data } = await svc
       .from("paper_scan_batch_items")
-      .select("extracted, header_data, detected_template_id")
+      .select("status, extracted, header_data, detected_template_id, error, updated_at")
       .eq("id", item_id)
       .maybeSingle();
     return new Response(JSON.stringify(data, null, 2), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -86,83 +85,33 @@ serve(async (req) => {
         columns: f.columns, allow_notes: f.allow_notes,
       }));
 
-      console.log(`reverify: ${payloads.length} pages, template=${(tpl as any).name}, ${fields.length} fields`);
+      console.log(`reverify: firing async OCR for ${payloads.length} pages, template=${(tpl as any).name}, ${fields.length} fields`);
 
-      // ocr-job-sheet now parallelizes Azure per page and uses a single GPT
-      // mapping call, so a chunk of 3 pages completes well under 150s.
-      const CHUNK = 3;
-      const mergedExtracted: Record<string, any> = {};
-      const mergedHeader: Record<string, any> = {};
-      const mergedConf: Record<string, number> = {};
-      let anyOk = false;
-      const failures: string[] = [];
+      // Mark as processing and clear any stale error so the UI shows work
+      // in flight while ocr-job-sheet's background task extracts.
+      await svc.from("paper_scan_batch_items").update({
+        status: "processing",
+        error: null,
+        header_data: {},
+      }).eq("id", item_id);
 
-      for (let i = 0; i < payloads.length; i += CHUNK) {
-        const chunk = payloads.slice(i, i + CHUNK);
-        const chunkLabel = `pages ${i + 1}-${i + chunk.length}`;
-        let ok = false;
-        let lastErr = "";
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            const r = await fetch(`${SUPABASE_URL}/functions/v1/ocr-job-sheet`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", apikey: SERVICE_KEY },
-              body: JSON.stringify({ images: chunk, template_name: (tpl as any).name, fields }),
-            });
-            if (r.ok) {
-              const j = await r.json();
-              const ex = j.extracted || {};
-              const hd = j.header || {};
-              const fc = j.field_confidence || {};
-              for (const [k, v] of Object.entries(ex)) {
-                if (v === null || v === undefined) continue;
-                if (Array.isArray(v)) {
-                  const prev = Array.isArray(mergedExtracted[k]) ? mergedExtracted[k] : [];
-                  mergedExtracted[k] = [...prev, ...v];
-                } else if (typeof v === "string") {
-                  const s = v.trim();
-                  const prev = mergedExtracted[k];
-                  const prevIsBlank = prev == null || String(prev).trim() === "" || /^n\/?a$/i.test(String(prev));
-                  if (s && !/^n\/?a$/i.test(s)) {
-                    if (prevIsBlank) mergedExtracted[k] = v;
-                  } else if (!(k in mergedExtracted)) {
-                    mergedExtracted[k] = v;
-                  }
-                } else if (!(k in mergedExtracted)) {
-                  mergedExtracted[k] = v;
-                }
-              }
-              for (const [k, v] of Object.entries(hd)) {
-                if (v == null || v === "") continue;
-                if (!(k in mergedHeader) || !mergedHeader[k]) mergedHeader[k] = v;
-              }
-              for (const [k, v] of Object.entries(fc)) {
-                if (typeof v === "number" && (mergedConf[k] == null || v > mergedConf[k])) mergedConf[k] = v;
-              }
-              ok = true;
-              anyOk = true;
-              console.log(`${chunkLabel}: ok, ${Object.keys(ex).length} fields`);
-              break;
-            } else {
-              lastErr = `${r.status}: ${(await r.text()).substring(0, 150)}`;
-            }
-          } catch (e: any) {
-            lastErr = e.message;
-          }
-          console.warn(`${chunkLabel} attempt ${attempt} failed: ${lastErr}`);
-          if (attempt < 3) await new Promise((rr) => setTimeout(rr, 4000));
-        }
-        if (!ok) failures.push(`${chunkLabel}: ${lastErr}`);
+      // Fire-and-forget: ocr-job-sheet returns 202 immediately, then writes
+      // extracted/header_data directly to this row via its own background
+      // waitUntil. Decouples 6-page bundles from the 150s edge gateway.
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/ocr-job-sheet`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: SERVICE_KEY },
+        body: JSON.stringify({
+          images: payloads,
+          template_name: (tpl as any).name,
+          fields,
+          write_back: { item_id },
+        }),
+      });
+      if (!resp.ok && resp.status !== 202) {
+        throw new Error(`fire failed ${resp.status}: ${(await resp.text()).substring(0, 200)}`);
       }
-
-      if (!anyOk) throw new Error(`all chunks failed: ${failures.join(" | ")}`);
-      if (Object.keys(mergedConf).length) mergedHeader._field_confidence = mergedConf;
-      if (failures.length) mergedHeader._reverify_partial = failures.join(" | ");
-
-      await svc
-        .from("paper_scan_batch_items")
-        .update({ extracted: mergedExtracted, header_data: mergedHeader })
-        .eq("id", item_id);
+      await resp.text();
 
       if (delete_reports && (item as any).created_job_id) {
         await svc
@@ -171,18 +120,16 @@ serve(async (req) => {
           .eq("job_id", (item as any).created_job_id)
           .eq("document_type", "report");
       }
-      console.log("reverify: done, fields=", Object.keys(mergedExtracted).length);
+      console.log("reverify: fired");
     } catch (e: any) {
       console.error("reverify failed:", e.message);
       await svc
         .from("paper_scan_batch_items")
-        .update({ header_data: { _reverify_error: e.message } })
+        .update({ status: "failed", header_data: { _reverify_error: e.message } })
         .eq("id", item_id);
     }
   };
 
-  // Fire-and-forget with EdgeRuntime.waitUntil so the response returns fast
-  // and the OCR keeps running.
   // @ts-ignore Deno edge runtime global
   EdgeRuntime.waitUntil(work());
   return new Response(JSON.stringify({ ok: true, started: true }), {

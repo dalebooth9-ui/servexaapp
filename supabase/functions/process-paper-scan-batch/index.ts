@@ -24,11 +24,11 @@ const corsHeaders = {
 const CHUNK_SIZE = 3;
 const BUCKET = "submissions";
 const CONFIDENCE_READY_THRESHOLD = 0.7;
-const OCR_MAX_ATTEMPTS = 3;
+
 // Anything left in "processing" longer than this is assumed dead (previous
 // invocation OOM'd or timed out). We flip it back to pending so the next
 // chunk retries it instead of blocking the batch forever.
-const STUCK_PROCESSING_MS = 4 * 60 * 1000;
+const STUCK_PROCESSING_MS = 10 * 60 * 1000;
 
 // NOTE: image downscaling used to happen HERE via imagescript, which regularly
 // tripped the edge worker's memory limit on 4000px phone photos and killed the
@@ -447,104 +447,63 @@ serve(async (req) => {
           ? (tpl as any).fields
           : [];
 
-        // OCR/extract — retry with backoff on 5xx / idle-timeout.
-        let ocrResp: Response | null = null;
-        let ocrErrText = "";
-        for (let attempt = 1; attempt <= OCR_MAX_ATTEMPTS; attempt++) {
-          try {
-            ocrResp = await fetch(
-              `${SUPABASE_URL}/functions/v1/ocr-job-sheet`,
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${jwt}`,
-                  "Content-Type": "application/json",
-                  apikey: SUPABASE_ANON_KEY,
-                },
-                body: JSON.stringify({
-                  images: payloads,
-                  template_name: (tpl as any).name,
-                  fields: fields.map((f: any) => ({
-                    id: f.id,
-                    label: f.label,
-                    type: f.type,
-                    section: f.section,
-                    options: f.options,
-                  })),
-                }),
-              },
-            );
-            if (ocrResp.ok) break;
-            ocrErrText = await ocrResp.text();
-            const retriable = ocrResp.status >= 500 || ocrResp.status === 408 ||
-              /IDLE_TIMEOUT|timeout/i.test(ocrErrText);
-            if (!retriable || attempt === OCR_MAX_ATTEMPTS) {
-              throw new Error(`ocr failed ${ocrResp.status}: ${ocrErrText.substring(0, 200)}`);
-            }
-          } catch (fetchErr: any) {
-            ocrErrText = fetchErr?.message || String(fetchErr);
-            if (attempt === OCR_MAX_ATTEMPTS) {
-              throw new Error(`ocr failed: ${ocrErrText.substring(0, 200)}`);
-            }
-          }
-          const waitMs = attempt === 1 ? 2000 : 5000;
-          console.warn(`OCR attempt ${attempt} failed (${ocrErrText.substring(0, 100)}), retrying in ${waitMs}ms`);
-          await new Promise((r) => setTimeout(r, waitMs));
-        }
-        if (!ocrResp || !ocrResp.ok) {
-          throw new Error(`ocr failed: ${ocrErrText.substring(0, 200)}`);
-        }
-        const ocrJson = await ocrResp.json();
-        const extracted = ocrJson.extracted || {};
-        const header = ocrJson.header || {};
-        if (ocrJson.field_confidence && typeof ocrJson.field_confidence === "object") {
-          (header as any)._field_confidence = ocrJson.field_confidence;
-        }
+        // Fire OCR in async write_back mode. ocr-job-sheet returns 202 in
+        // ~200ms and continues extraction in its own EdgeRuntime.waitUntil
+        // background, writing extracted/header_data directly to this item
+        // row on completion. Decouples large multi-page bundles from the
+        // 150s gateway timeout that used to kill 6-page sprinkler sheets.
+        // We pre-write the classifier's confidence/template/candidates and
+        // the fuzzy-match guesses BEFORE firing so the async writer only
+        // needs to fill in extracted+header_data.
+        const confidence = typeof top.confidence === "number" ? top.confidence : 0.5;
 
-        const { customerId, siteId, paperworkOwnerMatchedCustomerId } =
-          await fuzzyGuessSite(service, orgId, header);
-        const paperworkOwner = String(
-          (header as any).paperwork_owner_company || "",
-        ).trim();
-        if (paperworkOwner) {
-          (header as any).paperwork_owner_matched_customer_id =
-            paperworkOwnerMatchedCustomerId;
-        }
-
-        let guessDate: string | null = null;
-        const rawDate = String(header.date || "").trim();
-        if (rawDate) {
-          const m = rawDate.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
-          if (m) {
-            const yyyy = m[3].length === 2 ? `20${m[3]}` : m[3];
-            const dd = m[1].padStart(2, "0");
-            const mm = m[2].padStart(2, "0");
-            guessDate = `${yyyy}-${mm}-${dd}`;
-          }
-        }
-
-        const confidence = typeof top.confidence === "number"
-          ? top.confidence
-          : 0.5;
-        const status = confidence >= CONFIDENCE_READY_THRESHOLD
-          ? "ready"
-          : "low_confidence";
-
+        // Fuzzy match (based on classifier's guessed header). Header data
+        // will be overwritten by the OCR async writer, but we seed guesses
+        // from classify candidates when they include header hints. In
+        // practice classify doesn't return a header, so guesses will be
+        // filled later during review — leave nulls for now.
         await service
           .from("paper_scan_batch_items")
           .update({
-            status,
+            status: "processing",
             confidence,
             detected_template_id: top.template_id,
             candidate_matches: candidates,
-            extracted,
-            header_data: header,
-            guess_customer_id: customerId,
-            guess_site_id: siteId,
-            guess_date: guessDate,
             error: null,
+            header_data: {},
           })
           .eq("id", itemId);
+
+        const ocrResp = await fetch(
+          `${SUPABASE_URL}/functions/v1/ocr-job-sheet`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${jwt}`,
+            },
+            body: JSON.stringify({
+              images: payloads,
+              template_name: (tpl as any).name,
+              fields: fields.map((f: any) => ({
+                id: f.id,
+                label: f.label,
+                type: f.type,
+                section: f.section,
+                options: f.options,
+                columns: f.columns,
+                allow_notes: f.allow_notes,
+              })),
+              write_back: { item_id: itemId },
+            }),
+          },
+        );
+        if (!ocrResp.ok && ocrResp.status !== 202) {
+          const ocrErrText = await ocrResp.text();
+          throw new Error(`ocr fire failed ${ocrResp.status}: ${ocrErrText.substring(0, 200)}`);
+        }
+        await ocrResp.text();
       } catch (e: any) {
         console.error("item failed", itemId, e?.message);
         await service
@@ -570,15 +529,25 @@ serve(async (req) => {
         .eq("id", batchId);
     }
 
-    // Check if more pending — re-invoke self
+    // Check what remains. Items now go "pending" -> "processing" (fire OCR)
+    // -> async ocr writer flips them to "ready"/"low_confidence"/"failed".
+    // Re-invoke while any pending remain (to pick up the next chunk), and
+    // if all pending are drained but some are still "processing", poll
+    // again in 20s to sweep for completion. Only mark the batch complete
+    // when NOTHING is pending or processing.
     const { count: pendingLeft } = await service
       .from("paper_scan_batch_items")
       .select("id", { count: "exact", head: true })
       .eq("batch_id", batchId)
       .eq("status", "pending");
+    const { count: processingLeft } = await service
+      .from("paper_scan_batch_items")
+      .select("id", { count: "exact", head: true })
+      .eq("batch_id", batchId)
+      .eq("status", "processing");
 
-    if ((pendingLeft || 0) > 0) {
-      fetch(`${SUPABASE_URL}/functions/v1/process-paper-scan-batch`, {
+    const reinvoke = (delayMs: number) => {
+      const fire = () => fetch(`${SUPABASE_URL}/functions/v1/process-paper-scan-batch`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${jwt}`,
@@ -587,6 +556,16 @@ serve(async (req) => {
         },
         body: JSON.stringify({ batch_id: batchId }),
       }).catch((e) => console.error("re-invoke failed", e));
+      if (delayMs > 0) setTimeout(fire, delayMs);
+      else fire();
+    };
+
+    if ((pendingLeft || 0) > 0) {
+      reinvoke(0);
+    } else if ((processingLeft || 0) > 0) {
+      // Sweep in 20s to detect completion (or reclaim stuck items via the
+      // STUCK_PROCESSING_MS cutoff at the top of the next invocation).
+      reinvoke(20000);
     } else {
       await service
         .from("paper_scan_batches")
