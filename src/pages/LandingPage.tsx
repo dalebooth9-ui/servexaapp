@@ -251,7 +251,7 @@ export default function LandingPage() {
             <ProductWalkthrough />
           </div>
           <div className="mt-8 flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
-            {["Digital job sheets", "AI RAMS builder", "Live engineer tracking", "Customer sign-off", "Floor plans & QR assets", "Incident reports", "Job costing"].map((f) => (
+            {["Digital job sheets", "AI RAMS builder", "Live engineer tracking", "Customer sign-off", "Paper → digital scans", "Asset register", "Job costing"].map((f) => (
               <div key={f} className="flex items-center gap-1.5">
                 <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
                 <span>{f}</span>
