@@ -513,6 +513,21 @@ export default function WeeklyPlanner() {
     return adhocEntries.filter((a) => !a.engineer_id || !hiddenEngineers.has(a.engineer_id));
   }, [adhocEntries, isAdmin, engineerScopeId, hiddenEngineers]);
 
+  // For engineers, restrict the jobs prop to only jobs assigned to them
+  // (either scheduled or preassigned via job_assignments). Belt-and-braces:
+  // the child views only render entries from filteredSchedule, but scoping
+  // `jobs` too prevents any leak through pool/map/list lookups.
+  const scopedJobs = useMemo(() => {
+    if (isAdmin) return jobs;
+    if (!engineerScopeId) return [] as Job[];
+    const scheduledIds = new Set(filteredSchedule.map((s) => s.job_id));
+    return jobs.filter(
+      (j) => scheduledIds.has(j.id) || (j as any).preassigned_engineer_id === engineerScopeId
+    );
+  }, [jobs, filteredSchedule, isAdmin, engineerScopeId]);
+
+
+
 
   // Add adhoc entry handler
   const handleAddAdhoc = async () => {
