@@ -88,32 +88,80 @@ serve(async (req) => {
 
       console.log(`reverify: ${payloads.length} pages, template=${(tpl as any).name}, ${fields.length} fields`);
 
-      let ocrResp: Response | null = null;
-      let lastErr = "";
-      for (let attempt = 1; attempt <= 4; attempt++) {
-        try {
-          ocrResp = await fetch(`${SUPABASE_URL}/functions/v1/ocr-job-sheet`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", apikey: SERVICE_KEY },
-            body: JSON.stringify({ images: payloads, template_name: (tpl as any).name, fields }),
-          });
-          if (ocrResp.ok) break;
-          lastErr = `${ocrResp.status}: ${(await ocrResp.text()).substring(0, 200)}`;
-        } catch (e: any) {
-          lastErr = e.message;
+      // Process pages in chunks of 2 to stay under the gateway idle timeout
+      // that fires on all-6-pages-in-one-OCR request.
+      const CHUNK = 2;
+      const mergedExtracted: Record<string, any> = {};
+      const mergedHeader: Record<string, any> = {};
+      const mergedConf: Record<string, number> = {};
+      let anyOk = false;
+      const failures: string[] = [];
+
+      for (let i = 0; i < payloads.length; i += CHUNK) {
+        const chunk = payloads.slice(i, i + CHUNK);
+        const chunkLabel = `pages ${i + 1}-${i + chunk.length}`;
+        let ok = false;
+        let lastErr = "";
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            const r = await fetch(`${SUPABASE_URL}/functions/v1/ocr-job-sheet`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", apikey: SERVICE_KEY },
+              body: JSON.stringify({ images: chunk, template_name: (tpl as any).name, fields }),
+            });
+            if (r.ok) {
+              const j = await r.json();
+              const ex = j.extracted || {};
+              const hd = j.header || {};
+              const fc = j.field_confidence || {};
+              for (const [k, v] of Object.entries(ex)) {
+                if (v === null || v === undefined) continue;
+                if (Array.isArray(v)) {
+                  const prev = Array.isArray(mergedExtracted[k]) ? mergedExtracted[k] : [];
+                  mergedExtracted[k] = [...prev, ...v];
+                } else if (typeof v === "string") {
+                  const s = v.trim();
+                  const prev = mergedExtracted[k];
+                  const prevIsBlank = prev == null || String(prev).trim() === "" || /^n\/?a$/i.test(String(prev));
+                  if (s && !/^n\/?a$/i.test(s)) {
+                    if (prevIsBlank) mergedExtracted[k] = v;
+                  } else if (!(k in mergedExtracted)) {
+                    mergedExtracted[k] = v;
+                  }
+                } else if (!(k in mergedExtracted)) {
+                  mergedExtracted[k] = v;
+                }
+              }
+              for (const [k, v] of Object.entries(hd)) {
+                if (v == null || v === "") continue;
+                if (!(k in mergedHeader) || !mergedHeader[k]) mergedHeader[k] = v;
+              }
+              for (const [k, v] of Object.entries(fc)) {
+                if (typeof v === "number" && (mergedConf[k] == null || v > mergedConf[k])) mergedConf[k] = v;
+              }
+              ok = true;
+              anyOk = true;
+              console.log(`${chunkLabel}: ok, ${Object.keys(ex).length} fields`);
+              break;
+            } else {
+              lastErr = `${r.status}: ${(await r.text()).substring(0, 150)}`;
+            }
+          } catch (e: any) {
+            lastErr = e.message;
+          }
+          console.warn(`${chunkLabel} attempt ${attempt} failed: ${lastErr}`);
+          if (attempt < 3) await new Promise((rr) => setTimeout(rr, 4000));
         }
-        console.warn(`ocr attempt ${attempt} failed: ${lastErr}`);
-        if (attempt < 4) await new Promise((r) => setTimeout(r, 5000 * attempt));
+        if (!ok) failures.push(`${chunkLabel}: ${lastErr}`);
       }
-      if (!ocrResp || !ocrResp.ok) throw new Error(`ocr failed ${lastErr}`);
-      const ocrJson = await ocrResp.json();
-      const extracted = ocrJson.extracted || {};
-      const header = ocrJson.header || {};
-      if (ocrJson.field_confidence) (header as any)._field_confidence = ocrJson.field_confidence;
+
+      if (!anyOk) throw new Error(`all chunks failed: ${failures.join(" | ")}`);
+      if (Object.keys(mergedConf).length) mergedHeader._field_confidence = mergedConf;
+      if (failures.length) mergedHeader._reverify_partial = failures.join(" | ");
 
       await svc
         .from("paper_scan_batch_items")
-        .update({ extracted, header_data: header })
+        .update({ extracted: mergedExtracted, header_data: mergedHeader })
         .eq("id", item_id);
 
       if (delete_reports && (item as any).created_job_id) {
