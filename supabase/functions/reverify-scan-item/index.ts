@@ -88,15 +88,24 @@ serve(async (req) => {
 
       console.log(`reverify: ${payloads.length} pages, template=${(tpl as any).name}, ${fields.length} fields`);
 
-      const ocrResp = await fetch(`${SUPABASE_URL}/functions/v1/ocr-job-sheet`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: SERVICE_KEY },
-        body: JSON.stringify({ images: payloads, template_name: (tpl as any).name, fields }),
-      });
-      if (!ocrResp.ok) {
-        const t = await ocrResp.text();
-        throw new Error(`ocr failed ${ocrResp.status}: ${t.substring(0, 500)}`);
+      let ocrResp: Response | null = null;
+      let lastErr = "";
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        try {
+          ocrResp = await fetch(`${SUPABASE_URL}/functions/v1/ocr-job-sheet`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: SERVICE_KEY },
+            body: JSON.stringify({ images: payloads, template_name: (tpl as any).name, fields }),
+          });
+          if (ocrResp.ok) break;
+          lastErr = `${ocrResp.status}: ${(await ocrResp.text()).substring(0, 200)}`;
+        } catch (e: any) {
+          lastErr = e.message;
+        }
+        console.warn(`ocr attempt ${attempt} failed: ${lastErr}`);
+        if (attempt < 4) await new Promise((r) => setTimeout(r, 5000 * attempt));
       }
+      if (!ocrResp || !ocrResp.ok) throw new Error(`ocr failed ${lastErr}`);
       const ocrJson = await ocrResp.json();
       const extracted = ocrJson.extracted || {};
       const header = ocrJson.header || {};
