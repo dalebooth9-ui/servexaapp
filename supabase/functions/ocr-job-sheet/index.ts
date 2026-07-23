@@ -725,50 +725,50 @@ Use the extract_job_sheet tool.`;
     },
   ];
 
-  const models = ["google/gemini-2.5-pro", "google/gemini-2.5-flash"];
+  // Single attempt per model. On large templates each vision call takes
+  // 30-60s; stacking retries blew past the 150s edge gateway idle timeout.
+  // Try flash first (faster, usually good enough), fall back to pro.
+  const models = ["google/gemini-2.5-flash", "google/gemini-2.5-pro"];
 
   for (const model of models) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${lovableApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: 8192,
-          temperature: 0.1,
-          reasoning: { effort: "medium" },
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userContentParts },
-          ],
-          tools: [extractionTool],
-          tool_choice: { type: "function", function: { name: "extract_job_sheet" } },
-        }),
-      });
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 8192,
+        temperature: 0.1,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContentParts },
+        ],
+        tools: [extractionTool],
+        tool_choice: { type: "function", function: { name: "extract_job_sheet" } },
+      }),
+    });
 
-      if (!aiResponse.ok) {
-        const status = aiResponse.status;
-        await aiResponse.text();
-        if (status === 429 || status === 402) throw new Error(`AI error: ${status}`);
-        continue;
-      }
-
-      const responseText = await aiResponse.text();
-      if (!responseText?.trim()) continue;
-
-      let result: any;
-      try { result = JSON.parse(responseText); } catch { continue; }
-
-      try {
-        const payload = extractStructuredPayload(result);
-        if (hasMeaningfulValues(payload.extracted) || hasMeaningfulValues(payload.header)) {
-          return payload;
-        }
-      } catch { /* try next */ }
+    if (!aiResponse.ok) {
+      const status = aiResponse.status;
+      await aiResponse.text();
+      if (status === 429 || status === 402) throw new Error(`AI error: ${status}`);
+      continue;
     }
+
+    const responseText = await aiResponse.text();
+    if (!responseText?.trim()) continue;
+
+    let result: any;
+    try { result = JSON.parse(responseText); } catch { continue; }
+
+    try {
+      const payload = extractStructuredPayload(result);
+      if (hasMeaningfulValues(payload.extracted) || hasMeaningfulValues(payload.header)) {
+        return payload;
+      }
+    } catch { /* try next */ }
   }
 
   return null;
