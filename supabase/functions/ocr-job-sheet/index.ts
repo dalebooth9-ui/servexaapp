@@ -70,6 +70,8 @@ async function analyzePageAzure(
 
     if (!submitResponse.ok) {
       const errText = await submitResponse.text();
+      const host = (() => { try { return new URL(endpoint).host; } catch { return "invalid-endpoint"; } })();
+      console.error(`Azure submit failed p${pageIdx + 1} host=${host} status=${submitResponse.status} body=${errText.substring(0, 300)}`);
       throw new Error(`submit ${submitResponse.status}: ${errText.substring(0, 200)}`);
     }
 
@@ -700,7 +702,7 @@ SECTION HEADERS ("EXTERNAL EQUIPMENT:", "INTERNAL EQUIPMENT:") are NOT fields.
 INLINE COUNT ANNOTATIONS (dry riser): scan for any digit next to outlet(s)/landing valve(s)/LV anywhere on the page → header.number_of_outlets.
 MULTI-LINE COMMENTS/REMARKS/NOTES: preserve each physical handwritten line as a separate line ("\\n"); do NOT reorder or reflow. Location qualifiers stay attached to their defect line.
 FREEFORM OFF-FORM NOTES: capture handwritten text outside recognised form rows (margins, corners, below sign-off) verbatim into header.additional_notes.
-REPEATING TABLES (arrays): ONE object per PRINTED DATA ROW visible on this page, in reading order; never collapse rows; never invent rows. Whole crossed-through / "no access" rows are still real rows — capture their identifier and the exception text.
+REPEATING TABLES (arrays): ONE object per PRINTED DATA ROW visible on this page, in reading order; never collapse rows; never invent rows. A row is a DATA ROW whenever it has ANY handwritten content in ANY cell — including short exception text like "NO ACCESS", "REFUSED", "REFUSED ACCESS", "NO ANSWER", "NO HEADS", numeric counts, ticks, or a single dash. Do NOT drop apartment/dwelling/unit rows just because most cells only say "NO ACCESS" or "REFUSED" — those are the answer. When a whole column of a row is a repeated exception (e.g. every cell reads "NO ACCESS"), still emit the row with the identifier + that exception in each column. Whole crossed-through rows are still real rows — capture their identifier and the exception text. If the template defines a dwelling access log / apartment log / per-unit table and this page shows ANY such multi-row list (usually labelled with flat/unit/apartment numbers down the left column), you MUST emit it as the repeating_table array — never skip.
 Template name "${templateName}" is NEVER a valid field value.
 
 SIGNATURE EXTRACTION:
@@ -870,7 +872,8 @@ async function runExtractionPipeline(
 
   if (AZURE_ENDPOINT && AZURE_KEY) {
     try {
-      console.log("Stage 1: Azure Document Intelligence prebuilt-layout...");
+      const host = (() => { try { return new URL(AZURE_ENDPOINT).host; } catch { return "invalid-endpoint"; } })();
+      console.log(`Stage 1: Azure Document Intelligence (host=${host}, pages=${images.length})...`);
       const azureResult = await analyzeWithAzure(images, AZURE_ENDPOINT.replace(/\/$/, ""), AZURE_KEY);
       console.log(`Azure complete: ${azureResult.text.length} chars, confidence=${azureResult.confidence.toFixed(3)}, kvPairs=${azureResult.kvPairCount}, tables=${azureResult.tableCount}`);
       if (azureResult.text.length > 50) {
@@ -881,10 +884,10 @@ async function runExtractionPipeline(
         console.warn(`Azure returned no usable text (${azureResult.text.length} chars). Falling back to GPT-vision.`);
       }
     } catch (azureErr: any) {
-      console.warn(`Azure failed, falling back to GPT-vision: ${azureErr.message}`);
+      console.warn(`Azure failed, falling back to GPT-vision: ${azureErr?.message || azureErr}`);
     }
   } else {
-    console.log("Azure credentials not configured, using GPT-vision directly.");
+    console.log(`Azure credentials not configured (endpoint=${AZURE_ENDPOINT ? "set" : "missing"}, key=${AZURE_KEY ? "set" : "missing"}), using GPT-vision directly.`);
   }
 
   if (!bestExtraction) {
