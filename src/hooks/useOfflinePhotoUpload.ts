@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { enqueuePhoto } from "@/lib/photoQueue";
 import { isNetworkError } from "@/lib/syncQueue";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { maybeShowMobileDataAdvisory } from "@/lib/mobileDataNotice";
+
 
 export type PhotoUploadResult =
   | { ok: true; queued: false; path: string }
