@@ -31,25 +31,31 @@ interface AzureExtractionResult {
   tableCount: number;
 }
 
-async function analyzeWithAzure(
-  imagePayloads: { image_base64: string; mime_type?: string }[],
+// Per-page Azure Layout call. Extracted from analyzeWithAzure so pages can
+// be fanned out in parallel via Promise.all — a 6-page bundle used to run
+// sequentially and easily blew past the 150s edge gateway idle timeout.
+async function analyzePageAzure(
+  img: { image_base64: string; mime_type?: string },
   endpoint: string,
   apiKey: string,
-): Promise<AzureExtractionResult> {
-  const allText: string[] = [];
-  const allKvPairs: string[] = [];
-  const allTables: string[] = [];
-  const confidences: number[] = [];
-
-  for (let pageIdx = 0; pageIdx < imagePayloads.length; pageIdx++) {
-    const img = imagePayloads[pageIdx];
+  pageIdx: number,
+): Promise<{
+  pageIdx: number;
+  text: string;
+  kvPairs: string[];
+  tables: string[];
+  confidence: number;
+  skipped?: boolean;
+} | { pageIdx: number; error: string }> {
+  try {
     const mime = img.mime_type || "image/jpeg";
+    // Decode base64 -> Uint8Array, then let the base64 string go out of scope
+    // where possible: we no longer need it once Azure has the bytes.
     const binaryData = Uint8Array.from(atob(img.image_base64), (c) => c.charCodeAt(0));
 
-    // Skip this page for Azure if too large (will still be processed by GPT-vision fallback)
     if (binaryData.length > AZURE_MAX_BYTES) {
       console.warn(`Page ${pageIdx + 1} is ${(binaryData.length / 1024 / 1024).toFixed(1)}MB — exceeds Azure 4MB limit, skipping.`);
-      continue;
+      return { pageIdx, text: "", kvPairs: [], tables: [], confidence: 0, skipped: true };
     }
 
     const analyzeUrl = `${endpoint}/documentintelligence/documentModels/prebuilt-layout:analyze?api-version=2024-11-30`;
@@ -64,88 +70,134 @@ async function analyzeWithAzure(
 
     if (!submitResponse.ok) {
       const errText = await submitResponse.text();
-      throw new Error(`Azure submit failed (${submitResponse.status}): ${errText.substring(0, 300)}`);
+      throw new Error(`submit ${submitResponse.status}: ${errText.substring(0, 200)}`);
     }
 
     const operationLocation = submitResponse.headers.get("operation-location");
-    if (!operationLocation) {
-      const directResult = await submitResponse.json();
-      allText.push(extractTextFromAzureResult(directResult));
-      confidences.push(computeAzureConfidence(directResult));
-      continue;
-    }
-
-    await submitResponse.text();
-
     let analyzeResult: any = null;
-    for (let poll = 0; poll < 30; poll++) {
-      await new Promise((r) => setTimeout(r, 2000));
-      const pollResponse = await fetch(operationLocation, {
-        headers: { "Ocp-Apim-Subscription-Key": apiKey },
-      });
-      const pollData = await pollResponse.json();
-
-      if (pollData.status === "succeeded") {
-        analyzeResult = pollData.analyzeResult || pollData;
-        break;
-      } else if (pollData.status === "failed") {
-        throw new Error(`Azure analysis failed: ${JSON.stringify(pollData.error || pollData).substring(0, 300)}`);
+    if (!operationLocation) {
+      analyzeResult = await submitResponse.json();
+    } else {
+      await submitResponse.text();
+      // Short polling: 1s intervals up to ~40s. Handwritten single pages
+      // typically finish in 3-6s so 1s cadence returns as soon as possible.
+      for (let poll = 0; poll < 40; poll++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        const pollResponse = await fetch(operationLocation, {
+          headers: { "Ocp-Apim-Subscription-Key": apiKey },
+        });
+        const pollData = await pollResponse.json();
+        if (pollData.status === "succeeded") {
+          analyzeResult = pollData.analyzeResult || pollData;
+          break;
+        }
+        if (pollData.status === "failed") {
+          throw new Error(`azure page ${pageIdx + 1} analysis failed: ${JSON.stringify(pollData.error || pollData).substring(0, 200)}`);
+        }
       }
     }
 
-    if (!analyzeResult) throw new Error("Azure analysis timed out after 60 seconds");
+    if (!analyzeResult) throw new Error(`azure page ${pageIdx + 1} polling timed out`);
 
-    // Compute per-page confidence from word-level confidences
-    confidences.push(computeAzureConfidence(analyzeResult));
-
-    const pageLabel = imagePayloads.length > 1 ? `[Page ${pageIdx + 1}] ` : "";
+    const kvPairs: string[] = [];
+    const tables: string[] = [];
+    let text = "";
 
     if (analyzeResult.keyValuePairs && analyzeResult.keyValuePairs.length > 0) {
       for (const kvp of analyzeResult.keyValuePairs) {
         const key = kvp.key?.content?.trim() || "";
         const value = kvp.value?.content?.trim() || "";
-        if (key || value) {
-          allKvPairs.push(`${pageLabel}${key}: ${value}`);
-        }
+        if (key || value) kvPairs.push(`${key}: ${value}`);
       }
     }
 
     if (analyzeResult.tables && analyzeResult.tables.length > 0) {
       for (const table of analyzeResult.tables) {
-        const tableRows: Record<number, Record<number, string>> = {};
+        const rows: Record<number, Record<number, string>> = {};
         for (const cell of table.cells || []) {
-          if (!tableRows[cell.rowIndex]) tableRows[cell.rowIndex] = {};
-          tableRows[cell.rowIndex][cell.columnIndex] = cell.content || "";
+          if (!rows[cell.rowIndex]) rows[cell.rowIndex] = {};
+          rows[cell.rowIndex][cell.columnIndex] = cell.content || "";
         }
-        const rowKeys = Object.keys(tableRows).map(Number).sort((a, b) => a - b);
-        const tableLines: string[] = [];
+        const rowKeys = Object.keys(rows).map(Number).sort((a, b) => a - b);
+        const lines: string[] = [];
         for (const rowIdx of rowKeys) {
-          const cols = tableRows[rowIdx];
+          const cols = rows[rowIdx];
           const colKeys = Object.keys(cols).map(Number).sort((a, b) => a - b);
-          tableLines.push(colKeys.map((c) => cols[c]).join(" | "));
+          lines.push(colKeys.map((c) => cols[c]).join(" | "));
         }
-        allTables.push(`${pageLabel}TABLE:\n${tableLines.join("\n")}`);
+        tables.push(`TABLE:\n${lines.join("\n")}`);
       }
     }
 
-    if (analyzeResult.content) {
-      allText.push(`${pageLabel}${analyzeResult.content}`);
-    } else if (analyzeResult.paragraphs) {
-      const paras = analyzeResult.paragraphs.map((p: any) => p.content).join("\n");
-      allText.push(`${pageLabel}${paras}`);
+    if (analyzeResult.content) text = analyzeResult.content;
+    else if (analyzeResult.paragraphs) {
+      text = analyzeResult.paragraphs.map((p: any) => p.content).join("\n");
     }
+
+    return {
+      pageIdx,
+      text,
+      kvPairs,
+      tables,
+      confidence: computeAzureConfidence(analyzeResult),
+    };
+  } catch (e: any) {
+    return { pageIdx, error: e?.message || String(e) };
+  }
+}
+
+// Fan every page out to Azure Layout in parallel (bounded concurrency),
+// then stitch the per-page text/tables/kv-pairs into one prompt for the
+// downstream GPT mapping stage.
+async function analyzeWithAzure(
+  imagePayloads: { image_base64: string; mime_type?: string }[],
+  endpoint: string,
+  apiKey: string,
+): Promise<AzureExtractionResult> {
+  const CONCURRENCY = 4;
+  const results: Awaited<ReturnType<typeof analyzePageAzure>>[] = new Array(imagePayloads.length);
+  let cursor = 0;
+  const worker = async () => {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= imagePayloads.length) return;
+      results[idx] = await analyzePageAzure(imagePayloads[idx], endpoint, apiKey, idx);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, imagePayloads.length) }, worker),
+  );
+
+  const allText: string[] = [];
+  const allKvPairs: string[] = [];
+  const allTables: string[] = [];
+  const confidences: number[] = [];
+  const failures: string[] = [];
+
+  for (const r of results) {
+    if ("error" in r) {
+      failures.push(`page ${r.pageIdx + 1}: ${r.error}`);
+      continue;
+    }
+    if (r.skipped) continue;
+    const label = imagePayloads.length > 1 ? `[Page ${r.pageIdx + 1}] ` : "";
+    for (const kv of r.kvPairs) allKvPairs.push(`${label}${kv}`);
+    for (const t of r.tables) allTables.push(`${label}${t}`);
+    if (r.text) allText.push(`${label}${r.text}`);
+    if (r.confidence > 0) confidences.push(r.confidence);
+  }
+
+  if (failures.length && confidences.length === 0) {
+    throw new Error(`Azure failed on all pages: ${failures.join("; ").substring(0, 300)}`);
+  }
+  if (failures.length) {
+    console.warn(`Azure partial success — ${failures.length} page(s) failed:`, failures.join("; ").substring(0, 300));
   }
 
   const sections: string[] = [];
-  if (allKvPairs.length > 0) {
-    sections.push("=== KEY-VALUE PAIRS ===\n" + allKvPairs.join("\n"));
-  }
-  if (allTables.length > 0) {
-    sections.push("=== TABLES ===\n" + allTables.join("\n\n"));
-  }
-  if (allText.length > 0) {
-    sections.push("=== FULL TEXT ===\n" + allText.join("\n\n"));
-  }
+  if (allKvPairs.length > 0) sections.push("=== KEY-VALUE PAIRS ===\n" + allKvPairs.join("\n"));
+  if (allTables.length > 0) sections.push("=== TABLES ===\n" + allTables.join("\n\n"));
+  if (allText.length > 0) sections.push("=== FULL TEXT ===\n" + allText.join("\n\n"));
 
   const avgConfidence = confidences.length > 0
     ? confidences.reduce((a, b) => a + b, 0) / confidences.length
@@ -157,6 +209,85 @@ async function analyzeWithAzure(
     kvPairCount: allKvPairs.length,
     tableCount: allTables.length,
   };
+}
+
+// Merge per-page (or per-chunk) extraction payloads into one. Rules:
+// - repeating_table (array) fields: concat in page order (page 4's zone valves
+//   append to page 1's rows).
+// - scalar fields: first non-blank, non-"n/a" value wins; if none exists, keep
+//   the first present value so blanks still round-trip.
+// - header fields: first non-empty value wins.
+// - field_confidence: keep the entry from the source that supplied the chosen
+//   value; when merging arrays, take the max confidence seen for that key.
+// - signature bboxes carry page_index in bundle coordinates.
+function mergeExtractionParts(
+  parts: Array<{
+    extracted: Record<string, any>;
+    header: Record<string, any>;
+    field_confidence: Record<string, number>;
+    sourcePageIdx?: number;
+  }>,
+): { extracted: Record<string, any>; header: Record<string, any>; field_confidence: Record<string, number> } {
+  const mergedExtracted: Record<string, any> = {};
+  const mergedHeader: Record<string, any> = {};
+  const mergedConf: Record<string, number> = {};
+  const isBlank = (v: unknown) => v == null || String(v).trim() === "" || /^n\/?a$/i.test(String(v).trim());
+
+  for (const part of parts) {
+    const ex = part.extracted || {};
+    const hd = part.header || {};
+    const fc = part.field_confidence || {};
+
+    for (const [k, v] of Object.entries(ex)) {
+      if (v === null || v === undefined) continue;
+      if (Array.isArray(v)) {
+        const prev = Array.isArray(mergedExtracted[k]) ? mergedExtracted[k] : [];
+        mergedExtracted[k] = [...prev, ...v];
+        if (typeof fc[k] === "number" && (mergedConf[k] == null || fc[k] > mergedConf[k])) {
+          mergedConf[k] = fc[k];
+        }
+      } else {
+        const prev = mergedExtracted[k];
+        if (prev == null || (isBlank(prev) && !isBlank(v))) {
+          mergedExtracted[k] = v;
+          if (typeof fc[k] === "number") mergedConf[k] = fc[k];
+        } else if (mergedConf[k] == null && typeof fc[k] === "number") {
+          mergedConf[k] = fc[k];
+        }
+      }
+    }
+
+    for (const [k, v] of Object.entries(hd)) {
+      if (v == null || v === "") continue;
+      // Signature bboxes were emitted with page_index relative to the SLICE
+      // this part saw. Remap to bundle-relative page indices.
+      if ((k === "customer_signature_bbox" || k === "engineer_signature_bbox") && typeof v === "object") {
+        const bbox = { ...(v as any) };
+        const localIdx = typeof bbox.page_index === "number" ? bbox.page_index : 0;
+        bbox.page_index = (part.sourcePageIdx ?? 0) + localIdx;
+        if (!mergedHeader[k]) mergedHeader[k] = bbox;
+        continue;
+      }
+      if (k === "additional_notes" && typeof v === "string") {
+        // Notes from different pages should combine, not overwrite.
+        const existing = String(mergedHeader[k] || "").trim();
+        const incoming = v.trim();
+        if (!incoming) continue;
+        mergedHeader[k] = existing ? `${existing}\n${incoming}` : incoming;
+        continue;
+      }
+      if (!(k in mergedHeader) || mergedHeader[k] === "" || mergedHeader[k] == null) {
+        mergedHeader[k] = v;
+      }
+    }
+
+    // Preserve unseen confidence entries (fields we omitted-as-blank).
+    for (const [k, v] of Object.entries(fc)) {
+      if (typeof v === "number" && mergedConf[k] == null) mergedConf[k] = v;
+    }
+  }
+
+  return { extracted: mergedExtracted, header: mergedHeader, field_confidence: mergedConf };
 }
 
 function computeAzureConfidence(result: any): number {
