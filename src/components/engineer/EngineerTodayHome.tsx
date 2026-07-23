@@ -256,6 +256,10 @@ export default function EngineerTodayHome() {
         <p className="text-sm text-muted-foreground mt-0.5">{format(new Date(), "EEEE d MMMM")}</p>
       </div>
 
+      <FieldConnectivityTip />
+
+
+
       {/* Clock in/out — always visible, large tap */}
       <button
         onClick={isClockedIn ? clockOut : clockIn}
