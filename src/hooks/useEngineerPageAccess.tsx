@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { DEFAULT_ENGINEER_PAGES } from "@/lib/engineerPages";
 
 const norm = (s: string) => (s ?? "").trim().toLowerCase();
 
@@ -12,6 +13,9 @@ const norm = (s: string) => (s ?? "").trim().toLowerCase();
  * - Engineers: ONLY pages with an explicit row in `engineer_page_access`
  *   are allowed. No row → deny (AccessRoute will redirect to "/").
  *   Slugs are normalised (trim + lowercase) on both sides of the compare.
+ * - Generic preview (admin previewing engineer role without picking a
+ *   specific engineer): grant the realistic DEFAULT engineer page set so
+ *   the admin sees the true engineer surface — not "everything".
  */
 export function useEngineerPageAccess() {
   const { user, userRole, isPreviewingAsEngineer, previewEngineerId, effectiveUserId } = useAuth();
@@ -19,9 +23,6 @@ export function useEngineerPageAccess() {
   const [hasAnyRows, setHasAnyRows] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
 
-  // Generic preview (no specific engineer) — allow everything so the admin
-  // can walk the full engineer UX. Specific engineer preview loads that
-  // engineer's real access rows.
   const genericPreview = isPreviewingAsEngineer && !previewEngineerId;
 
   useEffect(() => {
@@ -40,7 +41,9 @@ export function useEngineerPageAccess() {
     }
 
     if (genericPreview) {
-      setAllowedPages(["all"]);
+      // Realistic default engineer surface, not "allow all".
+      const defaults = DEFAULT_ENGINEER_PAGES.map(norm);
+      setAllowedPages(defaults);
       setHasAnyRows(true);
       setLoading(false);
       return;
@@ -66,11 +69,11 @@ export function useEngineerPageAccess() {
 
   const hasAccess = (slug: string) => {
     if (userRole === "admin") return true;
-    if (genericPreview) return true;
     if (userRole !== "engineer") return false;
     return allowedPages.includes(norm(slug));
   };
 
   return { allowedPages, loading, hasAccess, hasAnyRows };
 }
+
 
