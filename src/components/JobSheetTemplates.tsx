@@ -1000,22 +1000,34 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
   useEffect(() => {
     const handleFillOnline = (event: Event) => {
-      const detail = (event as CustomEvent<{ jobId?: string; templateId?: string }>).detail;
+      const detail = (event as CustomEvent<{ jobId?: string; templateId?: string; responseId?: string; mode?: "view" | "continue" | "fill" }>).detail;
       if (detail?.jobId !== jobId || !detail?.templateId) return;
 
       const template = allTemplates.find((tpl) => tpl.id === detail.templateId);
       if (!template) return;
 
-      const existingDraft = responses.find((resp) => {
-        if (resp.template_id !== detail.templateId || resp.status !== "draft") return false;
-        return userRole === "admin" || resp.submitted_by === user?.id;
-      });
+      // Prefer the explicit responseId when the caller knows which record to open
+      const targeted = detail.responseId ? responses.find((r) => r.id === detail.responseId) : undefined;
+
+      if (targeted && (targeted.status === "submitted" || detail.mode === "view")) {
+        handleViewResponse(targeted);
+        return;
+      }
+
+      const existingDraft =
+        targeted && targeted.status === "draft"
+          ? targeted
+          : responses.find((resp) => {
+              if (resp.template_id !== detail.templateId || resp.status !== "draft") return false;
+              return userRole === "admin" || resp.submitted_by === user?.id;
+            });
       handleStartForm(template, existingDraft);
     };
 
     window.addEventListener("job-sheet:fill-online", handleFillOnline as EventListener);
     return () => window.removeEventListener("job-sheet:fill-online", handleFillOnline as EventListener);
   }, [jobId, allTemplates, responses, user?.id, userRole]);
+
 
   // Reset form data back to master template defaults, preserving job auto-populated fields
   const handleResetToTemplate = () => {
