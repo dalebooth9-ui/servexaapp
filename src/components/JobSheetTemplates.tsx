@@ -1404,8 +1404,9 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           <Badge variant="secondary" className="text-[10px] shrink-0">Draft</Badge>
                         </div>
                         <div className="flex items-center gap-1 shrink-0 ml-2">
-                          <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => tpl && handleStartForm(tpl, canEdit ? resp : undefined)}>
-                            {canEdit ? "Continue" : "Fill In"}
+                          <Button variant="ghost" size="sm" className="h-7 text-xs px-2 gap-1" onClick={() => tpl && handleStartForm(tpl, canEdit ? resp : undefined)}>
+                            <Pencil className="h-3 w-3" />
+                            {canEdit ? "Continue" : "Fill out"}
                           </Button>
                           {tpl && <BlankTemplatePdfExport template={tpl} jobInfo={jobInfo} />}
                           {canEdit && (
