@@ -81,6 +81,7 @@ const emptySite = {
   riser_location: "",
   category: "",
   quantity: "" as string,
+  what3words: "",
 };
 
 type CustomerFolder = {
