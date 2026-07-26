@@ -1178,11 +1178,21 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         newSitePhotos: photoUrls.length,
         finalSitePhotos: Array.isArray((finalFormData as any)._site_photo_urls) ? (finalFormData as any)._site_photo_urls.length : 0,
       });
+      // Guard: a "submitted" report must have an engineer signature on the job.
+      // Otherwise persist as a draft so the engineer hero still shows "Continue"
+      // instead of a phantom Submitted + View on an unsigned sheet.
+      const { count: sigCount } = await supabase
+        .from("job_signatures")
+        .select("id", { count: "exact", head: true })
+        .eq("job_id", jobId);
+      const hasSignature = (sigCount ?? 0) > 0;
+      const finalStatus = hasSignature ? "submitted" : "draft";
+
       if (activeResponse) {
         await supabase.from("job_sheet_responses").update({
           responses: finalFormData as any,
-          status: "submitted",
-          submitted_at: new Date().toISOString(),
+          status: finalStatus,
+          submitted_at: hasSignature ? new Date().toISOString() : null,
         } as any).eq("id", activeResponse.id);
       } else {
         await supabase.from("job_sheet_responses").insert({
@@ -1190,9 +1200,20 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           template_id: activeTemplate.id,
           responses: finalFormData as any,
           submitted_by: user?.id,
-          status: "submitted",
-          submitted_at: new Date().toISOString(),
+          status: finalStatus,
+          submitted_at: hasSignature ? new Date().toISOString() : null,
         } as any);
+      }
+
+      if (!hasSignature) {
+        toast({
+          title: "Saved as draft",
+          description: "Add a signature at the bottom of the sheet to submit it.",
+        });
+        clearTemplateFormDraft();
+        setSubmitting(false);
+        fetchData();
+        return;
       }
 
       // Auto-create Certificate of Conformity when a commissioning cert is submitted
