@@ -460,9 +460,19 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
       const columnProps: Record<string, any> = {};
       for (const c of f.columns) {
         if (c.type === "photo_gallery" || c.type === "photo") continue;
-        columnProps[c.id] = c.type === "number"
-          ? { type: ["number", "string"], description: `${c.label || c.id} — numeric value; omit if blank.` }
-          : { type: "string", description: `${c.label || c.id} — transcribe exactly. Omit the property if the cell is blank.` };
+        const colLabelLower = String(c.label || c.id || "").toLowerCase();
+        const isBreakdownOrComment =
+          /breakdown|comment|note|remark|room|per[_ ]?room|access[_ ]?result|observation/.test(colLabelLower);
+        if (c.type === "number") {
+          columnProps[c.id] = { type: ["number", "string"], description: `${c.label || c.id} — numeric value; omit if blank.` };
+        } else if (isBreakdownOrComment) {
+          columnProps[c.id] = {
+            type: "string",
+            description: `${c.label || c.id} — CRITICAL: transcribe the FULL handwritten cell text VERBATIM, including EVERY room in a room-by-room list (e.g. "HALLWAY x2, KITCHEN/LIVING x2, BEDROOM x1, UPPER LIVING x1, LEVEL 2 LANDING x1"), any trailing notes ("- painted to ceiling", "refused access but could see sprinklers inside", "no sprinkler heads"), and any handwritten additions written between or beside the printed rows. NEVER summarise a room list to just a total count — the total count belongs in the separate heads column. NEVER drop trailing sentences after the room list. Preserve original commas, dashes and line breaks. Omit ONLY if the cell is genuinely blank.`,
+          };
+        } else {
+          columnProps[c.id] = { type: "string", description: `${c.label || c.id} — transcribe exactly. Omit the property if the cell is blank.` };
+        }
       }
       fieldProperties[f.id] = {
         type: "array",
