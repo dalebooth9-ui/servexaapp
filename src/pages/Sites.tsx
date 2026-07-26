@@ -935,14 +935,19 @@ export default function Sites() {
       riser_location: (site as any).riser_location || "",
       category: (site as any).category || "",
       quantity: site.outlets_count != null ? String(site.outlets_count) : "",
+      what3words: (site as any).what3words || "",
     });
-    setEditingW3W(null);
+    setEditingW3W((site as any).what3words || null);
     setDialogOpen(true);
-    // Resolve W3W in the background using GPS pin if available, else address
-    const address = site.address || site.postcode;
-    if (address) {
-      supabase.functions.invoke("w3w-convert", { body: { address } })
-        .then(({ data }) => { if (data?.words) setEditingW3W(data.words); });
+    // Only run an address-based lookup as a hint when the site has no
+    // stored what3words yet — never overwrite a value that's been captured
+    // on site or manually set by an admin.
+    if (!(site as any).what3words) {
+      const address = site.address || site.postcode;
+      if (address) {
+        supabase.functions.invoke("w3w-convert", { body: { address } })
+          .then(({ data }) => { if (data?.words) setEditingW3W(data.words); });
+      }
     }
   };
 
