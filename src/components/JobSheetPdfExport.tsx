@@ -419,7 +419,17 @@ export async function generateJobSheetPdf(
   // ///words (set on first engineer sign-off or by admin) so every report
   // for that site shows the same precise location.
   let w3wAddress: string | undefined;
-  const storedSiteW3W = (jobInfo?.site as any)?.what3words as string | undefined;
+  let storedSiteW3W: string | undefined = (jobInfo?.site as any)?.what3words as string | undefined;
+  if (!storedSiteW3W && jobId && isValidUuid) {
+    try {
+      const { data: freshSite } = await supabase
+        .from("jobs")
+        .select("sites(what3words)")
+        .eq("id", jobId)
+        .maybeSingle();
+      storedSiteW3W = ((freshSite as any)?.sites?.what3words as string | undefined) || undefined;
+    } catch { /* skip */ }
+  }
   if (storedSiteW3W) {
     w3wAddress = storedSiteW3W;
   } else {
