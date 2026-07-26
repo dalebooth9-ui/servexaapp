@@ -744,7 +744,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   };
 
   const handlePrintAll = async () => {
-    const printable = docs.filter((d) => !!d.file_url);
+    const printable = docs.filter((d) => !!d.file_url).filter(engineerFilter);
     if (printable.length === 0) {
       toast({ title: "Nothing to print", description: "No attached files on this job.", variant: "destructive" });
       return;
