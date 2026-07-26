@@ -881,10 +881,25 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const handleStartForm = async (template: Template, existingResponse?: Response) => {
     setActiveTemplate(template);
     setViewingResponse(null);
-    const prefilled = getAutoPopulatedData(template);
+
+    // If the async fetchData hasn't populated jobInfo yet (e.g. engineer taps
+    // "Fill in" the instant the tab mounts), fetch the job context on demand
+    // so pre-fill never runs against a null jobInfo and hands back a blank form.
+    let contextInfo: JobInfo | null = jobInfo;
+    if (!contextInfo) {
+      try {
+        const ctx = await fetchJobPrefillContext(supabase, jobId);
+        if (ctx) {
+          contextInfo = ctx as JobInfo;
+          setJobInfo(contextInfo);
+        }
+      } catch (e) {
+        console.warn("[JobSheetTemplates] on-demand job context fetch failed", e);
+      }
+    }
+
+    const prefilled = getAutoPopulatedData(template, contextInfo);
     // Only treat a field as "auto-populated" when we actually have a value for it.
-    // Otherwise an empty auto-populate (e.g. missing site name) would wipe out the
-    // engineer's saved entry when re-opening a submitted report.
     const autoPopulatedIds = new Set(
       Object.entries(prefilled)
         .filter(([, v]) => v !== undefined && v !== null && v !== "")
@@ -897,8 +912,6 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
     if (existingResponse) {
       setActiveResponse(existingResponse);
-      // Defensive parse: jsonb usually arrives as an object, but if a client ever
-      // stored it as a JSON string we still want the engineer's data back.
       let saved: Record<string, any> = {};
       const raw = existingResponse.responses as unknown;
       if (raw && typeof raw === "object") {
@@ -907,13 +920,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         try { saved = JSON.parse(raw); } catch { saved = {}; }
       }
 
-      // Start with all saved data so nothing the engineer entered gets lost,
-      // then overlay fresh non-empty auto-populated values on top.
+      // Start with all saved data so nothing the engineer entered gets lost.
+      // Backfill EMPTY saved fields with fresh auto-populated values — but
+      // never clobber a value the engineer has already typed.
       const merged: Record<string, any> = { ...saved };
       Object.entries(prefilled).forEach(([key, val]) => {
-        if (val !== undefined && val !== null && val !== "") {
-          merged[key] = val;
-        }
+        if (val === undefined || val === null || val === "") return;
+        const existing = merged[key];
+        const isEmpty = existing === undefined || existing === null || existing === "";
+        if (isEmpty) merged[key] = val;
       });
       // Overlay any locally-saved progress (e.g. from lost connection)
       if (localDraft) {
