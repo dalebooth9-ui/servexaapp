@@ -107,7 +107,7 @@ export interface PdfSignatureData {
   /** Pre-loaded HTMLImageElement keyed by signature id */
   sigImages?: Record<string, HTMLImageElement>;
   /** Signature record for engineer/admin */
-  engineerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string } | null;
+  engineerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string; w3w_words?: string | null } | null;
   /** Signature record for customer */
   customerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string } | null;
   /** Optional small caption rendered under the technician signature (e.g. "signature from original scan"). */
@@ -115,6 +115,7 @@ export interface PdfSignatureData {
   /** Optional small caption rendered under the customer signature. */
   customerSourceNote?: string | null;
 }
+
 
 function formatSigTimestamp(iso?: string): string {
   if (!iso) return "";
