@@ -962,6 +962,73 @@ export default function WeeklyPlanner() {
               onChange={updateHiddenEngineers}
             />
           )}
+          {isAdmin && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Printer className="mr-1.5 h-4 w-4" /> Print sheets
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-h-[60vh] overflow-y-auto">
+                <DropdownMenuItem
+                  onClick={() => {
+                    const visits = filteredSchedule.map((s) => ({
+                      job_id: s.job_id,
+                      engineer_id: s.engineer_id,
+                      engineer_name: visibleEngineers.find((e) => e.user_id === s.engineer_id)?.full_name || "Unassigned",
+                      schedule_date: s.schedule_date,
+                    }));
+                    if (visits.length === 0) {
+                      toast({ title: "Nothing scheduled this week" });
+                      return;
+                    }
+                    setBulkPrintSelection({
+                      weekStart,
+                      weekEnd: _endOfWeek(weekStart, { weekStartsOn: 1 }),
+                      scopeLabel: `All engineers — w/c ${fmtDate(weekStart, "d MMM yyyy")}`,
+                      visits,
+                    });
+                  }}
+                >
+                  <Users className="mr-2 h-4 w-4" /> Whole week (all engineers)
+                </DropdownMenuItem>
+                {visibleEngineers.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">Per engineer</div>
+                    {visibleEngineers.map((e) => {
+                      const count = filteredSchedule.filter((s) => s.engineer_id === e.user_id).length;
+                      return (
+                        <DropdownMenuItem
+                          key={e.user_id}
+                          disabled={count === 0}
+                          onClick={() => {
+                            const visits = filteredSchedule
+                              .filter((s) => s.engineer_id === e.user_id)
+                              .map((s) => ({
+                                job_id: s.job_id,
+                                engineer_id: s.engineer_id,
+                                engineer_name: e.full_name,
+                                schedule_date: s.schedule_date,
+                              }));
+                            setBulkPrintSelection({
+                              weekStart,
+                              weekEnd: _endOfWeek(weekStart, { weekStartsOn: 1 }),
+                              scopeLabel: `${e.full_name} — w/c ${fmtDate(weekStart, "d MMM yyyy")}`,
+                              visits,
+                            });
+                          }}
+                        >
+                          <Printer className="mr-2 h-4 w-4" />
+                          <span className="flex-1">{e.full_name}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{count}</span>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
@@ -977,6 +1044,7 @@ export default function WeeklyPlanner() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
         </div>
       </div>
 
