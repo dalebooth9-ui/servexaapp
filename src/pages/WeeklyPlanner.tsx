@@ -1461,6 +1461,12 @@ export default function WeeklyPlanner() {
         initialWeekStart={weekStart}
         onConfirm={handleMultiDayAssign}
       />
+
+      <BulkPrintSheetsDialog
+        open={bulkPrintSelection !== null}
+        onOpenChange={(v) => { if (!v) setBulkPrintSelection(null); }}
+        selection={bulkPrintSelection}
+      />
     </div>
   );
 }
