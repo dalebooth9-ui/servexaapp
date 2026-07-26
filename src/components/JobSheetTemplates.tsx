@@ -4,7 +4,7 @@ import { saveFormDraft, clearFormDraft, loadFormDraftSync } from "@/lib/offlineF
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useJobCategories } from "@/hooks/useJobCategories";
-import { deriveScopeFromTemplateName } from "@/lib/jobSheetPrefill";
+import { deriveScopeFromTemplateName, fetchJobPrefillContext } from "@/lib/jobSheetPrefill";
 import { logReportEdits, jobHasSignatures } from "@/lib/logReportEdits";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -106,7 +106,7 @@ type JobInfo = {
 };
 
 export default function JobSheetTemplates({ jobId }: { jobId: string }) {
-  const { user, userRole } = useAuth();
+  const { user, userRole, profile } = useAuth();
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -364,21 +364,26 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     }
   };
 
-  const getAutoPopulatedData = (template: Template): Record<string, any> => {
+  const getAutoPopulatedData = (template: Template, override?: JobInfo | null): Record<string, any> => {
     const prefilled: Record<string, any> = {};
-    if (!jobInfo) return prefilled;
+    const info = override ?? jobInfo;
+    if (!info) return prefilled;
 
-    const jobAddress = jobInfo.address || jobInfo.site?.address || "";
-    const siteName = jobInfo.site?.name || "";
-    const customerName = jobInfo.customer || "";
-    const sitePostcode = jobInfo.site?.postcode || "";
-    const siteContact = jobInfo.site?.contact_name || "";
-    const siteContactPhone = jobInfo.site?.contact_phone || "";
-    const siteContactEmail = jobInfo.site?.contact_email || "";
-    const engineerList = (jobInfo.engineers || []).join(", ");
+    const jobAddress = info.address || info.site?.address || "";
+    const siteName = info.site?.name || "";
+    const customerName = info.customer || "";
+    const sitePostcode = info.site?.postcode || "";
+    const siteContact = info.site?.contact_name || "";
+    const siteContactPhone = info.site?.contact_phone || "";
+    const siteContactEmail = info.site?.contact_email || "";
+    const engineerList = (info.engineers || []).join(", ");
+    // For real engineers, pre-select their own name in dropdowns. In admin
+    // preview, we intentionally leave the selection empty per spec.
+    const ownEngineerName = userRole === "engineer" ? (profile?.full_name || "") : "";
 
     template.fields.forEach((f) => {
       const lbl = f.label.toLowerCase();
+      const label = lbl.replace(/[:\s]+$/g, "").trim();
       const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
       const isYesNoSelect =
         !!f.options &&
@@ -390,10 +395,25 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       if (isDrainField) {
         prefilled[f.id] = f.type === "checkbox" ? true : isYesNoSelect ? "YES" : true;
       }
-      // Never auto-fill fields that have options — leave blank for engineer to select,
-      // except drain/drop-leg yes/no fields which should stay defaulted to YES
-      if (f.options && f.options.length > 0 && !isDrainField) return;
-      const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+
+      // Select fields: only prefill for well-known slots where we can pick an
+      // exact option — Scope of Work (from template title) and Engineer name.
+      if (f.options && f.options.length > 0) {
+        if (isDrainField) return;
+        if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("service type")) {
+          const derived = deriveScopeFromTemplateName(template.name);
+          if (derived) {
+            const match = f.options.find((o) => o.toLowerCase() === derived.toLowerCase());
+            if (match) prefilled[f.id] = match;
+          }
+          return;
+        }
+        if (ownEngineerName && (label.includes("engineer") || label.includes("technician") || label.includes("operative") || label.includes("carried out by") || label.includes("completed by") || label.includes("attended by"))) {
+          const match = f.options.find((o) => o.toLowerCase() === ownEngineerName.toLowerCase());
+          if (match) prefilled[f.id] = match;
+        }
+        return;
+      }
 
       // Site details (composite: name + address)
       if (
@@ -428,7 +448,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         (label.includes("customer") && label.includes("detail")) ||
         (label.includes("client") && label.includes("detail"))
       ) {
-        prefilled[f.id] = [customerName, jobInfo.customer_email, jobInfo.customer_phone].filter(Boolean).join("\n");
+        prefilled[f.id] = [customerName, info.customer_email, info.customer_phone].filter(Boolean).join("\n");
       // Customer / client name
       } else if (label === "customer name" || label === "client name" || label === "customer" || label === "client") {
         prefilled[f.id] = customerName;
@@ -436,13 +456,13 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         prefilled[f.id] = customerName;
       // Customer email
       } else if ((label.includes("customer") || label.includes("client")) && label.includes("email")) {
-        prefilled[f.id] = jobInfo.customer_email || "";
+        prefilled[f.id] = info.customer_email || "";
       // Customer phone
       } else if ((label.includes("customer") || label.includes("client")) && (label.includes("phone") || label.includes("tel"))) {
-        prefilled[f.id] = jobInfo.customer_phone || "";
+        prefilled[f.id] = info.customer_phone || "";
       // Reference / PO number
       } else if (label.includes("po number") || label.includes("reference") || label.includes("ref no") || label.includes("job ref") || label.includes("job number") || label.includes("order number")) {
-        prefilled[f.id] = jobInfo.reference_number || "";
+        prefilled[f.id] = info.reference_number || "";
       // Job name / description — extended for commissioning certs
       } else if (
         label === "job name" || label === "job title" || label === "job description" ||
@@ -450,21 +470,21 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         label === "project name" || label === "project title" || label === "contract" ||
         label.includes("project description") || label === "works"
       ) {
-        prefilled[f.id] = jobInfo.name || "";
+        prefilled[f.id] = info.name || "";
       // Address / location — extended for commissioning certs
       } else if (
         label === "site address" || label === "address" || label === "location" ||
         label === "site location" || label === "property address" || label === "premises address" ||
         label === "installation address" || label === "premises"
       ) {
-        prefilled[f.id] = [jobInfo.address || jobInfo.site?.address, jobInfo.site?.postcode].filter(Boolean).join(", ");
+        prefilled[f.id] = [info.address || info.site?.address, info.site?.postcode].filter(Boolean).join(", ");
       // Number of systems (commissioning cert specific)
       } else if (
         label.includes("number of") && (label.includes("system") || label.includes("riser")) ||
         label.includes("no. of") || label.includes("no of") && (label.includes("system") || label.includes("riser")) ||
         label === "qty" || label === "quantity of systems" || label === "number of risers"
       ) {
-        prefilled[f.id] = String(jobInfo.other_qty || 1);
+        prefilled[f.id] = String(info.other_qty || 1);
       // Date fields — use scheduled planner date if available, else today
       } else if (label === "date" || label === "inspection date" || label === "service date" || label === "visit date" || label === "work date" || label === "commissioning date" || label === "installation date" || label === "completion date") {
         prefilled[f.id] = scheduledDate || new Date().toISOString().split("T")[0];
@@ -478,26 +498,26 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           prefilled[f.id] = fromTitle;
         } else {
           const scopeParts: string[] = [];
-          if ((jobInfo.pressure_test_qty ?? 0) > 0) scopeParts.push(`Pressure Test ×${jobInfo.pressure_test_qty}`);
-          if ((jobInfo.visual_qty ?? 0) > 0) scopeParts.push(`Visual Inspection ×${jobInfo.visual_qty}`);
-          if ((jobInfo.other_qty ?? 0) > 0 && jobInfo.other_service_type) scopeParts.push(`${jobInfo.other_service_type} ×${jobInfo.other_qty}`);
-          const categoryName = jobCategories.find(c => c.slug === jobInfo.category)?.name
-            || (jobInfo.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
+          if ((info.pressure_test_qty ?? 0) > 0) scopeParts.push(`Pressure Test ×${info.pressure_test_qty}`);
+          if ((info.visual_qty ?? 0) > 0) scopeParts.push(`Visual Inspection ×${info.visual_qty}`);
+          if ((info.other_qty ?? 0) > 0 && info.other_service_type) scopeParts.push(`${info.other_service_type} ×${info.other_qty}`);
+          const categoryName = jobCategories.find(c => c.slug === info.category)?.name
+            || (info.category ? info.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
           prefilled[f.id] = scopeParts.length > 0 ? scopeParts.join(", ") : categoryName;
         }
       // Priority
       } else if (label === "priority" || label === "job priority") {
-        prefilled[f.id] = jobInfo.priority || "";
+        prefilled[f.id] = info.priority || "";
       // Engineer / technician
       } else if (label.includes("engineer") || label.includes("technician") || label.includes("operative") || label.includes("carried out by") || label.includes("completed by") || label.includes("attended by")) {
         prefilled[f.id] = engineerList;
       // PT / Visual quantities
       } else if (label.includes("pressure test") && (label.includes("qty") || label.includes("quantity") || label.includes("number"))) {
-        prefilled[f.id] = String(jobInfo.pressure_test_qty ?? 0);
+        prefilled[f.id] = String(info.pressure_test_qty ?? 0);
       } else if (label.includes("visual") && (label.includes("qty") || label.includes("quantity") || label.includes("number"))) {
-        prefilled[f.id] = String(jobInfo.visual_qty ?? 0);
+        prefilled[f.id] = String(info.visual_qty ?? 0);
       } else if (label.includes("riser location") || label.includes("riser loc")) {
-        prefilled[f.id] = jobInfo.site?.riser_location || "";
+        prefilled[f.id] = info.site?.riser_location || "";
       }
     });
     return prefilled;
@@ -861,10 +881,25 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const handleStartForm = async (template: Template, existingResponse?: Response) => {
     setActiveTemplate(template);
     setViewingResponse(null);
-    const prefilled = getAutoPopulatedData(template);
+
+    // If the async fetchData hasn't populated jobInfo yet (e.g. engineer taps
+    // "Fill in" the instant the tab mounts), fetch the job context on demand
+    // so pre-fill never runs against a null jobInfo and hands back a blank form.
+    let contextInfo: JobInfo | null = jobInfo;
+    if (!contextInfo) {
+      try {
+        const ctx = await fetchJobPrefillContext(supabase, jobId);
+        if (ctx) {
+          contextInfo = ctx as JobInfo;
+          setJobInfo(contextInfo);
+        }
+      } catch (e) {
+        console.warn("[JobSheetTemplates] on-demand job context fetch failed", e);
+      }
+    }
+
+    const prefilled = getAutoPopulatedData(template, contextInfo);
     // Only treat a field as "auto-populated" when we actually have a value for it.
-    // Otherwise an empty auto-populate (e.g. missing site name) would wipe out the
-    // engineer's saved entry when re-opening a submitted report.
     const autoPopulatedIds = new Set(
       Object.entries(prefilled)
         .filter(([, v]) => v !== undefined && v !== null && v !== "")
@@ -877,8 +912,6 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
     if (existingResponse) {
       setActiveResponse(existingResponse);
-      // Defensive parse: jsonb usually arrives as an object, but if a client ever
-      // stored it as a JSON string we still want the engineer's data back.
       let saved: Record<string, any> = {};
       const raw = existingResponse.responses as unknown;
       if (raw && typeof raw === "object") {
@@ -887,13 +920,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         try { saved = JSON.parse(raw); } catch { saved = {}; }
       }
 
-      // Start with all saved data so nothing the engineer entered gets lost,
-      // then overlay fresh non-empty auto-populated values on top.
+      // Start with all saved data so nothing the engineer entered gets lost.
+      // Backfill EMPTY saved fields with fresh auto-populated values — but
+      // never clobber a value the engineer has already typed.
       const merged: Record<string, any> = { ...saved };
       Object.entries(prefilled).forEach(([key, val]) => {
-        if (val !== undefined && val !== null && val !== "") {
-          merged[key] = val;
-        }
+        if (val === undefined || val === null || val === "") return;
+        const existing = merged[key];
+        const isEmpty = existing === undefined || existing === null || existing === "";
+        if (isEmpty) merged[key] = val;
       });
       // Overlay any locally-saved progress (e.g. from lost connection)
       if (localDraft) {
