@@ -154,9 +154,11 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       const refNumber = job.reference_number || "";
       const dateVal = new Date().toLocaleDateString("en-GB");
 
-      // Resolve what3words for the site address
-      let w3wAddress: string | undefined;
-      if (siteAddress) {
+      // Resolve what3words: prefer the site's stored ///words (set on first
+      // engineer sign-off, or manually by admin) so every report for the
+      // site shows the same location. Fall back to address geocoding.
+      let w3wAddress: string | undefined = (job.sites as any)?.what3words || undefined;
+      if (!w3wAddress && siteAddress) {
         try {
           const { data: w3wData } = await supabase.functions.invoke("w3w-convert", {
             body: { address: siteAddress },
