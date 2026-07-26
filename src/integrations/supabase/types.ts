@@ -9536,6 +9536,10 @@ export type Database = {
       }
       is_admin_direct: { Args: { _user_id: string }; Returns: boolean }
       is_customer_user: { Args: { _uid: string }; Returns: boolean }
+      is_engineer_visible_document_type: {
+        Args: { _document_type: string }
+        Returns: boolean
+      }
       is_org_active: { Args: { _org_id: string }; Returns: boolean }
       is_org_admin: { Args: { _org_id: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }

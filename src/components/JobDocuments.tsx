@@ -17,6 +17,7 @@ import JobPdfReport from "@/components/JobPdfReport";
 import JobWordReport from "@/components/JobWordReport";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import ReferenceFilesDropzone from "@/components/ReferenceFilesDropzone";
+import { isDocVisibleToEngineer } from "@/lib/engineerDocVisibility";
 
 type JobDoc = {
   id: string;
@@ -717,11 +718,15 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading documents…</p>;
 
-  const customerPaperwork = docs.filter((d) => d.source === "customer_paperwork");
+  const isEngineerView = userRole !== "admin";
+  const engineerFilter = (d: JobDoc) => !isEngineerView || isDocVisibleToEngineer(d);
+
+  const customerPaperwork = docs.filter((d) => d.source === "customer_paperwork").filter(engineerFilter);
 
   const DOC_TYPE_ORDER: Record<string, number> = { rams_pdf: 0, pre_start_checklist: 1 };
   const allJobDocs = docs
     .filter((d) => d.source !== "customer_paperwork")
+    .filter(engineerFilter)
     .filter((d) => userRole === "admin" || (d.document_type !== "quote" && !(d.document_type === "uploaded_file" && d.label === "Costing Sheet")))
     .sort((a, b) => {
       const ao = DOC_TYPE_ORDER[a.document_type] ?? 99;
@@ -739,7 +744,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   };
 
   const handlePrintAll = async () => {
-    const printable = docs.filter((d) => !!d.file_url);
+    const printable = docs.filter((d) => !!d.file_url).filter(engineerFilter);
     if (printable.length === 0) {
       toast({ title: "Nothing to print", description: "No attached files on this job.", variant: "destructive" });
       return;
@@ -913,7 +918,7 @@ ${sections}
           size="sm"
           className="gap-1.5"
           onClick={handlePrintAll}
-          disabled={printingAll || docs.filter((d) => !!d.file_url).length === 0}
+          disabled={printingAll || docs.filter((d) => !!d.file_url).filter(engineerFilter).length === 0}
           title="Open all attached files in a print-ready window"
         >
           {printingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
