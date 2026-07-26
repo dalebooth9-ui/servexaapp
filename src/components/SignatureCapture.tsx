@@ -285,6 +285,10 @@ export default function SignatureCapture({
         await supabase.storage.from("signatures").remove([storagePath]).catch(() => {});
         throw insertErr;
       }
+      // First-visit enrichment: stamp the site's what3words so every future
+      // engineer opening this site sees the same ///words. Never overwrites
+      // an existing value — admins can edit/clear on the site details screen.
+      if (loc.w3w) enrichSiteW3W(jobId, loc.w3w);
 
       toast({ title: "Signature saved" });
       clearCanvas();
