@@ -448,7 +448,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         (label.includes("customer") && label.includes("detail")) ||
         (label.includes("client") && label.includes("detail"))
       ) {
-        prefilled[f.id] = [customerName, jobInfo.customer_email, jobInfo.customer_phone].filter(Boolean).join("\n");
+        prefilled[f.id] = [customerName, info.customer_email, info.customer_phone].filter(Boolean).join("\n");
       // Customer / client name
       } else if (label === "customer name" || label === "client name" || label === "customer" || label === "client") {
         prefilled[f.id] = customerName;
@@ -456,13 +456,13 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         prefilled[f.id] = customerName;
       // Customer email
       } else if ((label.includes("customer") || label.includes("client")) && label.includes("email")) {
-        prefilled[f.id] = jobInfo.customer_email || "";
+        prefilled[f.id] = info.customer_email || "";
       // Customer phone
       } else if ((label.includes("customer") || label.includes("client")) && (label.includes("phone") || label.includes("tel"))) {
-        prefilled[f.id] = jobInfo.customer_phone || "";
+        prefilled[f.id] = info.customer_phone || "";
       // Reference / PO number
       } else if (label.includes("po number") || label.includes("reference") || label.includes("ref no") || label.includes("job ref") || label.includes("job number") || label.includes("order number")) {
-        prefilled[f.id] = jobInfo.reference_number || "";
+        prefilled[f.id] = info.reference_number || "";
       // Job name / description — extended for commissioning certs
       } else if (
         label === "job name" || label === "job title" || label === "job description" ||
@@ -470,21 +470,21 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         label === "project name" || label === "project title" || label === "contract" ||
         label.includes("project description") || label === "works"
       ) {
-        prefilled[f.id] = jobInfo.name || "";
+        prefilled[f.id] = info.name || "";
       // Address / location — extended for commissioning certs
       } else if (
         label === "site address" || label === "address" || label === "location" ||
         label === "site location" || label === "property address" || label === "premises address" ||
         label === "installation address" || label === "premises"
       ) {
-        prefilled[f.id] = [jobInfo.address || jobInfo.site?.address, jobInfo.site?.postcode].filter(Boolean).join(", ");
+        prefilled[f.id] = [info.address || info.site?.address, info.site?.postcode].filter(Boolean).join(", ");
       // Number of systems (commissioning cert specific)
       } else if (
         label.includes("number of") && (label.includes("system") || label.includes("riser")) ||
         label.includes("no. of") || label.includes("no of") && (label.includes("system") || label.includes("riser")) ||
         label === "qty" || label === "quantity of systems" || label === "number of risers"
       ) {
-        prefilled[f.id] = String(jobInfo.other_qty || 1);
+        prefilled[f.id] = String(info.other_qty || 1);
       // Date fields — use scheduled planner date if available, else today
       } else if (label === "date" || label === "inspection date" || label === "service date" || label === "visit date" || label === "work date" || label === "commissioning date" || label === "installation date" || label === "completion date") {
         prefilled[f.id] = scheduledDate || new Date().toISOString().split("T")[0];
@@ -498,26 +498,26 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           prefilled[f.id] = fromTitle;
         } else {
           const scopeParts: string[] = [];
-          if ((jobInfo.pressure_test_qty ?? 0) > 0) scopeParts.push(`Pressure Test ×${jobInfo.pressure_test_qty}`);
-          if ((jobInfo.visual_qty ?? 0) > 0) scopeParts.push(`Visual Inspection ×${jobInfo.visual_qty}`);
-          if ((jobInfo.other_qty ?? 0) > 0 && jobInfo.other_service_type) scopeParts.push(`${jobInfo.other_service_type} ×${jobInfo.other_qty}`);
-          const categoryName = jobCategories.find(c => c.slug === jobInfo.category)?.name
-            || (jobInfo.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
+          if ((info.pressure_test_qty ?? 0) > 0) scopeParts.push(`Pressure Test ×${info.pressure_test_qty}`);
+          if ((info.visual_qty ?? 0) > 0) scopeParts.push(`Visual Inspection ×${info.visual_qty}`);
+          if ((info.other_qty ?? 0) > 0 && info.other_service_type) scopeParts.push(`${info.other_service_type} ×${info.other_qty}`);
+          const categoryName = jobCategories.find(c => c.slug === info.category)?.name
+            || (info.category ? info.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
           prefilled[f.id] = scopeParts.length > 0 ? scopeParts.join(", ") : categoryName;
         }
       // Priority
       } else if (label === "priority" || label === "job priority") {
-        prefilled[f.id] = jobInfo.priority || "";
+        prefilled[f.id] = info.priority || "";
       // Engineer / technician
       } else if (label.includes("engineer") || label.includes("technician") || label.includes("operative") || label.includes("carried out by") || label.includes("completed by") || label.includes("attended by")) {
         prefilled[f.id] = engineerList;
       // PT / Visual quantities
       } else if (label.includes("pressure test") && (label.includes("qty") || label.includes("quantity") || label.includes("number"))) {
-        prefilled[f.id] = String(jobInfo.pressure_test_qty ?? 0);
+        prefilled[f.id] = String(info.pressure_test_qty ?? 0);
       } else if (label.includes("visual") && (label.includes("qty") || label.includes("quantity") || label.includes("number"))) {
-        prefilled[f.id] = String(jobInfo.visual_qty ?? 0);
+        prefilled[f.id] = String(info.visual_qty ?? 0);
       } else if (label.includes("riser location") || label.includes("riser loc")) {
-        prefilled[f.id] = jobInfo.site?.riser_location || "";
+        prefilled[f.id] = info.site?.riser_location || "";
       }
     });
     return prefilled;
