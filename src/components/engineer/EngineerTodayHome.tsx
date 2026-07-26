@@ -243,7 +243,7 @@ export default function EngineerTodayHome() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [user?.id]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [user?.id, engineerId, isGenericPreview]);
 
   const weekGroups = useMemo(() => {
     const days: { date: Date; jobs: JobLite[] }[] = [];
