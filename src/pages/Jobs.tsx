@@ -257,31 +257,41 @@ export default function Jobs() {
   );
 
   const fetchJobs = async () => {
+    // Generic engineer preview (no specific engineer picked) shows nothing —
+    // never fall through to the admin's full company-wide job list.
+    if (isGenericEngineerPreview) { setJobs([]); setHasMore(false); return; }
+
     const COLUMNS = "id, reference_number, customer_po, name, customer, customer_id, site_id, address, status, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, template_mismatch_reason, detected_work_types, submissions(id, type), customers(id, name, email), sites(id, name, address, postcode)";
     let query = supabase.from("jobs").select(COLUMNS).order("created_at", { ascending: false });
     // When user is actively searching, fetch across ALL statuses so completed jobs
     // still surface regardless of the current tab. Otherwise, scope by tab.
     const searching = search.trim().length > 0;
+    // Engineers only ever see current/active assigned work — no completed, no rejected, no "all".
+    const effectiveTab = isEngineerView
+      ? (statusTab === "pending_review" ? "pending_review" : "active")
+      : statusTab;
     if (!searching) {
-      if (statusTab === "active") {
+      if (effectiveTab === "active") {
         query = query.not("status", "in", "(completed,archived,rejected)");
-      } else if (statusTab === "pending_review") {
+      } else if (effectiveTab === "pending_review") {
         query = query.eq("status", "pending_review");
-      } else if (statusTab === "completed") {
+      } else if (effectiveTab === "completed") {
         query = query.eq("status", "completed");
-      } else if (statusTab === "rejected") {
+      } else if (effectiveTab === "rejected") {
         query = query.eq("status", "rejected");
-      } else if (statusTab === "all") {
+      } else if (effectiveTab === "all") {
         // "All" excludes rejected — those are archive-only and viewable via the Rejected tab.
         query = query.neq("status", "rejected");
       }
     } else {
       // Searching across statuses — still hide rejected unless the user is on the rejected tab.
-      if (statusTab !== "rejected") query = query.neq("status", "rejected");
+      if (effectiveTab !== "rejected") query = query.neq("status", "rejected");
+      // Engineers never search across completed/archived — keep it scoped to active work.
+      if (isEngineerView) query = query.not("status", "in", "(completed,archived,rejected)");
     }
 
     query = query.limit(pageSize + 1);
-    if (userRole === "engineer" && user) {
+    if (isEngineerView && user) {
       const engineerId = effectiveUserId ?? user.id;
       const { data: assignments } = await supabase
         .from("job_assignments")
