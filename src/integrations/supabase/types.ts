@@ -4920,33 +4920,42 @@ export type Database = {
           file_path: string
           id: string
           job_id: string
+          lat: number | null
+          lng: number | null
           org_id: string
           signer_id: string
           signer_name: string
           signer_position: string | null
           signer_role: string
+          w3w_words: string | null
         }
         Insert: {
           created_at?: string
           file_path: string
           id?: string
           job_id: string
+          lat?: number | null
+          lng?: number | null
           org_id?: string
           signer_id: string
           signer_name?: string
           signer_position?: string | null
           signer_role?: string
+          w3w_words?: string | null
         }
         Update: {
           created_at?: string
           file_path?: string
           id?: string
           job_id?: string
+          lat?: number | null
+          lng?: number | null
           org_id?: string
           signer_id?: string
           signer_name?: string
           signer_position?: string | null
           signer_role?: string
+          w3w_words?: string | null
         }
         Relationships: [
           {
