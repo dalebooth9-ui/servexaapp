@@ -142,7 +142,7 @@ export default function EngineerTodayHome() {
     const { data: vc } = await supabase
       .from("vehicle_checks")
       .select("status")
-      .eq("engineer_id", user.id)
+      .eq("engineer_id", engineerId)
       .eq("check_date", todayStr)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -155,7 +155,7 @@ export default function EngineerTodayHome() {
     const { data: schedRows } = await supabase
       .from("job_schedule")
       .select("id, job_id, schedule_date, scheduled_time, acknowledged_at")
-      .eq("engineer_id", user.id)
+      .eq("engineer_id", engineerId)
       .gte("schedule_date", weekStartStr)
       .lte("schedule_date", weekEndStr)
       .order("schedule_date", { ascending: true });
@@ -192,7 +192,7 @@ export default function EngineerTodayHome() {
       const { data: nextRow } = await supabase
         .from("job_schedule")
         .select("schedule_date")
-        .eq("engineer_id", user.id)
+        .eq("engineer_id", engineerId)
         .gt("schedule_date", todayStr)
         .order("schedule_date", { ascending: true })
         .limit(1)
@@ -206,14 +206,14 @@ export default function EngineerTodayHome() {
     const { data: assigns } = await supabase
       .from("job_assignments")
       .select("job_id")
-      .eq("engineer_id", user.id);
+      .eq("engineer_id", engineerId);
     const assignedIds = Array.from(new Set((assigns || []).map((a: any) => a.job_id)));
 
     if (assignedIds.length) {
       const { data: schedForAssigned } = await supabase
         .from("job_schedule")
         .select("job_id, schedule_date")
-        .eq("engineer_id", user.id)
+        .eq("engineer_id", engineerId)
         .in("job_id", assignedIds)
         .gte("schedule_date", todayStr);
       const scheduledSet = new Set((schedForAssigned || []).map((s: any) => s.job_id));
