@@ -4,7 +4,7 @@ import { saveFormDraft, clearFormDraft, loadFormDraftSync } from "@/lib/offlineF
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useJobCategories } from "@/hooks/useJobCategories";
-import { deriveScopeFromTemplateName } from "@/lib/jobSheetPrefill";
+import { deriveScopeFromTemplateName, fetchJobPrefillContext } from "@/lib/jobSheetPrefill";
 import { logReportEdits, jobHasSignatures } from "@/lib/logReportEdits";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
