@@ -1863,13 +1863,13 @@ export default function Jobs() {
 
       {/* Primary status tabs — completed jobs are one tap away */}
       <div className="mb-3 flex flex-wrap gap-1.5">
-        {([
+        {(([
           { key: "active", label: "Active" },
           { key: "pending_review", label: "Pending Review" },
           { key: "completed", label: "Completed" },
           { key: "rejected", label: "Rejected" },
           { key: "all", label: "All" },
-        ] as const).map((t) => (
+        ] as const).filter((t) => !isEngineerView || t.key === "active" || t.key === "pending_review")).map((t) => (
 
           <button
             key={t.key}
