@@ -98,21 +98,48 @@ export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan
   for (const b of buckets) {
     if (!b.target || b.target <= 0) continue;
 
-    // Candidate templates for this bucket
-    let candidates = allTemplates.filter((t) => {
-      if (b.matchCategory) return t.category === b.matchCategory;
-      // "other" bucket: match by job_category or service type slug
-      if (b.preferJobCategory && t.job_category) return t.job_category === b.preferJobCategory;
-      return false;
-    });
-
-    // Narrow further by job_category when possible (preferred match)
-    if (b.preferJobCategory) {
-      const narrowed = candidates.filter((t) => t.job_category === b.preferJobCategory);
-      if (narrowed.length > 0) candidates = narrowed;
+    // Candidate templates for this bucket.
+    // Priority 1: explicit mapping table (job_category_template_map) — this is
+    // what an admin has wired for this job type. Applies to category_default
+    // AND to pressure_test/visual/other buckets whose job category matches.
+    let candidates: TemplateOption[] = [];
+    if (mappedTemplates.length > 0) {
+      if (b.key === "category_default") {
+        candidates = [...mappedTemplates];
+      } else if (b.matchCategory) {
+        // Narrow explicit mapping to templates whose category matches the bucket
+        // (e.g. pressure_test bucket → only pressure-test templates from the map).
+        candidates = mappedTemplates.filter((t) => t.category === b.matchCategory || (t.job_category || "").includes(b.matchCategory!));
+        // If the map has no bucket-specific template, fall through to legacy logic below.
+      } else if (b.preferJobCategory) {
+        candidates = mappedTemplates.filter((t) => t.job_category === b.preferJobCategory);
+      }
     }
 
-    // 🔒 If this bucket is locked to a specific template on this job, use only that one
+    // Priority 2 (legacy fallback): match by template.category / job_category.
+    if (candidates.length === 0) {
+      candidates = allTemplates.filter((t) => {
+        if (b.matchCategory) return t.category === b.matchCategory;
+        if (b.preferJobCategory && t.job_category) return t.job_category === b.preferJobCategory;
+        return false;
+      });
+
+      // Narrow further by job_category when possible (preferred match)
+      if (b.preferJobCategory) {
+        const narrowed = candidates.filter((t) => t.job_category === b.preferJobCategory);
+        if (narrowed.length > 0) candidates = narrowed;
+      }
+
+      // Priority 3: pressure_test/visual buckets never match by literal category
+      // (no template uses category='pressure_test'). Fall back to the job's own
+      // slug so e.g. a dry_riser_pressure_test job with pt qty=2 still gets 2×
+      // Dry Riser — Pressure Test drafts. (Bug fix.)
+      if (candidates.length === 0 && b.matchCategory && b.preferJobCategory) {
+        candidates = allTemplates.filter((t) => t.job_category === b.preferJobCategory);
+      }
+    }
+
+    // 🔒 Per-job template lock overrides everything
     const lockedTemplateId = lockByBucket.get(b.key);
     if (lockedTemplateId) {
       const lockedTpl = allTemplates.find((t) => t.id === lockedTemplateId);
@@ -123,6 +150,7 @@ export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan
       plan.noMatches.push(b.key);
       continue;
     }
+
 
     // How many slots already filled for these candidates on this job?
     const candidateIds = new Set(candidates.map((c) => c.id));
