@@ -126,7 +126,7 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
             {rows.map(({ response, template }) => {
               const submitted = response.status === "submitted";
               const isDraft = response.status === "draft";
-              const label = submitted ? "View" : isDraft ? "Continue" : "Fill in";
+              const label = submitted ? "View" : isDraft ? "Continue" : "Fill out";
               const chip = submitted ? (
                 <Badge className="bg-green-600 hover:bg-green-600">Submitted</Badge>
               ) : isDraft ? (
