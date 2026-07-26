@@ -120,7 +120,8 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     scanUrls: string[];
     scanFailed: number;
     pdfUrls: string[];
-  }>({ open: false, loading: false, scanUrls: [], scanFailed: 0, pdfUrls: [] });
+    error: string | null;
+  }>({ open: false, loading: false, scanUrls: [], scanFailed: 0, pdfUrls: [], error: null });
 
   const sourceScanDocs = docs.filter((d) => d.document_type === "source_scan");
   // All report docs (one per digitised sheet). Ordered by created_at so the
@@ -139,26 +140,49 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       scanUrls: [],
       scanFailed: 0,
       pdfUrls: [],
+      error: null,
     });
-    const scanUrls: string[] = [];
-    let scanFailed = 0;
-    for (const d of sourceScanDocs) {
-      const u = await resolveToSignedUrl(d.file_url || "", "submissions", 600);
-      if (u) scanUrls.push(u);
-      else scanFailed++;
+    try {
+      const scanUrls: string[] = [];
+      let scanFailed = 0;
+      for (const d of sourceScanDocs) {
+        try {
+          const u = await resolveToSignedUrl(d.file_url || "", "submissions", 600);
+          if (u) scanUrls.push(u);
+          else scanFailed++;
+        } catch (e) {
+          console.error("[PaperVsElectronic] scan url failed", d.id, e);
+          scanFailed++;
+        }
+      }
+      const pdfUrls: string[] = [];
+      for (const d of reportDocs) {
+        try {
+          const u = await resolveToSignedUrl(d.file_url || "", "submissions", 600);
+          if (u) pdfUrls.push(u);
+        } catch (e) {
+          console.error("[PaperVsElectronic] report url failed", d.id, e);
+        }
+      }
+      setPaperVsElectronic({
+        open: true,
+        loading: false,
+        scanUrls,
+        scanFailed,
+        pdfUrls,
+        error: null,
+      });
+    } catch (e: any) {
+      console.error("[PaperVsElectronic] open failed", e);
+      setPaperVsElectronic({
+        open: true,
+        loading: false,
+        scanUrls: [],
+        scanFailed: 0,
+        pdfUrls: [],
+        error: e?.message || "Couldn't load the comparison view.",
+      });
     }
-    const pdfUrls: string[] = [];
-    for (const d of reportDocs) {
-      const u = await resolveToSignedUrl(d.file_url || "", "submissions", 600);
-      if (u) pdfUrls.push(u);
-    }
-    setPaperVsElectronic({
-      open: true,
-      loading: false,
-      scanUrls,
-      scanFailed,
-      pdfUrls,
-    });
   };
 
 
