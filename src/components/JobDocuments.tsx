@@ -918,7 +918,7 @@ ${sections}
           size="sm"
           className="gap-1.5"
           onClick={handlePrintAll}
-          disabled={printingAll || docs.filter((d) => !!d.file_url).length === 0}
+          disabled={printingAll || docs.filter((d) => !!d.file_url).filter(engineerFilter).length === 0}
           title="Open all attached files in a print-ready window"
         >
           {printingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
