@@ -51,17 +51,39 @@ interface BuildPlanInput {
 export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan> {
   const { jobId, jobCategory, qtys, otherServiceType, categoryDefaultQty = 0 } = input;
 
-  // Pull all templates + existing responses + per-job template locks in parallel
-  const [tplsRes, respsRes, locksRes] = await Promise.all([
+  // Pull all templates + existing responses + per-job template locks + explicit
+  // job-type→template mapping in parallel.
+  const [tplsRes, respsRes, locksRes, mapRes] = await Promise.all([
     supabase.from("job_sheet_templates").select("id, name, category, job_category, fields, locked").eq("status", "published"),
     supabase.from("job_sheet_responses").select("id, template_id").eq("job_id", jobId),
     supabase.from("job_template_locks").select("bucket, template_id").eq("job_id", jobId),
+    jobCategory
+      ? supabase
+          .from("job_category_template_map" as any)
+          .select("template_id, sort_order, org_id")
+          .eq("job_category_slug", jobCategory)
+      : Promise.resolve({ data: [] as any[] }),
   ]);
 
   const allTemplates = (tplsRes.data || []) as TemplateOption[];
   const existing = (respsRes.data || []) as { id: string; template_id: string | null }[];
   const locks = (locksRes.data || []) as { bucket: CategoryKey; template_id: string }[];
   const lockByBucket = new Map<CategoryKey, string>(locks.map((l) => [l.bucket, l.template_id]));
+
+  // Explicit mapping: templates the admin has wired to this job type.
+  // Prefer org-specific rows over platform defaults when both exist.
+  const mapRows = ((mapRes as any).data || []) as { template_id: string; sort_order: number; org_id: string | null }[];
+  const mappedIds = new Set<string>();
+  const mappedTemplates: TemplateOption[] = [];
+  if (mapRows.length > 0) {
+    const hasOrgRows = mapRows.some((r) => r.org_id !== null);
+    const rows = hasOrgRows ? mapRows.filter((r) => r.org_id !== null) : mapRows;
+    for (const r of rows.sort((a, b) => a.sort_order - b.sort_order)) {
+      if (mappedIds.has(r.template_id)) continue;
+      const t = allTemplates.find((x) => x.id === r.template_id);
+      if (t) { mappedIds.add(r.template_id); mappedTemplates.push(t); }
+    }
+  }
 
   const plan: AttachPlan = { needsChoice: [], autoSlots: [], noMatches: [] };
 
@@ -72,24 +94,52 @@ export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan
     { key: "category_default", target: categoryDefaultQty, matchCategory: null, preferJobCategory: jobCategory },
   ];
 
+
   for (const b of buckets) {
     if (!b.target || b.target <= 0) continue;
 
-    // Candidate templates for this bucket
-    let candidates = allTemplates.filter((t) => {
-      if (b.matchCategory) return t.category === b.matchCategory;
-      // "other" bucket: match by job_category or service type slug
-      if (b.preferJobCategory && t.job_category) return t.job_category === b.preferJobCategory;
-      return false;
-    });
-
-    // Narrow further by job_category when possible (preferred match)
-    if (b.preferJobCategory) {
-      const narrowed = candidates.filter((t) => t.job_category === b.preferJobCategory);
-      if (narrowed.length > 0) candidates = narrowed;
+    // Candidate templates for this bucket.
+    // Priority 1: explicit mapping table (job_category_template_map) — this is
+    // what an admin has wired for this job type. Applies to category_default
+    // AND to pressure_test/visual/other buckets whose job category matches.
+    let candidates: TemplateOption[] = [];
+    if (mappedTemplates.length > 0) {
+      if (b.key === "category_default") {
+        candidates = [...mappedTemplates];
+      } else if (b.matchCategory) {
+        // Narrow explicit mapping to templates whose category matches the bucket
+        // (e.g. pressure_test bucket → only pressure-test templates from the map).
+        candidates = mappedTemplates.filter((t) => t.category === b.matchCategory || (t.job_category || "").includes(b.matchCategory!));
+        // If the map has no bucket-specific template, fall through to legacy logic below.
+      } else if (b.preferJobCategory) {
+        candidates = mappedTemplates.filter((t) => t.job_category === b.preferJobCategory);
+      }
     }
 
-    // 🔒 If this bucket is locked to a specific template on this job, use only that one
+    // Priority 2 (legacy fallback): match by template.category / job_category.
+    if (candidates.length === 0) {
+      candidates = allTemplates.filter((t) => {
+        if (b.matchCategory) return t.category === b.matchCategory;
+        if (b.preferJobCategory && t.job_category) return t.job_category === b.preferJobCategory;
+        return false;
+      });
+
+      // Narrow further by job_category when possible (preferred match)
+      if (b.preferJobCategory) {
+        const narrowed = candidates.filter((t) => t.job_category === b.preferJobCategory);
+        if (narrowed.length > 0) candidates = narrowed;
+      }
+
+      // Priority 3: pressure_test/visual buckets never match by literal category
+      // (no template uses category='pressure_test'). Fall back to the job's own
+      // slug so e.g. a dry_riser_pressure_test job with pt qty=2 still gets 2×
+      // Dry Riser — Pressure Test drafts. (Bug fix.)
+      if (candidates.length === 0 && b.matchCategory && b.preferJobCategory) {
+        candidates = allTemplates.filter((t) => t.job_category === b.preferJobCategory);
+      }
+    }
+
+    // 🔒 Per-job template lock overrides everything
     const lockedTemplateId = lockByBucket.get(b.key);
     if (lockedTemplateId) {
       const lockedTpl = allTemplates.find((t) => t.id === lockedTemplateId);
@@ -100,6 +150,7 @@ export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan
       plan.noMatches.push(b.key);
       continue;
     }
+
 
     // How many slots already filled for these candidates on this job?
     const candidateIds = new Set(candidates.map((c) => c.id));

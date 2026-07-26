@@ -3274,6 +3274,13 @@ export type Database = {
             referencedRelation: "job_sheet_templates"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "historic_reports_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "v_job_type_template_map"
+            referencedColumns: ["template_id"]
+          },
         ]
       }
       import_batches: {
@@ -4037,6 +4044,68 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organisations_safe"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_category_template_map: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          job_category_slug: string
+          org_id: string | null
+          sort_order: number
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          job_category_slug: string
+          org_id?: string | null
+          sort_order?: number
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          job_category_slug?: string
+          org_id?: string | null
+          sort_order?: number
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_category_template_map_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_category_template_map_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_category_template_map_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "job_sheet_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_category_template_map_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "v_job_type_template_map"
+            referencedColumns: ["template_id"]
           },
         ]
       }
@@ -4846,6 +4915,13 @@ export type Database = {
             referencedRelation: "job_sheet_templates"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "job_sheet_responses_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "v_job_type_template_map"
+            referencedColumns: ["template_id"]
+          },
         ]
       }
       job_sheet_templates: {
@@ -5209,6 +5285,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "job_sheet_templates"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_template_locks_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "v_job_type_template_map"
+            referencedColumns: ["template_id"]
           },
         ]
       }
@@ -7892,6 +7975,13 @@ export type Database = {
             referencedRelation: "job_sheet_templates"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "service_intervals_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "v_job_type_template_map"
+            referencedColumns: ["template_id"]
+          },
         ]
       }
       signup_intents: {
@@ -8082,6 +8172,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "job_sheet_templates"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_service_schedules_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "v_job_type_template_map"
+            referencedColumns: ["template_id"]
           },
         ]
       }
@@ -9272,6 +9369,33 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      v_job_type_template_map: {
+        Row: {
+          job_category_slug: string | null
+          job_type_name: string | null
+          locked: boolean | null
+          org_id: string | null
+          sort_order: number | null
+          template_id: string | null
+          template_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_category_template_map_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_category_template_map_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {

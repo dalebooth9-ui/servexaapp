@@ -1,93 +1,88 @@
+## Current mapping (audit)
 
-# Microsoft 365 outbound for report emails
+Every published job sheet template already carries a `job_category` slug — that's the ONE explicit link. Here's what's currently mapped:
 
-Send report emails from the org's real Outlook mailbox (default `service@vivafire.co.uk`) via Microsoft Graph, so mail lands in the mailbox's **Sent Items** and replies come back to that mailbox. Applies to both the new archive **Send to customer** flow and the existing job **Send to Customer** flow. `mailto:` is not used — attachments require Graph.
+| Job type | Template(s) auto-attached | Status |
+|---|---|---|
+| dry_riser_installation | Dry Riser — Commissioning Certificate | OK |
+| dry_riser_pressure_test | Dry Riser — Pressure Test (locked) | OK — but see bug 1 |
+| dry_riser_visual | Dry Riser — Visual Inspection (locked) | OK |
+| dry_riser_remedial | Dry Riser — Remedial / Repair Works | OK |
+| dry_riser_service | — | **MISSING** (3 active jobs, no sheet) |
+| site_survey | Site Survey | OK |
+| sprinkler_service | Sprinkler — 6 Month Inspection, Sprinkler — Annual Service (locked) | OK — chooser prompts |
+| sprinkler_remedial | — | **MISSING** |
+| sprinkler_installation | — | **MISSING** |
+| commercial_sprinkler_service / _installation / _remedial | — | **MISSING** (3 job types) |
+| fire_hydrant_service | 5 Year Overhaul, 6 Month Visual, Annual Inspection | OK — chooser |
+| wet_riser_annual_service | Wet Riser — Annual Service & Test | OK |
+| wet_riser_visual | — | **MISSING** |
+| extinguisher_service | Annual Service, Extended Service, Site Survey | OK — chooser |
+| general | Remedial Works — Completion | OK |
+| fire_alarm (other org) | Fire Alarm — Periodic Inspection & Test | OK |
 
-## 1. Connector choice
+Active jobs with NO sheet attached: 39 (general 19, dry_riser_installation 9, dry_riser_service 3, dry_riser_visual 3, extinguisher_service 3, dry_riser_pressure_test 1, wet_riser_annual_service 1).
 
-Use Lovable's **Microsoft Outlook standard connector** (App connector, gateway-backed). The connector OAuths one workspace-level Microsoft account — exactly the model the owner asked for (one shared `service@` mailbox per org, not per-app-user). Multi-tenant support for subscriber companies later = each subscriber links their own Microsoft connection; the org setting below records which mailbox to send from.
+## Bugs found
 
-Scopes required on the Microsoft app registration:
-- `Mail.Send` (send from the mailbox)
-- `Mail.ReadWrite` (create + open draft — needed for the fallback path)
-- `offline_access` (token refresh through the gateway)
+**Bug 1 — pressure_test / visual qty buckets are dead code.** In `buildAttachPlan` (src/lib/autoAttachJobDocuments.ts) the `pressure_test` and `visual` buckets look for templates with `category === "pressure_test"` / `"visual"`. No template in the system uses those literal values (they use `dry_riser`, `sprinkler`, etc.). Any job with `pressure_test_qty > 0` (7 jobs) or `visual_qty > 0` gets **zero** sheets because the qty branch runs and the `category_default` branch is skipped when any qty > 0.
 
-If the connector isn't linked yet, or these scopes are missing, the UI surfaces a **Connect Microsoft 365** step (details in §5). Admin-consent errors from the tenant are surfaced verbatim rather than swallowed.
+**Bug 2 — no admin visibility.** Mapping lives implicitly on the template (`job_category` column); admins can't see a "job type → sheet" grid without SQL.
 
-## 2. Org-level setting
+**Bug 3 — six job types have no template at all.** Engineers on those jobs get no sheet auto-attached.
 
-Add columns to `organisations`:
+**Bug 4 — duplicate categories.** `job_categories` has each slug three times (one per org). Cosmetic; matching is by slug so it still works, but the settings table also renders duplicates.
 
-- `ms_send_mailbox text` — the UPN/email to send **from** (default `service@vivafire.co.uk` for the Viva Fire org, `null` elsewhere).
-- `ms_send_mode text` — `'send'` (default), `'draft'`, or `'off'`.
+## Fix plan
 
-Admin-only edit UI in **Settings → Email** (new section "Send via Microsoft 365"): mailbox input, mode radio, connection status pill, **Connect Microsoft 365** button when unlinked, **Send test email** button, "last sent via Graph at …" indicator.
+### 1. Fix the bucket matcher (code)
+`src/lib/autoAttachJobDocuments.ts`: when the `pressure_test` / `visual` bucket finds zero candidates by `category`, fall back to matching the job's own `jobCategory` slug via `job_category` — so a `dry_riser_pressure_test` job with `pressure_test_qty=2` still gets 2× Dry Riser — Pressure Test drafts.
 
-## 3. Edge Function: `send-via-graph`
+### 2. Wire the missing job types (migration)
+For six job types with no template, alias them to the closest existing sheet by inserting an entry in a new `job_category_template_map` table (below) instead of duplicating templates:
 
-New function that both send dialogs invoke. Inputs: `{ toEmail, toName?, subject, htmlBody, pdfPath, extraAttachments?, orgId, logContext }`. Steps:
+| Job type | Aliased to |
+|---|---|
+| dry_riser_service | Dry Riser — Pressure Test + Dry Riser — Visual Inspection |
+| sprinkler_remedial | Sprinkler — Annual Service (as remedial worksheet) |
+| sprinkler_installation | Sprinkler — Annual Service (commissioning proxy) |
+| commercial_sprinkler_service | Sprinkler — Annual Service |
+| commercial_sprinkler_installation | Sprinkler — Annual Service |
+| commercial_sprinkler_remedial | Sprinkler — Annual Service |
+| wet_riser_visual | Wet Riser — Annual Service & Test |
 
-1. Auth check: caller must be admin of `orgId`.
-2. Load org → get `ms_send_mailbox`, `ms_send_mode`. Bail with a typed error if unset.
-3. Download PDF from `submissions` bucket with service role, base64-encode. Same for optional extras (e.g. original scan).
-4. Build Graph message JSON: `subject`, `body.contentType='HTML'`, `toRecipients`, `attachments: [{ '@odata.type':'#microsoft.graph.fileAttachment', name, contentType:'application/pdf', contentBytes }]`.
-5. Route by mode:
-   - **send**: `POST /users/{mailbox}/sendMail` with `{ message, saveToSentItems: true }`. Guarantees Sent Items entry.
-   - **draft**: `POST /users/{mailbox}/messages` to create the draft, capture `webLink`, return it to the client so the dialog can open Outlook Web for review.
-6. Relay Graph errors verbatim (status + provider body) so consent / permission failures are visible.
-7. Insert into `customer_notification_log` and, for archive sends, append to `archived_documents.header_data._email_sends` — same shape as today, plus `channel: 'graph_send' | 'graph_draft' | 'app_mailer'`.
+(If any of these look wrong the mapping is editable in the admin UI added below.)
 
-All Graph calls go through the connector gateway with `Authorization: Bearer $LOVABLE_API_KEY` + `X-Connection-Api-Key: $MICROSOFT_OUTLOOK_API_KEY`.
+### 3. Introduce an explicit mapping table (migration)
+```text
+public.job_category_template_map
+  job_category_slug  text
+  template_id        uuid  → job_sheet_templates
+  sort_order         int   default 0
+  is_default         bool  default true
+  org_id             uuid  → organisations (nullable = platform-default)
+  PK (job_category_slug, template_id, org_id)
+```
+`buildAttachPlan` reads this table first (org-scoped, then platform-default), falls back to the existing `job_category` column so nothing breaks for orgs that don't customise. This is the "explicit per-type mapping, not fuzzy" the request wants.
 
-## 4. Send dialogs
+### 4. Admin mapping UI
+Add "Job type → sheets" section to Settings (`src/components/JobTypeTemplateMappingSettings.tsx`) rendered on `SettingsPage`. For each distinct job category slug, show a multi-select of published templates (with the locked/canonical one starred). Save writes `job_category_template_map` rows.
 
-Both `SendArchiveDialog` and the existing job `SendToCustomerMenu` gain a **Delivery route** picker with three options, driven by org config + live connection status:
+### 5. Data repair (migration + one-off script)
+For every active/upcoming job whose sheet attachment is missing OR whose attached draft template no longer matches the (new) mapping:
+- Attach the mapped template as a draft `job_sheet_responses` row + `job_documents` blank_job_sheet entry, using existing `insertDraftResponses` helper reused server-side via a SQL migration that mirrors its inserts.
+- **Never** touch responses with `status <> 'draft'` or drafts whose `responses` payload has any user-entered value.
+- Remove stray unstarted drafts whose template is *not* in the new mapping for that job type.
 
-1. **Microsoft 365 — send from `<mailbox>`** *(default when connected + mode `send`)*
-2. **Microsoft 365 — create draft in Outlook** *(when mode `draft`, or when the user picks it)*
-3. **App mailer (fallback)** — labeled "sends from Servexa on your behalf; won't appear in your Sent Items"
+### 6. De-dup categories (migration)
+Collapse `job_categories` to one row per slug (keep the first, delete extras). Cosmetic only — nothing references category rows by id in the auto-attach path.
 
-Behavior:
-- Route 1: call `send-via-graph`, show success + "Opened in Sent Items" hint. Errors show the Graph message + a **Retry** and a **Switch to app mailer** button.
-- Route 2: call `send-via-graph` (draft mode), then `window.open(webLink, '_blank')`. Toast says "Draft opened in Outlook — press Send there".
-- Route 3: existing `send-customer-email` path, unchanged.
+### 7. Report
+Print before/after: jobs fixed, drafts added, stray drafts removed, final mapping table (job type → template names) as a database view `v_job_type_template_map` the user can eyeball in Settings.
 
-Every route writes the same log entry with its `channel`.
+## Out of scope (call out, don't do)
+- Building brand-new template content for missing types (sprinkler_installation etc.) — the alias table points to the closest sheet; a real bespoke template is a separate build.
+- Touching completed/cancelled jobs.
+- Cross-org template creation.
 
-## 5. Connect Microsoft 365 flow
-
-When `microsoft_outlook` isn't linked, or scope check fails, the dialog swaps the route picker for a plain-English panel:
-
-> **Connect Microsoft 365 to send from `service@vivafire.co.uk`.** Your IT admin may need to approve the connection for your tenant. If you see a "needs admin approval" screen, forward it to your IT admin.
-
-A **Connect Microsoft 365** button opens the workspace connector settings deep-link. After the popup closes, the dialog rechecks status. Admin-consent errors returned from Graph (`AADSTS65001`, `AADSTS900971`, etc.) are shown verbatim with a one-line explanation.
-
-Route picker also exposes a **Send test to yourself** shortcut that invokes `send-via-graph` with a minimal payload — quickest way to prove the mailbox connection works.
-
-## 6. Files
-
-New:
-- `supabase/functions/send-via-graph/index.ts`
-- `src/components/settings/MicrosoftSendSettings.tsx` (org admin panel)
-- `src/lib/graphMailSend.ts` (thin client wrapper: `sendViaGraph`, `getGraphSendStatus`)
-- Migration adding `organisations.ms_send_mailbox`, `ms_send_mode`; seed Viva Fire's row with `service@vivafire.co.uk` + `send`.
-
-Modified:
-- `src/components/paper-scan/SendArchiveDialog.tsx` — route picker, Graph path, connect panel.
-- `src/components/SendToCustomerMenu.tsx` — same route picker + Graph path for job sends.
-- `src/pages/SettingsPage.tsx` — mount `MicrosoftSendSettings`.
-- Log write sites — add `channel` field.
-
-## 7. Out of scope
-
-- Per-app-user Microsoft OAuth (each end user with their own Outlook) — not what the owner asked for.
-- Inbound reply threading into the app — replies just land in the mailbox as normal for now.
-- Marketing/bulk sends — remains unsupported.
-- Removing the app-mailer route — kept as labelled fallback per requirement 6.
-
-## 8. Technical notes
-
-- Graph attachment size cap for the simple `sendMail` path is ~3 MB; PDFs above that need the large-attachment upload session. Report PDFs are well under this, but the function will detect oversized payloads and return a plain-English error asking the user to fall back to the draft route (which supports the upload session in a follow-up if it ever bites).
-- `saveToSentItems: true` is set explicitly on `sendMail`.
-- Gateway URL: `https://connector-gateway.lovable.dev/microsoft_outlook`; paths are relative to `https://graph.microsoft.com/v1.0/`. `/users/{mailbox}/…` is used (not `/me/…`) so a service account or admin can send on behalf of a shared mailbox.
-- The Microsoft standard connector is gateway-backed and refreshes tokens automatically — no token handling in this app.
+Confirm and I'll ship steps 1–7 in order (migration first, then code + UI, then data repair).
