@@ -6,7 +6,8 @@
 // right.
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertTriangle, Download, FileText, Images, Loader2 } from "lucide-react";
+import { AlertTriangle, Download, FileText, Images, Loader2, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import PdfCanvasViewer from "@/components/PdfCanvasViewer";
 import ZoomPane from "@/components/ZoomPane";
 
@@ -24,6 +25,10 @@ interface PaperVsElectronicViewerProps {
   /** All electronic/digitised sheets for the item, in the same order as
    *  `scanUrls`. Rendered stacked and scrollable. */
   electronicPdfUrls?: string[];
+  /** When set, viewer shows a full-panel error state with a retry button
+   *  instead of an infinite spinner. */
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 export default function PaperVsElectronicViewer({
@@ -36,6 +41,8 @@ export default function PaperVsElectronicViewer({
   scanFailedCount = 0,
   electronicPdfUrl,
   electronicPdfUrls,
+  error,
+  onRetry,
 }: PaperVsElectronicViewerProps) {
   const pdfList = (electronicPdfUrls && electronicPdfUrls.length > 0)
     ? electronicPdfUrls
@@ -53,7 +60,18 @@ export default function PaperVsElectronicViewer({
           )}
         </DialogHeader>
 
-        {loading ? (
+        {error ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 py-10 text-center">
+            <AlertTriangle className="h-8 w-8 text-amber-500" />
+            <div className="text-sm font-medium">Couldn't load the comparison view</div>
+            <div className="text-xs text-muted-foreground max-w-md">{error}</div>
+            {onRetry && (
+              <Button size="sm" variant="outline" onClick={onRetry}>
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Try again
+              </Button>
+            )}
+          </div>
+        ) : loading ? (
           <div className="flex-1 py-12 text-center text-sm text-muted-foreground">
             <Loader2 className="mx-auto h-5 w-5 animate-spin mb-2" /> Loading…
           </div>
