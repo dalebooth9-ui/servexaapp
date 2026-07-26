@@ -105,8 +105,9 @@ function BigJobCard({ job, showDate = false }: { job: JobLite; showDate?: boolea
 }
 
 export default function EngineerTodayHome() {
-  const { user, effectiveUserId } = useAuth();
+  const { user, effectiveUserId, isPreviewingAsEngineer, previewEngineerId } = useAuth();
   const engineerId = effectiveUserId ?? user?.id ?? null;
+  const isGenericPreview = isPreviewingAsEngineer && !previewEngineerId;
 
   const { isClockedIn, clockIn, clockOut, loading: clockLoading } = useTimeClock();
   const [loading, setLoading] = useState(true);
@@ -124,6 +125,18 @@ export default function EngineerTodayHome() {
   const load = async () => {
     if (!user) return;
     setLoading(true);
+
+    // Generic engineer preview (no engineer picked): show empty placeholder
+    // rather than falling through to the admin's own schedule.
+    if (isGenericPreview || !engineerId) {
+      setVehicleCheckOk(null);
+      setToday([]);
+      setWeek([]);
+      setAwaitingDate([]);
+      setNextDate(null);
+      setLoading(false);
+      return;
+    }
 
     // 1. Vehicle check today
     const { data: vc } = await supabase
