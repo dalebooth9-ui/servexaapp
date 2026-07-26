@@ -243,35 +243,50 @@ export function renderRepeatingTableBlock(
   const lineH = 3.2;
   const minRowH = 5;
   const BLUE: [number, number, number] = [31, 78, 121]; // brand dark blue
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const footerReserve = 22; // keep clear of footer band
 
-  // Column widths — first column ~1.4× share, remainder equal.
-  const totalShare = 1 + 0.4 + (cols.length - 1); // = cols.length + 0.4
-  const firstW = (maxWidth * 1.4) / totalShare;
-  const restW = (maxWidth - firstW) / Math.max(1, cols.length - 1);
-  const colWs = cols.map((_, i) => (i === 0 ? firstW : restW));
+  // Column widths — give free-text "notes / breakdown / comment / room" columns
+  // a bigger share so long verbatim cells (e.g. per-apartment room lists) wrap
+  // over ~3-4 lines instead of ~15. Everything else shares the remainder evenly,
+  // with a mild bias to the first column (usually the row identifier).
+  const isWideCol = (c: any) => {
+    const t = String(c?.type || "").toLowerCase();
+    const label = String(c?.label || c?.id || "").toLowerCase();
+    if (t === "textarea" || t === "long_text") return true;
+    return /breakdown|comment|remark|note|observation|per[_ ]?room|room[_ ]?list|description/.test(label);
+  };
+  const shares = cols.map((c, i) => {
+    if (isWideCol(c)) return 2.6;
+    if (i === 0) return 1.4;
+    return 1;
+  });
+  const totalShare = shares.reduce((a, b) => a + b, 0);
+  const colWs = shares.map((s) => (maxWidth * s) / totalShare);
   const colXs: number[] = [];
   let acc = margin;
   for (const w of colWs) { colXs.push(acc); acc += w; }
 
-  // Header row
-  doc.setFillColor(BLUE[0], BLUE[1], BLUE[2]);
-  doc.rect(margin, y, maxWidth, headerH, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(7.5);
-  cols.forEach((c, i) => {
-    const label = String(c.label || c.id || "");
-    const wrapped = doc.splitTextToSize(label, colWs[i] - cellPadX * 2);
-    doc.text(wrapped[0] || label, colXs[i] + cellPadX, y + 3.7);
-  });
-  y += headerH;
+  const renderHeader = () => {
+    doc.setFillColor(BLUE[0], BLUE[1], BLUE[2]);
+    doc.rect(margin, y, maxWidth, headerH, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    cols.forEach((c, i) => {
+      const label = String(c.label || c.id || "");
+      const wrapped = doc.splitTextToSize(label, colWs[i] - cellPadX * 2);
+      doc.text(wrapped[0] || label, colXs[i] + cellPadX, y + 3.7);
+    });
+    y += headerH;
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setDrawColor(180);
+    doc.setLineWidth(0.2);
+  };
 
-  // Data rows
-  doc.setTextColor(0, 0, 0);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setDrawColor(180);
-  doc.setLineWidth(0.2);
+  renderHeader();
 
   for (const row of rows) {
     // Compute row height from the tallest wrapped cell.
@@ -282,6 +297,14 @@ export function renderRepeatingTableBlock(
     });
     const tallest = Math.max(1, ...wrappedCells.map((w) => w.length));
     const rowH = Math.max(minRowH, tallest * lineH + 1.5);
+
+    // Page break BEFORE the row if it wouldn't fit — otherwise the row draws
+    // through the footer / next section and looks clipped.
+    if (y + rowH > pageHeight - footerReserve) {
+      doc.addPage();
+      y = margin;
+      renderHeader();
+    }
 
     // Cell borders
     cols.forEach((_, i) => {
@@ -310,6 +333,7 @@ export function renderRepeatingTableBlock(
   }
   return y + 1;
 }
+
 
 function renderBlankYesNoBoxes(doc: jsPDF, x: number, y: number, autoVal?: string, includeNa?: boolean): void {
   doc.setFontSize(7);
