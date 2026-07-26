@@ -17,7 +17,20 @@ export default function PlanBandBanner() {
     typeof window !== "undefined" && sessionStorage.getItem("planBandBanner:dismissed") === "1",
   );
 
-  if (loading || userRole !== "admin" || !overBand || dismissed) return null;
+  // Hard guards — never render on missing/zero count, never render when the
+  // count is within the current band's ceiling. A failed count fails silent.
+  if (
+    loading ||
+    userRole !== "admin" ||
+    !overBand ||
+    dismissed ||
+    staffCount == null ||
+    staffCount <= 0 ||
+    currentBand.maxUsers == null ||
+    staffCount <= currentBand.maxUsers
+  ) {
+    return null;
+  }
 
   const dismiss = () => {
     sessionStorage.setItem("planBandBanner:dismissed", "1");
@@ -31,7 +44,7 @@ export default function PlanBandBanner() {
         <div className="flex-1">
           <span className="font-medium">You've grown past your plan.</span>{" "}
           <span className="text-muted-foreground">
-            You have {staffCount} staff users — the {currentBand.label} band covers up to {currentBand.maxUsers ?? "∞"}.
+            You have {staffCount} staff {staffCount === 1 ? "user" : "users"} — your current {currentBand.label} band covers up to {currentBand.maxUsers}.
             Upgrade to the {requiredBand.label} band ({formatMonthly(requiredBand.monthlyPriceGbp)}) to stay compliant.
             <span className="ml-1">Customer portal users don't count.</span>
           </span>
