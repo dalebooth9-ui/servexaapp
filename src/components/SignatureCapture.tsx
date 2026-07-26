@@ -158,6 +158,37 @@ export default function SignatureCapture({
     setHasStrokes(false);
   };
 
+  /**
+   * Best-effort GPS + what3words capture for engineer sign-off.
+   * Returns quickly (max ~4s) and never throws — location is optional per
+   * the standing rule that nothing blocks report submission.
+   */
+  const captureLocation = async (): Promise<{ lat: number | null; lng: number | null; w3w: string | null }> => {
+    if (signerRole !== "engineer") return { lat: null, lng: null, w3w: null };
+    if (typeof navigator === "undefined" || !navigator.geolocation) return { lat: null, lng: null, w3w: null };
+    const coords = await new Promise<GeolocationPosition | null>((resolve) => {
+      let done = false;
+      const finish = (v: GeolocationPosition | null) => { if (!done) { done = true; resolve(v); } };
+      const timer = setTimeout(() => finish(null), 4000);
+      try {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => { clearTimeout(timer); finish(pos); },
+          () => { clearTimeout(timer); finish(null); },
+          { enableHighAccuracy: true, timeout: 3500, maximumAge: 60000 },
+        );
+      } catch { clearTimeout(timer); finish(null); }
+    });
+    if (!coords) return { lat: null, lng: null, w3w: null };
+    const lat = coords.coords.latitude;
+    const lng = coords.coords.longitude;
+    let w3w: string | null = null;
+    try {
+      const { data } = await supabase.functions.invoke("w3w-convert", { body: { lat, lng } });
+      if (data?.words) w3w = String(data.words); // "///word.word.word"
+    } catch { /* swallow — will be backfilled */ }
+    return { lat, lng, w3w };
+  };
+
   const handleSave = async () => {
     const canvas = canvasRef.current;
     if (!canvas || !user || !hasStrokes) return;
@@ -180,6 +211,9 @@ export default function SignatureCapture({
         canvas.toBlob((b) => resolve(b!), "image/png");
       });
 
+      // Capture location in parallel with the upload — never block the save.
+      const locPromise = captureLocation();
+
       // IMPORTANT: the DB row's file_path MUST equal the actual storage
       // object path (org-prefixed) or signed-URL lookups will silently 404 —
       // that's why previous exports had signature rows but no image drawn.
@@ -190,6 +224,7 @@ export default function SignatureCapture({
         .upload(storagePath, blob, { contentType: "image/png" });
       if (uploadErr) throw uploadErr;
 
+      const loc = await locPromise;
       const { error: insertErr } = await supabase.from("job_signatures" as any).insert({
         job_id: jobId,
         signer_id: user.id,
@@ -197,6 +232,9 @@ export default function SignatureCapture({
         signer_role: signerRole === "customer" ? "customer" : (userRole || "engineer"),
         signer_position: resolvedPosition,
         file_path: storagePath,
+        lat: loc.lat,
+        lng: loc.lng,
+        w3w_words: loc.w3w,
       } as any);
       if (insertErr) {
         // Clean up the orphan storage object so we don't accumulate dead files.
@@ -215,6 +253,7 @@ export default function SignatureCapture({
       setSaving(false);
     }
   };
+
 
   const handleDelete = async (sig: Signature) => {
     if (!window.confirm(`Delete signature by ${sig.signer_name || "Unknown"}? This cannot be undone.`)) return;
