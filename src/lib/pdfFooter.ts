@@ -107,7 +107,7 @@ export interface PdfSignatureData {
   /** Pre-loaded HTMLImageElement keyed by signature id */
   sigImages?: Record<string, HTMLImageElement>;
   /** Signature record for engineer/admin */
-  engineerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string } | null;
+  engineerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string; w3w_words?: string | null } | null;
   /** Signature record for customer */
   customerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string } | null;
   /** Optional small caption rendered under the technician signature (e.g. "signature from original scan"). */
@@ -115,6 +115,7 @@ export interface PdfSignatureData {
   /** Optional small caption rendered under the customer signature. */
   customerSourceNote?: string | null;
 }
+
 
 function formatSigTimestamp(iso?: string): string {
   if (!iso) return "";
@@ -228,10 +229,12 @@ export function renderPdfSignatures(
   // NOTE: intentionally no underline fallback — a blank line under the label
   // would look like an unsigned box on generated reports.
   const engTs = formatSigTimestamp(data.engineerSig?.created_at);
-  if (engTs) {
+  const engW3W = data.engineerSig?.w3w_words?.trim() || "";
+  const engCaption = [engTs && `Signed ${engTs}`, engW3W && `Location: ${engW3W}`].filter(Boolean).join("  •  ");
+  if (engCaption) {
     doc.setFontSize(5.5);
     doc.setTextColor(90, 90, 90);
-    doc.text(`Signed ${engTs}`, margin, sigY + 21);
+    doc.text(engCaption, margin, sigY + 21);
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
   } else if (data.technicianSourceNote) {
@@ -243,6 +246,7 @@ export function renderPdfSignatures(
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
   }
+
 
   doc.setFont("helvetica", "bold");
   doc.text("Date: ", cx, sigY + 3);
