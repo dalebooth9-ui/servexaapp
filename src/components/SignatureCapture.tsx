@@ -103,7 +103,31 @@ export default function SignatureCapture({
     );
     setSignedUrls(urls);
     setLoading(false);
+
+    // Best-effort w3w backfill: any of MY signatures with coordinates but no
+    // words (previous save was offline / api down) — retry conversion now.
+    const needBackfill = sigs.filter(
+      (s: any) => s.signer_id === user?.id && s.lat != null && s.lng != null && !s.w3w_words,
+    );
+    if (needBackfill.length > 0) {
+      Promise.all(
+        needBackfill.map(async (s: any) => {
+          try {
+            const { data: r } = await supabase.functions.invoke("w3w-convert", {
+              body: { lat: s.lat, lng: s.lng },
+            });
+            if (r?.words) {
+              await supabase
+                .from("job_signatures" as any)
+                .update({ w3w_words: String(r.words) } as any)
+                .eq("id", s.id);
+            }
+          } catch { /* try again next open */ }
+        }),
+      ).catch(() => {});
+    }
   };
+
 
   useEffect(() => { fetchSignatures(); }, [jobId]);
 
