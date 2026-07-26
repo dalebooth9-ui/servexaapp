@@ -390,6 +390,7 @@ export default function SignatureCapture({
         await supabase.storage.from("signatures").remove([storagePath]).catch(() => {});
         throw insertErr;
       }
+      if (loc.w3w) enrichSiteW3W(jobId, loc.w3w);
 
       toast({ title: "Saved signature applied" });
       setDrawing(false);
