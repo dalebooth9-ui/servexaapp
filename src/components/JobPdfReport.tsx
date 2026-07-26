@@ -220,11 +220,12 @@ async function renderDwellingAccessLog(
   const unitCol = colMatch(/unit|flat|dwelling|apt|apartment/i);
   const statusCol = colMatch(/status|access/i);
   const headsCol = colMatch(/^heads?$|head[_ ]?count|total[_ ]?heads|sprinkler[_ ]?heads/i);
-  const notesCol = colMatch(/note|comment|remark/i);
+  const notesCol = colMatch(/^(note|comment|remark|additional)/i);
+  const breakdownCol = colMatch(/breakdown|rooms?[_ ]?list|room[_ ]?count|per[_ ]?room|head[_ ]?breakdown/i);
   const photoCol = columns.find((c: any) => c?.type === "photo_gallery");
   const roomCols = columns.filter((c: any) => {
     if (!c) return false;
-    if (c === unitCol || c === statusCol || c === headsCol || c === notesCol) return false;
+    if (c === unitCol || c === statusCol || c === headsCol || c === notesCol || c === breakdownCol) return false;
     if (c.type === "photo_gallery" || c.type === "photo") return false;
     return /hall|kitchen|bedroom|lounge|living|bath|wc|toilet|landing|cupboard|store|stair|corridor|utility|dining|study|attic|loft|en[- ]?suite|room/i.test(String(c?.label || c?.id || ""));
   });
@@ -245,8 +246,14 @@ async function renderDwellingAccessLog(
     }
     if (!heads && derivedHeads > 0) heads = String(derivedHeads);
     if (status === "noanswer" || status === "refused") heads = "—";
-    const notes = String(row?.[notesCol?.id] ?? row?.notes ?? row?.comments ?? "").trim();
-    const breakdown = breakdownParts.join(", ");
+    const breakdownFree = String(row?.[breakdownCol?.id] ?? row?.room_breakdown ?? row?.breakdown ?? "").trim();
+    const breakdown = breakdownParts.length > 0 ? breakdownParts.join(", ") : breakdownFree;
+    const notesParts: string[] = [];
+    const notesFromCol = String(row?.[notesCol?.id] ?? row?.notes ?? row?.comments ?? "").trim();
+    if (notesFromCol) notesParts.push(notesFromCol);
+    const statusIsDescriptive = statusRaw && statusRaw.split(/\s+/).length > 3;
+    if (statusIsDescriptive) notesParts.push(statusRaw);
+    const notes = notesParts.join(" — ");
     const photos = getDwellingRowPhotos(row, photoCol, columns);
     return { unit, statusRaw, status, heads: heads || "—", breakdown, notes, photos };
   });
