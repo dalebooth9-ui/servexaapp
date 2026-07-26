@@ -31,9 +31,13 @@ export const PLAN_BANDS: PlanBand[] = [
 export const LAUNCH_BAND = PLAN_BANDS[0];
 
 export function bandForStaffCount(count: number): PlanBand {
+  // Zero / negative / non-finite counts always map to the entry band — a
+  // missing or failed count must NEVER be interpreted as "needs enterprise".
+  if (!Number.isFinite(count) || count <= 0) return PLAN_BANDS[0];
   for (const b of PLAN_BANDS) {
     if (count >= b.minUsers && (b.maxUsers === null || count <= b.maxUsers)) return b;
   }
+  // Above every explicit ceiling → top (unlimited) band.
   return PLAN_BANDS[PLAN_BANDS.length - 1];
 }
 
