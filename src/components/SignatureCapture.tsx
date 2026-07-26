@@ -67,6 +67,26 @@ export default function SignatureCapture({
     }
   }, [user, signerRole]);
 
+  // Location permission preflight — ask early so the actual sign-off
+  // capture is instant and doesn't stall on a mid-signature browser prompt.
+  // Best-effort only; a denied/blocked permission simply means the report
+  // will be sent with no ///words caption (per the never-block rule).
+  useEffect(() => {
+    if (signerRole !== "engineer" || typeof navigator === "undefined") return;
+    if (!navigator.geolocation) return;
+    try {
+      // @ts-ignore — permissions API is optional
+      navigator.permissions?.query({ name: "geolocation" as PermissionName })
+        .then((status: PermissionStatus) => {
+          if (status.state === "prompt") {
+            navigator.geolocation.getCurrentPosition(() => {}, () => {}, { timeout: 8000, maximumAge: 300000 });
+          }
+        })
+        .catch(() => {});
+    } catch { /* noop */ }
+  }, [signerRole]);
+
+
   // Look up a stored signature for this signer (engineer sign-off only).
   useEffect(() => {
     if (signerRole === "customer" || !user) { setSavedSig(null); return; }
