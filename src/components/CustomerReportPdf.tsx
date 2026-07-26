@@ -158,6 +158,16 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       // engineer sign-off, or manually by admin) so every report for the
       // site shows the same location. Fall back to address geocoding.
       let w3wAddress: string | undefined = (job.sites as any)?.what3words || undefined;
+      if (!w3wAddress && (job as any)?.site_id) {
+        try {
+          const { data: siteRow } = await supabase
+            .from("sites")
+            .select("what3words")
+            .eq("id", (job as any).site_id)
+            .maybeSingle();
+          if ((siteRow as any)?.what3words) w3wAddress = (siteRow as any).what3words;
+        } catch { /* skip */ }
+      }
       if (!w3wAddress && siteAddress) {
         try {
           const { data: w3wData } = await supabase.functions.invoke("w3w-convert", {
