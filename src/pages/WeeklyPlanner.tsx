@@ -26,6 +26,9 @@ import AutonomousAgentDialog from "@/components/planner/AutonomousAgentDialog";
 import MultiDayScheduleDialog from "@/components/planner/MultiDayScheduleDialog";
 import QuickScheduleDialog from "@/components/jobs/QuickScheduleDialog";
 import EngineerVisibilityFilter from "@/components/planner/EngineerVisibilityFilter";
+import BulkPrintSheetsDialog from "@/components/planner/BulkPrintSheetsDialog";
+import type { BulkPrintSelection } from "@/lib/bulkPrintJobSheets";
+import { format as fmtDate, endOfWeek as _endOfWeek } from "date-fns";
 
 const NOTE_COLORS = [
   { value: null,      label: "Default",  swatch: "bg-foreground/10 border border-border" },
