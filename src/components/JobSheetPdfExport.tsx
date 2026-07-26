@@ -892,9 +892,7 @@ export async function generateJobSheetPdf(
     doc.setFontSize(9);
     for (let i = 0; i < entries.length; i++) {
       const e = entries[i];
-      const notesText = e.status === "gained"
-        ? [e.breakdown, e.notes].filter(Boolean).join(". ")
-        : (e.notes || "—");
+      const notesText = [e.breakdown, e.notes].filter(Boolean).join(". ") || "—";
       const captions = (e.photos || []).map((p) => (p.caption || "").trim()).filter(Boolean);
       const photoNotesText = captions.length ? captions.join("; ") : "—";
       const notesLines = doc.splitTextToSize(notesText || "—", tblColW[3] - 4);
