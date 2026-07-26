@@ -235,33 +235,38 @@ export function renderRepeatingTableBlock(
   cols: any[],
   rows: any[],
   y: number,
-  opts: { margin: number; maxWidth: number },
+  opts: { margin: number; maxWidth: number; footerReserve?: number },
 ): number {
   const { margin, maxWidth } = opts;
+  // Defensive: guard against malformed templates so a bad column list can
+  // never crash the whole PDF render (which would surface as an infinite
+  // "Loading…" upstream in the comparison viewer).
+  const safeCols: any[] = Array.isArray(cols) ? cols.filter(Boolean) : [];
+  const safeRows: any[] = Array.isArray(rows) ? rows : [];
+  if (safeCols.length === 0 || safeRows.length === 0) return y;
+
   const headerH = 5.5;
   const cellPadX = 1.2;
   const lineH = 3.2;
   const minRowH = 5;
   const BLUE: [number, number, number] = [31, 78, 121]; // brand dark blue
   const pageHeight = doc.internal.pageSize.getHeight();
-  const footerReserve = 22; // keep clear of footer band
+  // Allow caller to specify its own footer reserve so page-break maths line
+  // up with the outer layout (JobSheetPdfExport uses a variable footerSpace).
+  const footerReserve = typeof opts.footerReserve === "number" ? opts.footerReserve : 22;
 
-  // Column widths — give free-text "notes / breakdown / comment / room" columns
-  // a bigger share so long verbatim cells (e.g. per-apartment room lists) wrap
-  // over ~3-4 lines instead of ~15. Everything else shares the remainder evenly,
-  // with a mild bias to the first column (usually the row identifier).
   const isWideCol = (c: any) => {
     const t = String(c?.type || "").toLowerCase();
     const label = String(c?.label || c?.id || "").toLowerCase();
     if (t === "textarea" || t === "long_text") return true;
     return /breakdown|comment|remark|note|observation|per[_ ]?room|room[_ ]?list|description/.test(label);
   };
-  const shares = cols.map((c, i) => {
+  const shares = safeCols.map((c, i) => {
     if (isWideCol(c)) return 2.6;
     if (i === 0) return 1.4;
     return 1;
   });
-  const totalShare = shares.reduce((a, b) => a + b, 0);
+  const totalShare = shares.reduce((a, b) => a + b, 0) || 1;
   const colWs = shares.map((s) => (maxWidth * s) / totalShare);
   const colXs: number[] = [];
   let acc = margin;
@@ -273,9 +278,9 @@ export function renderRepeatingTableBlock(
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
-    cols.forEach((c, i) => {
-      const label = String(c.label || c.id || "");
-      const wrapped = doc.splitTextToSize(label, colWs[i] - cellPadX * 2);
+    safeCols.forEach((c, i) => {
+      const label = String(c?.label || c?.id || "");
+      const wrapped = doc.splitTextToSize(label, Math.max(1, colWs[i] - cellPadX * 2));
       doc.text(wrapped[0] || label, colXs[i] + cellPadX, y + 3.7);
     });
     y += headerH;
@@ -286,50 +291,55 @@ export function renderRepeatingTableBlock(
     doc.setLineWidth(0.2);
   };
 
-  renderHeader();
+  try {
+    renderHeader();
 
-  for (const row of rows) {
-    // Compute row height from the tallest wrapped cell.
-    const wrappedCells: string[][] = cols.map((c, i) => {
-      const raw = row?.[c.id];
-      const text = raw == null || raw === "" ? "—" : String(raw);
-      return doc.splitTextToSize(text, colWs[i] - cellPadX * 2);
-    });
-    const tallest = Math.max(1, ...wrappedCells.map((w) => w.length));
-    const rowH = Math.max(minRowH, tallest * lineH + 1.5);
-
-    // Page break BEFORE the row if it wouldn't fit — otherwise the row draws
-    // through the footer / next section and looks clipped.
-    if (y + rowH > pageHeight - footerReserve) {
-      doc.addPage();
-      y = margin;
-      renderHeader();
-    }
-
-    // Cell borders
-    cols.forEach((_, i) => {
-      doc.rect(colXs[i], y, colWs[i], rowH);
-    });
-    // Cell text
-    wrappedCells.forEach((lines, i) => {
-      const col = cols[i];
-      const raw = row?.[col.id];
-      const text = raw == null || raw === "" ? "—" : String(raw);
-      const lower = text.toLowerCase().trim();
-      // Colour cue for yes/no/na cells
-      if (col.type === "yn_na" || /^(yes|no|n\/?a|pass|fail)$/i.test(text)) {
-        if (/^(yes|pass)$/i.test(text)) doc.setTextColor(0, 128, 0);
-        else if (/^(no|fail)$/i.test(text)) doc.setTextColor(200, 0, 0);
-        else if (/^n\/?a$/i.test(lower)) doc.setTextColor(100, 100, 100);
-        doc.setFont("helvetica", "bold");
-      }
-      lines.forEach((ln: string, li: number) => {
-        doc.text(ln, colXs[i] + cellPadX, y + 3.3 + li * lineH);
+    for (const row of safeRows) {
+      const wrappedCells: string[][] = safeCols.map((c, i) => {
+        const raw = row?.[c?.id];
+        const text = raw == null || raw === "" ? "—" : String(raw);
+        return doc.splitTextToSize(text, Math.max(1, colWs[i] - cellPadX * 2));
       });
-      doc.setTextColor(0, 0, 0);
-      doc.setFont("helvetica", "normal");
-    });
-    y += rowH;
+      const tallest = Math.max(1, ...wrappedCells.map((w) => w.length));
+      const rowH = Math.max(minRowH, tallest * lineH + 1.5);
+
+      if (y + rowH > pageHeight - footerReserve) {
+        doc.addPage();
+        y = margin;
+        renderHeader();
+      }
+
+      safeCols.forEach((_, i) => {
+        doc.rect(colXs[i], y, colWs[i], rowH);
+      });
+      wrappedCells.forEach((lines, i) => {
+        const col = safeCols[i];
+        const raw = row?.[col?.id];
+        const text = raw == null || raw === "" ? "—" : String(raw);
+        const lower = text.toLowerCase().trim();
+        if (col?.type === "yn_na" || /^(yes|no|n\/?a|pass|fail)$/i.test(text)) {
+          if (/^(yes|pass)$/i.test(text)) doc.setTextColor(0, 128, 0);
+          else if (/^(no|fail)$/i.test(text)) doc.setTextColor(200, 0, 0);
+          else if (/^n\/?a$/i.test(lower)) doc.setTextColor(100, 100, 100);
+          doc.setFont("helvetica", "bold");
+        }
+        lines.forEach((ln: string, li: number) => {
+          doc.text(ln, colXs[i] + cellPadX, y + 3.3 + li * lineH);
+        });
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "normal");
+      });
+      y += rowH;
+    }
+  } catch (err) {
+    // Never let a bad table crash the whole PDF — log, drop a small marker
+    // in the report, and let the rest of the sheet render.
+    console.error("[renderRepeatingTableBlock] render failed", err);
+    doc.setTextColor(200, 0, 0);
+    doc.setFontSize(8);
+    doc.text("(Table could not be rendered — see original scan)", margin, y + 4);
+    doc.setTextColor(0, 0, 0);
+    y += 6;
   }
   return y + 1;
 }
