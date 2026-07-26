@@ -290,6 +290,7 @@ export default function SignatureCapture({
       if (!resp.ok) throw new Error("Could not download saved signature");
       const blob = await resp.blob();
 
+      const locPromise = captureLocation();
       const relPath = `${user.id}/${jobId}-${signerRole}-${Date.now()}.png`;
       const storagePath = await buildOrgPathAsync(relPath);
       const { error: uploadErr } = await supabase.storage
@@ -297,6 +298,7 @@ export default function SignatureCapture({
         .upload(storagePath, blob, { contentType: "image/png" });
       if (uploadErr) throw uploadErr;
 
+      const loc = await locPromise;
       const { error: insertErr } = await supabase.from("job_signatures" as any).insert({
         job_id: jobId,
         signer_id: user.id,
@@ -304,6 +306,9 @@ export default function SignatureCapture({
         signer_role: userRole || "engineer",
         signer_position: null,
         file_path: storagePath,
+        lat: loc.lat,
+        lng: loc.lng,
+        w3w_words: loc.w3w,
       } as any);
       if (insertErr) {
         await supabase.storage.from("signatures").remove([storagePath]).catch(() => {});
