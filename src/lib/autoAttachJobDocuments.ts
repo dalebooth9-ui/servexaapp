@@ -51,17 +51,39 @@ interface BuildPlanInput {
 export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan> {
   const { jobId, jobCategory, qtys, otherServiceType, categoryDefaultQty = 0 } = input;
 
-  // Pull all templates + existing responses + per-job template locks in parallel
-  const [tplsRes, respsRes, locksRes] = await Promise.all([
+  // Pull all templates + existing responses + per-job template locks + explicit
+  // job-type→template mapping in parallel.
+  const [tplsRes, respsRes, locksRes, mapRes] = await Promise.all([
     supabase.from("job_sheet_templates").select("id, name, category, job_category, fields, locked").eq("status", "published"),
     supabase.from("job_sheet_responses").select("id, template_id").eq("job_id", jobId),
     supabase.from("job_template_locks").select("bucket, template_id").eq("job_id", jobId),
+    jobCategory
+      ? supabase
+          .from("job_category_template_map" as any)
+          .select("template_id, sort_order, org_id")
+          .eq("job_category_slug", jobCategory)
+      : Promise.resolve({ data: [] as any[] }),
   ]);
 
   const allTemplates = (tplsRes.data || []) as TemplateOption[];
   const existing = (respsRes.data || []) as { id: string; template_id: string | null }[];
   const locks = (locksRes.data || []) as { bucket: CategoryKey; template_id: string }[];
   const lockByBucket = new Map<CategoryKey, string>(locks.map((l) => [l.bucket, l.template_id]));
+
+  // Explicit mapping: templates the admin has wired to this job type.
+  // Prefer org-specific rows over platform defaults when both exist.
+  const mapRows = ((mapRes as any).data || []) as { template_id: string; sort_order: number; org_id: string | null }[];
+  const mappedIds = new Set<string>();
+  const mappedTemplates: TemplateOption[] = [];
+  if (mapRows.length > 0) {
+    const hasOrgRows = mapRows.some((r) => r.org_id !== null);
+    const rows = hasOrgRows ? mapRows.filter((r) => r.org_id !== null) : mapRows;
+    for (const r of rows.sort((a, b) => a.sort_order - b.sort_order)) {
+      if (mappedIds.has(r.template_id)) continue;
+      const t = allTemplates.find((x) => x.id === r.template_id);
+      if (t) { mappedIds.add(r.template_id); mappedTemplates.push(t); }
+    }
+  }
 
   const plan: AttachPlan = { needsChoice: [], autoSlots: [], noMatches: [] };
 
@@ -71,6 +93,7 @@ export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan
     { key: "other", target: qtys.other, matchCategory: null, preferJobCategory: otherServiceType || jobCategory },
     { key: "category_default", target: categoryDefaultQty, matchCategory: null, preferJobCategory: jobCategory },
   ];
+
 
   for (const b of buckets) {
     if (!b.target || b.target <= 0) continue;
