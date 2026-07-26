@@ -364,21 +364,26 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     }
   };
 
-  const getAutoPopulatedData = (template: Template): Record<string, any> => {
+  const getAutoPopulatedData = (template: Template, override?: JobInfo | null): Record<string, any> => {
     const prefilled: Record<string, any> = {};
-    if (!jobInfo) return prefilled;
+    const info = override ?? jobInfo;
+    if (!info) return prefilled;
 
-    const jobAddress = jobInfo.address || jobInfo.site?.address || "";
-    const siteName = jobInfo.site?.name || "";
-    const customerName = jobInfo.customer || "";
-    const sitePostcode = jobInfo.site?.postcode || "";
-    const siteContact = jobInfo.site?.contact_name || "";
-    const siteContactPhone = jobInfo.site?.contact_phone || "";
-    const siteContactEmail = jobInfo.site?.contact_email || "";
-    const engineerList = (jobInfo.engineers || []).join(", ");
+    const jobAddress = info.address || info.site?.address || "";
+    const siteName = info.site?.name || "";
+    const customerName = info.customer || "";
+    const sitePostcode = info.site?.postcode || "";
+    const siteContact = info.site?.contact_name || "";
+    const siteContactPhone = info.site?.contact_phone || "";
+    const siteContactEmail = info.site?.contact_email || "";
+    const engineerList = (info.engineers || []).join(", ");
+    // For real engineers, pre-select their own name in dropdowns. In admin
+    // preview, we intentionally leave the selection empty per spec.
+    const ownEngineerName = userRole === "engineer" ? (profile?.full_name || "") : "";
 
     template.fields.forEach((f) => {
       const lbl = f.label.toLowerCase();
+      const label = lbl.replace(/[:\s]+$/g, "").trim();
       const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
       const isYesNoSelect =
         !!f.options &&
@@ -390,10 +395,25 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       if (isDrainField) {
         prefilled[f.id] = f.type === "checkbox" ? true : isYesNoSelect ? "YES" : true;
       }
-      // Never auto-fill fields that have options — leave blank for engineer to select,
-      // except drain/drop-leg yes/no fields which should stay defaulted to YES
-      if (f.options && f.options.length > 0 && !isDrainField) return;
-      const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+
+      // Select fields: only prefill for well-known slots where we can pick an
+      // exact option — Scope of Work (from template title) and Engineer name.
+      if (f.options && f.options.length > 0) {
+        if (isDrainField) return;
+        if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("service type")) {
+          const derived = deriveScopeFromTemplateName(template.name);
+          if (derived) {
+            const match = f.options.find((o) => o.toLowerCase() === derived.toLowerCase());
+            if (match) prefilled[f.id] = match;
+          }
+          return;
+        }
+        if (ownEngineerName && (label.includes("engineer") || label.includes("technician") || label.includes("operative") || label.includes("carried out by") || label.includes("completed by") || label.includes("attended by"))) {
+          const match = f.options.find((o) => o.toLowerCase() === ownEngineerName.toLowerCase());
+          if (match) prefilled[f.id] = match;
+        }
+        return;
+      }
 
       // Site details (composite: name + address)
       if (
