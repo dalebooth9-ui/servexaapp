@@ -106,7 +106,7 @@ type JobInfo = {
 };
 
 export default function JobSheetTemplates({ jobId }: { jobId: string }) {
-  const { user, userRole } = useAuth();
+  const { user, userRole, profile } = useAuth();
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
   const [templates, setTemplates] = useState<Template[]>([]);
