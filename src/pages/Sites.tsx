@@ -1817,21 +1817,44 @@ export default function Sites() {
               <Input value={(form as any).riser_location} onChange={(e) => setForm((f) => ({ ...f, riser_location: e.target.value }))} placeholder="e.g. Floor 2, east stairwell" />
             </div>
           </div>
-          {editingW3W && (
-            <div className="flex items-center gap-1.5 rounded-md border border-[#e11f26]/30 bg-[#e11f26]/5 px-3 py-1.5 text-sm">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium flex items-center gap-1.5">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="#e11f26"><path d="M11.994 0C5.367 0 0 5.367 0 11.994 0 18.622 5.367 24 11.994 24 18.622 24 24 18.622 24 11.994 24 5.367 18.622 0 11.994 0zm-2.6 17.4l-1.5-5.1-1.5 5.1H4.7L2.5 9.6h1.8l1.5 5.4 1.5-5.4h1.8l1.5 5.4 1.5-5.4h1.8l-2.2 7.8h-1.7zm7.8 0l-1.5-5.1-1.5 5.1h-1.7l-2.2-7.8h1.8l1.5 5.4 1.5-5.4h1.8l1.5 5.4 1.5-5.4h1.8l-2.2 7.8h-1.7z"/></svg>
+              what3words location
+            </label>
+            <Input
+              value={(form as any).what3words || ""}
+              onChange={(e) => setForm((f) => ({ ...f, what3words: e.target.value }))}
+              placeholder="e.g. filled.count.soap"
+            />
+            <p className="text-xs text-muted-foreground">
+              Auto-captured when an engineer signs off on site. Edit or clear to override.
+              {editingW3W && !(form as any).what3words && (
+                <>
+                  {" "}Suggested from address:{" "}
+                  <button
+                    type="button"
+                    className="underline font-medium"
+                    style={{ color: "#e11f26" }}
+                    onClick={() => setForm((f) => ({ ...f, what3words: editingW3W!.replace(/^\/\/\//, "") }))}
+                  >
+                    {editingW3W}
+                  </button>
+                </>
+              )}
+            </p>
+            {((form as any).what3words || "").trim() && (
               <a
-                href={`https://what3words.com/${editingW3W.replace(/^\/\/\//, "")}`}
+                href={`https://what3words.com/${((form as any).what3words || "").replace(/^\/\/\//, "")}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium hover:underline"
+                className="text-xs font-medium hover:underline"
                 style={{ color: "#e11f26" }}
               >
-                {editingW3W}
+                Open ///{((form as any).what3words || "").replace(/^\/\/\//, "")} in what3words →
               </a>
-              <span className="text-xs text-muted-foreground ml-1">— location reference</span>
-            </div>
-          )}
+            )}
+          </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Notes</label>
               <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
