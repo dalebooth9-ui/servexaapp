@@ -1579,7 +1579,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 text-xs px-2"
+                      className="h-7 text-xs px-2 gap-1"
                       onClick={() => {
                         const tplName = tpl.name.toLowerCase();
                         const isQtyTemplate = tplName.includes("pressure test") || tplName.includes("dry riser") || tplName.includes("visual");
@@ -1590,7 +1590,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                         }
                       }}
                     >
-                      Fill In
+                      <Pencil className="h-3 w-3" />
+                      Fill out
                     </Button>
                     <BlankTemplatePdfExport template={tpl} jobInfo={jobInfo} />
                     <ScanJobSheet
