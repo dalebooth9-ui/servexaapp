@@ -105,8 +105,9 @@ function BigJobCard({ job, showDate = false }: { job: JobLite; showDate?: boolea
 }
 
 export default function EngineerTodayHome() {
-  const { user, effectiveUserId } = useAuth();
+  const { user, effectiveUserId, isPreviewingAsEngineer, previewEngineerId } = useAuth();
   const engineerId = effectiveUserId ?? user?.id ?? null;
+  const isGenericPreview = isPreviewingAsEngineer && !previewEngineerId;
 
   const { isClockedIn, clockIn, clockOut, loading: clockLoading } = useTimeClock();
   const [loading, setLoading] = useState(true);
@@ -125,11 +126,23 @@ export default function EngineerTodayHome() {
     if (!user) return;
     setLoading(true);
 
+    // Generic engineer preview (no engineer picked): show empty placeholder
+    // rather than falling through to the admin's own schedule.
+    if (isGenericPreview || !engineerId) {
+      setVehicleCheckOk(null);
+      setToday([]);
+      setWeek([]);
+      setAwaitingDate([]);
+      setNextDate(null);
+      setLoading(false);
+      return;
+    }
+
     // 1. Vehicle check today
     const { data: vc } = await supabase
       .from("vehicle_checks")
       .select("status")
-      .eq("engineer_id", user.id)
+      .eq("engineer_id", engineerId)
       .eq("check_date", todayStr)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -142,7 +155,7 @@ export default function EngineerTodayHome() {
     const { data: schedRows } = await supabase
       .from("job_schedule")
       .select("id, job_id, schedule_date, scheduled_time, acknowledged_at")
-      .eq("engineer_id", user.id)
+      .eq("engineer_id", engineerId)
       .gte("schedule_date", weekStartStr)
       .lte("schedule_date", weekEndStr)
       .order("schedule_date", { ascending: true });
@@ -179,7 +192,7 @@ export default function EngineerTodayHome() {
       const { data: nextRow } = await supabase
         .from("job_schedule")
         .select("schedule_date")
-        .eq("engineer_id", user.id)
+        .eq("engineer_id", engineerId)
         .gt("schedule_date", todayStr)
         .order("schedule_date", { ascending: true })
         .limit(1)
@@ -193,14 +206,14 @@ export default function EngineerTodayHome() {
     const { data: assigns } = await supabase
       .from("job_assignments")
       .select("job_id")
-      .eq("engineer_id", user.id);
+      .eq("engineer_id", engineerId);
     const assignedIds = Array.from(new Set((assigns || []).map((a: any) => a.job_id)));
 
     if (assignedIds.length) {
       const { data: schedForAssigned } = await supabase
         .from("job_schedule")
         .select("job_id, schedule_date")
-        .eq("engineer_id", user.id)
+        .eq("engineer_id", engineerId)
         .in("job_id", assignedIds)
         .gte("schedule_date", todayStr);
       const scheduledSet = new Set((schedForAssigned || []).map((s: any) => s.job_id));
@@ -230,7 +243,7 @@ export default function EngineerTodayHome() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [user?.id]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [user?.id, engineerId, isGenericPreview]);
 
   const weekGroups = useMemo(() => {
     const days: { date: Date; jobs: JobLite[] }[] = [];

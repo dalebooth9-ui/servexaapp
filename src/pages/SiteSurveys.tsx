@@ -26,7 +26,7 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
 };
 
 export default function SiteSurveys() {
-  const { user } = useAuth();
+  const { user, userRole, effectiveUserId, isPreviewingAsEngineer, previewEngineerId } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [rows, setRows] = useState<Row[]>([]);
@@ -34,18 +34,27 @@ export default function SiteSurveys() {
   const [creating, setCreating] = useState(false);
   const [q, setQ] = useState("");
 
+  const isEngineerView = userRole === "engineer";
+  const isGenericEngineerPreview = isPreviewingAsEngineer && !previewEngineerId;
+
   const fetchRows = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    if (isGenericEngineerPreview) { setRows([]); setLoading(false); return; }
+    let query = supabase
       .from("site_surveys" as any)
-      .select("id, reference_number, title, status, survey_date, site_address, created_at")
+      .select("id, reference_number, title, status, survey_date, site_address, created_at, engineer_id, created_by")
       .order("created_at", { ascending: false });
+    if (isEngineerView && user) {
+      const engineerId = effectiveUserId ?? user.id;
+      query = query.or(`engineer_id.eq.${engineerId},created_by.eq.${engineerId}`);
+    }
+    const { data, error } = await query;
     if (error) toast({ title: "Failed to load site surveys", description: error.message, variant: "destructive" });
     setRows((data as any[]) || []);
     setLoading(false);
   };
 
-  useEffect(() => { fetchRows(); }, []);
+  useEffect(() => { fetchRows(); /* eslint-disable-next-line */ }, [user?.id, effectiveUserId, isGenericEngineerPreview]);
 
   const createNew = async () => {
     if (!user) return;
