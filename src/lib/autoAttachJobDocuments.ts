@@ -238,7 +238,12 @@ export async function insertDraftResponses(input: InsertResponsesInput) {
     }));
 
   if (docRows.length > 0) {
-    const { error: docErr } = await supabase.from("job_documents" as any).insert(docRows as any);
+    // Upsert on the partial unique index (job_id, document_type, label)
+    // for blank_job_sheet docs so concurrent auto-attach passes can't
+    // create duplicate "Blank Job Sheet" rows.
+    const { error: docErr } = await supabase
+      .from("job_documents" as any)
+      .upsert(docRows as any, { onConflict: "job_id,document_type,label", ignoreDuplicates: true });
     if (docErr) throw docErr;
   }
 }
