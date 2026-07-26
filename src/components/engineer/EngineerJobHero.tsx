@@ -91,14 +91,18 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 
-  const openFill = (templateId: string) => {
+  const openSheet = (templateId: string, response: Response) => {
     onNavigateTab?.("documents");
     // JobSheetTemplates is mounted on the documents tab; give it a tick to mount
     // its listener before dispatching. Bumped slightly higher than the previous
     // 100ms to survive slow lazy-load on mobile.
+    const mode: "view" | "continue" | "fill" =
+      response.status === "submitted" ? "view" : response.status === "draft" ? "continue" : "fill";
     setTimeout(() => {
       window.dispatchEvent(
-        new CustomEvent("job-sheet:fill-online", { detail: { jobId, templateId } }),
+        new CustomEvent("job-sheet:fill-online", {
+          detail: { jobId, templateId, responseId: response.id, mode },
+        }),
       );
     }, 250);
   };
@@ -147,7 +151,7 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
                     size="lg"
                     variant={submitted ? "outline" : "default"}
                     className="min-h-12 text-base font-semibold gap-2 w-full sm:w-auto"
-                    onClick={() => openFill(template.id)}
+                    onClick={() => openSheet(template.id, response)}
                   >
                     {submitted ? <Eye className="h-5 w-5" /> : <Play className="h-5 w-5" />}
                     {label}
@@ -158,6 +162,7 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
           </div>
         )}
       </div>
+
 
       <div id="engineer-remedial-hero">
         <JobRemedialChecklist
