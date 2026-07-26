@@ -953,7 +953,8 @@ export default function Sites() {
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
-    const payload = {
+    const w3wInput = ((form as any).what3words || "").trim();
+    const payload: any = {
       name: form.name.trim(), site_type: form.site_type, parent_id: form.parent_id || null,
       address: form.address || null, postcode: form.postcode || null,
       contact_name: form.contact_name || null, contact_phone: form.contact_phone || null,
@@ -961,7 +962,11 @@ export default function Sites() {
       outlets_count: (form as any).quantity !== "" ? Number((form as any).quantity) : (form.outlets_count !== "" ? Number(form.outlets_count) : null),
       riser_location: form.riser_location || null,
       category: (form as any).category || null,
+      what3words: w3wInput ? w3wInput.replace(/^\/\/\//, "") : null,
     };
+    if (editing && w3wInput && w3wInput.replace(/^\/\/\//, "") !== ((editing as any).what3words || "")) {
+      payload.w3w_updated_at = new Date().toISOString();
+    }
     if (editing) {
       const oldSite = sites.find((s) => s.id === editing.id);
       const oldPayload = oldSite ? { name: oldSite.name, site_type: oldSite.site_type, parent_id: oldSite.parent_id, address: oldSite.address, postcode: oldSite.postcode, contact_name: oldSite.contact_name, contact_phone: oldSite.contact_phone, contact_email: oldSite.contact_email, notes: oldSite.notes } : null;
