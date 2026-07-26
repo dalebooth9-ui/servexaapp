@@ -718,11 +718,15 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading documents…</p>;
 
-  const customerPaperwork = docs.filter((d) => d.source === "customer_paperwork");
+  const isEngineerView = userRole !== "admin";
+  const engineerFilter = (d: JobDoc) => !isEngineerView || isDocVisibleToEngineer(d);
+
+  const customerPaperwork = docs.filter((d) => d.source === "customer_paperwork").filter(engineerFilter);
 
   const DOC_TYPE_ORDER: Record<string, number> = { rams_pdf: 0, pre_start_checklist: 1 };
   const allJobDocs = docs
     .filter((d) => d.source !== "customer_paperwork")
+    .filter(engineerFilter)
     .filter((d) => userRole === "admin" || (d.document_type !== "quote" && !(d.document_type === "uploaded_file" && d.label === "Costing Sheet")))
     .sort((a, b) => {
       const ao = DOC_TYPE_ORDER[a.document_type] ?? 99;
