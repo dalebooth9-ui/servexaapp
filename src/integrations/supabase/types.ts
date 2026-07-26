@@ -8274,6 +8274,8 @@ export type Database = {
           riser_location: string | null
           site_type: string
           updated_at: string
+          w3w_updated_at: string | null
+          what3words: string | null
         }
         Insert: {
           address?: string | null
@@ -8295,6 +8297,8 @@ export type Database = {
           riser_location?: string | null
           site_type?: string
           updated_at?: string
+          w3w_updated_at?: string | null
+          what3words?: string | null
         }
         Update: {
           address?: string | null
@@ -8316,6 +8320,8 @@ export type Database = {
           riser_location?: string | null
           site_type?: string
           updated_at?: string
+          w3w_updated_at?: string | null
+          what3words?: string | null
         }
         Relationships: [
           {

@@ -81,6 +81,7 @@ const emptySite = {
   riser_location: "",
   category: "",
   quantity: "" as string,
+  what3words: "",
 };
 
 type CustomerFolder = {
@@ -934,20 +935,26 @@ export default function Sites() {
       riser_location: (site as any).riser_location || "",
       category: (site as any).category || "",
       quantity: site.outlets_count != null ? String(site.outlets_count) : "",
+      what3words: (site as any).what3words || "",
     });
-    setEditingW3W(null);
+    setEditingW3W((site as any).what3words || null);
     setDialogOpen(true);
-    // Resolve W3W in the background using GPS pin if available, else address
-    const address = site.address || site.postcode;
-    if (address) {
-      supabase.functions.invoke("w3w-convert", { body: { address } })
-        .then(({ data }) => { if (data?.words) setEditingW3W(data.words); });
+    // Only run an address-based lookup as a hint when the site has no
+    // stored what3words yet — never overwrite a value that's been captured
+    // on site or manually set by an admin.
+    if (!(site as any).what3words) {
+      const address = site.address || site.postcode;
+      if (address) {
+        supabase.functions.invoke("w3w-convert", { body: { address } })
+          .then(({ data }) => { if (data?.words) setEditingW3W(data.words); });
+      }
     }
   };
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
-    const payload = {
+    const w3wInput = ((form as any).what3words || "").trim();
+    const payload: any = {
       name: form.name.trim(), site_type: form.site_type, parent_id: form.parent_id || null,
       address: form.address || null, postcode: form.postcode || null,
       contact_name: form.contact_name || null, contact_phone: form.contact_phone || null,
@@ -955,7 +962,11 @@ export default function Sites() {
       outlets_count: (form as any).quantity !== "" ? Number((form as any).quantity) : (form.outlets_count !== "" ? Number(form.outlets_count) : null),
       riser_location: form.riser_location || null,
       category: (form as any).category || null,
+      what3words: w3wInput ? w3wInput.replace(/^\/\/\//, "") : null,
     };
+    if (editing && w3wInput && w3wInput.replace(/^\/\/\//, "") !== ((editing as any).what3words || "")) {
+      payload.w3w_updated_at = new Date().toISOString();
+    }
     if (editing) {
       const oldSite = sites.find((s) => s.id === editing.id);
       const oldPayload = oldSite ? { name: oldSite.name, site_type: oldSite.site_type, parent_id: oldSite.parent_id, address: oldSite.address, postcode: oldSite.postcode, contact_name: oldSite.contact_name, contact_phone: oldSite.contact_phone, contact_email: oldSite.contact_email, notes: oldSite.notes } : null;
@@ -1806,21 +1817,44 @@ export default function Sites() {
               <Input value={(form as any).riser_location} onChange={(e) => setForm((f) => ({ ...f, riser_location: e.target.value }))} placeholder="e.g. Floor 2, east stairwell" />
             </div>
           </div>
-          {editingW3W && (
-            <div className="flex items-center gap-1.5 rounded-md border border-[#e11f26]/30 bg-[#e11f26]/5 px-3 py-1.5 text-sm">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium flex items-center gap-1.5">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="#e11f26"><path d="M11.994 0C5.367 0 0 5.367 0 11.994 0 18.622 5.367 24 11.994 24 18.622 24 24 18.622 24 11.994 24 5.367 18.622 0 11.994 0zm-2.6 17.4l-1.5-5.1-1.5 5.1H4.7L2.5 9.6h1.8l1.5 5.4 1.5-5.4h1.8l1.5 5.4 1.5-5.4h1.8l-2.2 7.8h-1.7zm7.8 0l-1.5-5.1-1.5 5.1h-1.7l-2.2-7.8h1.8l1.5 5.4 1.5-5.4h1.8l1.5 5.4 1.5-5.4h1.8l-2.2 7.8h-1.7z"/></svg>
+              what3words location
+            </label>
+            <Input
+              value={(form as any).what3words || ""}
+              onChange={(e) => setForm((f) => ({ ...f, what3words: e.target.value }))}
+              placeholder="e.g. filled.count.soap"
+            />
+            <p className="text-xs text-muted-foreground">
+              Auto-captured when an engineer signs off on site. Edit or clear to override.
+              {editingW3W && !(form as any).what3words && (
+                <>
+                  {" "}Suggested from address:{" "}
+                  <button
+                    type="button"
+                    className="underline font-medium"
+                    style={{ color: "#e11f26" }}
+                    onClick={() => setForm((f) => ({ ...f, what3words: editingW3W!.replace(/^\/\/\//, "") }))}
+                  >
+                    {editingW3W}
+                  </button>
+                </>
+              )}
+            </p>
+            {((form as any).what3words || "").trim() && (
               <a
-                href={`https://what3words.com/${editingW3W.replace(/^\/\/\//, "")}`}
+                href={`https://what3words.com/${((form as any).what3words || "").replace(/^\/\/\//, "")}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium hover:underline"
+                className="text-xs font-medium hover:underline"
                 style={{ color: "#e11f26" }}
               >
-                {editingW3W}
+                Open ///{((form as any).what3words || "").replace(/^\/\/\//, "")} in what3words →
               </a>
-              <span className="text-xs text-muted-foreground ml-1">— location reference</span>
-            </div>
-          )}
+            )}
+          </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Notes</label>
               <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />

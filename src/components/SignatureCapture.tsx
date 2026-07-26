@@ -203,6 +203,34 @@ export default function SignatureCapture({
   };
 
   /**
+   * First-visit site enrichment. When an engineer's sign-off resolves a
+   * ///words on site, stamp it onto the site record so every future
+   * engineer sees it. First capture wins — never overwrite an existing
+   * value (admins can edit/clear on the site details screen).
+   */
+  const enrichSiteW3W = async (jobIdArg: string, words: string) => {
+    try {
+      const { data: j } = await supabase
+        .from("jobs")
+        .select("site_id")
+        .eq("id", jobIdArg)
+        .maybeSingle();
+      const siteId = (j as any)?.site_id;
+      if (!siteId) return;
+      const { data: s } = await supabase
+        .from("sites")
+        .select("what3words")
+        .eq("id", siteId)
+        .maybeSingle();
+      if ((s as any)?.what3words) return; // don't overwrite
+      await supabase
+        .from("sites")
+        .update({ what3words: words, w3w_updated_at: new Date().toISOString() } as any)
+        .eq("id", siteId);
+    } catch { /* best-effort, never block sign-off */ }
+  };
+
+  /**
    * Best-effort GPS + what3words capture for engineer sign-off.
    * Returns quickly (max ~4s) and never throws — location is optional per
    * the standing rule that nothing blocks report submission.
@@ -285,6 +313,10 @@ export default function SignatureCapture({
         await supabase.storage.from("signatures").remove([storagePath]).catch(() => {});
         throw insertErr;
       }
+      // First-visit enrichment: stamp the site's what3words so every future
+      // engineer opening this site sees the same ///words. Never overwrites
+      // an existing value — admins can edit/clear on the site details screen.
+      if (loc.w3w) enrichSiteW3W(jobId, loc.w3w);
 
       toast({ title: "Signature saved" });
       clearCanvas();
@@ -358,6 +390,7 @@ export default function SignatureCapture({
         await supabase.storage.from("signatures").remove([storagePath]).catch(() => {});
         throw insertErr;
       }
+      if (loc.w3w) enrichSiteW3W(jobId, loc.w3w);
 
       toast({ title: "Saved signature applied" });
       setDrawing(false);

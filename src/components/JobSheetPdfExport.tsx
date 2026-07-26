@@ -415,15 +415,32 @@ export async function generateJobSheetPdf(
     ? scannedOutletValue
     : null;
 
-  // Resolve what3words for the job site address
+  // Resolve what3words for the job site — prefer the site record's stored
+  // ///words (set on first engineer sign-off or by admin) so every report
+  // for that site shows the same precise location.
   let w3wAddress: string | undefined;
-  const w3wLookupAddr = (jobInfo?.site as any)?.address || jobInfo?.address;
-  if (w3wLookupAddr && jobId) {
+  let storedSiteW3W: string | undefined = (jobInfo?.site as any)?.what3words as string | undefined;
+  if (!storedSiteW3W && jobId && isValidUuid) {
     try {
-      const { supabase: sb } = await import("@/integrations/supabase/client");
-      const { data: w3wData } = await sb.functions.invoke("w3w-convert", { body: { address: w3wLookupAddr } });
-      if (w3wData?.words) w3wAddress = w3wData.words as string;
+      const { data: freshSite } = await supabase
+        .from("jobs")
+        .select("sites(what3words)")
+        .eq("id", jobId)
+        .maybeSingle();
+      storedSiteW3W = ((freshSite as any)?.sites?.what3words as string | undefined) || undefined;
     } catch { /* skip */ }
+  }
+  if (storedSiteW3W) {
+    w3wAddress = storedSiteW3W;
+  } else {
+    const w3wLookupAddr = (jobInfo?.site as any)?.address || jobInfo?.address;
+    if (w3wLookupAddr && jobId) {
+      try {
+        const { supabase: sb } = await import("@/integrations/supabase/client");
+        const { data: w3wData } = await sb.functions.invoke("w3w-convert", { body: { address: w3wLookupAddr } });
+        if (w3wData?.words) w3wAddress = w3wData.words as string;
+      } catch { /* skip */ }
+    }
   }
 
   const { title: sheetTitle, subtitle: sheetSubtitle } = resolveTemplateDisplayTitle(

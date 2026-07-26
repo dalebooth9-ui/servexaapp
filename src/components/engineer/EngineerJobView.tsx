@@ -72,6 +72,20 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
                 </span>
               </p>
             )}
+            {(job?.sites as any)?.what3words && (
+              <p className="mt-1 ml-6 text-xs">
+                <a
+                  href={`https://what3words.com/${String((job.sites as any).what3words).replace(/^\/\/\//, "")}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-[hsl(var(--primary))] hover:underline"
+                  style={{ color: "#E11F26" }}
+                >
+                  ///{String((job.sites as any).what3words).replace(/^\/\/\//, "")}
+                </a>
+                <span className="text-muted-foreground"> — precise site location</span>
+              </p>
+            )}
           </div>
           {job?.status && (
             <Badge variant="secondary" className="uppercase text-xs">

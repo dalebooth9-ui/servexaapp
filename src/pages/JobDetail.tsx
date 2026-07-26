@@ -171,7 +171,7 @@ export default function JobDetail() {
   const fetchData = async () => {
     if (!id) return;
     const [jobRes, subsRes, sitesRes, assignmentsRes] = await Promise.all([
-      supabase.from("jobs").select("*, customers(id, name, email, logo_url), sites(id, name, address, postcode)").eq("id", id).single(),
+      supabase.from("jobs").select("*, customers(id, name, email, logo_url), sites(id, name, address, postcode, what3words)").eq("id", id).single(),
       supabase.from("submissions").select("*").eq("job_id", id).order("created_at", { ascending: false }),
       supabase.from("sites").select("id, name, address, postcode").order("name"),
       supabase.from("job_assignments").select("engineer_id").eq("job_id", id),
@@ -181,11 +181,18 @@ export default function JobDetail() {
     const subs = subsRes.data || [];
     setSubmissions(subs);
 
-    // Resolve W3W using the address geocoding path
-    const address = jobRes.data?.sites?.address || jobRes.data?.address;
-    if (address) {
-      supabase.functions.invoke("w3w-convert", { body: { address } })
-        .then(({ data }) => { if (data?.words) setJobW3W(data.words); });
+    // Resolve W3W: prefer the site's stored what3words (set on first
+    // engineer sign-off, or edited by admin) so every visitor sees the
+    // same precise location. Fall back to address-based geocoding.
+    const siteW3W = (jobRes.data as any)?.sites?.what3words as string | undefined;
+    if (siteW3W) {
+      setJobW3W(siteW3W);
+    } else {
+      const address = jobRes.data?.sites?.address || jobRes.data?.address;
+      if (address) {
+        supabase.functions.invoke("w3w-convert", { body: { address } })
+          .then(({ data }) => { if (data?.words) setJobW3W(data.words); });
+      }
     }
 
     // Get customer email from joined data — fallback lookup in parallel below if needed
