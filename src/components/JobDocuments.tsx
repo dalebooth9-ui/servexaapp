@@ -1041,6 +1041,8 @@ ${sections}
         scanUrls={paperVsElectronic.scanUrls}
         scanFailedCount={paperVsElectronic.scanFailed}
         electronicPdfUrls={paperVsElectronic.pdfUrls}
+        error={paperVsElectronic.error}
+        onRetry={openPaperVsElectronic}
       />
     </div>
   );
