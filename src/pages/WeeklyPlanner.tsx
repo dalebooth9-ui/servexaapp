@@ -128,6 +128,7 @@ export default function WeeklyPlanner() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [monthDate, setMonthDate] = useState(new Date());
   const [engineers, setEngineers] = useState<Engineer[]>([]);
+  const [bulkPrintSelection, setBulkPrintSelection] = useState<BulkPrintSelection | null>(null);
   const [engineerOrder, setEngineerOrder] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("planner_engineer_order") || "[]"); } catch { return []; }
   });
