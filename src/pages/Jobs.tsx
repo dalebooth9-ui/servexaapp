@@ -68,7 +68,9 @@ function getCustomerName(job: any): string | null {
 
 export default function Jobs() {
   const navigate = useNavigate();
-  const { userRole, user, effectiveUserId } = useAuth();
+  const { userRole, user, effectiveUserId, isPreviewingAsEngineer, previewEngineerId } = useAuth();
+  const isEngineerView = userRole === "engineer";
+  const isGenericEngineerPreview = isPreviewingAsEngineer && !previewEngineerId;
   const { toast } = useToast();
   const { categories } = useJobCategories();
   const { uploadFilesAsSubmissions } = useFileUpload();
