@@ -1,0 +1,1 @@
+ALTER VIEW public.v_job_type_template_map SET (security_invoker = true);
