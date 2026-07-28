@@ -201,7 +201,7 @@ function SortableNavItem({
 
 
 export default function AppLayout({ children }: {children: ReactNode;}) {
-  const { user, userRole, realUserRole, profile, signOut, isPreviewingAsEngineer } = useAuth();
+  const { user, userRole, realUserRole, profile, signOut, isPreviewingAsEngineer, effectiveUserId, previewEngineerId } = useAuth();
   const [previewDialogOpen, setPreviewDialogOpen] = useReactState(false);
 
   const location = useLocation();
