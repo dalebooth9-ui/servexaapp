@@ -201,7 +201,7 @@ function SortableNavItem({
 
 
 export default function AppLayout({ children }: {children: ReactNode;}) {
-  const { user, userRole, realUserRole, profile, signOut, isPreviewingAsEngineer } = useAuth();
+  const { user, userRole, realUserRole, profile, signOut, isPreviewingAsEngineer, effectiveUserId, previewEngineerId } = useAuth();
   const [previewDialogOpen, setPreviewDialogOpen] = useReactState(false);
 
   const location = useLocation();
@@ -274,6 +274,35 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   useEffect(() => {
     let mounted = true;
     const fetchPending = async () => {
+      if (userRole === "engineer") {
+        // Engineer view (real engineer OR admin previewing a specific engineer):
+        // badge must match the Jobs page — their own current assigned jobs only.
+        // Generic preview (no specific engineer picked) shows 0, matching the
+        // placeholder Jobs page.
+        const genericPreview = isPreviewingAsEngineer && !previewEngineerId;
+        const targetId = effectiveUserId ?? user?.id ?? null;
+        if (genericPreview || !targetId) {
+          if (mounted) setPendingReviewCount(0);
+          return;
+        }
+        const { data: assignments } = await supabase
+          .from("job_assignments")
+          .select("job_id")
+          .eq("engineer_id", targetId);
+        const ids = (assignments ?? []).map((a: any) => a.job_id);
+        if (ids.length === 0) {
+          if (mounted) setPendingReviewCount(0);
+          return;
+        }
+        const { count } = await supabase
+          .from("jobs")
+          .select("id", { count: "exact", head: true })
+          .in("id", ids)
+          .not("status", "in", "(completed,archived,rejected)");
+        if (mounted) setPendingReviewCount(count || 0);
+        return;
+      }
+      // Admin: keep existing behaviour — count pending-review jobs org-wide.
       const { count } = await supabase
         .from("jobs")
         .select("id", { count: "exact", head: true })
@@ -284,9 +313,10 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
     const channel = supabase
       .channel("pending-review-count-sidebar")
       .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, fetchPending)
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_assignments" }, fetchPending)
       .subscribe();
     return () => { mounted = false; supabase.removeChannel(channel); };
-  }, []);
+  }, [userRole, effectiveUserId, previewEngineerId, isPreviewingAsEngineer, user?.id]);
 
   useEffect(() => {
     if (!orgStatus.is_platform_admin) return;
