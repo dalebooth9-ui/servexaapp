@@ -638,7 +638,12 @@ export default function RamsEditor() {
    * AI-suggested ones.
    */
   const applyAiResult = useCallback((res: { description: string; method_statement: string; hazards: string[]; controls: string[]; ppe: string[]; risk_rows?: any[] }) => {
-    const methodLines = (res.method_statement || "").split("\n").map((l) => l.trim().replace(/^\d+[.)]\s*/, "")).filter(Boolean);
+    // Models sometimes emit escaped "\n" inside the JSON string — normalise both forms.
+    const methodLines = (res.method_statement || "")
+      .replace(/\\n/g, "\n")
+      .split("\n")
+      .map((l) => l.trim().replace(/^\d+[.)]\s*/, ""))
+      .filter(Boolean);
     if (res.description) setDescriptionOfWork(res.description);
     if (methodLines.length) setTaskSpecificOps(methodLines);
     if (res.hazards?.length) setSignificantRisks(Array.from(new Set(res.hazards)));
