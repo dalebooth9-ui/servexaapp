@@ -835,6 +835,7 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
                   <InlineAddRow
                     key="add-top"
                     isAdmin={isAdmin}
+                    showCosts={showCosts}
                     colSpan={colCount}
                     onAdd={(f) => handleAddAt(f, -1)}
                   />
@@ -854,13 +855,18 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
                         toggleSelect={toggleSelect}
                         handleDelete={handleDelete}
                         user={user}
+                        onAddToPriceBook={addToPriceBook}
                       />
                       <InlineAddRow
                         key={`add-${part.id}`}
                         isAdmin={isAdmin}
+                        showCosts={showCosts}
                         colSpan={colCount}
                         onAdd={(f) => handleAddAt(f, idx)}
                       />
+                    </>
+                  ))}
+
                     </>
                   ))}
                 </TableBody>
