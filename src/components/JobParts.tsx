@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useUndoAction } from "@/hooks/useUndoAction";
 import ImportPartsDialog from "@/components/ImportPartsDialog";
 import PartsLibraryPicker from "@/components/PartsLibraryPicker";
+import PartNameSuggestInput from "@/components/parts/PartNameSuggestInput";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
