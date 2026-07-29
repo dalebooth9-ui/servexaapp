@@ -121,28 +121,69 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
             </DialogTitle>
             <DialogDescription>
               {ramsTypeLabel[ramsType] || ramsType} · {jobName || "Job"}
-              {jobId ? " · tailored to this job's defects, remedial items and parts" : ""}
+              {jobId ? " · tailored to this job's works description, defects, parts and site" : ""}
             </DialogDescription>
           </DialogHeader>
 
           <ScrollArea className="flex-1 px-5 py-4">
+            {/* Works description — the primary driver of the draft. Always editable,
+                and required before generating so we never produce a vague RAMS. */}
+            <section className="mb-4">
+              <Label htmlFor="rams-works" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Description of works
+              </Label>
+              <Textarea
+                id="rams-works"
+                value={works}
+                onChange={(e) => setWorks(e.target.value)}
+                rows={4}
+                className="mt-1.5"
+                placeholder="e.g. Repair leaking sprinkler pipework in the third floor ceiling void, replace the damaged section, drain down and recommission."
+              />
+              {needsWorks ? (
+                <p className="mt-1.5 flex items-start gap-1.5 text-xs text-warning">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  {jobId
+                    ? "This job has no usable works description. Type or dictate a brief description of the works so the RAMS matches the actual job."
+                    : "Describe the works (or dictate with the mic) before generating."}
+                </p>
+              ) : (
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  The method statement and hazards are generated from this. Edit it to change the draft.
+                </p>
+              )}
+            </section>
+
             {loading && (
               <div className="flex flex-col items-center justify-center gap-3 py-12 text-muted-foreground text-sm">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 <p>AI generating RAMS content…</p>
-                <p className="text-xs opacity-60">{jobId ? "Reading this job's defects, parts and site details…" : `Tailoring to ${ramsTypeLabel[ramsType] || "RAMS"} requirements`}</p>
+                <p className="text-xs opacity-60">{jobId ? "Reading this job's works description, defects, parts and site details…" : `Tailoring to ${ramsTypeLabel[ramsType] || "RAMS"} requirements`}</p>
               </div>
             )}
 
-            {!loading && !result && (
+            {!loading && !result && !needsWorks && (
               <div className="flex items-center gap-2 text-warning py-4 text-sm">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
-                No content generated yet.
+                No content generated yet — press Generate.
               </div>
             )}
 
             {result && (
               <div className="space-y-4 pb-4">
+                {!!result.context_used?.length && (
+                  <section className="rounded-lg border bg-muted/30 p-3">
+                    <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                      <Info className="h-3.5 w-3.5" /> Generated from
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {result.context_used.map((c, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">{c}</Badge>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
                 <section>
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Project Description</p>
                   <p className="text-sm text-foreground/90 rounded-lg bg-muted/40 border p-3">{result.description}</p>
