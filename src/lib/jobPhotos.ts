@@ -28,7 +28,7 @@ export type JobPhoto = {
   createdAt: string;
   engineerId: string | null;
   engineerName: string;
-  source?: "submission" | "site_response" | "defect" | "checklist" | "document";
+  source?: "submission" | "whatsapp" | "site_response" | "defect" | "checklist" | "document";
   displayOrder?: number | null;
   fallbackUrl?: string | null;
 };
@@ -143,7 +143,7 @@ export async function fetchJobPhotoMeta(jobId: string): Promise<JobPhoto[]> {
   const [subsRes, sheetsRes, defectsRes, checklistRes, docsRes] = await Promise.all([
     supabase
       .from("submissions")
-      .select("id, type, file_url, file_name, content, created_at, engineer_id, display_order")
+      .select("id, type, file_url, file_name, content, created_at, engineer_id, display_order, whatsapp_message_id")
       .eq("job_id", jobId)
       .order("display_order", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true }),
@@ -183,7 +183,13 @@ export async function fetchJobPhotoMeta(jobId: string): Promise<JobPhoto[]> {
       createdAt: s.created_at as string,
       engineerId: (s.engineer_id as string) || null,
       engineerName: "",
-      source: s.type === "document" ? "document" : "submission",
+      // WhatsApp intake is identified by `whatsapp_message_id` (the webhook
+      // writes friendly, human file names — it never puts "whatsapp" in them).
+      source: s.whatsapp_message_id
+        ? "whatsapp"
+        : s.type === "document"
+          ? "document"
+          : "submission",
       displayOrder: s.display_order ?? null,
       fallbackUrl: s.file_url,
     });
@@ -286,7 +292,7 @@ export async function fetchJobPhotoMeta(jobId: string): Promise<JobPhoto[]> {
     if (!key) continue;
     const existing = deduped.get(key);
     if (!existing) deduped.set(key, p);
-    else if (existing.source === "submission" && p.source === "site_response" && existing.displayOrder == null) {
+    else if ((existing.source === "submission" || existing.source === "whatsapp") && p.source === "site_response" && existing.displayOrder == null) {
       deduped.set(key, { ...existing, caption: existing.caption || p.caption, displayOrder: p.displayOrder });
     }
     else if (!existing.caption && p.caption) deduped.set(key, { ...p, displayOrder: existing.displayOrder ?? p.displayOrder });
