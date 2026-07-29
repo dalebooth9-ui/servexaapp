@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Plus, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWhat3Words } from "@/hooks/useWhat3Words";

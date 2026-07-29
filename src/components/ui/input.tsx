@@ -42,7 +42,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     if (!enabled) return field;
 
     return (
-      <div className="relative w-full">
+      <div className="relative w-full min-w-0 flex-1">
         {field}
         <DictationMic
           ref={micRef}
