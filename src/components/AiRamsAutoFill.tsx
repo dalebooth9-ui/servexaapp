@@ -1,11 +1,24 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Sparkles, Loader2, Check, AlertTriangle } from "lucide-react";
+import { Sparkles, Loader2, Check, AlertTriangle, Info } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+
+export interface RamsRiskRow {
+  activity: string;
+  hazard: string;
+  who_at_risk: string;
+  likelihood: number;
+  severity: number;
+  control: string;
+  residual_likelihood: number;
+  residual_severity: number;
+}
 
 interface RamsAutoFillResult {
   description: string;
@@ -13,6 +26,8 @@ interface RamsAutoFillResult {
   hazards: string[];
   controls: string[];
   ppe: string[];
+  risk_rows?: RamsRiskRow[];
+  context_used?: string[];
 }
 
 interface Props {
@@ -21,24 +36,37 @@ interface Props {
   address?: string;
   customer?: string;
   ramsType?: string;
-  /** When supplied, the AI reads the job's defects, remedial items and parts to tailor the draft. */
+  /** When supplied, the AI reads the job's works description, defects, remedial items, parts and site details. */
   jobId?: string | null;
+  /** The job's "description of works required" — the primary driver of the draft. */
+  worksDescription?: string | null;
   triggerLabel?: string;
   onApply: (result: RamsAutoFillResult) => void;
 }
 
-export default function AiRamsAutoFill({ jobName, category, address, customer, ramsType = "dry_riser", jobId, triggerLabel, onApply }: Props) {
+/** Below this, a works description is too thin to generate a specific RAMS from. */
+const MIN_WORKS_CHARS = 25;
+
+export default function AiRamsAutoFill({ jobName, category, address, customer, ramsType = "dry_riser", jobId, worksDescription, triggerLabel, onApply }: Props) {
   const [open, setOpen] = useState(false);
   const [result, setResult] = useState<RamsAutoFillResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [works, setWorks] = useState((worksDescription || "").trim());
   const { toast } = useToast();
 
+  useEffect(() => {
+    setWorks((prev) => prev || (worksDescription || "").trim());
+  }, [worksDescription]);
+
+  const needsWorks = works.trim().length < MIN_WORKS_CHARS;
+
   const generate = useCallback(async () => {
+    if (works.trim().length < MIN_WORKS_CHARS) return;
     setLoading(true);
     setResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("ai-rams-autofill", {
-        body: { jobName, category, address, customer, ramsType, jobId },
+        body: { jobName, category, address, customer, ramsType, jobId, worksDescription: works.trim() },
       });
       if (error) throw error;
       if (data?.error) {
@@ -51,11 +79,12 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
     } finally {
       setLoading(false);
     }
-  }, [jobName, category, address, customer, ramsType, jobId, toast]);
+  }, [jobName, category, address, customer, ramsType, jobId, works, toast]);
 
   const handleOpen = (v: boolean) => {
     setOpen(v);
-    if (v && !result) generate();
+    // Only auto-generate when we already have a usable works description.
+    if (v && !result && works.trim().length >= MIN_WORKS_CHARS) generate();
   };
 
   const handleApply = () => {
@@ -64,6 +93,7 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
     setOpen(false);
     toast({ title: "RAMS auto-filled", description: "AI content applied to your RAMS form." });
   };
+
 
   const ramsTypeLabel: Record<string, string> = {
     dry_riser: "Dry Riser",
