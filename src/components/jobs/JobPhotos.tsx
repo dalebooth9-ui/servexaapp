@@ -260,7 +260,9 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     setLoading(true);
     const meta = await fetchJobPhotoMeta(jobId);
     const out: PhotoItem[] = meta.map((p) => {
-      const isWa = /whatsapp/i.test(p.fileName || "");
+      // Legacy fallback only — historic WhatsApp media saved before the
+      // intake stamped `whatsapp_message_id` kept a "whatsapp" filename.
+      const isWa = p.source === "whatsapp" || /whatsapp/i.test(p.fileName || "");
       const source: Source = p.source === "defect"
         ? "defect"
         : p.source === "checklist"
@@ -270,6 +272,7 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
             : isWa
               ? "whatsapp"
               : "app";
+
       const submissionMatch = p.id.match(/^sub:(.+)$/);
       return {
         id: p.id,
