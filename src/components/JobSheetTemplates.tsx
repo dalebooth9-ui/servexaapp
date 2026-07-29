@@ -985,18 +985,31 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         sitePhotoCaptions: merged._site_photo_captions,
         hasSitePhotos: Array.isArray(merged._site_photo_urls) && merged._site_photo_urls.length > 0,
       });
-      setFormData(merged);
+      setFormData(await withRemedialWorks(merged));
     } else {
       setActiveResponse(null);
       if (localDraft) {
         // Restore from local draft, keeping fresh auto-populated values
         const merged = { ...localDraft, ...prefilled };
-        setFormData(merged);
+        setFormData(await withRemedialWorks(merged));
       } else {
-        setFormData(prefilled);
+        setFormData(await withRemedialWorks(prefilled));
       }
     }
   };
+
+  /** Fill the remedial works table from the job's remedial checklist (if empty). */
+  const withRemedialWorks = async (data: Record<string, any>): Promise<Record<string, any>> => {
+    try {
+      const fields = (activeTemplateRefFields.current || []) as any[];
+      const patch = await buildRemedialWorksPrefill(fields, jobId, data);
+      return Object.keys(patch).length > 0 ? { ...data, ...patch } : data;
+    } catch (e) {
+      console.warn("[JobSheetTemplates] remedial works prefill failed", e);
+      return data;
+    }
+  };
+
 
   useEffect(() => {
     const handleFillOnline = (event: Event) => {
