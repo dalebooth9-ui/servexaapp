@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { ArrowLeft, Plus, Trash2, Save, Loader2, AlertTriangle, Users, UserCheck, Eraser, Check, Briefcase, Search, GripVertical } from "lucide-react";
 import { getRamsDefaults, buildScopeDescription, remedialVariantFor, isRemedialRamsType, RamsType } from "@/lib/ramsDefaults";
 import RamsPdfExport from "@/components/RamsPdfExport";
+import AiRamsAutoFill from "@/components/AiRamsAutoFill";
 import {
   DndContext,
   closestCenter,
