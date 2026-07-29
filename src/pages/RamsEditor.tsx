@@ -807,6 +807,7 @@ export default function RamsEditor() {
             address={coverFields.siteLocation}
             customer={coverFields.client}
             ramsType={ramsType}
+            worksDescription={job?.brief || descriptionOfWork || ""}
             triggerLabel={jobId ? "AI fill from job" : "AI Auto-Fill"}
             onApply={applyAiResult}
           />
