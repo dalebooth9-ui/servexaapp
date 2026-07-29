@@ -632,6 +632,31 @@ export default function RamsEditor() {
     setRiskRows(d.riskRows);
   }, []);
 
+  /**
+   * Merges an AI-generated draft into the editor. Nothing is locked — every
+   * field stays editable, and existing risk rows are preserved above the
+   * AI-suggested ones.
+   */
+  const applyAiResult = useCallback((res: { description: string; method_statement: string; hazards: string[]; controls: string[]; ppe: string[] }) => {
+    const methodLines = (res.method_statement || "").split("\n").map((l) => l.trim().replace(/^\d+[.)]\s*/, "")).filter(Boolean);
+    if (res.description) setDescriptionOfWork(res.description);
+    if (methodLines.length) setTaskSpecificOps(methodLines);
+    if (res.hazards?.length) setSignificantRisks(Array.from(new Set(res.hazards)));
+    if (res.ppe?.length) setPpeItems((prev) => Array.from(new Set([...prev, ...res.ppe])));
+    const hazards = res.hazards || [];
+    const controls = res.controls || [];
+    const rows = Array.from({ length: Math.max(hazards.length, controls.length) }, (_, i) => [
+      "Remedial / repair works",
+      hazards[i] || "",
+      "",
+      "3", "4", "12",
+      controls[i] || "",
+      "2", "2", "4",
+      "",
+    ]);
+    if (rows.length) setRiskRows((prev) => [...prev, ...rows]);
+  }, []);
+
   const handleTypeChange = (type: RamsType) => {
     if (window.confirm("Changing RAMS type will reset content to defaults for that type. Continue?")) {
       loadDefaults(type, job);
