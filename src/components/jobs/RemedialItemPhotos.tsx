@@ -44,7 +44,7 @@ export default function RemedialItemPhotos({ jobId, jobOrgId, itemId, canEdit }:
       .select("before_photo_url, after_photo_url")
       .eq("remedial_item_id", itemId)
       .maybeSingle();
-    const row = (data || null) as { before_photo_url: string | null; after_photo_url: string | null } | null;
+    const row = (data || null) as unknown as { before_photo_url: string | null; after_photo_url: string | null } | null;
     setPaths({ before: row?.before_photo_url || null, after: row?.after_photo_url || null });
   }, [itemId]);
 
