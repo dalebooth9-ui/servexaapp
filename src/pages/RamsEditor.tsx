@@ -55,6 +55,30 @@ const RAMS_TYPE_LABELS: Record<RamsType, string> = {
   installation: "Installation",
 };
 
+const CATEGORY_TO_RAMS_TYPE: Record<string, RamsType> = {
+  dry_riser: "dry_riser", dry_riser_remedial: "dry_riser_remedial", wet_riser: "wet_riser",
+  sprinkler: "sprinkler", sprinkler_service: "sprinkler", sprinkler_remedial: "sprinkler_remedial",
+  fire_extinguisher: "fire_extinguisher", extinguisher_service: "fire_extinguisher",
+  fire_hydrant: "fire_hydrant", hydrant_service: "fire_hydrant", fire_alarm: "fire_alarm",
+  emergency_lighting: "emergency_lighting", aov_smoke_control: "aov_smoke_control",
+  passive_fire: "passive_fire", gas_suppression: "gas_suppression",
+  kitchen_suppression: "kitchen_suppression", water_mist: "water_mist",
+  hose_reel: "hose_reel", fire_risk_assessment: "fire_risk_assessment",
+  installation: "installation", remedial: "general_remedial", remedials: "general_remedial",
+};
+
+/**
+ * Picks the RAMS type for a job: category mapping first, then upgraded to the
+ * matching remedial variant when the job is flagged as remedial work.
+ */
+function detectRamsType(jobData: any, queryType: RamsType | null): RamsType {
+  const base: RamsType = (jobData?.category && CATEGORY_TO_RAMS_TYPE[jobData.category]) || queryType || "dry_riser";
+  const looksRemedial =
+    !!jobData?.is_remedial ||
+    /remedial|repair/i.test(`${jobData?.name || ""} ${jobData?.job_type || ""}`);
+  return looksRemedial ? remedialVariantFor(base) : base;
+}
+
 // Risk table column definitions
 const RISK_COL_HEADERS = [
   "Activity", "Hazard", "Risks / Persons at Risk",
