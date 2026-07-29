@@ -171,11 +171,13 @@ function SortablePhotoTile({
   );
 }
 
-export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = true }: {
+export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = true, simpleFilters = false }: {
   jobId: string;
   engineers?: { id: string; name: string }[];
   isAdmin?: boolean;
   canUpload?: boolean;
+  /** Engineer view: only ever offer All / WhatsApp / App tabs. */
+  simpleFilters?: boolean;
 }) {
   const { toast } = useToast();
   const { user, profile, orgId } = useAuth();
@@ -728,7 +730,7 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className={`flex flex-wrap items-center gap-2 ${items.length === 0 ? "hidden" : ""}`}>
         {filters.map((f) => (
           <Button
             key={f.key}
@@ -738,7 +740,11 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
             className="h-8"
           >
             {f.label}
-            {counts[f.key] ? <span className="ml-1.5 text-xs text-muted-foreground">({counts[f.key]})</span> : null}
+            {counts[f.key] ? (
+              <Badge variant="secondary" className="ml-1.5 h-5 min-w-5 justify-center px-1.5 text-[10px]">
+                {counts[f.key]}
+              </Badge>
+            ) : null}
           </Button>
         ))}
         <div className="ml-auto">
