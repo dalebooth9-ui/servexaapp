@@ -288,7 +288,7 @@ Tailor the method statement, hazards, and control measures specifically for the 
     if (!toolCall) throw new Error("No tool call returned from AI");
 
     const result = JSON.parse(toolCall.function.arguments);
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify({ ...result, context_used: contextUsed, works_description: worksDescription || null }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
