@@ -634,14 +634,32 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
   };
   const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); };
 
-  const filters: Array<{ key: "all" | Source; label: string }> = [
-    { key: "all", label: "All" },
-    { key: "whatsapp", label: "WhatsApp" },
-    { key: "app", label: "App" },
-    { key: "defect", label: "Defects" },
-    { key: "checklist", label: "Checklist" },
-    { key: "document", label: "Docs" },
-  ];
+  // Only surface a source tab when that source actually has photos on this
+  // job. An empty job shows no filter row at all. Engineers get a reduced
+  // set (App / WhatsApp) — they don't need Docs/Checklist slicing.
+  const allowedSources: Source[] = simpleFilters
+    ? ["whatsapp", "app"]
+    : ["whatsapp", "app", "defect", "checklist", "document"];
+  const labels: Record<Source, string> = {
+    whatsapp: "WhatsApp",
+    app: "App",
+    defect: "Defects",
+    checklist: "Checklist",
+    document: "Docs",
+  };
+  const filters: Array<{ key: "all" | Source; label: string }> = useMemo(() => {
+    const present = allowedSources.filter((s) => (counts[s] || 0) > 0);
+    if (present.length === 0) return [];
+    return [{ key: "all" as const, label: "All" }, ...present.map((s) => ({ key: s, label: labels[s] }))];
+  }, [counts, simpleFilters]);
+
+  // If the active tab's source vanished (last photo deleted), fall back to All.
+  useEffect(() => {
+    if (sourceFilter !== "all" && !filters.some((f) => f.key === sourceFilter)) {
+      setSourceFilter("all");
+    }
+  }, [filters, sourceFilter]);
+
 
   const selectedItems = useMemo(
     () => items.filter((p) => selected.has(p.id)),
