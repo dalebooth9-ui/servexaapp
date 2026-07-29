@@ -83,10 +83,12 @@ function InlineAddRow({
   isAdmin,
   onAdd,
   colSpan,
+  showCosts = false,
 }: {
   isAdmin: boolean;
   onAdd: (form: { name: string; quantity: string; unit_cost: string; sell_price: string; notes: string }) => Promise<void>;
   colSpan: number;
+  showCosts?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", quantity: "1", unit_cost: "0", sell_price: "0", notes: "" });
@@ -120,21 +122,31 @@ function InlineAddRow({
     <tr className="bg-muted/30">
       <td colSpan={colSpan}>
         <div className="flex flex-wrap gap-2 items-center py-1 px-2">
-          <Input
-            placeholder="Part name"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="h-8 text-sm flex-1 min-w-[120px]"
-            autoFocus
-            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-          />
+          <div className="flex-1 min-w-[140px]">
+            <PartNameSuggestInput
+              value={form.name}
+              onChange={(v) => setForm((f) => ({ ...f, name: v }))}
+              onPick={(p) => setForm((f) => ({
+                ...f,
+                name: p.name,
+                unit_cost: String(p.unit_cost ?? 0),
+                sell_price: String(p.sell_price ?? 0),
+                notes: f.notes || (p.part_number ? `#${p.part_number}` : ""),
+              }))}
+              onEnter={handleSubmit}
+              placeholder="Part name (type anything)"
+              className="h-8 text-sm"
+              autoFocus
+            />
+          </div>
           <Input
             type="number" placeholder="Qty" min="0" step="1"
             value={form.quantity}
             onChange={(e) => setForm({ ...form, quantity: e.target.value })}
             className="h-8 text-sm w-16 text-right"
           />
-          {isAdmin && (
+          {isAdmin && showCosts && (
+
             <>
               <Input
                 type="number" placeholder="Unit £" min="0" step="0.01"
