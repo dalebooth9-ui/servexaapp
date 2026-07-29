@@ -532,6 +532,31 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
   const totalSellValue = parts.reduce((sum, p) => sum + ((p.sell_price || 0) * p.quantity), 0);
   const totalProfit = totalSellValue - totalCost;
 
+  // Promote a recurring ad-hoc entry into the reusable price book.
+  const addToPriceBook = async (part: JobPart) => {
+    if (!user) return;
+    const { data: prof } = await supabase.from("profiles").select("org_id").eq("user_id", user.id).maybeSingle();
+    const { data: existing } = await supabase
+      .from("parts_library")
+      .select("id")
+      .ilike("name", part.name.trim())
+      .limit(1);
+    if (existing && existing.length) {
+      toast({ title: "Already in the price book", description: part.name });
+      return;
+    }
+    const { error } = await supabase.from("parts_library").insert({
+      name: part.name.trim(),
+      unit_cost: part.unit_cost || 0,
+      sell_price: part.sell_price || 0,
+      org_id: prof?.org_id || null,
+      created_by: user.id,
+      list_type: jobCategory?.includes("install") ? "install" : "general",
+    } as any);
+    if (error) toast({ title: "Couldn't add to price book", description: error.message, variant: "destructive" });
+    else toast({ title: "Added to price book", description: `${part.name} can now be reused.` });
+  };
+
   // Column count for inline add row span
   const colCount = 5 + (isAdmin ? 6 : 0); // grip + checkbox + name + qty + notes + actions + admin cols
 
@@ -541,12 +566,25 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 items-end">
         <div className="flex-1 min-w-[150px]">
-          <Input placeholder="Part / material name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <PartNameSuggestInput
+            value={form.name}
+            onChange={(v) => setForm((f) => ({ ...f, name: v }))}
+            onPick={(p) => setForm((f) => ({
+              ...f,
+              name: p.name,
+              unit_cost: String(p.unit_cost ?? 0),
+              sell_price: String(p.sell_price ?? 0),
+              notes: f.notes || (p.part_number ? `#${p.part_number}` : ""),
+            }))}
+            onEnter={handleAdd}
+            listType={jobCategory?.includes("install") ? "install" : "general"}
+            placeholder="Part / material — type anything, no cost needed"
+          />
         </div>
         <div className="w-20">
           <Input type="number" placeholder="Qty" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} min="0" step="1" />
         </div>
-        {isAdmin && (
+        {isAdmin && showCosts && (
           <>
             <div className="w-24">
               <Input type="number" placeholder="Unit £" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} min="0" step="0.01" />
@@ -562,6 +600,12 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
         <Button onClick={handleAdd} disabled={adding || !form.name.trim()} size="sm">
           <Plus className="mr-1 h-4 w-4" /> Add
         </Button>
+        {isAdmin && (
+          <Button variant="ghost" size="sm" onClick={() => setShowCosts((v) => !v)}>
+            {showCosts ? "Hide costs" : "Add costs (optional)"}
+          </Button>
+        )}
+
         <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
           <Upload className="mr-1 h-4 w-4" /> Import
         </Button>
