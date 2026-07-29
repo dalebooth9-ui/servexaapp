@@ -124,6 +124,17 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
         </Suspense>
       </section>
 
+      {/* Materials used — free-typed name + qty, no costs needed */}
+      <section className="rounded-2xl border bg-card p-4 md:p-5 shadow-sm">
+        <h2 className="text-base font-semibold mb-1">Parts &amp; materials used</h2>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Just type what you used and how many — no prices needed.
+        </p>
+        <Suspense fallback={<Fallback />}>
+          <QuickPartsList jobId={jobId} canEdit={job?.status !== "cancelled" && isAssignedEngineer} />
+        </Suspense>
+      </section>
+
       {/* Defects — scoped to this job/site */}
       <section className="rounded-2xl border bg-card p-4 md:p-5 shadow-sm">
         <h2 className="text-base font-semibold mb-3">Defects on this job</h2>
@@ -131,6 +142,7 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
           <JobDefects jobId={jobId} siteId={job?.site_id || null} />
         </Suspense>
       </section>
+
 
       {/* Photos — add / view */}
       <section className="rounded-2xl border bg-card p-4 md:p-5 shadow-sm">
