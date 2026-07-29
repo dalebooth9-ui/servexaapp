@@ -1877,6 +1877,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                             value={formData[`${field.id}_notes`] || ""}
                             onChange={(e) => handleFieldValue(`${field.id}_notes`, e.target.value)}
                             placeholder="Add note..."
+                            dictation
                             className="h-6 text-[11px] border-dashed"
                           />
                         </div>
@@ -2248,6 +2249,7 @@ function renderFormField(
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder || ""}
+          dictation
           className="h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full"
         />
       );
@@ -2432,6 +2434,7 @@ function renderFormField(
         <Input
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
+          dictation
           className="h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full"
         />
       );
