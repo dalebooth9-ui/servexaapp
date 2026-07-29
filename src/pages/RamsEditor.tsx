@@ -774,6 +774,16 @@ export default function RamsEditor() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <AiRamsAutoFill
+            jobId={jobId ?? undefined}
+            jobName={job?.name || coverFields.contractJobName}
+            category={job?.category || ""}
+            address={coverFields.siteLocation}
+            customer={coverFields.client}
+            ramsType={ramsType}
+            triggerLabel={jobId ? "AI fill from job" : "AI Auto-Fill"}
+            onApply={applyAiResult}
+          />
           <RamsPdfExport
             formData={buildFormData()}
             jobInfo={job}
