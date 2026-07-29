@@ -21,10 +21,13 @@ interface Props {
   address?: string;
   customer?: string;
   ramsType?: string;
+  /** When supplied, the AI reads the job's defects, remedial items and parts to tailor the draft. */
+  jobId?: string | null;
+  triggerLabel?: string;
   onApply: (result: RamsAutoFillResult) => void;
 }
 
-export default function AiRamsAutoFill({ jobName, category, address, customer, ramsType = "dry_riser", onApply }: Props) {
+export default function AiRamsAutoFill({ jobName, category, address, customer, ramsType = "dry_riser", jobId, triggerLabel, onApply }: Props) {
   const [open, setOpen] = useState(false);
   const [result, setResult] = useState<RamsAutoFillResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -35,7 +38,7 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
     setResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("ai-rams-autofill", {
-        body: { jobName, category, address, customer, ramsType },
+        body: { jobName, category, address, customer, ramsType, jobId },
       });
       if (error) throw error;
       if (data?.error) {
@@ -48,7 +51,7 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
     } finally {
       setLoading(false);
     }
-  }, [jobName, category, address, customer, ramsType, toast]);
+  }, [jobName, category, address, customer, ramsType, jobId, toast]);
 
   const handleOpen = (v: boolean) => {
     setOpen(v);
@@ -66,6 +69,8 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
     dry_riser: "Dry Riser",
     dry_riser_remedial: "Dry Riser — Remedial / Repairs",
     sprinkler: "Sprinkler",
+    sprinkler_remedial: "Sprinkler — Remedials / Repairs",
+    general_remedial: "Remedials / Repairs (General)",
     fire_extinguisher: "Fire Extinguisher",
     fire_hydrant: "Fire Hydrant",
   };
@@ -74,7 +79,7 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
     <>
       <Button variant="outline" size="sm" className="gap-2" onClick={() => handleOpen(true)}>
         <Sparkles className="h-3.5 w-3.5 text-primary" />
-        AI Auto-Fill RAMS
+        {triggerLabel || "AI Auto-Fill RAMS"}
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpen}>
@@ -86,6 +91,7 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
             </DialogTitle>
             <DialogDescription>
               {ramsTypeLabel[ramsType] || ramsType} · {jobName || "Job"}
+              {jobId ? " · tailored to this job's defects, remedial items and parts" : ""}
             </DialogDescription>
           </DialogHeader>
 
@@ -94,7 +100,7 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
               <div className="flex flex-col items-center justify-center gap-3 py-12 text-muted-foreground text-sm">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 <p>AI generating RAMS content…</p>
-                <p className="text-xs opacity-60">Tailoring to {ramsTypeLabel[ramsType]} requirements</p>
+                <p className="text-xs opacity-60">{jobId ? "Reading this job's defects, parts and site details…" : `Tailoring to ${ramsTypeLabel[ramsType] || "RAMS"} requirements`}</p>
               </div>
             )}
 

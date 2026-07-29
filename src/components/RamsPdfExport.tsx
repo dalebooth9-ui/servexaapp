@@ -7,7 +7,7 @@ import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantR
 import { supabase } from "@/integrations/supabase/client";
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 
-export type RamsType = "dry_riser" | "dry_riser_remedial" | "sprinkler" | "fire_extinguisher" | "fire_hydrant" | "installation" | "wet_riser" | "fire_alarm" | "emergency_lighting" | "aov_smoke_control" | "passive_fire" | "gas_suppression" | "kitchen_suppression" | "water_mist" | "hose_reel" | "fire_risk_assessment";
+export type RamsType = "dry_riser" | "dry_riser_remedial" | "sprinkler" | "sprinkler_remedial" | "fire_extinguisher" | "fire_hydrant" | "installation" | "wet_riser" | "fire_alarm" | "emergency_lighting" | "aov_smoke_control" | "passive_fire" | "gas_suppression" | "kitchen_suppression" | "water_mist" | "hose_reel" | "fire_risk_assessment" | "general_remedial";
 
 interface Props {
   formData: Record<string, any>;

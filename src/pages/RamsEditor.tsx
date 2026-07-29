@@ -16,8 +16,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ArrowLeft, Plus, Trash2, Save, Loader2, AlertTriangle, Users, UserCheck, Eraser, Check, Briefcase, Search, GripVertical } from "lucide-react";
-import { getRamsDefaults, buildScopeDescription, RamsType } from "@/lib/ramsDefaults";
+import { getRamsDefaults, buildScopeDescription, remedialVariantFor, isRemedialRamsType, RamsType } from "@/lib/ramsDefaults";
 import RamsPdfExport from "@/components/RamsPdfExport";
+import AiRamsAutoFill from "@/components/AiRamsAutoFill";
 import {
   DndContext,
   closestCenter,
@@ -39,6 +40,8 @@ const RAMS_TYPE_LABELS: Record<RamsType, string> = {
   dry_riser_remedial: "Dry Riser — Remedial / Repairs",
   wet_riser: "Wet Riser",
   sprinkler: "Sprinkler",
+  sprinkler_remedial: "Sprinkler — Remedials / Repairs",
+  general_remedial: "Remedials / Repairs (General)",
   fire_extinguisher: "Fire Extinguisher",
   fire_hydrant: "Fire Hydrant",
   fire_alarm: "Fire Alarm",
@@ -52,6 +55,30 @@ const RAMS_TYPE_LABELS: Record<RamsType, string> = {
   fire_risk_assessment: "Fire Risk Assessment",
   installation: "Installation",
 };
+
+const CATEGORY_TO_RAMS_TYPE: Record<string, RamsType> = {
+  dry_riser: "dry_riser", dry_riser_remedial: "dry_riser_remedial", wet_riser: "wet_riser",
+  sprinkler: "sprinkler", sprinkler_service: "sprinkler", sprinkler_remedial: "sprinkler_remedial",
+  fire_extinguisher: "fire_extinguisher", extinguisher_service: "fire_extinguisher",
+  fire_hydrant: "fire_hydrant", hydrant_service: "fire_hydrant", fire_alarm: "fire_alarm",
+  emergency_lighting: "emergency_lighting", aov_smoke_control: "aov_smoke_control",
+  passive_fire: "passive_fire", gas_suppression: "gas_suppression",
+  kitchen_suppression: "kitchen_suppression", water_mist: "water_mist",
+  hose_reel: "hose_reel", fire_risk_assessment: "fire_risk_assessment",
+  installation: "installation", remedial: "general_remedial", remedials: "general_remedial",
+};
+
+/**
+ * Picks the RAMS type for a job: category mapping first, then upgraded to the
+ * matching remedial variant when the job is flagged as remedial work.
+ */
+function detectRamsType(jobData: any, queryType: RamsType | null): RamsType {
+  const base: RamsType = (jobData?.category && CATEGORY_TO_RAMS_TYPE[jobData.category]) || queryType || "dry_riser";
+  const looksRemedial =
+    !!jobData?.is_remedial ||
+    /remedial|repair/i.test(`${jobData?.name || ""} ${jobData?.job_type || ""}`);
+  return looksRemedial ? remedialVariantFor(base) : base;
+}
 
 // Risk table column definitions
 const RISK_COL_HEADERS = [
@@ -533,32 +560,12 @@ export default function RamsEditor() {
             setDraftRestored(true);
           } catch {
             // Corrupt draft — fall back to defaults
-            const catMap2: Record<string, RamsType> = {
-              dry_riser: "dry_riser", dry_riser_remedial: "dry_riser_remedial", wet_riser: "wet_riser",
-              sprinkler: "sprinkler", fire_extinguisher: "fire_extinguisher",
-              fire_hydrant: "fire_hydrant", fire_alarm: "fire_alarm",
-              emergency_lighting: "emergency_lighting", aov_smoke_control: "aov_smoke_control",
-              passive_fire: "passive_fire", gas_suppression: "gas_suppression",
-              kitchen_suppression: "kitchen_suppression", water_mist: "water_mist",
-              hose_reel: "hose_reel", fire_risk_assessment: "fire_risk_assessment",
-              installation: "installation",
-            };
-            const type2: RamsType = (jobData?.category && catMap2[jobData.category]) || queryType || "dry_riser";
+            const type2 = detectRamsType(jobData, queryType);
             loadDefaults(type2, jobData);
           }
         } else {
           // Auto-detect type from job category (all categories)
-          const catMap: Record<string, RamsType> = {
-            dry_riser: "dry_riser", dry_riser_remedial: "dry_riser_remedial", wet_riser: "wet_riser",
-            sprinkler: "sprinkler", fire_extinguisher: "fire_extinguisher",
-            fire_hydrant: "fire_hydrant", fire_alarm: "fire_alarm",
-            emergency_lighting: "emergency_lighting", aov_smoke_control: "aov_smoke_control",
-            passive_fire: "passive_fire", gas_suppression: "gas_suppression",
-            kitchen_suppression: "kitchen_suppression", water_mist: "water_mist",
-            hose_reel: "hose_reel", fire_risk_assessment: "fire_risk_assessment",
-            installation: "installation",
-          };
-          const type: RamsType = (jobData?.category && catMap[jobData.category]) || queryType || "dry_riser";
+          const type = detectRamsType(jobData, queryType);
           loadDefaults(type, jobData);
         }
       }
@@ -624,6 +631,31 @@ export default function RamsEditor() {
     setPpeItems(d.ppeItems);
     setRiskRows(d.riskRows);
   }, []);
+
+  /**
+   * Merges an AI-generated draft into the editor. Nothing is locked — every
+   * field stays editable, and existing risk rows are preserved above the
+   * AI-suggested ones.
+   */
+  const applyAiResult = useCallback((res: { description: string; method_statement: string; hazards: string[]; controls: string[]; ppe: string[] }) => {
+    const methodLines = (res.method_statement || "").split("\n").map((l) => l.trim().replace(/^\d+[.)]\s*/, "")).filter(Boolean);
+    if (res.description) setDescriptionOfWork(res.description);
+    if (methodLines.length) setTaskSpecificOps(methodLines);
+    if (res.hazards?.length) setSignificantRisks(Array.from(new Set(res.hazards)));
+    if (res.ppe?.length) setPpeItems((prev) => Array.from(new Set([...prev, ...res.ppe])));
+    const hazards = res.hazards || [];
+    const controls = res.controls || [];
+    const rows = Array.from({ length: Math.max(hazards.length, controls.length) }, (_, i) => [
+      isRemedialRamsType(ramsType) ? "Remedial / repair works" : "Works activity",
+      hazards[i] || "",
+      "",
+      "3", "4", "12",
+      controls[i] || "",
+      "2", "2", "4",
+      "",
+    ]);
+    if (rows.length) setRiskRows((prev) => [...prev, ...rows]);
+  }, [ramsType]);
 
   const handleTypeChange = (type: RamsType) => {
     if (window.confirm("Changing RAMS type will reset content to defaults for that type. Continue?")) {
@@ -768,6 +800,16 @@ export default function RamsEditor() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <AiRamsAutoFill
+            jobId={jobId ?? undefined}
+            jobName={job?.name || coverFields.contractJobName}
+            category={job?.category || ""}
+            address={coverFields.siteLocation}
+            customer={coverFields.client}
+            ramsType={ramsType}
+            triggerLabel={jobId ? "AI fill from job" : "AI Auto-Fill"}
+            onApply={applyAiResult}
+          />
           <RamsPdfExport
             formData={buildFormData()}
             jobInfo={job}

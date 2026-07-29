@@ -8,6 +8,7 @@ export type RamsType =
   | "dry_riser_remedial"
   | "wet_riser"
   | "sprinkler"
+  | "sprinkler_remedial"
   | "fire_extinguisher"
   | "fire_hydrant"
   | "fire_alarm"
@@ -19,7 +20,8 @@ export type RamsType =
   | "water_mist"
   | "hose_reel"
   | "fire_risk_assessment"
-  | "installation";
+  | "installation"
+  | "general_remedial";
 
 export interface RamsDefaults {
   descriptionOfWork: string;
@@ -262,6 +264,117 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
       ["System isolation / alarm bypass","Inadvertent alarm activation","False alarm causing building evacuation; disruption; financial penalty.","4","5","20","Notify monitoring centre and building manager in writing before isolation. Affix 'System Isolated' warning signs. Confirm reset with monitoring centre at end of works.","2","3","6",""],
       ["Inspection of sprinkler heads and pipework","Working at height","Falls from ladders or mobile platforms. Falling tools/debris striking persons below.","4","6","24","Use correct access equipment. Inspect before use. Exclusion zone beneath. Operatives to wear hard hats and harness where required.","2","3","6",""],
       ["Water supply and pressure testing","High pressure water / burst connection","Injury from pressurised water. Water damage to building and contents.","3","5","15","Use calibrated gauges. Check all connections before pressurising. Ensure drain routes are clear. Mop up spills immediately.","2","3","6",""],
+      ...COMMON_RISK_ROWS,
+    ],
+  },
+
+  sprinkler_remedial: {
+    descriptionOfWork:
+      "Remedial repair works to automatic sprinkler systems including replacement of defective/leaking sprinkler heads, valve and pipework repairs, securing and labelling of control valves, system drain-down, reinstatement and functional testing in accordance with BS EN 12845:2015 — Fixed Firefighting Systems — Automatic Sprinkler Systems.",
+    sequenceOfOps: [
+      ...COMMON_SEQUENCE,
+      "Issue a system impairment notification to the responsible person, insurer and alarm monitoring centre before isolating any part of the sprinkler system.",
+      "Agree the duration of impairment and any temporary fire watch / management arrangements with the responsible person.",
+      "Obtain a Hot Works Permit from the Principal Contractor where any cutting, grinding or brazing is required.",
+    ],
+    taskSpecificOps: [
+      "Review the defect report / remedial list for the site to confirm the exact scope of repairs, locations and quantities.",
+      "Notify the alarm receiving centre and building management; isolate the alarm and affix 'System Isolated' labels at all key points.",
+      "Close and lock off the relevant control valve(s), then drain down the affected section only, controlling discharge to a suitable drain.",
+      "Protect finishes, contents and electrical equipment below the works with sheeting and drip trays; keep a wet vacuum and absorbent materials to hand.",
+      "Replace defective or leaking sprinkler heads like-for-like (correct temperature rating, K-factor, response type and finish) using the correct head spanner.",
+      "Carry out pipework, fitting and valve repairs as required. Where cutting/grinding or brazing is required, work under Hot Works Permit with combustibles cleared to 3 m, extinguisher at point of works and a 60-minute fire watch.",
+      "Fit padlocks, chains and anti-tamper straps to isolation valves where specified and label all valves clearly.",
+      "Refill and vent the affected section slowly, checking every repaired joint for leaks at working pressure.",
+      "Carry out a main drain / flow test to confirm water supply and correct alarm operation after reinstatement.",
+      "Restore the system fully to service, reset the alarm panel and confirm with the monitoring centre that the system is operational.",
+      "Cancel the impairment notification in writing and confirm the system is back in service.",
+      "Issue a written remedial works completion report listing works carried out, parts fitted and test results.",
+      "Leave the work area clean, dry and tidy.",
+    ],
+    location: "Plant rooms, valve sets, riser cupboards, ceiling voids and protected areas where remedial works are required.",
+    resources: "Minimum of: 2 Operatives (FIA / BAFE SP203 trained).",
+    personnel: "",
+    plantAndEquipment: [
+      ...COMMON_PLANT,
+      PRESSURE_TEST_GAUGE,
+      "Sprinkler head spanner and replacement heads (matched temperature/K-factor)",
+      "Pipe wrenches, spanners and pipe cutting equipment",
+      "Drain-down hoses, drip trays, sheeting and wet vacuum",
+      "Padlocks, chains and anti-tamper valve straps",
+      "Steps / podium steps or mobile access platform",
+      "Fire extinguisher (dry powder or CO2) — where hot works are undertaken",
+    ],
+    significantRisks: [
+      "System impairment / reduced fire protection", "Water discharge, flooding and damage to contents",
+      "Working at height from steps or platforms", "Inadvertent alarm activation",
+      "Hot works / fire risk where cutting or brazing", "Manual handling", "Slips/trips on wet floors", "Lone working",
+    ],
+    specialTraining: "FIA / BAFE SP203 trained operatives. All operatives hold current CSCS cards. Hot works only by operatives trained and competent in hot works procedures.",
+    ppeItems: [
+      ...COMMON_PPE,
+      "Face Shield EN166 (for head replacement and hot works)",
+    ],
+    riskRows: [
+      ["System isolation for repair","Reduced or no sprinkler protection during impairment","Uncontrolled fire spread while the system is out of service.","4","6","24","Written impairment notification to responsible person, insurer and ARC. Isolate the smallest possible section. Agree fire watch / management measures. Minimise impairment duration and confirm restoration in writing.","2","4","8",""],
+      ["Drain-down and head replacement","Water discharge / flooding","Water damage to finishes, contents and electrical equipment. Slip hazards.","4","5","20","Drain to a controlled point. Use drip trays, sheeting and wet vacuum. Protect electrical equipment. Mop up immediately and use wet floor signs.","2","3","6",""],
+      ["Working from steps / platform at ceiling level","Falls from height","Falls causing injury. Dropped tools or heads striking persons below.","4","5","20","Use correct access equipment inspected before use. Level, stable footing. Exclusion zone beneath. Tools tethered where practicable. Hard hats worn.","2","3","6",""],
+      ["Reinstatement and functional testing","Inadvertent alarm activation","False alarm causing evacuation, disruption and financial penalty.","4","4","16","Notify ARC and building manager before and after works. Refill slowly. Confirm reset and system status with the monitoring centre.","2","2","4",""],
+      ["Cutting / brazing pipework (hot works)","Fire risk from sparks or naked flame","Fire in ceiling void or plant room. Structural damage. Occupant evacuation.","4","6","24","Hot Works Permit before starting. Clear combustibles within 3 m. Fire blankets/spark guards. Extinguisher at point of works. 60-minute fire watch after works cease.","2","3","6",""],
+      ...COMMON_RISK_ROWS,
+    ],
+  },
+
+  general_remedial: {
+    descriptionOfWork:
+      "Remedial repair works to fire protection systems including isolation and drain-down where applicable, replacement of defective components, hot works where required, reinstatement and functional testing to leave the system fully operational, in accordance with the relevant British Standard for the system concerned.",
+    sequenceOfOps: [
+      ...COMMON_SEQUENCE,
+      "Confirm the remedial scope against the defect report before commencing works.",
+      "Notify the responsible person, and where applicable the insurer and alarm receiving centre, of any system impairment before isolation.",
+      "Obtain a Hot Works Permit from the Principal Contractor where any cutting, grinding, brazing or welding is required.",
+    ],
+    taskSpecificOps: [
+      "Review the defect report / remedial list to confirm the exact scope, locations and quantities of repairs.",
+      "Isolate the affected system and, where water-carrying, drain down the affected section only, controlling discharge to a suitable drain.",
+      "Protect finishes, contents and electrical equipment below the works with sheeting and drip trays.",
+      "Replace defective components like-for-like with correctly rated and certified parts.",
+      "Where cutting, grinding or brazing is required, work under Hot Works Permit with combustibles cleared to 3 m, extinguisher at point of works and a 60-minute fire watch after works cease.",
+      "Work from steps, podium steps or a mobile platform as appropriate — never from unsuitable improvised access.",
+      "Refill, re-pressurise or re-energise the system slowly and check all repaired joints/connections.",
+      "Carry out functional and, where applicable, pressure or flow testing to prove the repair.",
+      "Restore the system to full operational service and cancel any impairment notification in writing.",
+      "Issue a written remedial works completion report listing works carried out, parts fitted and test results.",
+      "Leave the work area clean, dry and tidy.",
+    ],
+    location: "Plant rooms, riser cupboards, ceiling voids, stairwells and protected areas where remedial works are required.",
+    resources: "Minimum of: 2 Operatives.",
+    personnel: "",
+    plantAndEquipment: [
+      ...COMMON_PLANT,
+      PRESSURE_TEST_GAUGE,
+      "Pipe wrenches, spanners and cutting equipment",
+      "Drain-down hoses, drip trays, sheeting and wet vacuum",
+      "Steps / podium steps or mobile access platform",
+      "Replacement components and fixings",
+      "Fire extinguisher (dry powder or CO2) — where hot works are undertaken",
+    ],
+    significantRisks: [
+      "System impairment / reduced fire protection", "Water discharge and damage to contents",
+      "Working at height from steps or platforms", "Hot works / fire risk", "Manual handling",
+      "Slips/trips on wet floors", "Lone working",
+    ],
+    specialTraining: "All operatives hold current CSCS cards and are competent for the system being repaired. Hot works only by trained and competent operatives.",
+    ppeItems: [
+      ...COMMON_PPE,
+      "Face Shield EN166 (for grinding/hot works)",
+    ],
+    riskRows: [
+      ["System isolation for repair","Reduced or no fire protection during impairment","Uncontrolled fire spread while the system is out of service.","4","6","24","Written impairment notification. Isolate the smallest possible section. Agree interim fire safety measures. Minimise duration and confirm restoration in writing.","2","4","8",""],
+      ["Drain-down / component replacement","Water discharge and damage","Water damage to finishes, contents and electrical equipment. Slip hazards.","4","5","20","Controlled drain-down. Drip trays, sheeting and wet vacuum. Protect electrical equipment. Mop up immediately and use wet floor signs.","2","3","6",""],
+      ["Working from steps / platform","Falls from height","Falls causing injury. Dropped tools striking persons below.","4","5","20","Correct access equipment inspected before use. Stable, level footing. Exclusion zone beneath. Hard hats worn.","2","3","6",""],
+      ["Cutting / grinding / brazing (hot works)","Fire risk from sparks or naked flame","Fire breaking out. Structural damage. Occupant evacuation.","4","6","24","Hot Works Permit before starting. Combustibles cleared to 3 m. Spark guards/fire blankets. Extinguisher at point of works. 60-minute fire watch.","2","3","6",""],
+      ["Reinstatement and testing","System left impaired or incorrectly reinstated","System fails to operate in a fire. Non-compliance.","3","6","18","Functional/pressure test after repair. Second-person check. Impairment cancelled in writing and completion report issued.","1","5","5",""],
       ...COMMON_RISK_ROWS,
     ],
   },
@@ -795,6 +908,23 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
   },
 };
 
+export const REMEDIAL_RAMS_TYPES: RamsType[] = ["dry_riser_remedial", "sprinkler_remedial", "general_remedial"];
+
+export function isRemedialRamsType(type: RamsType): boolean {
+  return REMEDIAL_RAMS_TYPES.includes(type);
+}
+
+/**
+ * Maps a base trade type to its remedial variant where one exists,
+ * otherwise falls back to the generic remedial type.
+ */
+export function remedialVariantFor(type: RamsType): RamsType {
+  if (isRemedialRamsType(type)) return type;
+  if (type === "dry_riser") return "dry_riser_remedial";
+  if (type === "sprinkler") return "sprinkler_remedial";
+  return "general_remedial";
+}
+
 export function getRamsDefaults(type: RamsType): RamsDefaults {
   return DEFAULTS[type] ?? DEFAULTS.dry_riser;
 }
@@ -816,6 +946,12 @@ export function buildScopeDescription(
 
   if (type === "installation") {
     return DEFAULTS.installation.descriptionOfWork;
+  }
+
+  // Remedial types are defect-driven, not quantity-driven — quantities on the
+  // job describe inspections, so never rewrite a remedial scope from them.
+  if (isRemedialRamsType(type)) {
+    return DEFAULTS[type].descriptionOfWork;
   }
 
   const parts: string[] = [];
