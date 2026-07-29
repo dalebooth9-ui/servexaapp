@@ -152,8 +152,10 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
             jobId={jobId}
             engineers={engineers}
             isAdmin={false}
+            simpleFilters
             canUpload={job?.status !== "cancelled" && isAssignedEngineer}
           />
+
         </Suspense>
       </section>
     </div>
