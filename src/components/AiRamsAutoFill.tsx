@@ -243,9 +243,9 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
           <div className="border-t px-5 py-3 flex items-center justify-between gap-3 bg-card">
             <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" className="gap-1.5" onClick={generate} disabled={loading}>
+              <Button variant={result ? "ghost" : "default"} size="sm" className="gap-1.5" onClick={generate} disabled={loading || needsWorks}>
                 {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                Regenerate
+                {result ? "Regenerate" : "Generate"}
               </Button>
               <Button size="sm" className="gap-1.5" onClick={handleApply} disabled={loading || !result}>
                 <Check className="h-3.5 w-3.5" />
