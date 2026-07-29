@@ -69,6 +69,8 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
     dry_riser: "Dry Riser",
     dry_riser_remedial: "Dry Riser — Remedial / Repairs",
     sprinkler: "Sprinkler",
+    sprinkler_remedial: "Sprinkler — Remedials / Repairs",
+    general_remedial: "Remedials / Repairs (General)",
     fire_extinguisher: "Fire Extinguisher",
     fire_hydrant: "Fire Hydrant",
   };
@@ -77,7 +79,7 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
     <>
       <Button variant="outline" size="sm" className="gap-2" onClick={() => handleOpen(true)}>
         <Sparkles className="h-3.5 w-3.5 text-primary" />
-        AI Auto-Fill RAMS
+        {triggerLabel || "AI Auto-Fill RAMS"}
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpen}>
