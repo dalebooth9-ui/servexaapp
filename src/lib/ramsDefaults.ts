@@ -908,6 +908,23 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
   },
 };
 
+export const REMEDIAL_RAMS_TYPES: RamsType[] = ["dry_riser_remedial", "sprinkler_remedial", "general_remedial"];
+
+export function isRemedialRamsType(type: RamsType): boolean {
+  return REMEDIAL_RAMS_TYPES.includes(type);
+}
+
+/**
+ * Maps a base trade type to its remedial variant where one exists,
+ * otherwise falls back to the generic remedial type.
+ */
+export function remedialVariantFor(type: RamsType): RamsType {
+  if (isRemedialRamsType(type)) return type;
+  if (type === "dry_riser") return "dry_riser_remedial";
+  if (type === "sprinkler") return "sprinkler_remedial";
+  return "general_remedial";
+}
+
 export function getRamsDefaults(type: RamsType): RamsDefaults {
   return DEFAULTS[type] ?? DEFAULTS.dry_riser;
 }
