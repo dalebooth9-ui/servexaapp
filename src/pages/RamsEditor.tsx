@@ -637,23 +637,51 @@ export default function RamsEditor() {
    * field stays editable, and existing risk rows are preserved above the
    * AI-suggested ones.
    */
-  const applyAiResult = useCallback((res: { description: string; method_statement: string; hazards: string[]; controls: string[]; ppe: string[] }) => {
-    const methodLines = (res.method_statement || "").split("\n").map((l) => l.trim().replace(/^\d+[.)]\s*/, "")).filter(Boolean);
+  const applyAiResult = useCallback((res: { description: string; method_statement: string; hazards: string[]; controls: string[]; ppe: string[]; risk_rows?: any[] }) => {
+    // Models sometimes emit escaped "\n" inside the JSON string — normalise both forms.
+    const methodLines = (res.method_statement || "")
+      .replace(/\\n/g, "\n")
+      .split("\n")
+      .map((l) => l.trim().replace(/^\d+[.)]\s*/, ""))
+      .filter(Boolean);
     if (res.description) setDescriptionOfWork(res.description);
     if (methodLines.length) setTaskSpecificOps(methodLines);
     if (res.hazards?.length) setSignificantRisks(Array.from(new Set(res.hazards)));
     if (res.ppe?.length) setPpeItems((prev) => Array.from(new Set([...prev, ...res.ppe])));
-    const hazards = res.hazards || [];
-    const controls = res.controls || [];
-    const rows = Array.from({ length: Math.max(hazards.length, controls.length) }, (_, i) => [
-      isRemedialRamsType(ramsType) ? "Remedial / repair works" : "Works activity",
-      hazards[i] || "",
-      "",
-      "3", "4", "12",
-      controls[i] || "",
-      "2", "2", "4",
-      "",
-    ]);
+    const fallbackActivity = isRemedialRamsType(ramsType) ? "Remedial / repair works" : "Works activity";
+    const clamp = (n: any, d: number) => {
+      const v = Number(n);
+      return Number.isFinite(v) && v >= 1 && v <= 5 ? Math.round(v) : d;
+    };
+    let rows: string[][];
+    if (res.risk_rows?.length) {
+      // AI-supplied PAS 79 rows: activity, hazard, who at risk, L x S, controls, residual L x S.
+      rows = res.risk_rows.map((r: any) => {
+        const l = clamp(r.likelihood, 3), s = clamp(r.severity, 4);
+        const rl = clamp(r.residual_likelihood, 2), rs = clamp(r.residual_severity, 2);
+        return [
+          r.activity || fallbackActivity,
+          r.hazard || "",
+          r.who_at_risk || "",
+          String(l), String(s), String(l * s),
+          r.control || "",
+          String(rl), String(rs), String(rl * rs),
+          "",
+        ];
+      });
+    } else {
+      const hazards = res.hazards || [];
+      const controls = res.controls || [];
+      rows = Array.from({ length: Math.max(hazards.length, controls.length) }, (_, i) => [
+        fallbackActivity,
+        hazards[i] || "",
+        "",
+        "3", "4", "12",
+        controls[i] || "",
+        "2", "2", "4",
+        "",
+      ]);
+    }
     if (rows.length) setRiskRows((prev) => [...prev, ...rows]);
   }, [ramsType]);
 
@@ -807,6 +835,7 @@ export default function RamsEditor() {
             address={coverFields.siteLocation}
             customer={coverFields.client}
             ramsType={ramsType}
+            worksDescription={job?.brief || descriptionOfWork || ""}
             triggerLabel={jobId ? "AI fill from job" : "AI Auto-Fill"}
             onApply={applyAiResult}
           />
