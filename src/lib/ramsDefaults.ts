@@ -8,6 +8,7 @@ export type RamsType =
   | "dry_riser_remedial"
   | "wet_riser"
   | "sprinkler"
+  | "sprinkler_remedial"
   | "fire_extinguisher"
   | "fire_hydrant"
   | "fire_alarm"
@@ -19,7 +20,8 @@ export type RamsType =
   | "water_mist"
   | "hose_reel"
   | "fire_risk_assessment"
-  | "installation";
+  | "installation"
+  | "general_remedial";
 
 export interface RamsDefaults {
   descriptionOfWork: string;
