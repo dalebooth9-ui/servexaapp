@@ -535,32 +535,12 @@ export default function RamsEditor() {
             setDraftRestored(true);
           } catch {
             // Corrupt draft — fall back to defaults
-            const catMap2: Record<string, RamsType> = {
-              dry_riser: "dry_riser", dry_riser_remedial: "dry_riser_remedial", wet_riser: "wet_riser",
-              sprinkler: "sprinkler", fire_extinguisher: "fire_extinguisher",
-              fire_hydrant: "fire_hydrant", fire_alarm: "fire_alarm",
-              emergency_lighting: "emergency_lighting", aov_smoke_control: "aov_smoke_control",
-              passive_fire: "passive_fire", gas_suppression: "gas_suppression",
-              kitchen_suppression: "kitchen_suppression", water_mist: "water_mist",
-              hose_reel: "hose_reel", fire_risk_assessment: "fire_risk_assessment",
-              installation: "installation",
-            };
-            const type2: RamsType = (jobData?.category && catMap2[jobData.category]) || queryType || "dry_riser";
+            const type2 = detectRamsType(jobData, queryType);
             loadDefaults(type2, jobData);
           }
         } else {
           // Auto-detect type from job category (all categories)
-          const catMap: Record<string, RamsType> = {
-            dry_riser: "dry_riser", dry_riser_remedial: "dry_riser_remedial", wet_riser: "wet_riser",
-            sprinkler: "sprinkler", fire_extinguisher: "fire_extinguisher",
-            fire_hydrant: "fire_hydrant", fire_alarm: "fire_alarm",
-            emergency_lighting: "emergency_lighting", aov_smoke_control: "aov_smoke_control",
-            passive_fire: "passive_fire", gas_suppression: "gas_suppression",
-            kitchen_suppression: "kitchen_suppression", water_mist: "water_mist",
-            hose_reel: "hose_reel", fire_risk_assessment: "fire_risk_assessment",
-            installation: "installation",
-          };
-          const type: RamsType = (jobData?.category && catMap[jobData.category]) || queryType || "dry_riser";
+          const type = detectRamsType(jobData, queryType);
           loadDefaults(type, jobData);
         }
       }
