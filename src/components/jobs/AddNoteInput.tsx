@@ -99,12 +99,13 @@ export default function AddNoteInput({ jobId, userId, onAdded }: AddNoteInputPro
         className="hidden"
         onChange={handleCameraCapture}
       />
-      <input
+      <Input
         value={note}
         onChange={(e) => setNote(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAdd(); } }}
         placeholder="Add a note..."
-        className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        dictation
+        className="flex-1 h-9 text-sm"
       />
       <Button size="sm" onClick={handleAdd} disabled={saving || !note.trim()}>
         <Plus className="h-3.5 w-3.5 mr-1" /> Add Note
