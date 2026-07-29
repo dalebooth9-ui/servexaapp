@@ -767,6 +767,7 @@ function DesktopGrid({
                         {...commonInputProps}
                         value={val}
                         onChange={(e) => onUpdateCell(row.id, col.id, e.target.value)}
+                        dictation={/comment|note|remark|observation|descri|defect|action|finding/i.test(col.label || "")}
                         className="h-8 text-sm"
                       />
                     )}

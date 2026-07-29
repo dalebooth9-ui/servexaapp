@@ -524,6 +524,7 @@ export default function ScanReviewDialog({
           <Input
             value={value ?? ""}
             onChange={(e) => updateAnswer(field.id, e.target.value)}
+            dictation
           />
         );
     }
