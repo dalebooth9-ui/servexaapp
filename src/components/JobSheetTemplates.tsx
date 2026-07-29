@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { saveFormDraft, clearFormDraft, loadFormDraftSync } from "@/lib/offlineFormStorage";
 import { supabase } from "@/integrations/supabase/client";
+import { buildRemedialWorksPrefill } from "@/lib/remedialWorksPrefill";
 import { useAuth } from "@/hooks/useAuth";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { deriveScopeFromTemplateName, fetchJobPrefillContext } from "@/lib/jobSheetPrefill";
@@ -985,24 +986,23 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         sitePhotoCaptions: merged._site_photo_captions,
         hasSitePhotos: Array.isArray(merged._site_photo_urls) && merged._site_photo_urls.length > 0,
       });
-      setFormData(await withRemedialWorks(merged));
+      setFormData(await withRemedialWorks(merged, template.fields));
     } else {
       setActiveResponse(null);
       if (localDraft) {
         // Restore from local draft, keeping fresh auto-populated values
         const merged = { ...localDraft, ...prefilled };
-        setFormData(await withRemedialWorks(merged));
+        setFormData(await withRemedialWorks(merged, template.fields));
       } else {
-        setFormData(await withRemedialWorks(prefilled));
+        setFormData(await withRemedialWorks(prefilled, template.fields));
       }
     }
   };
 
   /** Fill the remedial works table from the job's remedial checklist (if empty). */
-  const withRemedialWorks = async (data: Record<string, any>): Promise<Record<string, any>> => {
+  const withRemedialWorks = async (data: Record<string, any>, fields: any[]): Promise<Record<string, any>> => {
     try {
-      const fields = (activeTemplateRefFields.current || []) as any[];
-      const patch = await buildRemedialWorksPrefill(fields, jobId, data);
+      const patch = await buildRemedialWorksPrefill((fields || []) as any, jobId, data);
       return Object.keys(patch).length > 0 ? { ...data, ...patch } : data;
     } catch (e) {
       console.warn("[JobSheetTemplates] remedial works prefill failed", e);
