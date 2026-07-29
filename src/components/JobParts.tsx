@@ -4,11 +4,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Package, Upload, Download, Pencil, Library, GripVertical, Printer } from "lucide-react";
+import { Plus, Trash2, Package, Upload, Download, Pencil, Library, GripVertical, Printer, BookPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUndoAction } from "@/hooks/useUndoAction";
 import ImportPartsDialog from "@/components/ImportPartsDialog";
 import PartsLibraryPicker from "@/components/PartsLibraryPicker";
+import PartNameSuggestInput from "@/components/parts/PartNameSuggestInput";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -83,10 +85,12 @@ function InlineAddRow({
   isAdmin,
   onAdd,
   colSpan,
+  showCosts = false,
 }: {
   isAdmin: boolean;
   onAdd: (form: { name: string; quantity: string; unit_cost: string; sell_price: string; notes: string }) => Promise<void>;
   colSpan: number;
+  showCosts?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", quantity: "1", unit_cost: "0", sell_price: "0", notes: "" });
@@ -120,21 +124,31 @@ function InlineAddRow({
     <tr className="bg-muted/30">
       <td colSpan={colSpan}>
         <div className="flex flex-wrap gap-2 items-center py-1 px-2">
-          <Input
-            placeholder="Part name"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="h-8 text-sm flex-1 min-w-[120px]"
-            autoFocus
-            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-          />
+          <div className="flex-1 min-w-[140px]">
+            <PartNameSuggestInput
+              value={form.name}
+              onChange={(v) => setForm((f) => ({ ...f, name: v }))}
+              onPick={(p) => setForm((f) => ({
+                ...f,
+                name: p.name,
+                unit_cost: String(p.unit_cost ?? 0),
+                sell_price: String(p.sell_price ?? 0),
+                notes: f.notes || (p.part_number ? `#${p.part_number}` : ""),
+              }))}
+              onEnter={handleSubmit}
+              placeholder="Part name (type anything)"
+              className="h-8 text-sm"
+              autoFocus
+            />
+          </div>
           <Input
             type="number" placeholder="Qty" min="0" step="1"
             value={form.quantity}
             onChange={(e) => setForm({ ...form, quantity: e.target.value })}
             className="h-8 text-sm w-16 text-right"
           />
-          {isAdmin && (
+          {isAdmin && showCosts && (
+
             <>
               <Input
                 type="number" placeholder="Unit £" min="0" step="0.01"
@@ -170,8 +184,10 @@ function InlineAddRow({
 // Sortable table row
 function SortablePartRow({
   part, isAdmin, isEditing, editForm, setEditForm, startEdit, cancelEdit, saveEdit,
-  selected, toggleSelect, handleDelete, user,
+  selected, toggleSelect, handleDelete, user, onAddToPriceBook,
 }: {
+  onAddToPriceBook?: (p: JobPart) => void;
+
   part: JobPart;
   isAdmin: boolean;
   isEditing: boolean;
@@ -249,6 +265,16 @@ function SortablePartRow({
               <Pencil className="h-4 w-4" />
             </button>
           )}
+          {isAdmin && !isEditing && onAddToPriceBook && (
+            <button
+              onClick={() => onAddToPriceBook(part)}
+              title="Add to price book"
+              aria-label={`Add ${part.name} to price book`}
+              className="text-muted-foreground hover:text-primary"
+            >
+              <BookPlus className="h-4 w-4" />
+            </button>
+          )}
           {(isAdmin || part.added_by === user?.id) && !isEditing && (
             <button onClick={() => handleDelete(part.id)} className="text-muted-foreground hover:text-destructive">
               <Trash2 className="h-4 w-4" />
@@ -256,6 +282,7 @@ function SortablePartRow({
           )}
         </div>
       </TableCell>
+
     </TableRow>
   );
 }
@@ -268,6 +295,9 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", quantity: "", unit_cost: "0", sell_price: "0", notes: "" });
+  // Costs are optional — hidden until the office wants to price the job up.
+  const [showCosts, setShowCosts] = useState(false);
+
   const [importOpen, setImportOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -502,6 +532,31 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
   const totalSellValue = parts.reduce((sum, p) => sum + ((p.sell_price || 0) * p.quantity), 0);
   const totalProfit = totalSellValue - totalCost;
 
+  // Promote a recurring ad-hoc entry into the reusable price book.
+  const addToPriceBook = async (part: JobPart) => {
+    if (!user) return;
+    const { data: prof } = await supabase.from("profiles").select("org_id").eq("user_id", user.id).maybeSingle();
+    const { data: existing } = await supabase
+      .from("parts_library")
+      .select("id")
+      .ilike("name", part.name.trim())
+      .limit(1);
+    if (existing && existing.length) {
+      toast({ title: "Already in the price book", description: part.name });
+      return;
+    }
+    const { error } = await supabase.from("parts_library").insert({
+      name: part.name.trim(),
+      unit_cost: part.unit_cost || 0,
+      sell_price: part.sell_price || 0,
+      org_id: prof?.org_id || null,
+      created_by: user.id,
+      list_type: jobCategory?.includes("install") ? "install" : "general",
+    } as any);
+    if (error) toast({ title: "Couldn't add to price book", description: error.message, variant: "destructive" });
+    else toast({ title: "Added to price book", description: `${part.name} can now be reused.` });
+  };
+
   // Column count for inline add row span
   const colCount = 5 + (isAdmin ? 6 : 0); // grip + checkbox + name + qty + notes + actions + admin cols
 
@@ -511,12 +566,25 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 items-end">
         <div className="flex-1 min-w-[150px]">
-          <Input placeholder="Part / material name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <PartNameSuggestInput
+            value={form.name}
+            onChange={(v) => setForm((f) => ({ ...f, name: v }))}
+            onPick={(p) => setForm((f) => ({
+              ...f,
+              name: p.name,
+              unit_cost: String(p.unit_cost ?? 0),
+              sell_price: String(p.sell_price ?? 0),
+              notes: f.notes || (p.part_number ? `#${p.part_number}` : ""),
+            }))}
+            onEnter={handleAdd}
+            listType={jobCategory?.includes("install") ? "install" : "general"}
+            placeholder="Part / material — type anything, no cost needed"
+          />
         </div>
         <div className="w-20">
           <Input type="number" placeholder="Qty" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} min="0" step="1" />
         </div>
-        {isAdmin && (
+        {isAdmin && showCosts && (
           <>
             <div className="w-24">
               <Input type="number" placeholder="Unit £" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} min="0" step="0.01" />
@@ -532,6 +600,12 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
         <Button onClick={handleAdd} disabled={adding || !form.name.trim()} size="sm">
           <Plus className="mr-1 h-4 w-4" /> Add
         </Button>
+        {isAdmin && (
+          <Button variant="ghost" size="sm" onClick={() => setShowCosts((v) => !v)}>
+            {showCosts ? "Hide costs" : "Add costs (optional)"}
+          </Button>
+        )}
+
         <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
           <Upload className="mr-1 h-4 w-4" /> Import
         </Button>
@@ -761,6 +835,7 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
                   <InlineAddRow
                     key="add-top"
                     isAdmin={isAdmin}
+                    showCosts={showCosts}
                     colSpan={colCount}
                     onAdd={(f) => handleAddAt(f, -1)}
                   />
@@ -780,10 +855,12 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
                         toggleSelect={toggleSelect}
                         handleDelete={handleDelete}
                         user={user}
+                        onAddToPriceBook={addToPriceBook}
                       />
                       <InlineAddRow
                         key={`add-${part.id}`}
                         isAdmin={isAdmin}
+                        showCosts={showCosts}
                         colSpan={colCount}
                         onAdd={(f) => handleAddAt(f, idx)}
                       />
