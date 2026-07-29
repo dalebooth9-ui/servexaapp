@@ -26,6 +26,8 @@ const JobDocuments = lazy(() => import("@/components/JobDocuments"));
 const JobDefects = lazy(() => import("@/components/jobs/JobDefects"));
 const JobPhotos = lazy(() => import("@/components/jobs/JobPhotos"));
 const JobSheet = lazy(() => import("@/components/JobSheet"));
+const QuickPartsList = lazy(() => import("@/components/jobs/QuickPartsList"));
+
 
 const Fallback = () => (
   <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />
