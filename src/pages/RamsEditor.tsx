@@ -646,7 +646,7 @@ export default function RamsEditor() {
     const hazards = res.hazards || [];
     const controls = res.controls || [];
     const rows = Array.from({ length: Math.max(hazards.length, controls.length) }, (_, i) => [
-      "Remedial / repair works",
+      isRemedialRamsType(ramsType) ? "Remedial / repair works" : "Works activity",
       hazards[i] || "",
       "",
       "3", "4", "12",
@@ -655,7 +655,7 @@ export default function RamsEditor() {
       "",
     ]);
     if (rows.length) setRiskRows((prev) => [...prev, ...rows]);
-  }, []);
+  }, [ramsType]);
 
   const handleTypeChange = (type: RamsType) => {
     if (window.confirm("Changing RAMS type will reset content to defaults for that type. Continue?")) {

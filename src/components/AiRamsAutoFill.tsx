@@ -91,6 +91,7 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
             </DialogTitle>
             <DialogDescription>
               {ramsTypeLabel[ramsType] || ramsType} · {jobName || "Job"}
+              {jobId ? " · tailored to this job's defects, remedial items and parts" : ""}
             </DialogDescription>
           </DialogHeader>
 
@@ -99,7 +100,7 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
               <div className="flex flex-col items-center justify-center gap-3 py-12 text-muted-foreground text-sm">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 <p>AI generating RAMS content…</p>
-                <p className="text-xs opacity-60">Tailoring to {ramsTypeLabel[ramsType]} requirements</p>
+                <p className="text-xs opacity-60">{jobId ? "Reading this job's defects, parts and site details…" : `Tailoring to ${ramsTypeLabel[ramsType] || "RAMS"} requirements`}</p>
               </div>
             )}
 
