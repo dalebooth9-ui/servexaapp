@@ -166,16 +166,12 @@ Write the description as a specific Scope of Works naming the actual tasks (with
         }`
       : "";
 
-    const systemPrompt = `You are a fire safety RAMS (Risk Assessment and Method Statement) expert.
-Generate professional, compliance-ready RAMS content for UK fire safety work.
-Return ONLY valid JSON matching this exact schema with no markdown wrapping:
-{
-  "description": "Brief project description (2-3 sentences)",
-  "method_statement": "Step-by-step method statement (numbered list as a single string with newlines)",
-  "hazards": ["hazard 1", "hazard 2", ...],
-  "controls": ["control measure 1", "control measure 2", ...],
-  "ppe": ["PPE item 1", "PPE item 2", ...]
-}`;
+    const systemPrompt = `You are a fire safety RAMS (Risk Assessment and Method Statement) expert writing UK, PAS 79-aligned documents.
+Rules:
+- The DESCRIPTION OF WORKS REQUIRED supplied by the user is the source of truth. Every task it names must appear in the method statement, in a sensible sequence, with the practical steps that task really involves.
+- Only include hazards, controls and PPE that genuinely apply to the described works. Do not pad with irrelevant generic content.
+- Give each hazard a paired control measure and sensible pre-control and residual risk ratings (likelihood 1-5, severity 1-5) using the usual L x S scoring; residual must be lower than initial.
+- British English throughout.`;
 
     const ramsTypeLabel: Record<string, string> = {
       dry_riser: "Dry Riser System",
@@ -199,69 +195,19 @@ Return ONLY valid JSON matching this exact schema with no markdown wrapping:
     };
 
     const isRemedial = ["dry_riser_remedial", "sprinkler_remedial", "general_remedial"].includes(ramsType) ||
-      /remedial|repair/i.test(`${jobName || ""} ${category || ""}`);
-
-    // ---- Job-aware context: read the job's real scope, defects, remedial
-    // items, parts and site details so the draft describes the actual works.
-    let jobContext = "";
-    if (jobId) {
-      try {
-        const { data: job } = await supabase
-          .from("jobs")
-          .select("id, reference_number, name, brief, address, customer, is_remedial, site_id, customers(name), sites(name, address, riser_location, notes)")
-          .eq("id", jobId)
-          .maybeSingle();
-
-        const siteId = (job as any)?.site_id || null;
-        const [defectsRes, remedialsRes, partsRes] = await Promise.all([
-          supabase
-            .from("defects")
-            .select("title, description, severity, status, location_on_site, job_id, site_id")
-            .or(siteId ? `job_id.eq.${jobId},site_id.eq.${siteId}` : `job_id.eq.${jobId}`)
-            .neq("status", "resolved")
-            .limit(40),
-          supabase.from("job_remedial_items").select("description, comment, status").eq("job_id", jobId).limit(40),
-          supabase.from("job_parts").select("name, quantity, notes").eq("job_id", jobId).limit(40),
-        ]);
-
-        const defects = ((defectsRes.data as any) || []).map(
-          (d: any) => `- ${d.title || "Defect"}${d.location_on_site ? ` (${d.location_on_site})` : ""}${d.severity ? ` [${d.severity}]` : ""}${d.description ? `: ${d.description}` : ""}`,
-        );
-        const remedials = ((remedialsRes.data as any) || []).map(
-          (r: any) => `- ${r.description || ""}${r.comment ? ` — ${r.comment}` : ""}`,
-        );
-        const parts = ((partsRes.data as any) || []).map(
-          (p: any) => `- ${p.quantity ?? 1}x ${p.name}${p.notes ? ` (${p.notes})` : ""}`,
-        );
-        const site = (job as any)?.sites || {};
-
-        const bits: string[] = [];
-        if ((job as any)?.brief) bits.push(`Job description / brief:\n${(job as any).brief}`);
-        if (site?.name || site?.address) bits.push(`Site: ${[site?.name, site?.address].filter(Boolean).join(", ")}`);
-        if (site?.riser_location) bits.push(`Riser / plant location: ${site.riser_location}`);
-        if (defects.length) bits.push(`Outstanding defects on this job/site:\n${defects.join("\n")}`);
-        if (remedials.length) bits.push(`Remedial items listed on the job:\n${remedials.join("\n")}`);
-        if (parts.length) bits.push(`Parts / materials allocated:\n${parts.join("\n")}`);
-
-        if (bits.length) {
-          jobContext = `\n\nACTUAL JOB CONTEXT — base the scope of works on this, not on generic servicing:\n${bits.join("\n\n")}\n
-Write the description as a specific Scope of Works naming the actual tasks (with quantities and locations where given) and referencing the site. Choose hazards, controls and method steps that genuinely apply to those tasks (e.g. drain-down and leak repair implies water damage control, system impairment notification to the responsible person/ARC, and a reinstatement/functional test; hot works only if cutting/brazing is actually implied).`;
-        }
-      } catch (ctxErr) {
-        console.error("job context fetch failed, falling back to category fill:", ctxErr);
-      }
-    }
+      Boolean(jobRow?.is_remedial) ||
+      /remedial|repair/i.test(`${jobName || ""} ${category || ""} ${worksDescription || ""}`);
 
     const userPrompt = `Generate RAMS content for:
 System Type: ${ramsTypeLabel[ramsType] || ramsType || "Fire Safety System"}
-Job Name: ${jobName || "N/A"}
-Category: ${category || "fire_safety"}
-Customer: ${customer || "N/A"}
-Site Address: ${address || "N/A"}
+Job Name: ${jobName || jobRow?.name || "N/A"}
+Category: ${category || jobRow?.category || "fire_safety"}
+Customer: ${customer || jobRow?.customers?.name || jobRow?.customer || "N/A"}
+Site Address: ${address || jobRow?.address || "N/A"}
 
-Tailor the method statement, hazards, and control measures specifically for ${ramsTypeLabel[ramsType] || "fire safety"} work in compliance with UK fire safety regulations.${
+Tailor the method statement, hazards, and control measures specifically for the works described below, in compliance with UK fire safety regulations and PAS 79 structure.${
       isRemedial
-        ? `\n\nThis is REMEDIAL / REPAIR work, not routine servicing. The method must cover: system isolation and drain-down where applicable, notification of system impairment, protection against water damage, replacement of defective components, hot works controls where cutting/grinding/brazing applies, working from steps/ladders/platforms, reinstatement, functional/pressure testing and leaving the system fully operational with a written completion report.`
+        ? `\n\nThis is REMEDIAL / REPAIR work, not routine servicing. Where relevant to the described works the method must cover: system isolation and drain-down, notification of system impairment to the responsible person/ARC, protection against water damage, safe access to the work area, replacement of defective components, hot works controls where cutting/grinding/brazing applies, working from steps/ladders/platforms, reinstatement, functional/pressure testing and leaving the system fully operational with a written completion report.`
         : ""
     }${jobContext}${librarySnippet}`;
 
