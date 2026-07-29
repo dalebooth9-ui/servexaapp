@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Check, Ban, RotateCcw, ClipboardList, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import RemedialItemPhotos from "@/components/jobs/RemedialItemPhotos";
 
 type RemedialItem = {
   id: string;
@@ -199,6 +200,12 @@ export default function JobRemedialChecklist({
                         </div>
                       </div>
                     )}
+                    <RemedialItemPhotos
+                      jobId={jobId}
+                      jobOrgId={jobOrgId}
+                      itemId={item.id}
+                      canEdit={canEdit}
+                    />
                   </div>
                   {canEdit && (
                     <div className="flex flex-col sm:flex-row gap-1 shrink-0">

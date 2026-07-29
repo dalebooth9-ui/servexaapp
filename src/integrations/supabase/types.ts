@@ -4483,14 +4483,15 @@ export type Database = {
           before_photo_url: string | null
           captured_at: string
           captured_by: string | null
-          checklist_id: string
+          checklist_id: string | null
           id: string
           is_pass: boolean | null
-          item_id: string
+          item_id: string | null
           job_id: string
           notes: string | null
           org_id: string
           photo_url: string | null
+          remedial_item_id: string | null
           response_type: string
           text_value: string | null
         }
@@ -4499,14 +4500,15 @@ export type Database = {
           before_photo_url?: string | null
           captured_at?: string
           captured_by?: string | null
-          checklist_id: string
+          checklist_id?: string | null
           id?: string
           is_pass?: boolean | null
-          item_id: string
+          item_id?: string | null
           job_id: string
           notes?: string | null
           org_id?: string
           photo_url?: string | null
+          remedial_item_id?: string | null
           response_type?: string
           text_value?: string | null
         }
@@ -4515,14 +4517,15 @@ export type Database = {
           before_photo_url?: string | null
           captured_at?: string
           captured_by?: string | null
-          checklist_id?: string
+          checklist_id?: string | null
           id?: string
           is_pass?: boolean | null
-          item_id?: string
+          item_id?: string | null
           job_id?: string
           notes?: string | null
           org_id?: string
           photo_url?: string | null
+          remedial_item_id?: string | null
           response_type?: string
           text_value?: string | null
         }
@@ -4567,6 +4570,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_photo_checklist_responses_remedial_item_id_fkey"
+            columns: ["remedial_item_id"]
+            isOneToOne: false
+            referencedRelation: "job_remedial_items"
             referencedColumns: ["id"]
           },
         ]
