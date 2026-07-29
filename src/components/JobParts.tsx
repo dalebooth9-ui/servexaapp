@@ -295,6 +295,9 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", quantity: "", unit_cost: "0", sell_price: "0", notes: "" });
+  // Costs are optional — hidden until the office wants to price the job up.
+  const [showCosts, setShowCosts] = useState(false);
+
   const [importOpen, setImportOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
