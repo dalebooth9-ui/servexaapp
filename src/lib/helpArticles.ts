@@ -33,6 +33,8 @@ const RULES: SlugRule[] = [
   { test: (p) => p === "/invoices" || p.startsWith("/invoices/"), slug: "invoices" },
   { test: (p) => p === "/contracts" || p.startsWith("/contracts/"), slug: "contracts" },
   { test: (p) => p === "/parts-library", slug: "parts-library" },
+  { test: (p) => /^\/jobs\/[^/]+$/.test(p), slug: "adhoc-job-parts" },
+
   { test: (p) => p === "/stock", slug: "van-stock" },
   { test: (p) => p === "/industry-templates" || p === "/templates", slug: "industry-templates" },
   { test: (p) => p === "/reports" || p.startsWith("/reports/"), slug: "reports" },
