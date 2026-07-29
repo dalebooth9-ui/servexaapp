@@ -249,6 +249,16 @@ function SortablePartRow({
               <Pencil className="h-4 w-4" />
             </button>
           )}
+          {isAdmin && !isEditing && onAddToPriceBook && (
+            <button
+              onClick={() => onAddToPriceBook(part)}
+              title="Add to price book"
+              aria-label={`Add ${part.name} to price book`}
+              className="text-muted-foreground hover:text-primary"
+            >
+              <BookPlus className="h-4 w-4" />
+            </button>
+          )}
           {(isAdmin || part.added_by === user?.id) && !isEditing && (
             <button onClick={() => handleDelete(part.id)} className="text-muted-foreground hover:text-destructive">
               <Trash2 className="h-4 w-4" />
@@ -256,6 +266,7 @@ function SortablePartRow({
           )}
         </div>
       </TableCell>
+
     </TableRow>
   );
 }
