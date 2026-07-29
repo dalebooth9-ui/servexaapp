@@ -170,8 +170,10 @@ function InlineAddRow({
 // Sortable table row
 function SortablePartRow({
   part, isAdmin, isEditing, editForm, setEditForm, startEdit, cancelEdit, saveEdit,
-  selected, toggleSelect, handleDelete, user,
+  selected, toggleSelect, handleDelete, user, onAddToPriceBook,
 }: {
+  onAddToPriceBook?: (p: JobPart) => void;
+
   part: JobPart;
   isAdmin: boolean;
   isEditing: boolean;
