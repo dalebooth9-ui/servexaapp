@@ -21,10 +21,13 @@ interface Props {
   address?: string;
   customer?: string;
   ramsType?: string;
+  /** When supplied, the AI reads the job's defects, remedial items and parts to tailor the draft. */
+  jobId?: string | null;
+  triggerLabel?: string;
   onApply: (result: RamsAutoFillResult) => void;
 }
 
-export default function AiRamsAutoFill({ jobName, category, address, customer, ramsType = "dry_riser", onApply }: Props) {
+export default function AiRamsAutoFill({ jobName, category, address, customer, ramsType = "dry_riser", jobId, triggerLabel, onApply }: Props) {
   const [open, setOpen] = useState(false);
   const [result, setResult] = useState<RamsAutoFillResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -35,7 +38,7 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
     setResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("ai-rams-autofill", {
-        body: { jobName, category, address, customer, ramsType },
+        body: { jobName, category, address, customer, ramsType, jobId },
       });
       if (error) throw error;
       if (data?.error) {
@@ -48,7 +51,7 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
     } finally {
       setLoading(false);
     }
-  }, [jobName, category, address, customer, ramsType, toast]);
+  }, [jobName, category, address, customer, ramsType, jobId, toast]);
 
   const handleOpen = (v: boolean) => {
     setOpen(v);
