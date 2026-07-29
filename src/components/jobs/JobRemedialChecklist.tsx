@@ -200,6 +200,12 @@ export default function JobRemedialChecklist({
                         </div>
                       </div>
                     )}
+                    <RemedialItemPhotos
+                      jobId={jobId}
+                      jobOrgId={jobOrgId}
+                      itemId={item.id}
+                      canEdit={canEdit}
+                    />
                   </div>
                   {canEdit && (
                     <div className="flex flex-col sm:flex-row gap-1 shrink-0">
