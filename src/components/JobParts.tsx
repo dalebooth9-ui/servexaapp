@@ -866,9 +866,6 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
                       />
                     </>
                   ))}
-
-                    </>
-                  ))}
                 </TableBody>
               </Table>
             </SortableContext>
