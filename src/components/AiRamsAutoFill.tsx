@@ -192,7 +192,7 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
                 <section>
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Method Statement</p>
                   <div className="rounded-lg bg-muted/40 border p-3 space-y-1">
-                    {result.method_statement.split("\n").filter(Boolean).map((line, i) => (
+                    {result.method_statement.replace(/\\n/g, "\n").split("\n").filter(Boolean).map((line, i) => (
                       <p key={i} className="text-sm text-foreground/90">{line}</p>
                     ))}
                   </div>
