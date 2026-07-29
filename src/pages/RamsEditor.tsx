@@ -39,6 +39,8 @@ const RAMS_TYPE_LABELS: Record<RamsType, string> = {
   dry_riser_remedial: "Dry Riser — Remedial / Repairs",
   wet_riser: "Wet Riser",
   sprinkler: "Sprinkler",
+  sprinkler_remedial: "Sprinkler — Remedials / Repairs",
+  general_remedial: "Remedials / Repairs (General)",
   fire_extinguisher: "Fire Extinguisher",
   fire_hydrant: "Fire Hydrant",
   fire_alarm: "Fire Alarm",
