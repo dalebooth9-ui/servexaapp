@@ -931,6 +931,12 @@ export function buildScopeDescription(
     return DEFAULTS.installation.descriptionOfWork;
   }
 
+  // Remedial types are defect-driven, not quantity-driven — quantities on the
+  // job describe inspections, so never rewrite a remedial scope from them.
+  if (isRemedialRamsType(type)) {
+    return DEFAULTS[type].descriptionOfWork;
+  }
+
   const parts: string[] = [];
   if (pt > 0) parts.push(`pressure testing (${pt} system${pt > 1 ? "s" : ""})`);
   if (vis > 0) parts.push(`visual inspection (${vis} system${vis > 1 ? "s" : ""})`);
