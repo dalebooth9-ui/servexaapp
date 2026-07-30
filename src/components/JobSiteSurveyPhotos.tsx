@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useWhat3Words } from "@/hooks/useWhat3Words";
 import { Button } from "@/components/ui/button";
-import { Camera, Upload, Loader2, Trash2, MapPin } from "lucide-react";
+import { Camera, Upload, Loader2, Trash2, MapPin, ImageOff, RefreshCw } from "lucide-react";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
@@ -27,16 +27,37 @@ export default function JobSiteSurveyPhotos({ surveyId, jobId }: { surveyId: str
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [broken, setBroken] = useState<Record<string, boolean>>({});
+  const [retrying, setRetrying] = useState<Record<string, boolean>>({});
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  /**
+   * Sign the stored paths. Legacy rows may have been written without the
+   * org prefix (the uploader used to persist the un-prefixed path), so any
+   * row that fails to sign is retried against the org-prefixed variant.
+   */
   const signUrls = useCallback(async (rows: Photo[]) => {
     if (!rows.length) return rows;
     const { data } = await supabase.storage
       .from(BUCKET)
       .createSignedUrls(rows.map((r) => r.file_path), 3600);
-    return rows.map((r, i) => ({ ...r, signedUrl: data?.[i]?.signedUrl }));
+    const out = rows.map((r, i) => ({ ...r, signedUrl: data?.[i]?.signedUrl ?? undefined }));
+
+    const missing = out.filter((r) => !r.signedUrl);
+    if (missing.length) {
+      const alt = await Promise.all(missing.map((r) => buildOrgPathAsync(r.file_path)));
+      const { data: altData } = await supabase.storage.from(BUCKET).createSignedUrls(alt, 3600);
+      missing.forEach((r, i) => {
+        const url = altData?.[i]?.signedUrl;
+        if (url) {
+          const target = out.find((o) => o.id === r.id);
+          if (target) target.signedUrl = url;
+        }
+      });
+    }
+    return out;
   }, []);
 
   const load = useCallback(async () => {
@@ -51,11 +72,28 @@ export default function JobSiteSurveyPhotos({ surveyId, jobId }: { surveyId: str
       setLoading(false);
       return;
     }
+    setBroken({});
     setPhotos(await signUrls((data as any[]) || []));
     setLoading(false);
   }, [surveyId, signUrls, toast]);
 
   useEffect(() => { load(); }, [load]);
+
+  const retryOne = useCallback(async (p: Photo) => {
+    setRetrying((r) => ({ ...r, [p.id]: true }));
+    const [signed] = await signUrls([p]);
+    setRetrying((r) => ({ ...r, [p.id]: false }));
+    if (signed?.signedUrl) {
+      setBroken((b) => ({ ...b, [p.id]: false }));
+      setPhotos((prev) => prev.map((x) => (x.id === p.id ? { ...x, signedUrl: signed.signedUrl } : x)));
+    } else {
+      toast({
+        title: "Image still unavailable",
+        description: "The file hasn't finished uploading yet. Try again once you're back online.",
+        variant: "destructive",
+      });
+    }
+  }, [signUrls, toast]);
 
   const getW3W = (): Promise<string | null> =>
     new Promise((resolve) => {
@@ -74,7 +112,10 @@ export default function JobSiteSurveyPhotos({ surveyId, jobId }: { surveyId: str
     let ok = 0;
     for (const file of Array.from(files)) {
       const path = `job-survey/${jobId}/${surveyId}/${Date.now()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
-      const { error: upErr } = await supabase.storage.from(BUCKET).upload(await buildOrgPathAsync(path), file);
+      // The object is stored org-prefixed — persist the SAME path we uploaded
+      // to, otherwise the record can never resolve to a file.
+      const storedPath = await buildOrgPathAsync(path);
+      const { error: upErr } = await supabase.storage.from(BUCKET).upload(storedPath, file);
       if (upErr) {
         toast({ title: "Upload failed", description: upErr.message, variant: "destructive" });
         continue;
@@ -82,7 +123,7 @@ export default function JobSiteSurveyPhotos({ surveyId, jobId }: { surveyId: str
       const { error: insErr } = await supabase.from("job_site_survey_photos" as any).insert({
         survey_id: surveyId,
         job_id: jobId,
-        file_path: path,
+        file_path: storedPath,
         kind: "photo",
         what3words: w3w,
         created_by: user.id,
@@ -132,28 +173,58 @@ export default function JobSiteSurveyPhotos({ surveyId, jobId }: { surveyId: str
         </p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-          {photos.map((p, i) => (
-            <div key={p.id} className="relative group rounded-md overflow-hidden border bg-muted">
-              <button type="button" onClick={() => setLightboxIdx(i)} className="block w-full aspect-square">
-                {p.signedUrl && (
-                  <img src={p.signedUrl} alt={p.caption ?? "Survey photo"} data-uploaded="true" className="w-full h-full object-cover" loading="lazy" />
+          {photos.map((p, i) => {
+            const isBroken = !p.signedUrl || broken[p.id];
+            return (
+              <div key={p.id} className="relative group rounded-md overflow-hidden border bg-muted">
+                {isBroken ? (
+                  <div className="w-full aspect-square flex flex-col items-center justify-center gap-1.5 p-2 text-center bg-muted">
+                    <ImageOff className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-[11px] leading-tight text-muted-foreground">
+                      Image still syncing or upload failed
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      className="h-8 px-2 text-[11px]"
+                      disabled={retrying[p.id]}
+                      onClick={() => retryOne(p)}
+                    >
+                      {retrying[p.id]
+                        ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        : <RefreshCw className="h-3 w-3 mr-1" />}
+                      Retry
+                    </Button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setLightboxIdx(i)} className="block w-full aspect-square">
+                    <img
+                      src={p.signedUrl}
+                      alt={p.caption ?? "Survey photo"}
+                      data-uploaded="true"
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      onError={() => setBroken((b) => ({ ...b, [p.id]: true }))}
+                    />
+                  </button>
                 )}
-              </button>
-              {p.what3words && (
-                <span className="absolute bottom-1 left-1 text-[10px] bg-background/90 rounded px-1.5 py-0.5 flex items-center gap-1 max-w-[90%] truncate">
-                  <MapPin className="h-2.5 w-2.5" /> {p.what3words}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => remove(p)}
-                className="absolute top-1 right-1 p-1 rounded bg-background/90 opacity-0 group-hover:opacity-100 transition"
-                aria-label="Delete"
-              >
-                <Trash2 className="h-3 w-3 text-destructive" />
-              </button>
-            </div>
-          ))}
+                {p.what3words && (
+                  <span className="absolute bottom-1 left-1 text-[10px] bg-background/90 rounded px-1.5 py-0.5 flex items-center gap-1 max-w-[90%] truncate">
+                    <MapPin className="h-2.5 w-2.5" /> {p.what3words}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => remove(p)}
+                  className="absolute top-1 right-1 p-1 rounded bg-background/90 opacity-0 group-hover:opacity-100 transition"
+                  aria-label="Delete"
+                >
+                  <Trash2 className="h-3 w-3 text-destructive" />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
