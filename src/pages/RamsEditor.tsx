@@ -488,11 +488,16 @@ export default function RamsEditor() {
     }
     const load = async () => {
       setLoading(true);
+      // `?new=1` forces a brand-new RAMS even when the job already has one —
+      // jobs can span several work types and each keeps its own document.
+      const forceNew = searchParams.get("new") === "1";
       const [{ data: jobData }, { data: ramsData }] = await Promise.all([
         supabase.from("jobs").select("*, customers(name), sites(name, address)").eq("id", jobId).single(),
         ramsId
           ? supabase.from("rams_documents" as any).select("*").eq("id", ramsId).single()
-          : supabase.from("rams_documents" as any).select("*").eq("job_id", jobId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+          : forceNew
+            ? Promise.resolve({ data: null } as any)
+            : supabase.from("rams_documents" as any).select("*").eq("job_id", jobId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
 
       setJob(jobData);

@@ -27,6 +27,7 @@ const JobDefects = lazy(() => import("@/components/jobs/JobDefects"));
 const JobPhotos = lazy(() => import("@/components/jobs/JobPhotos"));
 const JobSheet = lazy(() => import("@/components/JobSheet"));
 const QuickPartsList = lazy(() => import("@/components/jobs/QuickPartsList"));
+const JobRamsPanel = lazy(() => import("@/components/rams/JobRamsPanel"));
 
 
 const Fallback = () => (
@@ -116,7 +117,12 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
         </Suspense>
       </div>
 
-      {/* Site documents — RAMS, access notes, previous reports */}
+      {/* RAMS — a job can carry several (one per work type); read & sign each */}
+      <Suspense fallback={<Fallback />}>
+        <JobRamsPanel jobId={jobId} job={job} showSignActions />
+      </Suspense>
+
+      {/* Site documents — RAMS PDFs, access notes, previous reports */}
       <section className="rounded-2xl border bg-card p-4 md:p-5 shadow-sm">
         <h2 className="text-base font-semibold mb-3">Site documents</h2>
         <Suspense fallback={<Fallback />}>

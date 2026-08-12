@@ -82,6 +82,7 @@ const JobPartsUsed = lazy(() => import("@/components/jobs/JobPartsUsed"));
 const JobPhotos = lazy(() => import("@/components/jobs/JobPhotos"));
 const JobEmailChain = lazy(() => import("@/components/jobs/JobEmailChain"));
 import RamsRequiredBanner from "@/components/rams/RamsRequiredBanner";
+import JobRamsPanel from "@/components/rams/JobRamsPanel";
 import { useJobRamsStatus } from "@/hooks/useJobRamsStatus";
 import EngineerNextStepBar from "@/components/engineer/EngineerNextStepBar";
 import EngineerJobHero from "@/components/engineer/EngineerJobHero";
@@ -1143,6 +1144,12 @@ export default function JobDetail() {
             />
           )}
           <RamsRequiredBanner jobId={id!} status={ramsStatus} />
+          <JobRamsPanel
+            jobId={id!}
+            job={job}
+            canEdit={userRole === "admin"}
+            status={ramsStatus}
+          />
           <JobCompleteAction
             jobId={id!}
             jobStatus={job.status}
