@@ -27,6 +27,7 @@ const JobDefects = lazy(() => import("@/components/jobs/JobDefects"));
 const JobPhotos = lazy(() => import("@/components/jobs/JobPhotos"));
 const JobSheet = lazy(() => import("@/components/JobSheet"));
 const QuickPartsList = lazy(() => import("@/components/jobs/QuickPartsList"));
+const JobRamsPanel = lazy(() => import("@/components/rams/JobRamsPanel"));
 
 
 const Fallback = () => (
