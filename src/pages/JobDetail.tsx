@@ -1143,6 +1143,12 @@ export default function JobDetail() {
             />
           )}
           <RamsRequiredBanner jobId={id!} status={ramsStatus} />
+          <JobRamsPanel
+            jobId={id!}
+            job={job}
+            canEdit={userRole === "admin"}
+            status={ramsStatus}
+          />
           <JobCompleteAction
             jobId={id!}
             jobStatus={job.status}
