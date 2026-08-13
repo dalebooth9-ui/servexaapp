@@ -184,8 +184,8 @@ export default function RemedialItemPhotos({ jobId, jobOrgId, itemId, canEdit }:
   return (
     <>
       <div className="mt-2 flex flex-wrap items-center gap-3">
-        {slotButton("before", beforeInput)}
-        {slotButton("after", afterInput)}
+        {slotButton("before", beforeInput, beforeGallery)}
+        {slotButton("after", afterInput, afterGallery)}
       </div>
       <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
         <DialogContent className="max-w-3xl p-2">
