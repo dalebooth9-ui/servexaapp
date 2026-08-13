@@ -7086,6 +7086,7 @@ export type Database = {
           created_at: string
           created_by: string
           description_of_work: string | null
+          hazard_modules: Json
           id: string
           job_id: string
           location: string | null
@@ -7113,6 +7114,7 @@ export type Database = {
           created_at?: string
           created_by: string
           description_of_work?: string | null
+          hazard_modules?: Json
           id?: string
           job_id: string
           location?: string | null
@@ -7140,6 +7142,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           description_of_work?: string | null
+          hazard_modules?: Json
           id?: string
           job_id?: string
           location?: string | null
@@ -7368,6 +7371,78 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      rams_hazard_modules: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          approved_by_name: string | null
+          control_measures: Json
+          created_at: string
+          created_by: string | null
+          hazard_description: string
+          id: string
+          is_seeded_template: boolean
+          name: string
+          org_id: string
+          plant_additions: Json
+          ppe_additions: Json
+          review_note: string | null
+          risk_rows: Json
+          sequence_additions: Json
+          slug: string
+          sort_order: number
+          status: string
+          summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_name?: string | null
+          control_measures?: Json
+          created_at?: string
+          created_by?: string | null
+          hazard_description?: string
+          id?: string
+          is_seeded_template?: boolean
+          name: string
+          org_id?: string
+          plant_additions?: Json
+          ppe_additions?: Json
+          review_note?: string | null
+          risk_rows?: Json
+          sequence_additions?: Json
+          slug: string
+          sort_order?: number
+          status?: string
+          summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_name?: string | null
+          control_measures?: Json
+          created_at?: string
+          created_by?: string | null
+          hazard_description?: string
+          id?: string
+          is_seeded_template?: boolean
+          name?: string
+          org_id?: string
+          plant_additions?: Json
+          ppe_additions?: Json
+          review_note?: string | null
+          risk_rows?: Json
+          sequence_additions?: Json
+          slug?: string
+          sort_order?: number
+          status?: string
+          summary?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       rams_library_items: {
         Row: {
@@ -9758,6 +9833,7 @@ export type Database = {
           status: string
         }[]
       }
+      seed_org_hazard_modules: { Args: { _org_id: string }; Returns: undefined }
       seed_org_reference_data: {
         Args: { _new_org_id: string; _source_org_id?: string }
         Returns: undefined
@@ -9777,6 +9853,21 @@ export type Database = {
           _token: string
         }
         Returns: boolean
+      }
+      starter_hazard_modules: {
+        Args: never
+        Returns: {
+          control_measures: Json
+          hazard_description: string
+          name: string
+          plant_additions: Json
+          ppe_additions: Json
+          risk_rows: Json
+          sequence_additions: Json
+          slug: string
+          sort_order: number
+          summary: string
+        }[]
       }
       storage_object_org_id: { Args: { _name: string }; Returns: string }
       suspend_organisation: {
