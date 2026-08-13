@@ -15,7 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, ImageIcon, Loader2 } from "lucide-react";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { compressImageForUpload } from "@/lib/imageCompress";
 
@@ -37,6 +37,8 @@ export default function RemedialItemPhotos({ jobId, jobOrgId, itemId, canEdit }:
   const [viewing, setViewing] = useState<string | null>(null);
   const beforeInput = useRef<HTMLInputElement>(null);
   const afterInput = useRef<HTMLInputElement>(null);
+  const beforeGallery = useRef<HTMLInputElement>(null);
+  const afterGallery = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -119,20 +121,23 @@ export default function RemedialItemPhotos({ jobId, jobOrgId, itemId, canEdit }:
     }
   };
 
-  const slotButton = (slot: Slot, inputRef: React.RefObject<HTMLInputElement>) => {
+  const slotButton = (
+    slot: Slot,
+    inputRef: React.RefObject<HTMLInputElement>,
+    galleryRef: React.RefObject<HTMLInputElement>,
+  ) => {
     const url = urls[slot];
     const busy = uploading === slot;
     const label = slot === "before" ? "Before photo" : "After photo";
+    const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const f = e.target.files?.[0];
+      if (f) handleFile(slot, f);
+      e.target.value = "";
+    };
     return (
       <div className="flex items-center gap-2">
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(slot, f); e.target.value = ""; }}
-        />
+        <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onPick} />
+        <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={onPick} />
         {url && (
           <button
             type="button"
@@ -144,17 +149,31 @@ export default function RemedialItemPhotos({ jobId, jobOrgId, itemId, canEdit }:
           </button>
         )}
         {canEdit && (
-          <Button
-            type="button"
-            size="sm"
-            variant={url ? "ghost" : "outline"}
-            className="h-11 min-w-[7.5rem] px-3 text-xs"
-            disabled={busy}
-            onClick={() => inputRef.current?.click()}
-          >
-            {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Camera className="mr-1 h-4 w-4" />}
-            {busy ? "Uploading…" : url ? `Retake ${slot}` : label}
-          </Button>
+          <>
+            <Button
+              type="button"
+              size="sm"
+              variant={url ? "ghost" : "outline"}
+              className="h-11 min-w-[7.5rem] px-3 text-xs"
+              disabled={busy}
+              onClick={() => inputRef.current?.click()}
+            >
+              {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Camera className="mr-1 h-4 w-4" />}
+              {busy ? "Uploading…" : url ? `Retake ${slot}` : label}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-11 w-11 px-0"
+              disabled={busy}
+              title={`Choose ${label.toLowerCase()} from gallery`}
+              aria-label={`Choose ${label.toLowerCase()} from gallery`}
+              onClick={() => galleryRef.current?.click()}
+            >
+              <ImageIcon className="h-4 w-4" />
+            </Button>
+          </>
         )}
       </div>
     );
@@ -165,8 +184,8 @@ export default function RemedialItemPhotos({ jobId, jobOrgId, itemId, canEdit }:
   return (
     <>
       <div className="mt-2 flex flex-wrap items-center gap-3">
-        {slotButton("before", beforeInput)}
-        {slotButton("after", afterInput)}
+        {slotButton("before", beforeInput, beforeGallery)}
+        {slotButton("after", afterInput, afterGallery)}
       </div>
       <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
         <DialogContent className="max-w-3xl p-2">
