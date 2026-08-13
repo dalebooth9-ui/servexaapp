@@ -57,3 +57,22 @@ export function formatDayMonth(value: DateInput, fallback = ""): string {
 export function todayUK(): string {
   return new Date().toLocaleDateString(LOCALE);
 }
+
+/**
+ * Convert an ISO-looking date string (yyyy-mm-dd, optionally with a time part)
+ * into UK DD/MM/YYYY for display. Anything else is returned unchanged, so this
+ * is safe to run across arbitrary form answers. Stored values are untouched.
+ */
+export function ukDateify<T>(value: T): T | string {
+  if (typeof value !== "string") return value;
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ][\d:.]+.*)?$/);
+  if (!m) return value;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+/** Apply ukDateify to every string value in a flat answers object. */
+export function ukDateifyRecord<T extends Record<string, any>>(obj: T): T {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj || {})) out[k] = ukDateify(v);
+  return out as T;
+}
