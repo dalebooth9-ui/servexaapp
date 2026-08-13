@@ -15,6 +15,10 @@ import { FileText, Plus, ShieldCheck, Loader2, ExternalLink } from "lucide-react
 import { useJobRamsStatus, type JobRamsStatus } from "@/hooks/useJobRamsStatus";
 import { getRamsDefaults, type RamsType } from "@/lib/ramsDefaults";
 import RamsReadAndSignSheet from "@/components/rams/RamsReadAndSignSheet";
+import {
+  applyHazardModule, appliedFrom, useHazardModules,
+  type AppliedHazardModule, type RamsModuleContent,
+} from "@/lib/hazardModules";
 
 /**
  * Multi-RAMS panel for a job.
@@ -77,6 +81,11 @@ export default function JobRamsPanel({ jobId, job, canEdit = false, showSignActi
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
   const [signDoc, setSignDoc] = useState<JobRamsStatus["documents"][number] | null>(null);
+  const [hazardSlugs, setHazardSlugs] = useState<string[]>([]);
+  const { modules: hazardModules, loading: hazardLoading } = useHazardModules({ approvedOnly: true });
+
+  const toggleHazard = (slug: string) =>
+    setHazardSlugs((prev) => (prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]));
 
   const types = useMemo(() => {
     const all = Object.keys(RAMS_TYPE_LABELS) as RamsType[];
@@ -97,8 +106,24 @@ export default function JobRamsPanel({ jobId, job, canEdit = false, showSignActi
         : (job?.sites?.address || job?.address || "");
       const today = new Date().toLocaleDateString("en-GB");
 
+      const chosenModules = hazardModules.filter((m) => hazardSlugs.includes(m.slug));
+      const applied: AppliedHazardModule[] = chosenModules.map((m) =>
+        appliedFrom(m, { id: user.id, name: (user as any)?.user_metadata?.full_name || (user as any)?.email }),
+      );
+
       const rows = selected.map((type) => {
         const d = getRamsDefaults(type);
+        // Hazard modules merge into the document content itself so they read as
+        // part of the RAMS, not as a bolt-on appendix.
+        let content: RamsModuleContent = {
+          sequenceOfOps: d.sequenceOfOps,
+          taskSpecificOps: d.taskSpecificOps,
+          plantAndEquipment: d.plantAndEquipment,
+          significantRisks: d.significantRisks,
+          ppeItems: d.ppeItems,
+          riskRows: d.riskRows,
+        };
+        for (const m of chosenModules) content = applyHazardModule(content, m);
         return {
           job_id: jobId,
           rams_type: type,
@@ -109,16 +134,17 @@ export default function JobRamsPanel({ jobId, job, canEdit = false, showSignActi
           attendance_date: "",
           site_location: siteLocation,
           description_of_work: d.descriptionOfWork,
-          sequence_of_ops: d.sequenceOfOps,
-          task_specific_ops: d.taskSpecificOps,
+          sequence_of_ops: content.sequenceOfOps,
+          task_specific_ops: content.taskSpecificOps,
           location: d.location,
           resources: d.resources,
           personnel: d.personnel,
-          plant_and_equipment: d.plantAndEquipment,
-          significant_risks: d.significantRisks,
+          plant_and_equipment: content.plantAndEquipment,
+          significant_risks: content.significantRisks,
           special_training: d.specialTraining,
-          ppe_items: d.ppeItems,
-          risk_rows: d.riskRows,
+          ppe_items: content.ppeItems,
+          risk_rows: content.riskRows,
+          hazard_modules: applied,
         };
       });
 
@@ -133,6 +159,7 @@ export default function JobRamsPanel({ jobId, job, canEdit = false, showSignActi
       });
       setAttachOpen(false);
       setSelected([]);
+      setHazardSlugs([]);
       ramsStatus.refetch();
       const first = (data as any[])?.[0]?.id;
       if (first && selected.length === 1) navigate(`/jobs/${jobId}/rams/${first}`);
@@ -224,6 +251,44 @@ export default function JobRamsPanel({ jobId, job, canEdit = false, showSignActi
               </label>
             ))}
           </ScrollArea>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Additional work types / hazards</p>
+            <p className="text-xs text-muted-foreground">
+              Tick any high-risk activity involved. Each module's hazard, control measures and risk
+              assessment rows are merged into every RAMS created here.
+            </p>
+            {hazardLoading ? (
+              <div className="h-8 animate-pulse rounded bg-muted/40" />
+            ) : hazardModules.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No approved hazard modules yet — an admin can review and approve them in
+                Settings → RAMS Library → Hazard modules.
+              </p>
+            ) : (
+              <ScrollArea className="max-h-40 rounded-md border">
+                {hazardModules.map((m) => (
+                  <label
+                    key={m.id}
+                    className="flex cursor-pointer items-start gap-3 border-b px-3 py-2.5 last:border-0 hover:bg-muted/50"
+                  >
+                    <Checkbox
+                      checked={hazardSlugs.includes(m.slug)}
+                      onCheckedChange={() => toggleHazard(m.slug)}
+                      className="mt-0.5"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm">{m.name}</span>
+                      {m.summary && (
+                        <span className="block text-xs text-muted-foreground">{m.summary}</span>
+                      )}
+                    </span>
+                  </label>
+                ))}
+              </ScrollArea>
+            )}
+          </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setAttachOpen(false)}>Cancel</Button>
             <Button onClick={attachSelected} disabled={creating || selected.length === 0}>
