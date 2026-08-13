@@ -36,8 +36,9 @@ const WORK_TYPES = [
 export default function RamsLibrary() {
   const { userRole } = useAuth();
   const { toast } = useToast();
-  const [tab, setTab] = useState<"whole" | "block">("block");
-  const { items, loading, refetch } = useRamsLibrary({ kind: tab, includeArchived: true });
+  const [tab, setTab] = useState<"whole" | "block" | "hazard">("block");
+  const libraryKind: "whole" | "block" = tab === "hazard" ? "block" : tab;
+  const { items, loading, refetch } = useRamsLibrary({ kind: libraryKind, includeArchived: true });
   const [editing, setEditing] = useState<RamsLibraryItem | null>(null);
   const [creating, setCreating] = useState(false);
 
