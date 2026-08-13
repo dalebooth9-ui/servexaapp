@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Library, Plus, Trash2, Pencil, Archive, ArchiveRestore, ArrowLeft } from "lucide-react";
 import { Link, Navigate } from "react-router-dom";
+import HazardModulesAdmin from "@/components/rams/HazardModulesAdmin";
 
 const BLOCK_TYPES = [
   { value: "working_at_height", label: "Working at height (ladders / MEWP)" },
@@ -80,9 +81,11 @@ export default function RamsLibrary() {
                 </CardDescription>
               </div>
             </div>
-            <Button size="sm" onClick={() => setCreating(true)}>
-              <Plus className="h-4 w-4 mr-1" /> New {tab === "whole" ? "template" : "block"}
-            </Button>
+            {tab !== "hazard" && (
+              <Button size="sm" onClick={() => setCreating(true)}>
+                <Plus className="h-4 w-4 mr-1" /> New {tab === "whole" ? "template" : "block"}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -90,9 +93,13 @@ export default function RamsLibrary() {
             <TabsList>
               <TabsTrigger value="block">Content blocks</TabsTrigger>
               <TabsTrigger value="whole">Whole RAMS templates</TabsTrigger>
+              <TabsTrigger value="hazard">Hazard modules</TabsTrigger>
             </TabsList>
+            <TabsContent value="hazard" className="mt-4">
+              <HazardModulesAdmin />
+            </TabsContent>
             <TabsContent value={tab} className="mt-4">
-              {loading ? (
+              {tab === "hazard" ? null : loading ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">Loading…</p>
               ) : items.length === 0 ? (
                 <div className="rounded-md border border-dashed p-8 text-center">
@@ -142,7 +149,7 @@ export default function RamsLibrary() {
 
       {(editing || creating) && (
         <LibraryItemDialog
-          kind={tab}
+          kind={libraryKind}
           item={editing}
           onClose={() => { setEditing(null); setCreating(false); }}
           onSaved={() => { setEditing(null); setCreating(false); refetch(); }}
