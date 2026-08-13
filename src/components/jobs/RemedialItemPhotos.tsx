@@ -37,6 +37,8 @@ export default function RemedialItemPhotos({ jobId, jobOrgId, itemId, canEdit }:
   const [viewing, setViewing] = useState<string | null>(null);
   const beforeInput = useRef<HTMLInputElement>(null);
   const afterInput = useRef<HTMLInputElement>(null);
+  const beforeGallery = useRef<HTMLInputElement>(null);
+  const afterGallery = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     const { data } = await supabase
