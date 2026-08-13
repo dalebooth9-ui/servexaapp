@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { formatDate } from "@/lib/dateFormat";
 
 interface QuoteRow {
   id: string; quote_number: string | null; total: number | null; status: string;
@@ -54,7 +55,7 @@ export default function PortalQuotes() {
           <CardHeader className="flex-row items-start justify-between">
             <div>
               <CardTitle>Quote {q.quote_number || q.id.slice(0, 8)}</CardTitle>
-              <div className="text-sm text-muted-foreground">Issued {new Date(q.issued_at || q.created_at).toLocaleDateString()}</div>
+              <div className="text-sm text-muted-foreground">Issued {formatDate(q.issued_at || q.created_at)}</div>
             </div>
             <div className="flex items-center gap-3">
               <div className="text-right">
