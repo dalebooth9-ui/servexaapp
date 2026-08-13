@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Link as LinkIcon, Copy, Loader2, Flame } from "lucide-react";
 import { format } from "date-fns";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 const ENTRY_TYPES = [
   { value: "inspection", label: "Inspection" },
@@ -263,7 +264,7 @@ export default function SiteFireLog({ siteId, siteName }: SiteFireLogProps) {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-xs font-medium">Date</label>
-                <Input type="date" value={form.date_of_event} onChange={(e) => setForm((f) => ({ ...f, date_of_event: e.target.value }))} />
+                <UKDateInput  value={form.date_of_event} onChange={(e) => setForm((f) => ({ ...f, date_of_event: e.target.value }))} />
               </div>
               <div>
                 <label className="text-xs font-medium">BS standard</label>

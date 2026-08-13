@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { logIntakeMisdrop } from "@/lib/logIntakeMisdrop";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 interface ExtractedPO {
   customer_name?: string;
@@ -387,8 +388,8 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated,
               </div>
               <div className="space-y-2">
                 <Label>Due Date</Label>
-                <Input
-                  type="date"
+                <UKDateInput
+                  
                   value={form.due_date}
                   onChange={(e) => setForm({ ...form, due_date: e.target.value })}
                 />

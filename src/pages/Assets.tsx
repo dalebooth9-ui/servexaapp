@@ -59,6 +59,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { fuzzyFilter } from "@/lib/fuzzyMatch";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 type Asset = {
   id: string;
@@ -810,11 +811,11 @@ export default function Assets() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Install Date</label>
-                <Input type="date" value={form.install_date} onChange={(e) => setForm((f) => ({ ...f, install_date: e.target.value }))} />
+                <UKDateInput  value={form.install_date} onChange={(e) => setForm((f) => ({ ...f, install_date: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Warranty Expiry</label>
-                <Input type="date" value={form.warranty_expiry} onChange={(e) => setForm((f) => ({ ...f, warranty_expiry: e.target.value }))} />
+                <UKDateInput  value={form.warranty_expiry} onChange={(e) => setForm((f) => ({ ...f, warranty_expiry: e.target.value }))} />
               </div>
             </div>
             <div className="space-y-1.5">

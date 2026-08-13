@@ -89,6 +89,7 @@ import EngineerJobHero from "@/components/engineer/EngineerJobHero";
 import EngineerJobView from "@/components/engineer/EngineerJobView";
 import EngineerCompletionGate from "@/components/engineer/EngineerCompletionGate";
 import JobCompletionFlagsBadge from "@/components/jobs/JobCompletionFlagsBadge";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
@@ -843,7 +844,7 @@ export default function JobDetail() {
                   )}
                   <div>
                     <Label className="text-xs">Due Date</Label>
-                    <Input type="date" value={editForm.due_date} onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })} className="mt-1" />
+                    <UKDateInput  value={editForm.due_date} onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })} className="mt-1" />
                   </div>
                   <div>
                     <Label className="text-xs">Allocated Days</Label>

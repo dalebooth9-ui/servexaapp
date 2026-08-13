@@ -9,6 +9,7 @@ import { Eye, Gauge } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { addMonths, format } from "date-fns";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 interface ScheduleFollowUpJobsProps {
   sourceJob: any;
@@ -135,7 +136,7 @@ export default function ScheduleFollowUpJobs({ sourceJob, onCreated }: ScheduleF
           <div className="space-y-3">
             <div>
               <Label className="text-xs">Service Completion Date</Label>
-              <Input type="date" value={baseDate} onChange={(e) => {
+              <UKDateInput  value={baseDate} onChange={(e) => {
                 setBaseDate(e.target.value);
                 const months = followUpType === "visual" ? 6 : 12;
                 if (e.target.value) {
@@ -145,7 +146,7 @@ export default function ScheduleFollowUpJobs({ sourceJob, onCreated }: ScheduleF
             </div>
             <div>
               <Label className="text-xs">Scheduled Date ({monthsLabel} later)</Label>
-              <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="mt-1" />
+              <UKDateInput  value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="mt-1" />
             </div>
           </div>
           <Button className="w-full mt-2" disabled={loading || !scheduledDate} onClick={handleCreate}>

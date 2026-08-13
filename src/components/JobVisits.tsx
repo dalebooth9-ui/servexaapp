@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CalendarPlus, Check, Clock, AlertTriangle, Ban, Plus, Repeat, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays, addWeeks, addMonths } from "date-fns";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 type Visit = {
   id: string;
@@ -278,11 +279,11 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-2">
                         <Label>Start Date</Label>
-                        <Input type="date" value={recForm.start_date} onChange={(e) => setRecForm({ ...recForm, start_date: e.target.value })} required />
+                        <UKDateInput  value={recForm.start_date} onChange={(e) => setRecForm({ ...recForm, start_date: e.target.value })} required />
                       </div>
                       <div className="space-y-2">
                         <Label>End Date</Label>
-                        <Input type="date" value={recForm.end_date} onChange={(e) => setRecForm({ ...recForm, end_date: e.target.value })} required />
+                        <UKDateInput  value={recForm.end_date} onChange={(e) => setRecForm({ ...recForm, end_date: e.target.value })} required />
                       </div>
                     </div>
                     {engineers.length > 0 && (
@@ -315,7 +316,7 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-2">
                         <Label>Date</Label>
-                        <Input type="date" value={form.scheduled_date} onChange={(e) => setForm({ ...form, scheduled_date: e.target.value })} required />
+                        <UKDateInput  value={form.scheduled_date} onChange={(e) => setForm({ ...form, scheduled_date: e.target.value })} required />
                       </div>
                       <div className="space-y-2">
                         <Label>Time (optional)</Label>
@@ -359,7 +360,7 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Date</Label>
-                  <Input type="date" value={editForm.scheduled_date} onChange={(e) => setEditForm({ ...editForm, scheduled_date: e.target.value })} required />
+                  <UKDateInput  value={editForm.scheduled_date} onChange={(e) => setEditForm({ ...editForm, scheduled_date: e.target.value })} required />
                 </div>
                 <div className="space-y-2">
                   <Label>Time (optional)</Label>

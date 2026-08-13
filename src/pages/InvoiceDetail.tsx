@@ -18,6 +18,7 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { useRef } from "react";
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 
 const statusStyles: Record<string, string> = {
@@ -620,7 +621,7 @@ export default function InvoiceDetail() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label>{isQuote ? "Valid Until" : "Due Date"}</Label>
-                <Input type="date" value={editForm.due_date} onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })} />
+                <UKDateInput  value={editForm.due_date} onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })} />
               </div>
               <div>
                 <Label>Tax Rate (%)</Label>

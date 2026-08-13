@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { X } from "lucide-react";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 interface Engineer { user_id: string; full_name: string }
 
@@ -47,8 +48,8 @@ export default function BulkAssignBar({
             ))}
           </SelectContent>
         </Select>
-        <Input
-          type="date"
+        <UKDateInput
+          
           value={date}
           onChange={(e) => setDate(e.target.value)}
           className="h-7 text-[11px]"

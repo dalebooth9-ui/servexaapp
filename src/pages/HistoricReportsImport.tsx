@@ -54,6 +54,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fuzzyFilter, fuzzyScore } from "@/lib/fuzzyMatch";
 import { getCurrentOrgId, buildOrgPath } from "@/lib/orgStoragePath";
 import { formatDate } from "@/lib/dateFormat";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 type Customer = { id: string; name: string };
 type Site = {
@@ -687,8 +688,8 @@ function ImportRow({
       </TableCell>
 
       <TableCell>
-        <Input
-          type="date"
+        <UKDateInput
+          
           value={row.reportDate || ""}
           onChange={(e) => onChange({ reportDate: e.target.value })}
           className="h-8 text-xs"

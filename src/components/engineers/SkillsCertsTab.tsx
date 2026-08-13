@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { Plus, Loader2, FileText, Download, Trash2, Upload, X, ShieldCheck, AlertTriangle, ShieldAlert, ShieldX } from "lucide-react";
 import { CERTIFICATION_TYPES, ISSUING_BODIES, certTypeLabel, getCertStatus, statusLabel, type CertStatus } from "@/lib/certStatus";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 type CertDoc = {
   id: string;
@@ -258,11 +259,11 @@ export default function SkillsCertsTab({ engineerId, engineerName }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label>Date obtained</Label>
-              <Input type="date" value={form.date_obtained} onChange={(e) => setForm((f) => ({ ...f, date_obtained: e.target.value }))} />
+              <UKDateInput  value={form.date_obtained} onChange={(e) => setForm((f) => ({ ...f, date_obtained: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
               <Label>Expiry date</Label>
-              <Input type="date" value={form.expiry_date} onChange={(e) => setForm((f) => ({ ...f, expiry_date: e.target.value }))} />
+              <UKDateInput  value={form.expiry_date} onChange={(e) => setForm((f) => ({ ...f, expiry_date: e.target.value }))} />
             </div>
             <div className="col-span-2 space-y-1.5">
               <Label>Files *</Label>

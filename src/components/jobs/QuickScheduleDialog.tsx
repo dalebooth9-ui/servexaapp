@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CalendarDays, AlertTriangle, Palmtree } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 interface BankHoliday {
   date: string;
@@ -193,7 +194,7 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
           </div>
           <div className="space-y-2">
             <Label>Date</Label>
-            <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} required />
+            <UKDateInput  value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} required />
           </div>
 
           {/* Bank holiday warning */}

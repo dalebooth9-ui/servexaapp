@@ -37,6 +37,7 @@ import { Flame } from "lucide-react";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { format } from "date-fns";
 import { fuzzyMatch, fuzzyFilter } from "@/lib/fuzzyMatch";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 type Site = {
   id: string;
@@ -2212,7 +2213,7 @@ export default function Sites() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Due Date <span className="text-muted-foreground text-xs font-normal">(optional)</span></label>
-              <Input type="date" value={createJobForm.due_date} onChange={(e) => setCreateJobForm((f) => ({ ...f, due_date: e.target.value }))} />
+              <UKDateInput  value={createJobForm.due_date} onChange={(e) => setCreateJobForm((f) => ({ ...f, due_date: e.target.value }))} />
             </div>
           </div>{/* end scrollable area */}
           <div className="flex gap-2 pt-2 shrink-0 border-t">

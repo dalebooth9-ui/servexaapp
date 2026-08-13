@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, FileSignature, PoundSterling, Calendar, AlertTriangle } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { toast } from "sonner";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 type Contract = {
   id: string;
@@ -201,8 +202,8 @@ export default function ServiceContracts() {
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Start date</Label><Input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} /></div>
-              <div><Label>Renewal date</Label><Input type="date" value={form.renewal_date} onChange={e => setForm(f => ({ ...f, renewal_date: e.target.value }))} /></div>
+              <div><Label>Start date</Label><UKDateInput  value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} /></div>
+              <div><Label>Renewal date</Label><UKDateInput  value={form.renewal_date} onChange={e => setForm(f => ({ ...f, renewal_date: e.target.value }))} /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Contract value (£)</Label><Input type="number" step="0.01" value={form.contract_value} onChange={e => setForm(f => ({ ...f, contract_value: e.target.value }))} /></div>

@@ -45,6 +45,7 @@ import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { buildDurableRef } from "@/lib/durableStorageRef";
 import { createSubmissionPhotoSignedUrl } from "@/lib/jobPhotos";
 import SortablePhotoGrid from "./SortablePhotoGrid";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 type TemplateField = {
   id: string;
@@ -2278,8 +2279,8 @@ function renderFormField(
       );
     case "date":
       return (
-        <Input
-          type="date"
+        <UKDateInput
+          
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
           className="h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full"

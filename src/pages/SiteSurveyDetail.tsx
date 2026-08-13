@@ -20,6 +20,7 @@ import VoiceDictationButton from "@/components/VoiceDictationButton";
 import { exportSiteSurveyPdf } from "@/lib/siteSurveyPdf";
 import { saveFormDraft, loadFormDraft, clearFormDraft } from "@/lib/offlineFormStorage";
 import { useOfflineMutation } from "@/hooks/useOfflineMutation";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 type Survey = {
   id: string;
@@ -230,7 +231,7 @@ export default function SiteSurveyDetail() {
           </div>
           <div className="space-y-1.5">
             <Label>Survey date</Label>
-            <Input type="date" value={survey.survey_date ?? ""} onChange={(e) => update("survey_date", e.target.value || null)} />
+            <UKDateInput  value={survey.survey_date ?? ""} onChange={(e) => update("survey_date", e.target.value || null)} />
           </div>
           <div className="space-y-1.5 md:col-span-2">
             <Label>Site address</Label>

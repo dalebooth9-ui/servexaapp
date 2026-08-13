@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Plus, Trash2, FileText, Package, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 type LineItem = {
   description: string;
@@ -267,7 +268,7 @@ export default function CreateInvoiceDialog({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label>{isQuote ? "Valid Until" : "Due Date"}</Label>
-              <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+              <UKDateInput  value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
             </div>
             <div>
               <Label>Tax Rate (%)</Label>

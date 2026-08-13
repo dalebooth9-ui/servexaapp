@@ -18,6 +18,7 @@ import BlankTemplatePdfExport, {
 } from "@/components/BlankTemplatePdfExport";
 import { useToast } from "@/hooks/use-toast";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 
 type Props = {
@@ -357,8 +358,8 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Scheduled date</Label>
-                  <Input
-                    type="date"
+                  <UKDateInput
+                    
                     value={overrides.dueDate}
                     onChange={(e) => setOverrides((p) => ({ ...p, dueDate: e.target.value }))}
                     className="h-8 text-sm"

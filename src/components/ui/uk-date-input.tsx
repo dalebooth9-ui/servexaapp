@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 // UK date input: stores ISO (yyyy-mm-dd) internally, always displays DD/MM/YYYY.
-// Drop-in replacement for <Input type="date" />: onChange receives an
+// Drop-in replacement for <UKDateInput  />: onChange receives an
 // event-like object with `target.value` holding the ISO string.
 
 export function isoToUk(iso?: string | null): string {

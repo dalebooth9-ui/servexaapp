@@ -20,6 +20,7 @@ import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import type { WatermarkOverride } from "@/lib/pdfBranding";
 import { renderPdfHeader } from "@/lib/pdfHeader";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 export type ConformityCert = {
   id: string;
@@ -179,7 +180,7 @@ export default function CertificateOfConformity({ jobId, certId, onSendReady }: 
             </div>
             <div>
               <Label className="text-xs">Date of Test</Label>
-              <Input type="date" value={form.issue_date || ""} onChange={(e) => setForm({ ...form, issue_date: e.target.value })} />
+              <UKDateInput  value={form.issue_date || ""} onChange={(e) => setForm({ ...form, issue_date: e.target.value })} />
             </div>
             <div className="col-span-2">
               <Label className="text-xs">Building / Site Name</Label>
@@ -245,7 +246,7 @@ export default function CertificateOfConformity({ jobId, certId, onSendReady }: 
             </div>
             <div>
               <Label className="text-xs">Sign Date</Label>
-              <Input type="date" value={form.sign_date || ""} onChange={(e) => setForm({ ...form, sign_date: e.target.value })} />
+              <UKDateInput  value={form.sign_date || ""} onChange={(e) => setForm({ ...form, sign_date: e.target.value })} />
             </div>
             <div className="col-span-2">
               <Label className="text-xs mb-1 block">Engineer Signature</Label>

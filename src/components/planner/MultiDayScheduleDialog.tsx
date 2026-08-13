@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, CalendarDays, Calendar } from "lucide-react";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 interface Engineer {
   user_id: string;
@@ -218,16 +219,16 @@ export default function MultiDayScheduleDialog({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Start Date</Label>
-                  <Input
-                    type="date"
+                  <UKDateInput
+                    
                     value={rangeStart}
                     onChange={(e) => setRangeStart(e.target.value)}
                   />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">End Date</Label>
-                  <Input
-                    type="date"
+                  <UKDateInput
+                    
                     value={rangeEnd}
                     min={rangeStart}
                     onChange={(e) => setRangeEnd(e.target.value)}
