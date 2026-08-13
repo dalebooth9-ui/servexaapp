@@ -70,9 +70,14 @@ export function ukDateify<T>(value: T): T | string {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
-/** Apply ukDateify to every string value in a flat answers object. */
-export function ukDateifyRecord<T extends Record<string, any>>(obj: T): T {
-  const out: Record<string, any> = {};
-  for (const [k, v] of Object.entries(obj || {})) out[k] = ukDateify(v);
-  return out as T;
+/** Deep-apply ukDateify to every string value in an answers object/array. */
+export function ukDateifyRecord<T>(input: T): T {
+  if (typeof input === "string") return ukDateify(input) as unknown as T;
+  if (Array.isArray(input)) return input.map((v) => ukDateifyRecord(v)) as unknown as T;
+  if (input && typeof input === "object") {
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(input as Record<string, any>)) out[k] = ukDateifyRecord(v);
+    return out as unknown as T;
+  }
+  return input;
 }
