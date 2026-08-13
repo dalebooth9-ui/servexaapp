@@ -220,7 +220,6 @@ export default function MultiDayScheduleDialog({
                 <div className="space-y-1.5">
                   <Label className="text-xs">Start Date</Label>
                   <UKDateInput
-                    
                     value={rangeStart}
                     onChange={(e) => setRangeStart(e.target.value)}
                   />
@@ -228,7 +227,6 @@ export default function MultiDayScheduleDialog({
                 <div className="space-y-1.5">
                   <Label className="text-xs">End Date</Label>
                   <UKDateInput
-                    
                     value={rangeEnd}
                     min={rangeStart}
                     onChange={(e) => setRangeEnd(e.target.value)}

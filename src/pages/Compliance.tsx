@@ -1033,14 +1033,12 @@ export default function Compliance() {
                           </SelectContent>
                         </Select>
                         <UKDateInput
-                          
                           title="Issue Date"
                           value={item.issue_date}
                           onChange={(e) => setBulkFiles((prev) => prev.map((it, j) => j === i ? { ...it, issue_date: e.target.value, aiFields: it.aiFields?.filter((x) => x !== "issue_date") } : it))}
                           className={`h-7 text-xs ${item.aiFields?.includes("issue_date") ? "border-violet-300/60 bg-violet-500/5" : ""}`}
                         />
                         <UKDateInput
-                          
                           title="Expiry Date"
                           value={item.expiry_date}
                           onChange={(e) => setBulkFiles((prev) => prev.map((it, j) => j === i ? { ...it, expiry_date: e.target.value, aiFields: it.aiFields?.filter((x) => x !== "expiry_date") } : it))}

@@ -515,7 +515,6 @@ export default function ScanReviewDialog({
       case "date":
         return (
           <UKDateInput
-            
             value={value ?? ""}
             onChange={(e) => updateAnswer(field.id, e.target.value)}
           />
@@ -1130,7 +1129,6 @@ export default function ScanReviewDialog({
                   <div className="space-y-1.5">
                     <Label>Document date</Label>
                     <UKDateInput
-                      
                       value={docDate}
                       onChange={(e) => setDocDate(e.target.value)}
                     />

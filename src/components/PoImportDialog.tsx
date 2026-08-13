@@ -389,7 +389,6 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated,
               <div className="space-y-2">
                 <Label>Due Date</Label>
                 <UKDateInput
-                  
                   value={form.due_date}
                   onChange={(e) => setForm({ ...form, due_date: e.target.value })}
                 />

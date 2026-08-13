@@ -350,7 +350,6 @@ export default function PpmSchedules({ assetId }: PpmSchedulesProps) {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Next Due *</label>
                 <UKDateInput
-                  
                   value={form.next_due_date}
                   onChange={(e) => setForm((f) => ({ ...f, next_due_date: e.target.value }))}
                 />

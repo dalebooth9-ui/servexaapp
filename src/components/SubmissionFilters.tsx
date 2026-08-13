@@ -61,7 +61,6 @@ export default function SubmissionFilters({ filters, onChange, engineers }: Prop
       <div className="space-y-1">
         <Label className="text-xs">From</Label>
         <UKDateInput
-          
           className="w-[150px]"
           value={filters.dateFrom}
           onChange={(e) => onChange({ ...filters, dateFrom: e.target.value })}
@@ -71,7 +70,6 @@ export default function SubmissionFilters({ filters, onChange, engineers }: Prop
       <div className="space-y-1">
         <Label className="text-xs">To</Label>
         <UKDateInput
-          
           className="w-[150px]"
           value={filters.dateTo}
           onChange={(e) => onChange({ ...filters, dateTo: e.target.value })}

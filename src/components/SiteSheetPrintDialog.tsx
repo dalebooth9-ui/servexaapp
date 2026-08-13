@@ -359,7 +359,6 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
                 <div className="space-y-1">
                   <Label className="text-xs">Scheduled date</Label>
                   <UKDateInput
-                    
                     value={overrides.dueDate}
                     onChange={(e) => setOverrides((p) => ({ ...p, dueDate: e.target.value }))}
                     className="h-8 text-sm"

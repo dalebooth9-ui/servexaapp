@@ -49,7 +49,6 @@ export default function BulkAssignBar({
           </SelectContent>
         </Select>
         <UKDateInput
-          
           value={date}
           onChange={(e) => setDate(e.target.value)}
           className="h-7 text-[11px]"

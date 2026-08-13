@@ -2280,7 +2280,6 @@ function renderFormField(
     case "date":
       return (
         <UKDateInput
-          
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
           className="h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full"
