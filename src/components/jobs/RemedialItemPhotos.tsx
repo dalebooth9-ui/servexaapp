@@ -121,20 +121,23 @@ export default function RemedialItemPhotos({ jobId, jobOrgId, itemId, canEdit }:
     }
   };
 
-  const slotButton = (slot: Slot, inputRef: React.RefObject<HTMLInputElement>) => {
+  const slotButton = (
+    slot: Slot,
+    inputRef: React.RefObject<HTMLInputElement>,
+    galleryRef: React.RefObject<HTMLInputElement>,
+  ) => {
     const url = urls[slot];
     const busy = uploading === slot;
     const label = slot === "before" ? "Before photo" : "After photo";
+    const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const f = e.target.files?.[0];
+      if (f) handleFile(slot, f);
+      e.target.value = "";
+    };
     return (
       <div className="flex items-center gap-2">
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(slot, f); e.target.value = ""; }}
-        />
+        <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onPick} />
+        <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={onPick} />
         {url && (
           <button
             type="button"
@@ -146,17 +149,31 @@ export default function RemedialItemPhotos({ jobId, jobOrgId, itemId, canEdit }:
           </button>
         )}
         {canEdit && (
-          <Button
-            type="button"
-            size="sm"
-            variant={url ? "ghost" : "outline"}
-            className="h-11 min-w-[7.5rem] px-3 text-xs"
-            disabled={busy}
-            onClick={() => inputRef.current?.click()}
-          >
-            {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Camera className="mr-1 h-4 w-4" />}
-            {busy ? "Uploading…" : url ? `Retake ${slot}` : label}
-          </Button>
+          <>
+            <Button
+              type="button"
+              size="sm"
+              variant={url ? "ghost" : "outline"}
+              className="h-11 min-w-[7.5rem] px-3 text-xs"
+              disabled={busy}
+              onClick={() => inputRef.current?.click()}
+            >
+              {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Camera className="mr-1 h-4 w-4" />}
+              {busy ? "Uploading…" : url ? `Retake ${slot}` : label}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-11 w-11 px-0"
+              disabled={busy}
+              title={`Choose ${label.toLowerCase()} from gallery`}
+              aria-label={`Choose ${label.toLowerCase()} from gallery`}
+              onClick={() => galleryRef.current?.click()}
+            >
+              <ImageIcon className="h-4 w-4" />
+            </Button>
+          </>
         )}
       </div>
     );
