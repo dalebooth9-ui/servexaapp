@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Library, Plus, Trash2, Pencil, Archive, ArchiveRestore, ArrowLeft } from "lucide-react";
 import { Link, Navigate } from "react-router-dom";
+import HazardModulesAdmin from "@/components/rams/HazardModulesAdmin";
 
 const BLOCK_TYPES = [
   { value: "working_at_height", label: "Working at height (ladders / MEWP)" },
@@ -36,8 +37,9 @@ const WORK_TYPES = [
 export default function RamsLibrary() {
   const { userRole } = useAuth();
   const { toast } = useToast();
-  const [tab, setTab] = useState<"whole" | "block">("block");
-  const { items, loading, refetch } = useRamsLibrary({ kind: tab, includeArchived: true });
+  const [tab, setTab] = useState<"whole" | "block" | "hazard">("block");
+  const libraryKind: "whole" | "block" = tab === "hazard" ? "block" : tab;
+  const { items, loading, refetch } = useRamsLibrary({ kind: libraryKind, includeArchived: true });
   const [editing, setEditing] = useState<RamsLibraryItem | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -79,9 +81,11 @@ export default function RamsLibrary() {
                 </CardDescription>
               </div>
             </div>
-            <Button size="sm" onClick={() => setCreating(true)}>
-              <Plus className="h-4 w-4 mr-1" /> New {tab === "whole" ? "template" : "block"}
-            </Button>
+            {tab !== "hazard" && (
+              <Button size="sm" onClick={() => setCreating(true)}>
+                <Plus className="h-4 w-4 mr-1" /> New {tab === "whole" ? "template" : "block"}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -89,8 +93,12 @@ export default function RamsLibrary() {
             <TabsList>
               <TabsTrigger value="block">Content blocks</TabsTrigger>
               <TabsTrigger value="whole">Whole RAMS templates</TabsTrigger>
+              <TabsTrigger value="hazard">Hazard modules</TabsTrigger>
             </TabsList>
-            <TabsContent value={tab} className="mt-4">
+            <TabsContent value="hazard" className="mt-4">
+              <HazardModulesAdmin />
+            </TabsContent>
+            <TabsContent value={libraryKind} className="mt-4">
               {loading ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">Loading…</p>
               ) : items.length === 0 ? (
@@ -141,7 +149,7 @@ export default function RamsLibrary() {
 
       {(editing || creating) && (
         <LibraryItemDialog
-          kind={tab}
+          kind={libraryKind}
           item={editing}
           onClose={() => { setEditing(null); setCreating(false); }}
           onSaved={() => { setEditing(null); setCreating(false); refetch(); }}

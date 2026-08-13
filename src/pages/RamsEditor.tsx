@@ -16,6 +16,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ArrowLeft, Plus, Trash2, Save, Loader2, AlertTriangle, Users, UserCheck, Eraser, Check, Briefcase, Search, GripVertical } from "lucide-react";
+import HazardModulePicker from "@/components/rams/HazardModulePicker";
+import { parseAppliedModules, type AppliedHazardModule, type RamsModuleContent } from "@/lib/hazardModules";
 import { getRamsDefaults, buildScopeDescription, remedialVariantFor, isRemedialRamsType, RamsType } from "@/lib/ramsDefaults";
 import RamsPdfExport from "@/components/RamsPdfExport";
 import AiRamsAutoFill from "@/components/AiRamsAutoFill";
@@ -386,7 +388,7 @@ export default function RamsEditor() {
   const { jobId, ramsId } = useParams<{ jobId: string; ramsId?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const { toast } = useToast();
 
   const [job, setJob] = useState<any>(null);
@@ -430,6 +432,7 @@ export default function RamsEditor() {
   const [personnel, setPersonnel] = useState("");
   const [plantAndEquipment, setPlantAndEquipment] = useState<string[]>([]);
   const [significantRisks, setSignificantRisks] = useState<string[]>([]);
+  const [hazardModulesApplied, setHazardModulesApplied] = useState<AppliedHazardModule[]>([]);
   const [specialTraining, setSpecialTraining] = useState("");
   const [ppeItems, setPpeItems] = useState<string[]>([]);
   const [riskRows, setRiskRows] = useState<string[][]>([]);
@@ -527,6 +530,7 @@ export default function RamsEditor() {
         setSpecialTraining(d.special_training || "");
         setPpeItems(d.ppe_items || []);
         setRiskRows(d.risk_rows || []);
+        setHazardModulesApplied(parseAppliedModules(d.hazard_modules));
         setPersonnelList(d.personnel_list || []);
         setApprovalFields({
           approverName: d.approver_name || "",
@@ -741,6 +745,7 @@ export default function RamsEditor() {
       special_training: specialTraining,
       ppe_items: ppeItems,
       risk_rows: riskRows,
+      hazard_modules: hazardModulesApplied,
       personnel_list: personnelList,
       approver_name: approvalFields.approverName,
       approver_role: approvalFields.approverRole,
@@ -1016,6 +1021,29 @@ export default function RamsEditor() {
         {/* ── PPE & Risks ── */}
         <TabsContent value="ppe">
           <div className="space-y-6">
+            <HazardModulePicker
+              canManage={userRole === "admin"}
+              applied={hazardModulesApplied}
+              user={{ id: user?.id, name: myProfile?.full_name }}
+              content={{
+                sequenceOfOps,
+                taskSpecificOps,
+                plantAndEquipment,
+                significantRisks,
+                ppeItems,
+                riskRows,
+              }}
+              onChange={(next: RamsModuleContent, applied) => {
+                setSequenceOfOps(next.sequenceOfOps);
+                setTaskSpecificOps(next.taskSpecificOps);
+                setPlantAndEquipment(next.plantAndEquipment);
+                setSignificantRisks(next.significantRisks);
+                setPpeItems(next.ppeItems);
+                setRiskRows(next.riskRows);
+                setHazardModulesApplied(applied);
+                setIsDirty(true);
+              }}
+            />
             <Card>
               <CardContent className="pt-4 space-y-6">
                 <ListEditor
