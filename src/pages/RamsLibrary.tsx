@@ -98,8 +98,8 @@ export default function RamsLibrary() {
             <TabsContent value="hazard" className="mt-4">
               <HazardModulesAdmin />
             </TabsContent>
-            <TabsContent value={tab} className="mt-4">
-              {tab === "hazard" ? null : loading ? (
+            <TabsContent value={libraryKind} className="mt-4">
+              {loading ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">Loading…</p>
               ) : items.length === 0 ? (
                 <div className="rounded-md border border-dashed p-8 text-center">
