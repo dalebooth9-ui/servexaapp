@@ -388,7 +388,7 @@ export default function RamsEditor() {
   const { jobId, ramsId } = useParams<{ jobId: string; ramsId?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const { toast } = useToast();
 
   const [job, setJob] = useState<any>(null);
