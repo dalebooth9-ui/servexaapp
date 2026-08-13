@@ -52,6 +52,7 @@ import QuickScheduleDialog from "@/components/jobs/QuickScheduleDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import DroppedPoFilesReorder from "@/components/jobs/DroppedPoFilesReorder";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 const jobSchema = z.object({
   name: z.string().trim().min(1, "Job name is required").max(200, "Job name must be under 200 characters"),
@@ -1766,7 +1767,7 @@ export default function Jobs() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Due Date <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
-                    <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+                    <UKDateInput  value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
                   </div>
                   <div className="space-y-2">
                     <Label>Allocated Days <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>

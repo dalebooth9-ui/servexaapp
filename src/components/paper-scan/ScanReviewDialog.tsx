@@ -80,6 +80,7 @@ import ScanResultView, {
   type ScanResultDestination,
 } from "@/components/paper-scan/ScanResultView";
 import { buildElectronicReportPdf } from "@/lib/electronicReportPdf";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 const createDefectSuffix = (n: number) =>
   n > 0 ? ` · ${n} defect${n === 1 ? "" : "s"} logged` : "";
@@ -513,8 +514,7 @@ export default function ScanReviewDialog({
         );
       case "date":
         return (
-          <Input
-            type="date"
+          <UKDateInput
             value={value ?? ""}
             onChange={(e) => updateAnswer(field.id, e.target.value)}
           />
@@ -1128,8 +1128,7 @@ export default function ScanReviewDialog({
                 <>
                   <div className="space-y-1.5">
                     <Label>Document date</Label>
-                    <Input
-                      type="date"
+                    <UKDateInput
                       value={docDate}
                       onChange={(e) => setDocDate(e.target.value)}
                     />

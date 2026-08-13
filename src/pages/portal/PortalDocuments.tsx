@@ -5,6 +5,7 @@ import type { PortalContext } from "./PortalLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, FileText } from "lucide-react";
+import { formatDate } from "@/lib/dateFormat";
 
 interface DocRow {
   id: string; job_id: string; document_type: string | null; file_name: string | null;
@@ -51,7 +52,7 @@ export default function PortalDocuments() {
                   <FileText className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="min-w-0 flex-1">
                     <div className="font-medium break-words line-clamp-3 sm:line-clamp-2">{d.file_name || d.document_type || "Document"}</div>
-                    <div className="text-xs text-muted-foreground">{new Date(d.created_at).toLocaleDateString()} · {d.document_type}</div>
+                    <div className="text-xs text-muted-foreground">{formatDate(d.created_at)} · {d.document_type}</div>
                   </div>
                 </div>
                 <Button size="sm" variant="outline" className="w-full sm:w-auto shrink-0" onClick={() => open(d)}><Download className="w-4 h-4 mr-2" />Open</Button>

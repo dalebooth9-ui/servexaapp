@@ -30,6 +30,7 @@ import {
   renderFilledFieldRow,
 } from "@/lib/pdfBody";
 import { fetchOrientedImage } from "@/lib/exifOrient";
+import { ukDateifyRecord } from "@/lib/dateFormat";
 
 function extractSubmissionPath(value: any): string | null {
   if (typeof value !== "string") return null;
@@ -154,7 +155,8 @@ export async function generateJobSheetPdf(
   preloadedSignatures?: { engineerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string }; customerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string }; sigImages?: Record<string, HTMLImageElement>; technicianSourceNote?: string | null; customerSourceNote?: string | null },
 ): Promise<{ base64: string; fileName: string; pageCount: number }> {
   // Resolve scope/category fields in formData using the human-readable category name
-  const resolvedFormData = { ...formData };
+  // Display formatting only: stored answers stay ISO; PDFs print UK DD/MM/YYYY.
+  const resolvedFormData = ukDateifyRecord({ ...formData });
   const normalizeFieldLabel = (label: string) => label.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const hasValue = (value: unknown) => value !== undefined && value !== null && value !== "";
 

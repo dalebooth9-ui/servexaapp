@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CalendarClock, MapPin, Send } from "lucide-react";
 import { RequestVisitDialog } from "@/components/portal/RequestVisitDialog";
+import { formatDate } from "@/lib/dateFormat";
 
 interface SiteRow { id: string; name: string; address: string | null; }
 interface DueRow { site_id: string; work_type: string | null; next_due_date: string | null; }
@@ -68,7 +69,7 @@ export default function PortalHome() {
                         <li key={i} className="py-1.5 flex items-center justify-between">
                           <span>{d.work_type || "Scheduled service"}</span>
                           <span className="flex items-center gap-2">
-                            {d.next_due_date && <span className="text-muted-foreground">{new Date(d.next_due_date).toLocaleDateString()}</span>}
+                            {d.next_due_date && <span className="text-muted-foreground">{formatDate(d.next_due_date)}</span>}
                             {overdue && <Badge variant="destructive">Overdue</Badge>}
                           </span>
                         </li>

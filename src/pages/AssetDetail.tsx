@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 type Asset = {
   id: string;
@@ -480,7 +481,7 @@ export default function AssetDetail() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium">Expiry Date</label>
-                  <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="w-[150px] h-9 text-xs" />
+                  <UKDateInput  value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="w-[150px] h-9 text-xs" />
                 </div>
                 <div>
                   <input ref={fileRef} type="file" onChange={handleUpload} className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" />

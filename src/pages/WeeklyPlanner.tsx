@@ -29,6 +29,7 @@ import EngineerVisibilityFilter from "@/components/planner/EngineerVisibilityFil
 import BulkPrintSheetsDialog from "@/components/planner/BulkPrintSheetsDialog";
 import type { BulkPrintSelection } from "@/lib/bulkPrintJobSheets";
 import { format as fmtDate, endOfWeek as _endOfWeek } from "date-fns";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 const NOTE_COLORS = [
   { value: null,      label: "Default",  swatch: "bg-foreground/10 border border-border" },
@@ -1213,7 +1214,7 @@ export default function WeeklyPlanner() {
                   Start Date{" "}
                   <span className="text-xs text-muted-foreground font-normal">(optional)</span>
                 </Label>
-                <Input type="date" value={adhocDay} onChange={(e) => setAdhocDay(e.target.value)} />
+                <UKDateInput  value={adhocDay} onChange={(e) => setAdhocDay(e.target.value)} />
               </div>
             </div>
             <p className="text-xs text-muted-foreground -mt-1">Leave date blank to place in Unallocated. Days may span non-consecutive dates.</p>
@@ -1241,7 +1242,7 @@ export default function WeeklyPlanner() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Date</Label>
-              <Input type="date" value={addDay} onChange={(e) => setAddDay(e.target.value)} />
+              <UKDateInput  value={addDay} onChange={(e) => setAddDay(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Engineer</Label>
@@ -1330,7 +1331,7 @@ export default function WeeklyPlanner() {
             </div>
             <div className="space-y-2">
               <Label>Date</Label>
-              <Input type="date" value={batchDate} onChange={(e) => setBatchDate(e.target.value)} />
+              <UKDateInput  value={batchDate} onChange={(e) => setBatchDate(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Select Jobs ({batchJobIds.size} selected)</Label>
@@ -1381,7 +1382,7 @@ export default function WeeklyPlanner() {
             </div>
             <div className="space-y-2">
               <Label>From Date</Label>
-              <Input type="date" value={shuntFromDate} onChange={(e) => setShuntFromDate(e.target.value)} />
+              <UKDateInput  value={shuntFromDate} onChange={(e) => setShuntFromDate(e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">

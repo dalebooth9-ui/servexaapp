@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 interface Props {
   open: boolean;
@@ -45,7 +46,7 @@ export function RequestVisitDialog({ open, onOpenChange, site, customerId, orgId
         <div className="space-y-3">
           <div>
             <Label htmlFor="pd">Preferred date (optional)</Label>
-            <Input id="pd" type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} />
+            <UKDateInput id="pd"  value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} />
           </div>
           <div>
             <Label htmlFor="nt">Notes</Label>

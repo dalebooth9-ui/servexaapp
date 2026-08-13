@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowLeft, Plus, Trash2, FileText, Repeat, PoundSterling, Save, Loader2, Wrench, X } from "lucide-react";
 import { format, addYears, differenceInDays } from "date-fns";
 import { toast } from "sonner";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 type Service = { id: string; description: string; quantity: number; unit_price: number; ppm_schedule_id: string | null; sort_order: number };
 type Site = { id: string; site_id: string; sites?: { name: string; address: string | null } | null };
@@ -307,8 +308,8 @@ export default function ServiceContractDetail() {
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>Start date</Label><Input type="date" value={editForm.start_date || ""} onChange={e => setEditForm((f: any) => ({ ...f, start_date: e.target.value }))} /></div>
-            <div><Label>Renewal date</Label><Input type="date" value={editForm.renewal_date || ""} onChange={e => setEditForm((f: any) => ({ ...f, renewal_date: e.target.value }))} /></div>
+            <div><Label>Start date</Label><UKDateInput  value={editForm.start_date || ""} onChange={e => setEditForm((f: any) => ({ ...f, start_date: e.target.value }))} /></div>
+            <div><Label>Renewal date</Label><UKDateInput  value={editForm.renewal_date || ""} onChange={e => setEditForm((f: any) => ({ ...f, renewal_date: e.target.value }))} /></div>
             <div><Label>Annual value (£)</Label><Input type="number" step="0.01" value={editForm.contract_value ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, contract_value: e.target.value }))} /></div>
             <div><Label>Billing frequency</Label>
               <Select value={editForm.billing_frequency} onValueChange={v => setEditForm((f: any) => ({ ...f, billing_frequency: v }))}>

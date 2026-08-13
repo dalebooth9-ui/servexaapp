@@ -38,6 +38,7 @@ import {
   Zap,
 } from "lucide-react";
 import { format } from "date-fns";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 type PpmSchedule = {
   id: string;
@@ -348,8 +349,7 @@ export default function PpmSchedules({ assetId }: PpmSchedulesProps) {
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Next Due *</label>
-                <Input
-                  type="date"
+                <UKDateInput
                   value={form.next_due_date}
                   onChange={(e) => setForm((f) => ({ ...f, next_due_date: e.target.value }))}
                 />

@@ -25,6 +25,7 @@ import { format } from "date-fns";
 import TableSkeleton from "@/components/TableSkeleton";
 import { normaliseWhatsAppNumber, WHATSAPP_NUMBER_HINT } from "@/lib/normalisePhone";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 const DOC_TYPES = ["certificate", "id", "training", "insurance", "dbs", "first_aid", "other"];
 
@@ -630,7 +631,7 @@ export default function Engineers() {
             </div>
             <div className="space-y-2">
               <Label>Expiry Date</Label>
-              <Input type="date" value={docForm.expiry_date} onChange={(e) => setDocForm((f) => ({ ...f, expiry_date: e.target.value }))} />
+              <UKDateInput  value={docForm.expiry_date} onChange={(e) => setDocForm((f) => ({ ...f, expiry_date: e.target.value }))} />
             </div>
             <div className="space-y-2">
               <Label>Files *</Label>

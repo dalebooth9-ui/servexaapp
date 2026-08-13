@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 
 type ComplianceRecord = {
   id: string; title: string; record_type: string;
@@ -821,14 +822,14 @@ export default function Compliance() {
                   Issue Date
                   {aiFields.includes("issue_date") && <span className="inline-flex items-center gap-0.5 px-1 py-px rounded text-[9px] font-medium bg-violet-500/10 text-violet-600 border border-violet-300/40"><Sparkles className="h-2.5 w-2.5" /> AI</span>}
                 </label>
-                <Input type="date" value={form.issue_date} onChange={(e) => { setForm((f) => ({ ...f, issue_date: e.target.value })); setAiFields((prev) => prev.filter((x) => x !== "issue_date")); }} />
+                <UKDateInput  value={form.issue_date} onChange={(e) => { setForm((f) => ({ ...f, issue_date: e.target.value })); setAiFields((prev) => prev.filter((x) => x !== "issue_date")); }} />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium flex items-center gap-1">
                   Expiry Date
                   {aiFields.includes("expiry_date") && <span className="inline-flex items-center gap-0.5 px-1 py-px rounded text-[9px] font-medium bg-violet-500/10 text-violet-600 border border-violet-300/40"><Sparkles className="h-2.5 w-2.5" /> AI</span>}
                 </label>
-                <Input type="date" value={form.expiry_date} onChange={(e) => { setForm((f) => ({ ...f, expiry_date: e.target.value })); setAiFields((prev) => prev.filter((x) => x !== "expiry_date")); }} />
+                <UKDateInput  value={form.expiry_date} onChange={(e) => { setForm((f) => ({ ...f, expiry_date: e.target.value })); setAiFields((prev) => prev.filter((x) => x !== "expiry_date")); }} />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Status</label>
@@ -1031,15 +1032,13 @@ export default function Compliance() {
                             {RECORD_TYPES.map((t) => <SelectItem key={t} value={t} className="text-xs">{t.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}</SelectItem>)}
                           </SelectContent>
                         </Select>
-                        <Input
-                          type="date"
+                        <UKDateInput
                           title="Issue Date"
                           value={item.issue_date}
                           onChange={(e) => setBulkFiles((prev) => prev.map((it, j) => j === i ? { ...it, issue_date: e.target.value, aiFields: it.aiFields?.filter((x) => x !== "issue_date") } : it))}
                           className={`h-7 text-xs ${item.aiFields?.includes("issue_date") ? "border-violet-300/60 bg-violet-500/5" : ""}`}
                         />
-                        <Input
-                          type="date"
+                        <UKDateInput
                           title="Expiry Date"
                           value={item.expiry_date}
                           onChange={(e) => setBulkFiles((prev) => prev.map((it, j) => j === i ? { ...it, expiry_date: e.target.value, aiFields: it.aiFields?.filter((x) => x !== "expiry_date") } : it))}
