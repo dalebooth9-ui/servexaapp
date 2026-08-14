@@ -8,6 +8,8 @@
  * - Only logs when a user session exists (RLS requires user_id = auth.uid()).
  */
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
 
 export type ErrorSource = "client" | "api" | "edge" | "boundary" | "unhandled" | "promise" | "toast";
 
