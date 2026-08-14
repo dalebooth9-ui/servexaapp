@@ -222,4 +222,65 @@ export function installGlobalErrorHandlers() {
       error: event.reason,
     });
   });
+
+  installToastCapture();
+  installEdgeFunctionCapture();
 }
+
+/** Centrally records every sonner error toast without touching call sites. */
+function installToastCapture() {
+  try {
+    const anyToast = toast as unknown as Record<string, unknown>;
+    const original = anyToast.error as ((...args: unknown[]) => unknown) | undefined;
+    if (typeof original !== "function" || (original as { __logged?: boolean }).__logged) return;
+    const wrapped = (...args: unknown[]) => {
+      try {
+        const [msg, opts] = args as [unknown, { description?: unknown } | undefined];
+        const text = typeof msg === "string" ? msg : msg instanceof Error ? msg.message : "Error toast";
+        logError({
+          source: "toast",
+          message: text,
+          context: {
+            description: typeof opts?.description === "string" ? opts.description : undefined,
+          },
+        });
+      } catch {
+        /* logging must never break the toast */
+      }
+      return original(...args);
+    };
+    (wrapped as { __logged?: boolean }).__logged = true;
+    anyToast.error = wrapped;
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Records failures returned by edge-function invocations. */
+function installEdgeFunctionCapture() {
+  try {
+    const fns = supabase.functions as unknown as {
+      invoke: (...args: unknown[]) => Promise<{ error?: unknown }>;
+      __logged?: boolean;
+    };
+    if (!fns || typeof fns.invoke !== "function" || fns.__logged) return;
+    const original = fns.invoke.bind(fns);
+    fns.invoke = async (...args: unknown[]) => {
+      const name = typeof args[0] === "string" ? (args[0] as string) : "unknown";
+      try {
+        const result = await original(...args);
+        if (result?.error) {
+          logError({ source: "edge", error: result.error, context: { function: name } });
+        }
+        return result;
+      } catch (e) {
+        logError({ source: "edge", error: e, context: { function: name } });
+        throw e;
+      }
+    };
+    fns.__logged = true;
+  } catch {
+    /* ignore */
+  }
+}
+
