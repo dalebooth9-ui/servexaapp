@@ -137,6 +137,18 @@ type Toast = Omit<ToasterToast, "id">;
 function toast({ ...props }: Toast) {
   const id = genId();
 
+  // Central capture: record destructive toasts to the error log.
+  if ((props as { variant?: string }).variant === "destructive") {
+    void import("@/lib/errorLogger").then(({ logError }) => {
+      logError({
+        source: "toast",
+        message: typeof props.title === "string" ? props.title : "Error toast",
+        context: { description: typeof props.description === "string" ? props.description : undefined },
+      });
+    }).catch(() => {});
+  }
+
+
   const update = (props: ToasterToast) =>
     dispatch({
       type: "UPDATE_TOAST",
