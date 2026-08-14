@@ -9,7 +9,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 
-export type ErrorSource = "client" | "api" | "edge" | "boundary" | "unhandled" | "promise";
+export type ErrorSource = "client" | "api" | "edge" | "boundary" | "unhandled" | "promise" | "toast";
 
 export interface LoggedError {
   source: ErrorSource;
