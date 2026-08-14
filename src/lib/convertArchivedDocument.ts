@@ -7,7 +7,12 @@
 import { supabase } from "@/integrations/supabase/client";
 import { resolveSubmissionsSignedUrl } from "@/lib/resolveSubmissionsPath";
 import { generateAndUploadArchivePdf } from "@/lib/archivePdfBuilder";
-import { fuzzyMatchEngineer } from "@/lib/fuzzyEngineerMatch";
+import {
+  runScanExtraction,
+  normalizeExtractedAnswers,
+  mirrorHeaderIntoAnswers,
+} from "@/lib/scanPipeline";
+
 
 async function pathToPayload(
   path: string,
