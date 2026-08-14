@@ -11,6 +11,8 @@ type SlugRule = {
 
 const RULES: SlugRule[] = [
   { test: (p) => p === "/", slug: "dashboard" },
+  { test: (p) => p === "/admin/error-log", slug: "error-log" },
+
   { test: (p) => p === "/jobs", slug: "jobs" },
   { test: (p) => /^\/jobs\/[^/]+$/.test(p), slug: "jobs.detail" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/rams"), slug: "rams" },
