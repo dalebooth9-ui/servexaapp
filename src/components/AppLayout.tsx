@@ -244,7 +244,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   const [pendingReviewCount, setPendingReviewCount] = useReactState<number>(0);
   const [platformSupportOpen, setPlatformSupportOpen] = useReactState<number>(0);
   const paperScansPending = usePaperScanPendingCount();
-  const recentErrorCount = useRecentErrorCount(isAdmin);
+  const recentErrorCount = useRecentErrorCount(userRole === "admin" || userRole === "platform_admin");
 
 
   useEffect(() => {
