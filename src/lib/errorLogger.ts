@@ -30,13 +30,15 @@ const recentSignatures = new Map<string, number>();
 
 let cachedOrgId: string | null | undefined = undefined; // undefined = not fetched yet
 let cachedUserId: string | null = null;
+let cachedRole: string | null = null;
 
-async function resolveIdentity(): Promise<{ userId: string | null; orgId: string | null }> {
+async function resolveIdentity(): Promise<{ userId: string | null; orgId: string | null; role: string | null }> {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { userId: null, orgId: null };
+  if (!user) return { userId: null, orgId: null, role: null };
   if (cachedUserId !== user.id) {
     cachedUserId = user.id;
     cachedOrgId = undefined;
+    cachedRole = null;
   }
   if (cachedOrgId === undefined) {
     const { data } = await supabase
@@ -46,9 +48,53 @@ async function resolveIdentity(): Promise<{ userId: string | null; orgId: string
       .eq("status", "active")
       .maybeSingle();
     cachedOrgId = data?.org_id ?? null;
+    const { data: roleRow } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle();
+    cachedRole = (roleRow?.role as string | undefined) ?? null;
   }
-  return { userId: user.id, orgId: cachedOrgId ?? null };
+  return { userId: user.id, orgId: cachedOrgId ?? null, role: cachedRole };
 }
+
+/** Redact obvious secrets from any free text before it is persisted. */
+const SECRET_PATTERNS: RegExp[] = [
+  /("?(?:password|passwd|pwd|secret|token|access_token|refresh_token|api[_-]?key|apikey|authorization|auth|bearer|client_secret|card|cardnumber|cvv|cvc|pin)"?\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,&;}]+)/gi,
+  /\bBearer\s+[A-Za-z0-9._\-]{12,}\b/gi,
+  /\beyJ[A-Za-z0-9._\-]{20,}\b/g, // JWTs
+  /\b(?:\d[ -]*?){13,19}\b/g, // card-like numbers
+];
+
+export function scrubSecrets(input: string): string {
+  let out = input;
+  try {
+    out = out.replace(SECRET_PATTERNS[0], (_m, p1) => `${p1}"[redacted]"`);
+    out = out.replace(SECRET_PATTERNS[1], "Bearer [redacted]");
+    out = out.replace(SECRET_PATTERNS[2], "[redacted-jwt]");
+    out = out.replace(SECRET_PATTERNS[3], (m) => (/\d/.test(m) && m.replace(/\D/g, "").length >= 13 ? "[redacted-number]" : m));
+  } catch {
+    /* ignore */
+  }
+  return out;
+}
+
+function scrubValue(value: unknown): unknown {
+  if (typeof value === "string") return scrubSecrets(value);
+  if (Array.isArray(value)) return value.map(scrubValue);
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = /password|secret|token|apikey|api_key|authorization|card|cvv|pin/i.test(k)
+        ? "[redacted]"
+        : scrubValue(v);
+    }
+    return out;
+  }
+  return value;
+}
+
 
 function signature(source: string, message: string) {
   return `${source}::${message.slice(0, 200)}`;
