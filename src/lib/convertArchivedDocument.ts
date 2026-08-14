@@ -106,59 +106,30 @@ export async function convertArchivedDocument(
   if (!tpl) return { ok: false, reason: "Template not found" };
 
   const fields = Array.isArray((tpl as any).fields) ? (tpl as any).fields : [];
-  const { data: ocrData, error: ocrErr } = await supabase.functions.invoke(
-    "ocr-job-sheet",
-    {
-      body: {
-        images: payloads,
-        template_name: (tpl as any).name,
-        fields: fields.map((f: any) => ({
-          id: f.id,
-          label: f.label,
-          type: f.type,
-          section: f.section,
-          options: f.options,
-        })),
-      },
-    },
-  );
-  if (ocrErr) return { ok: false, reason: `OCR failed: ${ocrErr.message}` };
-  const extracted = ocrData?.extracted || {};
-  const header = ocrData?.header || {};
-  const fieldConfidence = ocrData?.field_confidence || {};
 
-  // Best-effort: match the OCR'd technician name against an org engineer
-  // profile so their stored signature (profiles.signature_data) stamps
-  // onto the electronic report. Retro-convert has no review step, so this
-  // is silent — the office can re-run if the guess is wrong.
-  let technicianName: string | null = null;
-  const rawTech: string =
-    (header as any)?.engineer ||
-    (extracted as any)?.technician_name ||
-    (extracted as any)?.engineer ||
-    "";
-  if (rawTech && (doc as any).org_id) {
-    const { data: engs } = await supabase
-      .from("profiles")
-      .select("user_id, full_name, signature_data")
-      .eq("org_id", (doc as any).org_id);
-    const withSig = ((engs as any[]) || []).filter(
-      (e) => e.full_name && e.signature_data,
-    );
-    if (withSig.length > 0) {
-      const matched = fuzzyMatchEngineer(
-        rawTech,
-        withSig.map((e) => ({ user_id: e.user_id, full_name: e.full_name })),
-      );
-      if (matched && matched.toUpperCase() !== rawTech.trim().toUpperCase()) {
-        technicianName = matched;
-      } else if (
-        withSig.some((e) => e.full_name.toUpperCase() === matched.toUpperCase())
-      ) {
-        technicianName = matched;
-      }
-    }
-  }
+  // Canonical pipeline — same normalisation, letterhead guard, header
+  // mirroring, date checks and confidence flags every other scan door gets.
+  const scan = await runScanExtraction({
+    images: payloads,
+    templateName: (tpl as any).name,
+    fields: fields as any,
+    matchEngineerToProfiles: true,
+    scanReferenceDate: new Date(),
+  });
+
+  const header = scan.header;
+  const fieldConfidence = scan.fieldConfidence;
+  const extracted = mirrorHeaderIntoAnswers(
+    normalizeExtractedAnswers(scan.extracted, fields as any),
+    header,
+    fields as any,
+  );
+
+  // Engineer match drives which stored signature stamps onto the report.
+  const technicianName: string | null = scan.engineerMatch.hasSignature
+    ? scan.engineerMatch.matchedName
+    : null;
+
 
   // Preserve any manually-cropped signatures the office picked previously —
   // same single-source-of-truth rule as the customer link. A re-convert
