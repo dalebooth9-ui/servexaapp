@@ -28,6 +28,7 @@ import SubscriptionActivationBanner from "@/components/billing/SubscriptionActiv
 import ReportProblemDialog from "@/components/ReportProblemDialog";
 import BackButton from "@/components/BackButton";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useRecentErrorCount } from "@/hooks/useRecentErrorCount";
 import { usePaperScanPendingCount } from "@/hooks/usePaperScanQueue";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -243,6 +244,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   const [pendingReviewCount, setPendingReviewCount] = useReactState<number>(0);
   const [platformSupportOpen, setPlatformSupportOpen] = useReactState<number>(0);
   const paperScansPending = usePaperScanPendingCount();
+  const recentErrorCount = useRecentErrorCount(isAdmin);
 
 
   useEffect(() => {
@@ -507,7 +509,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                                   inOps={false}
                                   collapsed={sidebarCollapsed}
                                   onTogglePin={() => handleTogglePin(item.to, "more")}
-                                  badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : item.to === "/platform/support" ? platformSupportOpen : item.to === "/paper-scans" ? paperScansPending : undefined} />
+                                  badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : item.to === "/platform/support" ? platformSupportOpen : item.to === "/paper-scans" ? paperScansPending : item.to === "/admin/error-log" ? recentErrorCount : undefined} />
 
 
                               );
@@ -528,7 +530,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                               inOps={isOpsSection}
                               collapsed={sidebarCollapsed}
                               onTogglePin={() => handleTogglePin(item.to, isOpsSection ? "operations" : section as "operations" | "more")}
-                              badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : item.to === "/platform/support" ? platformSupportOpen : item.to === "/paper-scans" ? paperScansPending : undefined} />
+                              badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : item.to === "/platform/support" ? platformSupportOpen : item.to === "/paper-scans" ? paperScansPending : item.to === "/admin/error-log" ? recentErrorCount : undefined} />
 
                           );
                         })}
