@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import UKDateInput from "@/components/ui/uk-date-input";
+import { UKDateInput } from "@/components/ui/uk-date-input";
 import { RefreshCw, Trash2, AlertTriangle, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
