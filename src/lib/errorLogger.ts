@@ -144,12 +144,12 @@ export function logError(input: LogErrorInput): void {
 
     const entry: LoggedError = {
       source,
-      message,
-      stack,
-      page_url: typeof window !== "undefined" ? window.location.href : undefined,
+      message: scrubSecrets(message),
+      stack: stack ? scrubSecrets(stack) : null,
+      page_url: typeof window !== "undefined" ? scrubSecrets(window.location.href) : undefined,
       route: typeof window !== "undefined" ? window.location.pathname : undefined,
       user_agent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
-      context: input.context ?? {},
+      context: (scrubValue(input.context ?? {}) as Record<string, unknown>),
       created_at: new Date().toISOString(),
     };
     pushRing(entry);
@@ -157,7 +157,7 @@ export function logError(input: LogErrorInput): void {
     // Persist asynchronously; swallow any failure so logging never breaks the app.
     void (async () => {
       try {
-        const { userId, orgId } = await resolveIdentity();
+        const { userId, orgId, role } = await resolveIdentity();
         if (!userId) return; // Anonymous session — RLS would reject
         await supabase.from("client_errors").insert([{
           user_id: userId,
@@ -168,7 +168,7 @@ export function logError(input: LogErrorInput): void {
           page_url: entry.page_url,
           route: entry.route,
           user_agent: entry.user_agent,
-          context: (entry.context ?? {}) as never,
+          context: ({ ...(entry.context ?? {}), role }) as never,
         }]);
       } catch {
         // Never propagate.
@@ -178,6 +178,7 @@ export function logError(input: LogErrorInput): void {
     // Never propagate.
   }
 }
+
 
 /**
  * Wraps a Supabase call result. If `error` is set, logs it and returns the
