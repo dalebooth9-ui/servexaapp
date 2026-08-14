@@ -180,8 +180,8 @@ export default function ErrorLog() {
             ))}
           </SelectContent>
         </Select>
-        <UKDateInput value={fromDate} onChange={setFromDate} placeholder="From" />
-        <UKDateInput value={toDate} onChange={setToDate} placeholder="To" />
+        <UKDateInput value={fromDate} onChange={(e) => setFromDate(e.target.value)} placeholder="From" />
+        <UKDateInput value={toDate} onChange={(e) => setToDate(e.target.value)} placeholder="To" />
       </div>
 
       <Card>
