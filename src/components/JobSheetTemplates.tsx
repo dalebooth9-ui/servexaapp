@@ -1202,6 +1202,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       const hasSignature = (sigCount ?? 0) > 0;
       const finalStatus = hasSignature ? "submitted" : "draft";
 
+      let savedResponseId: string | null = activeResponse?.id ?? null;
       if (activeResponse) {
         await supabase.from("job_sheet_responses").update({
           responses: finalFormData as any,
@@ -1209,14 +1210,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           submitted_at: hasSignature ? new Date().toISOString() : null,
         } as any).eq("id", activeResponse.id);
       } else {
-        await supabase.from("job_sheet_responses").insert({
+        const { data: inserted } = await supabase.from("job_sheet_responses").insert({
           job_id: jobId,
           template_id: activeTemplate.id,
           responses: finalFormData as any,
           submitted_by: user?.id,
           status: finalStatus,
           submitted_at: hasSignature ? new Date().toISOString() : null,
-        } as any);
+        } as any).select("id").maybeSingle();
+        savedResponseId = (inserted as any)?.id ?? null;
       }
 
       if (!hasSignature) {
@@ -1229,6 +1231,38 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         fetchData();
         return;
       }
+
+      // AI customer summary — opt-in per org, drafted in the background so the
+      // engineer never waits on it. Composed only from the answers just saved
+      // and the job's recorded defects; the office can edit or remove it.
+      if (savedResponseId) {
+        void (async () => {
+          try {
+            const { loadAiSummarySettings, generateSummaryForReport, AI_SUMMARY_KEY } =
+              await import("@/lib/reportSummary");
+            const { enabled } = await loadAiSummarySettings();
+            if (!enabled) return;
+            if ((finalFormData as any)[AI_SUMMARY_KEY]) return;
+            const { summary } = await generateSummaryForReport({
+              templateName: activeTemplate.name,
+              fields: (activeTemplate.fields || []) as any,
+              responses: finalFormData as any,
+              jobId,
+              context: {
+                customer: jobInfo?.customer ?? null,
+                site: (jobInfo as any)?.site?.name ?? jobInfo?.address ?? null,
+              },
+            });
+            if (!summary) return;
+            await supabase
+              .from("job_sheet_responses")
+              .update({ responses: { ...(finalFormData as any), [AI_SUMMARY_KEY]: summary } as any })
+              .eq("id", savedResponseId!);
+            fetchData();
+          } catch { /* summary is optional — never block submission */ }
+        })();
+      }
+
 
       // Auto-create Certificate of Conformity when a commissioning cert is submitted
       if (
