@@ -18,10 +18,11 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, CheckCircle2, Clock, AlertCircle, XCircle, Camera, FileText, Loader2, Wrench, Ban } from "lucide-react";
+import { Plus, Search, CheckCircle2, Clock, AlertCircle, XCircle, Camera, FileText, Loader2, Wrench, Ban, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { draftQuoteFromDefects } from "@/lib/draftDefectQuote";
 
 type Defect = {
   id: string;
@@ -241,48 +242,16 @@ export default function Defects() {
       toast.error("All defects must belong to the same site for combined quoting.");
       return;
     }
-    const siteId = defectsToQuote[0].site_id;
-    const cust = siteId ? customerSites[siteId] : null;
 
     setQuoting(true);
-    const { data: invoice, error } = await supabase.from("invoices").insert({
-      created_by: user.id,
-      customer_name: cust?.customer_name || "Customer",
-      customer_email: cust?.customer_email || null,
-      customer_address: cust?.site_address || null,
-      document_type: "quote",
-      status: "draft",
-      invoice_number: "",
-      subtotal: 0,
-      tax_amount: 0,
-      tax_rate: 20,
-      total: 0,
-      notes: `Quote generated from ${defectsToQuote.length} defect${defectsToQuote.length === 1 ? "" : "s"}`,
-    } as any).select("id").single();
-
-    if (error || !invoice) {
-      toast.error(error?.message || "Failed to create quote");
-      setQuoting(false);
-      return;
-    }
-
-    const lineItems = defectsToQuote.map((d, i) => ({
-      invoice_id: invoice.id,
-      description: `${d.title}${d.location_on_site ? ` — ${d.location_on_site}` : ""}${d.description ? `\n${d.description}` : ""}${d.bs_standard_reference ? `\n(${d.bs_standard_reference})` : ""}`,
-      quantity: 1,
-      unit_price: 0,
-      amount: 0,
-      sort_order: i,
-    }));
-    await supabase.from("invoice_line_items").insert(lineItems as any);
-    await supabase.from("defects").update({ status: "quoted", quote_id: invoice.id } as any)
-      .in("id", defectsToQuote.map(d => d.id));
-
-    toast.success("Quote created");
+    const result = await draftQuoteFromDefects(defectsToQuote.map(d => d.id));
     setQuoting(false);
+    if (!result) return;
+
     setSelectedIds(new Set());
-    navigate(`/invoices/${invoice.id}`);
+    navigate(`/invoices/${result.invoice_id}`);
   };
+
 
   const onPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -333,8 +302,8 @@ export default function Defects() {
         <div className="flex gap-2">
           {isAdmin && selectedIds.size > 0 && (
             <Button onClick={() => generateQuoteForDefects(selectedDefects)} disabled={!canBatchQuote || quoting} variant="secondary">
-              {quoting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-              Quote {selectedIds.size} selected
+              {quoting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              Draft quote from {selectedIds.size} selected
             </Button>
           )}
           <Button onClick={() => setDialogOpen(true)}>
@@ -486,8 +455,8 @@ export default function Defects() {
                     <TableCell>
                       <div className="flex gap-1 justify-end">
                         {isAdmin && !d.quote_id && d.status !== "resolved" && (
-                          <Button variant="ghost" size="sm" title="Generate Quote" onClick={() => generateQuoteForDefects([d])} disabled={quoting}>
-                            <FileText className="h-3.5 w-3.5" />
+                          <Button variant="ghost" size="sm" title="Draft quote with AI" onClick={() => generateQuoteForDefects([d])} disabled={quoting}>
+                            <Sparkles className="h-3.5 w-3.5" />
                           </Button>
                         )}
                         {d.quote_id && (
