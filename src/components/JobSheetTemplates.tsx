@@ -2465,6 +2465,7 @@ function renderFormField(
             value={value || ""}
             onChange={(e) => onChange(e.target.value)}
             placeholder="Custom result"
+            dictation
             className="h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full"
           />
         );
@@ -2522,6 +2523,7 @@ function renderFormField(
             value={value || ""}
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholder || "Custom value"}
+            dictation
             className={`h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full ${locked ? "opacity-70 cursor-not-allowed" : ""}`}
             disabled={locked}
           />
