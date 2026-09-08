@@ -14,6 +14,8 @@ import {
   type QueuedOp,
 } from "@/lib/syncQueue";
 import { processPhotoQueue, listPhotoQueue } from "@/lib/photoQueue";
+import { processReportQueue, listReportQueue } from "@/lib/reportSubmissionQueue";
+
 import { pushConflict } from "@/lib/conflictBus";
 import { recordSync } from "@/lib/syncHistory";
 
@@ -66,10 +68,17 @@ async function executor(op: QueuedOp) {
 async function drain() {
   const queueTotal = await getQueueSize();
   const photos = await listPhotoQueue();
-  const total = queueTotal + photos.length;
+  const reports = await listReportQueue();
+  const total = queueTotal + photos.length + reports.length;
   if (!total) return;
 
   if (total > 0) toast.message(`Syncing ${total} item${total === 1 ? "" : "s"}…`);
+
+  const reportsSent = await processReportQueue();
+  for (let i = 0; i < reportsSent; i++) {
+    recordSync({ id: `report-${Date.now()}-${i}`, label: "Report submitted", kind: "update" });
+  }
+  const reportsRemaining = (await listReportQueue()).length;
 
   const photoResult = await processPhotoQueue();
   for (let i = 0; i < photoResult.uploaded; i++) {
@@ -77,9 +86,10 @@ async function drain() {
   }
   const queueResult = await processQueue();
 
-  const totalProcessed = queueResult.processed + photoResult.uploaded;
+  const totalProcessed = queueResult.processed + photoResult.uploaded + reportsSent;
   const totalFailed = queueResult.failed + photoResult.failed;
-  const totalRemaining = queueResult.remaining + photoResult.remaining;
+  const totalRemaining = queueResult.remaining + photoResult.remaining + reportsRemaining;
+
 
   if (totalProcessed > 0 && totalRemaining === 0 && totalFailed === 0) {
     toast.success("All data synced");
