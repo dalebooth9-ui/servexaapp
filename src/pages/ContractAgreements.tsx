@@ -154,9 +154,13 @@ export function CreateAgreementDialog({ onClose, onCreated, presetCustomerId }: 
   useEffect(() => {
     if (!form.customer_id) { setSites([]); setSelectedSites([]); return; }
     (async () => {
-      const { data } = await supabase.from("sites").select("id, name, address").eq("customer_id", form.customer_id).order("name");
-      setSites((data || []) as any);
-      setSelectedSites((data || []).map((s: any) => s.id));
+      const res: any = await (supabase.from("sites") as any)
+        .select("id, name, address")
+        .eq("customer_id", form.customer_id)
+        .order("name");
+      const list: any[] = res?.data || [];
+      setSites(list as any);
+      setSelectedSites(list.map((s: any) => s.id));
     })();
   }, [form.customer_id]);
 
