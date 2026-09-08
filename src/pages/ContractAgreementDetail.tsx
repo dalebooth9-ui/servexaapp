@@ -42,6 +42,7 @@ export default function ContractAgreementDetail() {
     if (!user) return;
     (async () => {
       const b = await getGeneratingOrgBranding().catch(() => null);
+      console.log("AGRDBG branding", JSON.stringify(b));
       if (b?.name) { setProviderName(b.name); return; }
       // Branding cache can resolve before the session hydrates — fall back to
       // reading the signed-in user's organisation directly.
