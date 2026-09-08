@@ -39,6 +39,8 @@ import JobDocumentReattachSettings from "@/components/JobDocumentReattachSetting
 import FilenameFormatSettings from "@/components/FilenameFormatSettings";
 import { WordExportSettings } from "@/components/WordExportSettings";
 import WatermarkSettings from "@/components/WatermarkSettings";
+import AiReportSummarySettings from "@/components/settings/AiReportSummarySettings";
+
 import EngineerSignatureSettings from "@/components/EngineerSignatureSettings";
 import AppVersion from "@/components/AppVersion";
 import { forceUpdateCheck, shouldPromptForUpdate } from "@/pwa/registerSW";
@@ -360,6 +362,8 @@ export default function SettingsPage() {
               <FilenameFormatSettings />
               <WordExportSettings />
               <WatermarkSettings />
+              <AiReportSummarySettings />
+
               <VehicleCheckSettings />
               <Card>
                 <CardHeader>
