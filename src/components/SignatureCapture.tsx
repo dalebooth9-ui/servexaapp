@@ -458,6 +458,7 @@ export default function SignatureCapture({
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Full name of person signing"
+                  dictation
                   required
                 />
               </div>
@@ -468,6 +469,7 @@ export default function SignatureCapture({
                   value={customerPosition}
                   onChange={(e) => setCustomerPosition(e.target.value)}
                   placeholder="e.g. Site Manager, Caretaker"
+                  dictation
                 />
               </div>
             </div>
