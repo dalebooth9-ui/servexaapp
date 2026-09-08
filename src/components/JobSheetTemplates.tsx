@@ -7,6 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { deriveScopeFromTemplateName, fetchJobPrefillContext } from "@/lib/jobSheetPrefill";
 import { logReportEdits, jobHasSignatures } from "@/lib/logReportEdits";
+import { enqueueReportSubmission, newReportId } from "@/lib/reportSubmissionQueue";
+import { isNetworkError } from "@/lib/syncQueue";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1205,23 +1207,59 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       const finalStatus = hasSignature ? "submitted" : "draft";
 
       let savedResponseId: string | null = activeResponse?.id ?? null;
-      if (activeResponse) {
-        await supabase.from("job_sheet_responses").update({
-          responses: finalFormData as any,
-          status: finalStatus,
-          submitted_at: hasSignature ? new Date().toISOString() : null,
-        } as any).eq("id", activeResponse.id);
-      } else {
-        const { data: inserted } = await supabase.from("job_sheet_responses").insert({
-          job_id: jobId,
-          template_id: activeTemplate.id,
-          responses: finalFormData as any,
-          submitted_by: user?.id,
-          status: finalStatus,
-          submitted_at: hasSignature ? new Date().toISOString() : null,
-        } as any).select("id").maybeSingle();
-        savedResponseId = (inserted as any)?.id ?? null;
+      // Offline resilience: the row id is decided here so a failed send can be
+      // replayed as an idempotent upsert without ever duplicating the report.
+      const targetId = activeResponse?.id ?? newReportId();
+      const payload = {
+        id: targetId,
+        job_id: jobId,
+        template_id: activeTemplate.id,
+        responses: finalFormData as any,
+        submitted_by: activeResponse ? undefined : user?.id,
+        status: finalStatus,
+        submitted_at: hasSignature ? new Date().toISOString() : null,
+      };
+
+      let writeError: any = null;
+      try {
+        const { error } = await supabase
+          .from("job_sheet_responses")
+          .upsert(
+            {
+              ...payload,
+              submitted_by: payload.submitted_by ?? (activeResponse as any)?.submitted_by ?? user?.id,
+            } as any,
+            { onConflict: "id" },
+          );
+        writeError = error;
+      } catch (e) {
+        writeError = e;
       }
+
+      if (writeError) {
+        if (isNetworkError(writeError)) {
+          await enqueueReportSubmission({
+            id: targetId,
+            jobId,
+            templateId: activeTemplate.id,
+            templateName: activeTemplate.name,
+            jobRef: (jobInfo as any)?.reference_number ?? null,
+            responses: finalFormData as any,
+            submittedBy: user?.id ?? null,
+            status: finalStatus,
+            submittedAt: payload.submitted_at,
+          });
+          toast({
+            title: "Saved on this device",
+            description: "No signal right now — your report will send automatically when you're back in range.",
+          });
+          setSubmitting(false);
+          return;
+        }
+        throw writeError;
+      }
+
+      savedResponseId = targetId;
 
       if (!hasSignature) {
         toast({
@@ -1233,6 +1271,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         fetchData();
         return;
       }
+
 
       // AI customer summary — opt-in per org, drafted in the background so the
       // engineer never waits on it. Composed only from the answers just saved
@@ -2426,6 +2465,7 @@ function renderFormField(
             value={value || ""}
             onChange={(e) => onChange(e.target.value)}
             placeholder="Custom result"
+            dictation
             className="h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full"
           />
         );
@@ -2483,6 +2523,7 @@ function renderFormField(
             value={value || ""}
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholder || "Custom value"}
+            dictation
             className={`h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full ${locked ? "opacity-70 cursor-not-allowed" : ""}`}
             disabled={locked}
           />

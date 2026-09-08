@@ -13,6 +13,7 @@ import { formatDistanceToNow, format } from "date-fns";
 
 import { listQueue, listDeadLetter, discardItem, discardDeadLetter, subscribeQueueSize, type QueueItem } from "@/lib/syncQueue";
 import { listPhotoQueue, discardPhoto, subscribePhotoQueue, type PhotoQueueItem } from "@/lib/photoQueue";
+import { listReportQueue, discardReportSubmission, subscribeReportQueue, type ReportSubmissionItem } from "@/lib/reportSubmissionQueue";
 import { listConflicts, subscribeConflicts, type Conflict } from "@/lib/conflictBus";
 import { listHistory, lastSuccessfulSync, subscribeHistory, type SyncHistoryEntry } from "@/lib/syncHistory";
 import { drainNow } from "@/hooks/useSyncQueueDrainer";
@@ -20,6 +21,7 @@ import { drainNow } from "@/hooks/useSyncQueueDrainer";
 export default function SyncStatus() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [photos, setPhotos] = useState<PhotoQueueItem[]>([]);
+  const [reports, setReports] = useState<ReportSubmissionItem[]>([]);
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
   const [dlq, setDlq] = useState<QueueItem[]>([]);
   const [history, setHistory] = useState<SyncHistoryEntry[]>([]);
@@ -29,6 +31,7 @@ export default function SyncStatus() {
   const refresh = async () => {
     setQueue(await listQueue());
     setPhotos(await listPhotoQueue());
+    setReports(await listReportQueue());
     setConflicts(await listConflicts());
     setDlq(await listDeadLetter());
     setHistory(listHistory());
@@ -38,6 +41,7 @@ export default function SyncStatus() {
     void refresh();
     const u1 = subscribeQueueSize(() => { void refresh(); });
     const u2 = subscribePhotoQueue((p) => setPhotos(p));
+    const u5 = subscribeReportQueue((r) => setReports(r));
     const u3 = subscribeConflicts((c) => setConflicts(c));
     const u4 = subscribeHistory((h) => setHistory(h));
     const on = () => setIsOnline(true);
@@ -45,7 +49,7 @@ export default function SyncStatus() {
     window.addEventListener("online", on);
     window.addEventListener("offline", off);
     return () => {
-      u1(); u2(); u3(); u4();
+      u1(); u2(); u3(); u4(); u5();
       window.removeEventListener("online", on);
       window.removeEventListener("offline", off);
     };
@@ -91,6 +95,38 @@ export default function SyncStatus() {
           {syncing ? "Syncing…" : "Sync now"}
         </Button>
       </div>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base flex items-center gap-2"><CloudUpload className="h-4 w-4" /> Reports waiting to send</CardTitle>
+          <Badge variant={reports.length ? "default" : "secondary"}>{reports.length}</Badge>
+        </CardHeader>
+        <CardContent>
+          {reports.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No filled-in reports waiting.</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {reports.map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {r.jobRef ? `${r.jobRef} · ` : ""}{r.templateName}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Saved {formatDistanceToNow(new Date(r.enqueuedAt), { addSuffix: true })}
+                      {r.attempts > 0 && ` · ${r.attempts} attempt${r.attempts === 1 ? "" : "s"}`}
+                      {r.lastError && ` · ${r.lastError}`}
+                    </div>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={async () => { await discardReportSubmission(r.id); }}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">

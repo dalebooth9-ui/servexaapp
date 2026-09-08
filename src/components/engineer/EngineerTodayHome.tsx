@@ -8,11 +8,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, MapPin, CalendarClock, Truck, AlertTriangle, CheckCircle2, LogIn, LogOut } from "lucide-react";
+import { Loader2, MapPin, CalendarClock, Truck, AlertTriangle, CheckCircle2, LogIn, LogOut, Navigation, ChevronDown } from "lucide-react";
 import VehicleCheckSheet from "@/components/VehicleCheckSheet";
-import { OpenInMapsButton } from "@/components/OpenInMapsButton";
+import { buildMapsUrl, hasDestination } from "@/lib/openInMaps";
 import FieldConnectivityTip from "@/components/engineer/FieldConnectivityTip";
+
 
 
 type JobLite = {
@@ -28,6 +30,9 @@ type JobLite = {
   scheduled_time: string | null;
   schedule_id: string | null;
   acknowledged_at: string | null;
+  site_name?: string | null;
+  site_postcode?: string | null;
+  what3words?: string | null;
 };
 
 function priorityChip(p?: string) {
@@ -38,71 +43,120 @@ function priorityChip(p?: string) {
   }
 }
 
+function statusChip(s?: string) {
+  switch (s) {
+    case "in_progress": return "bg-primary/10 text-primary border-primary/30";
+    case "completed": return "bg-emerald-500/10 text-emerald-700 border-emerald-500/30";
+    default: return "bg-muted text-muted-foreground border-border";
+  }
+}
+
+function statusLabel(s?: string) {
+  if (s === "in_progress") return "In progress";
+  if (s === "completed") return "Done";
+  if (s === "scheduled") return "Not started";
+  return (s || "Not started").replace(/_/g, " ");
+}
+
+/** Big, glove-friendly job card: who, where, what, and two large actions. */
 function BigJobCard({ job, showDate = false }: { job: JobLite; showDate?: boolean }) {
   const needsAck = job.schedule_id && !job.acknowledged_at;
+  const w3w = (job.what3words || "").replace(/^\/+/, "");
+  const destination = { address: job.address, postcode: job.site_postcode };
+  const canNavigate = hasDestination(destination);
+  const mapsUrl = canNavigate ? buildMapsUrl(destination) : null;
+
   return (
-    <Link to={`/jobs/${job.id}`} className="block active:scale-[0.99] transition-transform">
-      <Card className={`overflow-hidden border-2 ${needsAck ? "border-amber-500/40" : "border-border"}`}>
-        <CardContent className="p-4 space-y-2">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <p className="text-2xl font-bold leading-tight break-words">
-                {job.name}
-              </p>
-              {job.customer && (
-                <p className="text-base text-muted-foreground mt-0.5 truncate">{job.customer}</p>
-              )}
-            </div>
-            <div className="flex flex-col items-end gap-1 shrink-0">
-              <span className="font-mono text-xs text-muted-foreground">{job.reference_number}</span>
-              {needsAck && (
-                <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 gap-1 text-[11px]">
-                  <AlertTriangle className="h-3 w-3" /> Ack
-                </Badge>
-              )}
-            </div>
+    <Card className={`overflow-hidden border-2 ${needsAck ? "border-amber-500/40" : "border-border"}`}>
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            {job.customer && (
+              <p className="text-sm font-semibold text-muted-foreground truncate">{job.customer}</p>
+            )}
+            <p className="text-2xl font-bold leading-tight break-words">
+              {job.site_name || job.name}
+            </p>
+            {job.site_name && (
+              <p className="text-base text-muted-foreground mt-0.5 break-words">{job.name}</p>
+            )}
           </div>
-
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            {job.category && (
-              <Badge variant="outline" className="text-xs capitalize">
-                {job.category.replace(/_/g, " ")}
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <span className="font-mono text-xs text-muted-foreground">{job.reference_number}</span>
+            {needsAck && (
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 gap-1 text-[11px]">
+                <AlertTriangle className="h-3 w-3" /> Ack
               </Badge>
             )}
-            <Badge variant="outline" className={`text-xs capitalize ${priorityChip(job.priority)}`}>
-              {job.priority || "normal"}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className={`text-xs capitalize ${statusChip(job.status)}`}>
+            {statusLabel(job.status)}
+          </Badge>
+          {job.category && (
+            <Badge variant="outline" className="text-xs capitalize">
+              {job.category.replace(/_/g, " ")}
             </Badge>
-            {showDate && job.schedule_date && (
-              <Badge variant="secondary" className="text-xs gap-1">
-                <CalendarClock className="h-3 w-3" />
-                {format(parseISO(job.schedule_date), "EEE d MMM")}
-              </Badge>
-            )}
-            {job.scheduled_time && (
-              <Badge variant="secondary" className="text-xs font-mono">{job.scheduled_time.slice(0,5)}</Badge>
-            )}
-          </div>
-
-          {job.address && (
-            <div className="flex items-start gap-2 pt-1">
-              <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-              <p className="text-sm text-muted-foreground flex-1">{job.address}</p>
-              <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                <OpenInMapsButton
-                  address={job.address}
-                  size="sm"
-                  variant="outline"
-                  iconOnly
-                  className="h-11 w-11 p-0 shrink-0"
-                />
-              </div>
-            </div>
           )}
-        </CardContent>
-      </Card>
-    </Link>
+          <Badge variant="outline" className={`text-xs capitalize ${priorityChip(job.priority)}`}>
+            {job.priority || "normal"}
+          </Badge>
+          {showDate && job.schedule_date && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              <CalendarClock className="h-3 w-3" />
+              {format(parseISO(job.schedule_date), "EEE d MMM")}
+            </Badge>
+          )}
+          {job.scheduled_time && (
+            <Badge variant="secondary" className="text-xs font-mono">{job.scheduled_time.slice(0, 5)}</Badge>
+          )}
+        </div>
+
+        {(job.address || w3w) && (
+          <div className="flex items-start gap-2">
+            <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+            <div className="min-w-0 flex-1">
+              {job.address && <p className="text-sm text-muted-foreground">{job.address}</p>}
+              {w3w && (
+                <a
+                  href={`https://what3words.com/${w3w}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-0.5 inline-block font-mono text-sm text-primary underline underline-offset-2"
+                >
+                  ///{w3w}
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <Button
+            asChild={!!mapsUrl}
+            variant="outline"
+            disabled={!mapsUrl}
+            className="h-14 text-base font-semibold"
+          >
+            {mapsUrl ? (
+              <a href={mapsUrl} target="_blank" rel="noopener noreferrer">
+                <Navigation className="h-5 w-5 mr-2" /> Navigate
+              </a>
+            ) : (
+              <span><Navigation className="h-5 w-5 mr-2" /> No address</span>
+            )}
+          </Button>
+          <Button asChild className="h-14 text-base font-semibold">
+            <Link to={`/jobs/${job.id}`}>Open job</Link>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
+
 
 export default function EngineerTodayHome() {
   const { user, effectiveUserId, isPreviewingAsEngineer, previewEngineerId } = useAuth();
@@ -165,9 +219,15 @@ export default function EngineerTodayHome() {
     if (jobIds.length) {
       const { data: js } = await supabase
         .from("jobs")
-        .select("id, name, reference_number, address, status, priority, customer, category")
+        .select("id, name, reference_number, address, status, priority, customer, category, sites(name, postcode, what3words)")
         .in("id", jobIds);
-      (js || []).forEach((j: any) => jobsById.set(j.id, j));
+      (js || []).forEach((j: any) => jobsById.set(j.id, {
+        ...j,
+        site_name: j.sites?.name ?? null,
+        site_postcode: j.sites?.postcode ?? null,
+        what3words: j.sites?.what3words ?? null,
+      }));
+
     }
 
     const combined: JobLite[] = (schedRows || [])
@@ -245,7 +305,13 @@ export default function EngineerTodayHome() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [user?.id, engineerId, isGenericPreview]);
 
+  const tomorrow = useMemo(() => {
+    const key = format(addDays(new Date(), 1), "yyyy-MM-dd");
+    return week.filter((j) => j.schedule_date === key);
+  }, [week]);
+
   const weekGroups = useMemo(() => {
+
     const days: { date: Date; jobs: JobLite[] }[] = [];
     for (let i = 0; i < 7; i++) {
       const d = addDays(weekStart, i);
@@ -343,7 +409,24 @@ export default function EngineerTodayHome() {
           ) : (
             today.map((j) => <BigJobCard key={j.id} job={j} />)
           )}
+
+          {!loading && tomorrow.length > 0 && (
+            <Collapsible className="pt-2">
+              <CollapsibleTrigger className="w-full min-h-14 rounded-xl border-2 border-border bg-muted/40 px-4 py-3 flex items-center justify-between active:scale-[0.99]">
+                <span className="flex items-center gap-2 font-semibold text-base">
+                  <CalendarClock className="h-5 w-5 text-muted-foreground" />
+                  Tomorrow
+                  <Badge variant="secondary" className="text-xs">{tomorrow.length}</Badge>
+                </span>
+                <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-3 pt-3">
+                {tomorrow.map((j) => <BigJobCard key={"tmw-" + j.id} job={j} />)}
+              </CollapsibleContent>
+            </Collapsible>
+          )}
         </TabsContent>
+
 
         <TabsContent value="week" className="mt-4 space-y-4">
           {loading ? (
