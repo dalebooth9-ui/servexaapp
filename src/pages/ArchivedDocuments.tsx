@@ -73,6 +73,8 @@ import { formatDate } from "@/lib/dateFormat";
 import { ClipboardCheck, CheckCircle2 } from "lucide-react";
 import PdfCanvasViewer from "@/components/PdfCanvasViewer";
 import ZoomPane from "@/components/ZoomPane";
+import ArchiveSummarySection from "@/components/archive/ArchiveSummarySection";
+
 
 type EmailSend = {
   sent_at?: string;
@@ -1041,7 +1043,7 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                   siteName={openDoc.site_id ? sites[openDoc.site_id] : null}
                   documentDate={openDoc.document_date}
                   canEdit={isAdmin}
-                  onRerendered={() => fetchDocs()}
+                  onRerendered={() => load()}
                 />
               )}
 
