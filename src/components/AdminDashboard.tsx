@@ -21,6 +21,7 @@ import DefectFlywheelCard from "@/components/DefectFlywheelCard";
 import RenewalPipelineCard from "@/components/RenewalPipelineCard";
 import PipelineValueCard from "@/components/PipelineValueCard";
 import AtRiskJobsCard from "@/components/AtRiskJobsCard";
+import NeedsAttentionToday from "@/components/dashboard/NeedsAttentionToday";
 
 export default function AdminDashboard() {
   const { userRole, user } = useAuth();
@@ -282,6 +283,7 @@ export default function AdminDashboard() {
         <OnboardingTour />
       </div>
       <OnboardingChecklist />
+      {isAdmin && <NeedsAttentionToday />}
 
       {isAdmin && (
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -200,6 +200,67 @@ export default function Jobs() {
     setCategoryFilters((prev) => prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]);
   };
   const [showFilters, setShowFilters] = useState(false);
+
+  // ---- Smart views (one-tap chips) -------------------------------------
+  type SmartView = "due-today" | "overdue" | "awaiting-report" | "defects" | "ready-to-invoice" | "unassigned";
+  const [smartView, setSmartView] = useState<SmartView | null>(() => {
+    const v = new URLSearchParams(window.location.search).get("view");
+    const allowed = ["due-today", "overdue", "awaiting-report", "defects", "ready-to-invoice", "ready-to-invoice", "unassigned"];
+    return allowed.includes(v || "") ? (v as SmartView) : null;
+  });
+  const [smartSets, setSmartSets] = useState<{ assigned: Set<string>; scheduledToday: Set<string>; withDefects: Set<string>; invoiced: Set<string> }>({
+    assigned: new Set(), scheduledToday: new Set(), withDefects: new Set(), invoiced: new Set(),
+  });
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const [assignRes, schedRes, defectRes, invRes] = await Promise.all([
+        supabase.from("job_assignments").select("job_id"),
+        supabase.from("job_schedule").select("job_id").eq("schedule_date", today),
+        supabase.from("defects").select("job_id").eq("status", "open").not("job_id", "is", null),
+        supabase.from("invoices").select("job_id").eq("document_type", "invoice").not("job_id", "is", null),
+      ]);
+      if (!mounted) return;
+      setSmartSets({
+        assigned: new Set((assignRes.data || []).map((r: any) => r.job_id)),
+        scheduledToday: new Set((schedRes.data || []).map((r: any) => r.job_id)),
+        withDefects: new Set((defectRes.data || []).map((r: any) => r.job_id)),
+        invoiced: new Set((invRes.data || []).map((r: any) => r.job_id)),
+      });
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
+
+  const CLOSED_STATUSES = ["completed", "archived", "rejected"];
+  const matchesSmartView = (j: any, view: SmartView) => {
+    const today = new Date().toISOString().slice(0, 10);
+    switch (view) {
+      case "due-today":
+        return smartSets.scheduledToday.has(j.id) || (j.due_date ? String(j.due_date).slice(0, 10) === today : false);
+      case "overdue":
+        return !!j.due_date && String(j.due_date).slice(0, 10) < today && !CLOSED_STATUSES.includes(j.status);
+      case "awaiting-report":
+        return j.status === "pending_review";
+      case "defects":
+        return smartSets.withDefects.has(j.id);
+      case "ready-to-invoice":
+        return j.status === "completed" && !smartSets.invoiced.has(j.id);
+      case "unassigned":
+        return !smartSets.assigned.has(j.id) && !CLOSED_STATUSES.includes(j.status);
+      default:
+        return true;
+    }
+  };
+  const SMART_VIEWS: { key: SmartView; label: string }[] = [
+    { key: "due-today", label: "Due today" },
+    { key: "overdue", label: "Overdue" },
+    { key: "awaiting-report", label: "Awaiting report" },
+    { key: "defects", label: "Defects raised" },
+    { key: "ready-to-invoice", label: "Ready to invoice" },
+    { key: "unassigned", label: "Unassigned" },
+  ];
   // Visible primary status tab — Active (default), Pending Review, Completed, All
   const [statusTab, setStatusTab] = useState<"active" | "pending_review" | "completed" | "rejected" | "all">("active");
   const includeArchived = statusTab === "completed" || statusTab === "all";
@@ -1412,6 +1473,7 @@ export default function Jobs() {
   };
 
   const prefiltered = jobs.filter((j) => {
+    if (smartView && !matchesSmartView(j, smartView)) return false;
     if (statusFilter !== "all" && j.status !== statusFilter) return false;
     if (priorityFilter !== "all" && j.priority !== priorityFilter) return false;
     if (categoryFilters.length > 0 && !categoryFilters.includes(j.category)) return false;
@@ -1889,6 +1951,41 @@ export default function Jobs() {
           <span className="self-center pl-2 text-[11px] text-muted-foreground">
             Searching across all statuses
           </span>
+        )}
+      </div>
+
+      {/* Smart views — one tap, real counts */}
+      <div className="mb-3 flex flex-wrap gap-2">
+        {SMART_VIEWS.map((v) => {
+          const count = jobs.filter((j: any) => matchesSmartView(j, v.key)).length;
+          const active = smartView === v.key;
+          return (
+            <button
+              key={v.key}
+              onClick={() => {
+                const next = active ? null : v.key;
+                setSmartView(next);
+                if (next === "ready-to-invoice") setStatusTab("completed");
+                else if (next === "awaiting-report") setStatusTab("pending_review");
+                else if (next) setStatusTab("all");
+              }}
+              className={`inline-flex min-h-9 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              {v.label}
+              <span className={`rounded-full px-1.5 text-[10px] font-semibold ${active ? "bg-primary-foreground/20" : "bg-muted"}`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+        {smartView && (
+          <button onClick={() => setSmartView(null)} className="self-center px-2 text-xs text-muted-foreground underline">
+            Clear view
+          </button>
         )}
       </div>
 

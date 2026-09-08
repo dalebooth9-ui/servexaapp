@@ -7349,6 +7349,36 @@ export type Database = {
           },
         ]
       }
+      rams_autoattach_map: {
+        Row: {
+          category_slug: string
+          created_at: string
+          id: string
+          org_id: string
+          source_id: string
+          source_kind: string
+          updated_at: string
+        }
+        Insert: {
+          category_slug: string
+          created_at?: string
+          id?: string
+          org_id: string
+          source_id: string
+          source_kind: string
+          updated_at?: string
+        }
+        Update: {
+          category_slug?: string
+          created_at?: string
+          id?: string
+          org_id?: string
+          source_id?: string
+          source_kind?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       rams_documents: {
         Row: {
           assessment_date: string | null

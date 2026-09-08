@@ -8,7 +8,7 @@ import { useOrgStatus } from "@/hooks/useOrgStatus";
 import AccountPaused from "@/components/AccountPaused";
 import { ROUTE_TO_SLUG } from "@/lib/engineerPages";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History, Truck, CloudUpload, Rocket, LifeBuoy, Bug, CreditCard, ScanLine, Eye } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Palmtree, AlertTriangle, FileArchive, History, Truck, CloudUpload, Rocket, LifeBuoy, Bug, CreditCard, ScanLine, Eye } from "lucide-react";
 import EngineerPreviewBanner from "@/components/engineer/EngineerPreviewBanner";
 import EngineerPreviewDialog from "@/components/engineer/EngineerPreviewDialog";
 
@@ -31,104 +31,123 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useRecentErrorCount } from "@/hooks/useRecentErrorCount";
 import { usePaperScanPendingCount } from "@/hooks/usePaperScanQueue";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent } from
-"@dnd-kit/core";
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove } from
-"@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 
-const DEFAULT_NAV_ITEMS = [
-{ to: "/", label: "Dashboard", icon: LayoutDashboard, section: "main" },
-{ to: "/jobs", label: "Jobs", icon: Briefcase, section: "operations" },
-{ to: "/site-surveys", label: "Site Surveys", icon: ClipboardList, section: "operations" },
-{ to: "/planner", label: "Planner", icon: CalendarDays, section: "operations" },
-{ to: "/leave", label: "Leave", icon: Palmtree, section: "operations" },
-{ to: "/customers", label: "Customers", icon: Building2, section: "operations", adminOnly: true },
-{ to: "/invoices", label: "Invoices", icon: FileText, section: "operations", adminOnly: true },
-{ to: "/contracts", label: "Contracts", icon: FileText, section: "operations", adminOnly: true },
-{ to: "/agreements", label: "Agreements", icon: FileText, section: "operations", adminOnly: true },
-{ to: "/renewals", label: "Renewals", icon: CalendarDays, section: "operations", adminOnly: true },
-{ to: "/sites", label: "Sites", icon: MapPin, section: "more", adminOnly: true },
-{ to: "/assets", label: "Assets", icon: Package, section: "more", adminOnly: true },
-{ to: "/quotes", label: "Quotes", icon: ClipboardList, section: "more", adminOnly: true },
-{ to: "/parts-library", label: "Parts Library", icon: Library, section: "more", adminOnly: true },
-{ to: "/stock", label: "Van Stock", icon: Truck, section: "more", adminOnly: false },
-{ to: "/compliance", label: "Compliance", icon: Shield, section: "more", adminOnly: true },
-  { to: "/audits", label: "Audits", icon: ClipboardCheck, section: "more", adminOnly: true },
-  { to: "/rams/start", label: "New RAMS", icon: ShieldAlert, section: "more", adminOnly: true },
-  { to: "/defects", label: "Defects", icon: ShieldAlert, section: "more", adminOnly: true },
-  { to: "/defects/review", label: "Defects Review", icon: ShieldAlert, section: "admin", adminOnly: true },
-  { to: "/report-downloads", label: "Report Downloads", icon: FileArchive, section: "more", adminOnly: true },
-  { to: "/paper-scans", label: "Paper scans", icon: ScanLine, section: "more", adminOnly: true, badgeKey: "paper_scans_pending" as const },
-
-{ to: "/help", label: "Help & guides", icon: BookOpen, section: "more", adminOnly: false },
-  { to: "/sync-status", label: "Sync Status", icon: CloudUpload, section: "more", adminOnly: false },
-{ to: "/industry-templates", label: "Templates", icon: BookOpen, section: "admin", adminOnly: true },
-{ to: "/reports", label: "Reports", icon: BarChart2, section: "admin", adminOnly: true },
-{ to: "/reports/engineers", label: "Performance", icon: TrendingUp, section: "admin", adminOnly: true },
-{ to: "/audit-log", label: "Audit Log", icon: History, section: "admin", adminOnly: true },
-{ to: "/engineers", label: "Engineers", icon: Users, section: "admin", adminOnly: true },
-{ to: "/setup", label: "Setup guide", icon: Rocket, section: "admin", adminOnly: true },
-{ to: "/support/my-tickets", label: "My tickets", icon: LifeBuoy, section: "more" },
-{ to: "/admin/support-tickets", label: "Org support tickets", icon: LifeBuoy, section: "admin", adminOnly: true },
-{ to: "/admin/error-log", label: "Error log", icon: Bug, section: "admin", adminOnly: true },
-{ to: "/platform/organisations", label: "Platform Orgs", icon: Building2, section: "admin", adminOnly: true, platformOnly: true },
-{ to: "/platform/support", label: "Platform Support", icon: LifeBuoy, section: "admin", adminOnly: true, platformOnly: true, badgeKey: "platform_support_open" as const },
-{ to: "/settings", label: "Settings", icon: Settings, section: "admin", adminOnly: true }];
-
-
-const SECTION_LABELS: Record<string, string> = {
-  main: "",
-  operations: "Operations",
-  more: "More",
-  admin: "Admin"
+type NavItemDef = {
+  to: string;
+  label: string;
+  icon: any;
+  adminOnly?: boolean;
+  platformOnly?: boolean;
 };
 
-const STORAGE_KEY = "nav-order";
-const SECTION_OVERRIDE_KEY = "nav-section-overrides";
+type NavGroupDef = {
+  id: string;
+  label: string;
+  items: NavItemDef[];
+};
 
-function loadNavOrder(): string[] | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return null;
-    // Dedupe persisted order — prevents stale localStorage from rendering the
-    // same nav item twice (e.g. two "Settings" rows after a nav refactor).
-    return Array.from(new Set(parsed.filter((v) => typeof v === "string")));
-  } catch { return null; }
-}
+/**
+ * ONE canonical navigation structure, rendered identically on every route.
+ * Six collapsible groups plus a fixed utility strip at the bottom.
+ */
+const NAV_GROUPS: NavGroupDef[] = [
+  {
+    id: "work",
+    label: "Work",
+    items: [
+      { to: "/", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/jobs", label: "Jobs", icon: Briefcase },
+      { to: "/planner", label: "Planner", icon: CalendarDays },
+    ],
+  },
+  {
+    id: "customers",
+    label: "Customers",
+    items: [
+      { to: "/customers", label: "Customers", icon: Building2, adminOnly: true },
+      { to: "/sites", label: "Sites", icon: MapPin, adminOnly: true },
+      { to: "/assets", label: "Assets", icon: Package, adminOnly: true },
+      { to: "/site-surveys", label: "Site Surveys", icon: ClipboardList },
+    ],
+  },
+  {
+    id: "commercial",
+    label: "Commercial",
+    items: [
+      { to: "/quotes", label: "Quotes", icon: ClipboardList, adminOnly: true },
+      { to: "/invoices", label: "Invoices", icon: FileText, adminOnly: true },
+      { to: "/agreements", label: "Agreements", icon: FileText, adminOnly: true },
+      { to: "/contracts", label: "Contracts", icon: FileText, adminOnly: true },
+      { to: "/renewals", label: "Renewals", icon: CalendarDays, adminOnly: true },
+    ],
+  },
+  {
+    id: "compliance",
+    label: "Compliance",
+    items: [
+      { to: "/defects", label: "Defects", icon: ShieldAlert, adminOnly: true },
+      { to: "/defects/review", label: "Defects Review", icon: ShieldAlert, adminOnly: true },
+      { to: "/rams/start", label: "RAMS", icon: Shield, adminOnly: true },
+      { to: "/compliance", label: "Compliance", icon: Shield, adminOnly: true },
+      { to: "/audits", label: "Audits", icon: ClipboardCheck, adminOnly: true },
+      { to: "/report-downloads", label: "Reports & certificates", icon: FileArchive, adminOnly: true },
+      { to: "/paper-scans", label: "Paper scans & archive", icon: ScanLine, adminOnly: true },
+    ],
+  },
+  {
+    id: "resources",
+    label: "Resources",
+    items: [
+      { to: "/engineers", label: "Engineers", icon: Users, adminOnly: true },
+      { to: "/stock", label: "Van stock", icon: Truck },
+      { to: "/parts-library", label: "Parts library", icon: Library, adminOnly: true },
+      { to: "/leave", label: "Leave", icon: Palmtree },
+      { to: "/fleet", label: "Vehicle checks", icon: Truck, adminOnly: true },
+      { to: "/industry-templates", label: "Templates", icon: BookOpen, adminOnly: true },
+    ],
+  },
+  {
+    id: "insights",
+    label: "Insights",
+    items: [
+      { to: "/reports", label: "Reports", icon: BarChart2, adminOnly: true },
+      { to: "/reports/engineers", label: "Performance", icon: TrendingUp, adminOnly: true },
+      { to: "/audit-log", label: "Audit log", icon: History, adminOnly: true },
+      { to: "/admin/error-log", label: "Error log", icon: Bug, adminOnly: true },
+      { to: "/platform/organisations", label: "Platform Orgs", icon: Building2, adminOnly: true, platformOnly: true },
+      { to: "/platform/support", label: "Platform Support", icon: LifeBuoy, adminOnly: true, platformOnly: true },
+    ],
+  },
+];
 
-function loadSectionOverrides(): Record<string, "operations" | "more"> {
+const UTILITY_ITEMS: NavItemDef[] = [
+  { to: "/help", label: "Help & guides", icon: BookOpen },
+  { to: "/sync-status", label: "Sync status", icon: CloudUpload },
+  { to: "/support/my-tickets", label: "My tickets", icon: LifeBuoy },
+  { to: "/admin/support-tickets", label: "Org support tickets", icon: LifeBuoy, adminOnly: true },
+  { to: "/setup", label: "Setup guide", icon: Rocket, adminOnly: true },
+  { to: "/settings", label: "Settings", icon: Settings, adminOnly: true },
+];
+
+const GROUP_OPEN_KEY = "nav-groups-open";
+
+function loadGroupState(): Record<string, boolean> {
   try {
-    const raw = localStorage.getItem(SECTION_OVERRIDE_KEY);
+    const raw = localStorage.getItem(GROUP_OPEN_KEY);
     return raw ? JSON.parse(raw) : {};
   } catch { return {}; }
 }
 
-function SortableNavItem({
-  item, isActive, onClick, inOps, onTogglePin, collapsed, badge,
+
+function NavItem({
+  item, isActive, onClick, collapsed, badge,
 }: {
-  item: typeof DEFAULT_NAV_ITEMS[number];
+  item: NavItemDef;
   isActive: boolean;
   onClick: () => void;
-  inOps: boolean;
-  onTogglePin: () => void;
   collapsed?: boolean;
   badge?: number;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.to });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
   const badgeEl = badge && badge > 0 ? (
     <span className={cn(
       "ml-auto inline-flex items-center justify-center rounded-full text-[10px] font-semibold px-1.5 min-w-[18px] h-[18px]",
@@ -140,67 +159,45 @@ function SortableNavItem({
 
   if (collapsed) {
     return (
-      <div ref={setNodeRef} style={style}>
-        <Link
-          to={item.to}
-          onClick={onClick}
-          title={item.label + (badge ? ` (${badge} open)` : "")}
-          data-tour={`nav-${item.to.replace(/^\//, "").replace(/\//g, "-") || "dashboard"}`}
-          className={cn(
-            "relative flex items-center justify-center w-full rounded-lg p-2.5 transition-all duration-150",
-            isActive
-              ? "bg-gradient-to-r from-[hsl(25,95%,53%)] to-[hsl(25,95%,46%)] text-white shadow-md"
-              : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          )}>
-          <item.icon className="h-5 w-5 shrink-0" />
-          {badge && badge > 0 ? (
-            <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center rounded-full text-[9px] font-semibold px-1 min-w-[16px] h-[16px] bg-orange-500 text-white">
-              {badge > 9 ? "9+" : badge}
-            </span>
-          ) : null}
-        </Link>
-      </div>
+      <Link
+        to={item.to}
+        onClick={onClick}
+        title={item.label + (badge ? ` (${badge} open)` : "")}
+        data-tour={`nav-${item.to.replace(/^\//, "").replace(/\//g, "-") || "dashboard"}`}
+        className={cn(
+          "relative flex items-center justify-center w-full rounded-lg p-2.5 transition-all duration-150",
+          isActive
+            ? "bg-gradient-to-r from-[hsl(25,95%,53%)] to-[hsl(25,95%,46%)] text-white shadow-md"
+            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        )}>
+        <item.icon className="h-5 w-5 shrink-0" />
+        {badge && badge > 0 ? (
+          <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center rounded-full text-[9px] font-semibold px-1 min-w-[16px] h-[16px] bg-orange-500 text-white">
+            {badge > 9 ? "9+" : badge}
+          </span>
+        ) : null}
+      </Link>
     );
   }
 
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-1 group">
-      <button
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing p-1 opacity-0 group-hover:opacity-40 hover:!opacity-80 transition-opacity text-sidebar-foreground"
-        tabIndex={-1}>
-        <GripVertical className="h-3.5 w-3.5" />
-      </button>
-      <Link
-        to={item.to}
-        onClick={onClick}
-        data-tour={`nav-${item.to.replace(/^\//, "").replace(/\//g, "-") || "dashboard"}`}
-        className={cn(
-          "flex flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
-          isActive
-            ? "bg-gradient-to-r from-[hsl(25,95%,53%)] to-[hsl(25,95%,46%)] text-white shadow-md shadow-[hsl(25,95%,30%)]/40 font-semibold"
-            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        )}>
-        <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-white" : "")} />
-        <span className="flex-1 truncate">{item.label}</span>
-        {badgeEl}
-      </Link>
-      <button
-        onClick={(e) => { e.preventDefault(); onTogglePin(); }}
-        title={inOps ? "Move to More" : "Pin to Operations"}
-        className={cn(
-          "p-1 rounded transition-all shrink-0",
-          inOps
-            ? "opacity-0 group-hover:opacity-50 hover:!opacity-100 text-sidebar-primary"
-            : "opacity-0 group-hover:opacity-40 hover:!opacity-80 text-sidebar-foreground"
-        )}
-        tabIndex={-1}>
-        {inOps ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
-      </button>
-    </div>
+    <Link
+      to={item.to}
+      onClick={onClick}
+      data-tour={`nav-${item.to.replace(/^\//, "").replace(/\//g, "-") || "dashboard"}`}
+      className={cn(
+        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+        isActive
+          ? "bg-gradient-to-r from-[hsl(25,95%,53%)] to-[hsl(25,95%,46%)] text-white shadow-md shadow-[hsl(25,95%,30%)]/40 font-semibold"
+          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+      )}>
+      <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-white" : "")} />
+      <span className="flex-1 truncate">{item.label}</span>
+      {badgeEl}
+    </Link>
   );
 }
+
 
 
 export default function AppLayout({ children }: {children: ReactNode;}) {
@@ -222,25 +219,16 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   const [shortcutsOpen, setShortcutsOpen] = useReactState(false);
   useKeyboardShortcuts(() => setShortcutsOpen(true));
   const [whatsappNumber, setWhatsappNumber] = useReactState<string | null>(null);
-  const [navOrder, setNavOrder] = useReactState<string[]>(() => loadNavOrder() || DEFAULT_NAV_ITEMS.map((i) => i.to));
-  const [sectionOverrides, setSectionOverrides] = useReactState<Record<string, "operations" | "more">>(loadSectionOverrides);
+  const [groupOpen, setGroupOpen] = useReactState<Record<string, boolean>>(loadGroupState);
 
-  const handleTogglePin = (to: string, currentSection: "operations" | "more") => {
-    setSectionOverrides((prev) => {
-      const defaultSection = DEFAULT_NAV_ITEMS.find((i) => i.to === to)?.section as "operations" | "more";
-      const next = { ...prev };
-      const target = currentSection === "operations" ? "more" : "operations";
-      if (target === defaultSection) {
-        delete next[to];
-      } else {
-        next[to] = target;
-      }
-      localStorage.setItem(SECTION_OVERRIDE_KEY, JSON.stringify(next));
+  const toggleGroup = (id: string) => {
+    setGroupOpen((prev) => {
+      const next = { ...prev, [id]: prev[id] === false ? true : false };
+      try { localStorage.setItem(GROUP_OPEN_KEY, JSON.stringify(next)); } catch { /* ignore */ }
       return next;
     });
   };
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const [openDefectCount, setOpenDefectCount] = useReactState<number>(0);
   const [pendingReviewCount, setPendingReviewCount] = useReactState<number>(0);
@@ -342,72 +330,39 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
 
 
 
-  const orderedItems = navOrder.map((to) => DEFAULT_NAV_ITEMS.find((i) => i.to === to)).filter(Boolean) as typeof DEFAULT_NAV_ITEMS;
-  const extraItems = DEFAULT_NAV_ITEMS.filter((i) => !navOrder.includes(i.to));
-  const allOrderedItems = [...orderedItems, ...extraItems];
-  const visibleNavItems = allOrderedItems.filter((item) => {
-    // Platform-only entries: gated by platform_admin AND never shown while an
-    // admin is previewing as an engineer (the whole point of preview is to
-    // see the true engineer surface).
-    if ((item as any).platformOnly) {
+  const canSee = (item: NavItemDef) => {
+    if (item.platformOnly) {
       if (userRole === "engineer") return false;
       return orgStatus.is_platform_admin;
     }
-    // Dashboard ("/") is always visible to authenticated users.
     if (item.to === "/") return true;
     if (userRole === "admin") return true;
     if (userRole === "engineer") {
-      // Engineers must have an explicit access row for the slug — admin-only
-      // routes (no slug mapping) are hidden entirely.
       const slug = ROUTE_TO_SLUG[item.to];
       return slug ? hasAccess(slug) : false;
     }
-    // Unknown role: hide admin-flagged items by default.
     return !item.adminOnly;
-  });
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const visibleIds = visibleNavItems.map((i) => i.to);
-    const oldIndex = visibleIds.indexOf(active.id as string);
-    const newIndex = visibleIds.indexOf(over.id as string);
-    if (oldIndex === -1 || newIndex === -1) return;
-    const reorderedVisible = arrayMove(visibleIds, oldIndex, newIndex);
-    let visibleCursor = 0;
-    const merged = allOrderedItems.map((item) => {
-      if (visibleIds.includes(item.to)) return reorderedVisible[visibleCursor++];
-      return item.to;
-    });
-    setNavOrder(merged);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
   };
 
-  const [moreOpen, setMoreOpen] = useReactState(() => {
-    const moreRoutes = ["/sites", "/assets", "/quotes", "/parts-library", "/compliance", "/audits"];
-    return moreRoutes.some((r) => location.pathname.startsWith(r));
-  });
+  const badgeFor = (to: string) =>
+    to === "/defects" ? openDefectCount :
+    to === "/jobs" ? pendingReviewCount :
+    to === "/platform/support" ? platformSupportOpen :
+    to === "/paper-scans" ? paperScansPending :
+    to === "/admin/error-log" ? recentErrorCount : undefined;
 
-  const sections = ["main", "operations", "more", "admin"] as const;
-  const itemsBySection = sections.reduce((acc, section) => {
-    acc[section] = visibleNavItems.filter((i) => {
-      if (section === "operations" || section === "more") {
-        const effective = sectionOverrides[i.to] ?? i.section;
-        // Engineers: remap admin-section items into operations so they never
-        // appear under an "Admin" header.
-        if (userRole === "engineer" && effective === "admin") {
-          return section === "operations";
-        }
-        return effective === section;
-      }
-      // Engineers should never see an "admin" section group.
-      if (userRole === "engineer" && section === "admin") {
-        return false;
-      }
-      return i.section === section;
-    });
-    return acc;
-  }, {} as Record<string, typeof visibleNavItems>);
+  const isItemActive = (to: string) =>
+    location.pathname === to || (to !== "/" && location.pathname.startsWith(to));
+
+  const visibleGroups = NAV_GROUPS
+    .map((g) => ({ ...g, items: g.items.filter(canSee) }))
+    .filter((g) => g.items.length > 0);
+  const visibleUtility = UTILITY_ITEMS.filter(canSee);
+  // Engineers get a single flat list — no group headers, no admin sections.
+  const engineerItems = userRole === "engineer"
+    ? visibleGroups.flatMap((g) => g.items)
+    : [];
+
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -461,88 +416,72 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
         </div>
 
         <nav className={cn("flex-1 min-h-0 overflow-y-auto py-2", desktopExpanded ? "px-3" : "lg:px-1 px-3")}>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={visibleNavItems.map((i) => i.to)} strategy={verticalListSortingStrategy}>
-              {sections.map((section) => {
-                const items = itemsBySection[section];
-                if (!items || items.length === 0) return null;
-                const label = SECTION_LABELS[section];
-                const isMoreSection = section === "more";
-                const isOpsSection = section === "operations";
-                const sidebarCollapsed = !desktopExpanded;
+          {userRole === "engineer" ? (
+            <div className="space-y-0.5">
+              {engineerItems.map((item) => (
+                <NavItem
+                  key={item.to}
+                  item={item}
+                  isActive={isItemActive(item.to)}
+                  onClick={() => setMobileOpen(false)}
+                  collapsed={!desktopExpanded}
+                  badge={badgeFor(item.to)}
+                />
+              ))}
+            </div>
+          ) : (
+            visibleGroups.map((group) => {
+              const sidebarCollapsed = !desktopExpanded;
+              const hasActive = group.items.some((i) => isItemActive(i.to));
+              // Default open; a group containing the active route is always open.
+              const open = sidebarCollapsed || hasActive || groupOpen[group.id] !== false;
+              return (
+                <div key={group.id} className="mb-1">
+                  {!sidebarCollapsed ? (
+                    <button
+                      onClick={() => toggleGroup(group.id)}
+                      className="mt-3 mb-1 flex w-full items-center gap-1 px-4 text-[10px] font-bold uppercase tracking-widest text-[hsl(25,95%,60%)] hover:text-white transition-colors select-none"
+                    >
+                      <span className="flex-1 text-left">{group.label}</span>
+                      <ChevronDown className={cn("h-3 w-3 transition-transform", open && "rotate-180")} />
+                    </button>
+                  ) : (
+                    <div className="my-2 h-px bg-sidebar-border/30 mx-1" />
+                  )}
+                  {open && (
+                    <div className="space-y-0.5">
+                      {group.items.map((item) => (
+                        <NavItem
+                          key={item.to}
+                          item={item}
+                          isActive={isItemActive(item.to)}
+                          onClick={() => setMobileOpen(false)}
+                          collapsed={sidebarCollapsed}
+                          badge={badgeFor(item.to)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
 
-                // Accent colour per section label
-                const sectionAccent =
-                  section === "operations" ? "text-[hsl(25,95%,60%)]" :
-                  section === "admin" ? "text-[hsl(200,80%,65%)]" :
-                  "text-sidebar-foreground/40";
-
-                return (
-                  <div key={section} className="mb-1">
-                    {label && !isMoreSection && !sidebarCollapsed && (section !== "admin" || userRole === "admin") &&
-                    <p className={cn("mb-1 mt-3 px-4 text-[10px] font-bold uppercase tracking-widest select-none", sectionAccent)}>
-                        {label}
-                      </p>
-                    }
-                    {sidebarCollapsed && label && !isMoreSection && (section !== "admin" || userRole === "admin") && (
-                      <div className="my-2 h-px bg-sidebar-border/30 mx-1" />
-                    )}
-                    {isMoreSection ? (
-                      <>
-                        {!sidebarCollapsed && (
-                          <button
-                            onClick={() => setMoreOpen((v) => !v)}
-                            className="mt-3 mb-1 flex w-full items-center gap-1 px-4 text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/50 hover:text-sidebar-foreground/80 transition-colors select-none"
-                          >
-                            <span className="flex-1 text-left">{label}</span>
-                            <ChevronDown className={cn("h-3 w-3 transition-transform", moreOpen && "rotate-180")} />
-                          </button>
-                        )}
-                        {(moreOpen || sidebarCollapsed) && (
-                          <div className="space-y-0.5">
-                            {items.map((item) => {
-                              const isActive = location.pathname === item.to || item.to !== "/" && location.pathname.startsWith(item.to);
-                              return (
-                                <SortableNavItem
-                                  key={item.to}
-                                  item={item}
-                                  isActive={isActive}
-                                  onClick={() => setMobileOpen(false)}
-                                  inOps={false}
-                                  collapsed={sidebarCollapsed}
-                                  onTogglePin={() => handleTogglePin(item.to, "more")}
-                                  badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : item.to === "/platform/support" ? platformSupportOpen : item.to === "/paper-scans" ? paperScansPending : item.to === "/admin/error-log" ? recentErrorCount : undefined} />
-
-
-                              );
-                            })}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="space-y-0.5">
-                        {items.map((item) => {
-                          const isActive = location.pathname === item.to || item.to !== "/" && location.pathname.startsWith(item.to);
-                          return (
-                            <SortableNavItem
-                              key={item.to}
-                              item={item}
-                              isActive={isActive}
-                              onClick={() => setMobileOpen(false)}
-                              inOps={isOpsSection}
-                              collapsed={sidebarCollapsed}
-                              onTogglePin={() => handleTogglePin(item.to, isOpsSection ? "operations" : section as "operations" | "more")}
-                              badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : item.to === "/platform/support" ? platformSupportOpen : item.to === "/paper-scans" ? paperScansPending : item.to === "/admin/error-log" ? recentErrorCount : undefined} />
-
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>);
-              })}
-            </SortableContext>
-          </DndContext>
+          {visibleUtility.length > 0 && (
+            <div className="mt-3 border-t border-sidebar-border/40 pt-2 space-y-0.5">
+              {visibleUtility.map((item) => (
+                <NavItem
+                  key={item.to}
+                  item={item}
+                  isActive={isItemActive(item.to)}
+                  onClick={() => setMobileOpen(false)}
+                  collapsed={!desktopExpanded}
+                />
+              ))}
+            </div>
+          )}
         </nav>
+
 
         {/* Footer */}
         <div className="shrink-0 border-t border-sidebar-border/50 bg-[hsl(213,55%,10%)] px-3 py-2">

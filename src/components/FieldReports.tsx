@@ -54,7 +54,7 @@ const triggerSummarization = async (reportId: string) => {
 };
 
 export default function FieldReports({ jobId }: FieldReportsProps) {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const { toast } = useToast();
   const [reports, setReports] = useState<FieldReport[]>([]);
   const [loading, setLoading] = useState(true);
@@ -359,9 +359,11 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
           </div>
           <div className="flex justify-end gap-2 pt-4 border-t">
             <Button variant="outline" onClick={() => setViewReport(null)}>Close</Button>
-            <Button variant="outline" onClick={() => { if (viewReport) exportToPdf(viewReport); }}>
-              <Download className="mr-1.5 h-4 w-4" /> Export PDF
-            </Button>
+            {userRole === "admin" && (
+              <Button variant="outline" onClick={() => { if (viewReport) exportToPdf(viewReport); }}>
+                <Download className="mr-1.5 h-4 w-4" /> Export PDF
+              </Button>
+            )}
             <Button onClick={() => { if (viewReport) { openEdit(viewReport); setViewReport(null); } }}>
               <Pencil className="mr-1.5 h-4 w-4" /> Edit
             </Button>

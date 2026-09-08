@@ -1,4 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from "react";
+import JobStageTimeline from "@/components/jobs/JobStageTimeline";
 import ChunkErrorBoundary from "@/components/ChunkErrorBoundary";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useParams, Link, useNavigate } from "react-router-dom";
@@ -605,6 +606,8 @@ export default function JobDetail() {
           </Link>
         </div>
       )}
+
+      <JobStageTimeline jobId={job.id} status={job.status} />
 
       {/* Tab navigation — sections are lazy-mounted; only the active tab is in the DOM. */}
       <div className="mb-6 flex flex-wrap gap-1 border-b border-border" role="tablist" aria-label="Job sections">
