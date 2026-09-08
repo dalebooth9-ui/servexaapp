@@ -38,7 +38,20 @@ export default function ContractAgreementDetail() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { getGeneratingOrgBranding().then((b) => setProviderName(b.name || "")); }, []);
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const b = await getGeneratingOrgBranding().catch(() => null);
+      if (b?.name) { setProviderName(b.name); return; }
+      // Branding cache can resolve before the session hydrates — fall back to
+      // reading the signed-in user's organisation directly.
+      const { data: profile } = await supabase.from("profiles").select("org_id").eq("user_id", user.id).maybeSingle();
+      const orgId = (profile as any)?.org_id;
+      if (!orgId) return;
+      const { data: org } = await supabase.from("organisations").select("name").eq("id", orgId).maybeSingle();
+      if ((org as any)?.name) setProviderName((org as any).name);
+    })();
+  }, [user]);
 
   const details: AgreementDetails = (row?.details || {}) as AgreementDetails;
 
@@ -84,6 +97,7 @@ export default function ContractAgreementDetail() {
         endDate: row.end_date,
         totalValue: Number(row.total_value || 0),
         clauses: merged,
+        providerName,
         signerName: row.signer_name,
         signerRole: row.signer_role,
         signedAt: row.signed_at,

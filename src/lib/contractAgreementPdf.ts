@@ -16,6 +16,8 @@ export interface AgreementPdfInput {
   signerRole?: string | null;
   signedAt?: string | null;
   signatureData?: string | null;
+  /** Company name to print when org branding hasn't resolved a logo. */
+  providerName?: string;
 }
 
 async function loadImage(url: string): Promise<HTMLImageElement | null> {
@@ -44,7 +46,7 @@ const ukDate = (v?: string | null) => {
  *  wording plus the structured details — nothing is generated here. */
 export async function generateAgreementPdf(input: AgreementPdfInput): Promise<{ blob: Blob; fileName: string }> {
   const branding = await getGeneratingOrgBranding().catch(() => null);
-  const providerName = branding?.name || "";
+  const providerName = input.providerName || branding?.name || "";
   const logoUrl = await getGeneratingOrgFallbackLogoUrl().catch(() => "");
   const logo = logoUrl ? await loadImage(logoUrl) : null;
 
