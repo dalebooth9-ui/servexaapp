@@ -1287,6 +1287,173 @@ export type Database = {
           },
         ]
       }
+      contract_agreements: {
+        Row: {
+          clauses: Json
+          contract_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          details: Json
+          end_date: string | null
+          id: string
+          org_id: string
+          quote_id: string | null
+          reference: string
+          renewal_basis: string | null
+          sent_at: string | null
+          signature_data: string | null
+          signed_at: string | null
+          signer_name: string | null
+          signer_role: string | null
+          start_date: string
+          status: string
+          template_id: string | null
+          term_months: number
+          title: string
+          total_value: number
+          updated_at: string
+        }
+        Insert: {
+          clauses?: Json
+          contract_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          details?: Json
+          end_date?: string | null
+          id?: string
+          org_id?: string
+          quote_id?: string | null
+          reference?: string
+          renewal_basis?: string | null
+          sent_at?: string | null
+          signature_data?: string | null
+          signed_at?: string | null
+          signer_name?: string | null
+          signer_role?: string | null
+          start_date?: string
+          status?: string
+          template_id?: string | null
+          term_months?: number
+          title: string
+          total_value?: number
+          updated_at?: string
+        }
+        Update: {
+          clauses?: Json
+          contract_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          details?: Json
+          end_date?: string | null
+          id?: string
+          org_id?: string
+          quote_id?: string | null
+          reference?: string
+          renewal_basis?: string | null
+          sent_at?: string | null
+          signature_data?: string | null
+          signed_at?: string | null
+          signer_name?: string | null
+          signer_role?: string | null
+          start_date?: string
+          status?: string
+          template_id?: string | null
+          term_months?: number
+          title?: string
+          total_value?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_agreements_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "service_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_agreements_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_agreements_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_agreements_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "contract_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contract_templates: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          approved_by_name: string | null
+          clauses: Json
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_starter: boolean
+          name: string
+          org_id: string
+          review_note: string | null
+          source: string
+          source_file: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_name?: string | null
+          clauses?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_starter?: boolean
+          name: string
+          org_id?: string
+          review_note?: string | null
+          source?: string
+          source_file?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_name?: string | null
+          clauses?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_starter?: boolean
+          name?: string
+          org_id?: string
+          review_note?: string | null
+          source?: string
+          source_file?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       customer_documents: {
         Row: {
           created_at: string
