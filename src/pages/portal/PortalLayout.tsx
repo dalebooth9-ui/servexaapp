@@ -64,6 +64,7 @@ export default function PortalLayout() {
           <PortalTab to="/customer-portal" icon={<LayoutDashboard className="w-4 h-4" />} label="My sites" end />
           <PortalTab to="/customer-portal/documents" icon={<FileText className="w-4 h-4" />} label="Documents" />
           <PortalTab to="/customer-portal/quotes" icon={<Receipt className="w-4 h-4" />} label="Quotes" />
+          <PortalTab to="/customer-portal/agreements" icon={<FileText className="w-4 h-4" />} label="Agreements" />
         </nav>
       </header>
       <main className="max-w-6xl mx-auto px-4 py-6">

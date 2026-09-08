@@ -40,6 +40,9 @@ const Invoices = lazy(() => import("@/pages/Invoices"));
 const InvoiceDetail = lazy(() => import("@/pages/InvoiceDetail"));
 const Quotes = lazy(() => import("@/pages/Quotes"));
 const ServiceContracts = lazy(() => import("@/pages/ServiceContracts"));
+const ContractAgreements = lazy(() => import("@/pages/ContractAgreements"));
+const ContractAgreementDetail = lazy(() => import("@/pages/ContractAgreementDetail"));
+const ContractTemplates = lazy(() => import("@/pages/ContractTemplates"));
 const ServiceContractDetail = lazy(() => import("@/pages/ServiceContractDetail"));
 const PaperScans = lazy(() => import("@/pages/PaperScans"));
 
@@ -54,6 +57,7 @@ const PortalLayout = lazy(() => import("@/pages/portal/PortalLayout"));
 const PortalHome = lazy(() => import("@/pages/portal/PortalHome"));
 const PortalDocuments = lazy(() => import("@/pages/portal/PortalDocuments"));
 const PortalQuotes = lazy(() => import("@/pages/portal/PortalQuotes"));
+const PortalAgreements = lazy(() => import("@/pages/portal/PortalAgreements"));
 const EngineerReport = lazy(() => import("@/pages/EngineerReport"));
 const Reports = lazy(() => import("@/pages/Reports"));
 const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
@@ -229,6 +233,9 @@ const App = () => (
               <Route path="/invoices/:id" element={<AdminRoute><InvoiceDetail /></AdminRoute>} />
               <Route path="/contracts" element={<AdminRoute><Suspense fallback={<PageFallback />}><ServiceContracts /></Suspense></AdminRoute>} />
               <Route path="/contracts/:id" element={<AdminRoute><Suspense fallback={<PageFallback />}><ServiceContractDetail /></Suspense></AdminRoute>} />
+              <Route path="/agreements" element={<AdminRoute><Suspense fallback={<PageFallback />}><ContractAgreements /></Suspense></AdminRoute>} />
+              <Route path="/agreements/templates" element={<AdminRoute><Suspense fallback={<PageFallback />}><ContractTemplates /></Suspense></AdminRoute>} />
+              <Route path="/agreements/:id" element={<AdminRoute><Suspense fallback={<PageFallback />}><ContractAgreementDetail /></Suspense></AdminRoute>} />
               <Route path="/sites" element={<AccessRoute pageSlug="sites"><Sites /></AccessRoute>} />
               <Route path="/site-surveys" element={<AccessRoute pageSlug="site-surveys"><Suspense fallback={<PageFallback />}><SiteSurveys /></Suspense></AccessRoute>} />
               <Route path="/site-surveys/:id" element={<AccessRoute pageSlug="site-surveys"><Suspense fallback={<PageFallback />}><SiteSurveyDetail /></Suspense></AccessRoute>} />
@@ -257,6 +264,7 @@ const App = () => (
                 <Route index element={<Suspense fallback={<PageFallback />}><PortalHome /></Suspense>} />
                 <Route path="documents" element={<Suspense fallback={<PageFallback />}><PortalDocuments /></Suspense>} />
                 <Route path="quotes" element={<Suspense fallback={<PageFallback />}><PortalQuotes /></Suspense>} />
+                <Route path="agreements" element={<Suspense fallback={<PageFallback />}><PortalAgreements /></Suspense>} />
               </Route>
               <Route path="/quote-approval" element={<Suspense fallback={<PageFallback />}><QuoteApproval /></Suspense>} />
               <Route path="/reports/engineers" element={<AdminRoute><EngineerReport /></AdminRoute>} />
