@@ -53,9 +53,9 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
     // process a scan. Files aren't captured yet so nothing is lost.
     if (!getConnectivity().isOnline) {
       toast({
-        title: "You're offline",
+        title: "No signal",
         description:
-          "Paper-scan uploads need an internet connection. Your photos haven't been uploaded — reconnect and drop them in again.",
+          "Scans are read by our servers, so this one step needs signal. Nothing has been lost — drop the same files in again once you're back online. Job sheets you fill in on this device keep saving offline as normal.",
         variant: "destructive",
       });
       return;
