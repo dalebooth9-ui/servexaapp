@@ -50,6 +50,7 @@ export default function ContractAgreementDetail() {
       const orgId = (profile as any)?.org_id;
       if (!orgId) return;
       const { data: org } = await supabase.from("organisations").select("name").eq("id", orgId).maybeSingle();
+      console.log("AGRDBG org", JSON.stringify(org), JSON.stringify(profile));
       if ((org as any)?.name) setProviderName((org as any).name);
     })();
   }, [user]);
