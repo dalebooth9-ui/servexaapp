@@ -208,7 +208,7 @@ export default function EngineerTodayHome() {
     const weekEndStr = format(weekEnd, "yyyy-MM-dd");
     const { data: schedRows } = await supabase
       .from("job_schedule")
-      .select("id, job_id, schedule_date, scheduled_time, acknowledged_at")
+      .select("id, job_id, schedule_date, acknowledged_at")
       .eq("engineer_id", engineerId)
       .gte("schedule_date", weekStartStr)
       .lte("schedule_date", weekEndStr)
@@ -237,7 +237,7 @@ export default function EngineerTodayHome() {
         return {
           ...j,
           schedule_date: s.schedule_date,
-          scheduled_time: s.scheduled_time,
+          scheduled_time: null,
           schedule_id: s.id,
           acknowledged_at: s.acknowledged_at,
         } as JobLite;
