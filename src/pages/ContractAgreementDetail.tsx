@@ -42,7 +42,6 @@ export default function ContractAgreementDetail() {
     if (!user) return;
     (async () => {
       const b = await getGeneratingOrgBranding().catch(() => null);
-      console.log("AGRDBG branding", JSON.stringify(b));
       if (b?.name) { setProviderName(b.name); return; }
       // Branding cache can resolve before the session hydrates — fall back to
       // reading the signed-in user's organisation directly.
@@ -50,7 +49,6 @@ export default function ContractAgreementDetail() {
       const orgId = (profile as any)?.org_id;
       if (!orgId) return;
       const { data: org } = await supabase.from("organisations").select("name").eq("id", orgId).maybeSingle();
-      console.log("AGRDBG org", JSON.stringify(org), JSON.stringify(profile));
       if ((org as any)?.name) setProviderName((org as any).name);
     })();
   }, [user]);
