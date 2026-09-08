@@ -611,6 +611,37 @@ export default function AiHelpWizard() {
                     </div>
                   )}
 
+                  {/* Receipts — the actual records the answer was built from */}
+                  {msg.role === "assistant" && msg.receipts && msg.receipts.length > 0 && (
+                    <div className="flex flex-col gap-1 w-full">
+                      <p className="text-[10px] text-muted-foreground px-1">
+                        Records used ({msg.receipts.length}) — tap to open:
+                      </p>
+                      {msg.receipts.map((r, j) => (
+                        <button
+                          key={j}
+                          onClick={() => handleAction(r)}
+                          title={r.description}
+                          className={cn(
+                            "flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-xs",
+                            "border border-border bg-muted/40 hover:bg-muted text-foreground",
+                            "transition-colors text-left group"
+                          )}
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">{r.label}</span>
+                            {r.description && (
+                              <span className="block truncate text-[10px] text-muted-foreground">{r.description}</span>
+                            )}
+                          </span>
+                          <ArrowRight className="h-3 w-3 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+
+
                   {/* Page-specific follow-up suggestions — shown after the first assistant message */}
                   {msg.role === "assistant" && msg.content !== "" && i === messages.length - 1 && !loading && messages.length === 1 && (
                     <div className="flex flex-col gap-1 w-full mt-1">
