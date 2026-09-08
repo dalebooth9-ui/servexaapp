@@ -7,12 +7,15 @@ import { toast } from "sonner";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveHelpSlug } from "@/lib/helpArticles";
+import { classifyAssistantQuestion } from "@/lib/assistantRouting";
 
 type QuickAction = { label: string; url: string; description: string };
+type Receipt = { label: string; url: string; description: string };
 type Message = {
   role: "user" | "assistant";
   content: string;
   quick_actions?: QuickAction[];
+  receipts?: Receipt[];
 };
 
 // Map route patterns to human-readable names for context
@@ -129,10 +132,10 @@ function getPageSuggestions(pathname: string): string[] {
     "How are audit scores calculated?",
   ];
   return [
+    "Which jobs are still open this week?",
+    "Which customers have renewals due next month?",
     "How do I create a new job?",
     "How does auto-attach paperwork work?",
-    "How do I schedule a visit for an engineer?",
-    "What job statuses are available?",
   ];
 }
 
@@ -174,6 +177,45 @@ async function callWizard(
   }
 
   return data as { message: string; quick_actions: QuickAction[] };
+}
+
+// Data mode: ask a question about the org's own records. Runs read-only queries
+// under the signed-in user's own access rules. Returns route:"help" when the
+// question turns out to be a how-to question instead.
+async function callDataAssistant(
+  messages: Array<{ role: string; content: string }>,
+  currentPage: string,
+): Promise<{ route?: string; message: string; quick_actions: QuickAction[]; receipts: Receipt[] }> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+  const resp = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-data-assistant`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token ?? anonKey}`,
+        "apikey": anonKey,
+      },
+      body: JSON.stringify({ messages, currentPage }),
+    }
+  );
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ error: "AI error" }));
+    throw Object.assign(new Error(err.error || "AI error"), { status: resp.status });
+  }
+
+  const data = await resp.json();
+  if (data?.error) throw Object.assign(new Error(data.error), { status: 500 });
+  return {
+    route: data.route,
+    message: data.message ?? "",
+    quick_actions: data.quick_actions ?? [],
+    receipts: data.receipts ?? [],
+  };
 }
 
 // --- Persistence helpers ---
@@ -345,15 +387,36 @@ export default function AiHelpWizard() {
 
     const currentPage = describeCurrentPage(location.pathname);
 
+    const history = updatedMessages.map(({ role, content }) => ({ role, content }));
+
     try {
-      const { message, quick_actions } = await callWizard(
-        updatedMessages.map(({ role, content }) => ({ role, content })),
-        currentPage,
-        resolveHelpSlug(location.pathname),
-      );
+      let message = "";
+      let quick_actions: QuickAction[] = [];
+      let receipts: Receipt[] = [];
+
+      // Data questions about the org's own records go to the read-only data
+      // assistant; how-to questions go to the help notes. The data function can
+      // bounce a question back to the help notes if it misroutes.
+      if (classifyAssistantQuestion(text) === "data") {
+        const res = await callDataAssistant(history, currentPage);
+        if (res.route === "help" || !res.message) {
+          const fallback = await callWizard(history, currentPage, resolveHelpSlug(location.pathname));
+          message = fallback.message;
+          quick_actions = fallback.quick_actions || [];
+        } else {
+          message = res.message;
+          quick_actions = res.quick_actions || [];
+          receipts = res.receipts || [];
+        }
+      } else {
+        const res = await callWizard(history, currentPage, resolveHelpSlug(location.pathname));
+        message = res.message;
+        quick_actions = res.quick_actions || [];
+      }
+
       setMessages((prev) => {
         const copy = [...prev];
-        copy[copy.length - 1] = { role: "assistant", content: message, quick_actions: quick_actions || [] };
+        copy[copy.length - 1] = { role: "assistant", content: message, quick_actions, receipts };
         debouncedSave(copy);
         return copy;
       });
@@ -547,6 +610,37 @@ export default function AiHelpWizard() {
                       ))}
                     </div>
                   )}
+
+                  {/* Receipts — the actual records the answer was built from */}
+                  {msg.role === "assistant" && msg.receipts && msg.receipts.length > 0 && (
+                    <div className="flex flex-col gap-1 w-full">
+                      <p className="text-[10px] text-muted-foreground px-1">
+                        Records used ({msg.receipts.length}) — tap to open:
+                      </p>
+                      {msg.receipts.map((r, j) => (
+                        <button
+                          key={j}
+                          onClick={() => handleAction(r)}
+                          title={r.description}
+                          className={cn(
+                            "flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-xs",
+                            "border border-border bg-muted/40 hover:bg-muted text-foreground",
+                            "transition-colors text-left group"
+                          )}
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">{r.label}</span>
+                            {r.description && (
+                              <span className="block truncate text-[10px] text-muted-foreground">{r.description}</span>
+                            )}
+                          </span>
+                          <ArrowRight className="h-3 w-3 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+
 
                   {/* Page-specific follow-up suggestions — shown after the first assistant message */}
                   {msg.role === "assistant" && msg.content !== "" && i === messages.length - 1 && !loading && messages.length === 1 && (
