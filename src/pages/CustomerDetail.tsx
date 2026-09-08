@@ -15,6 +15,7 @@ function InvitePortalButton({ customerId, customerName }: { customerId: string; 
 import CustomerPaperwork from "@/components/CustomerPaperwork";
 import CustomerArchivedDocumentsCard from "@/components/customers/CustomerArchivedDocumentsCard";
 import CustomerDefectsCard from "@/components/customers/CustomerDefectsCard";
+import CustomerAgreementsCard from "@/components/CustomerAgreementsCard";
 import CustomerAccreditationLogos from "@/components/CustomerAccreditationLogos";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -1154,6 +1155,8 @@ export default function CustomerDetail() {
       {id && <CustomerArchivedDocumentsCard customerId={id} />}
 
       {/* Outstanding defects (with AI quote drafting) */}
+      {id && <CustomerAgreementsCard customerId={id} />}
+
       {id && <CustomerDefectsCard customerId={id} />}
 
 
