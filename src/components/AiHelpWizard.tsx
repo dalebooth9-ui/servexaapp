@@ -387,15 +387,36 @@ export default function AiHelpWizard() {
 
     const currentPage = describeCurrentPage(location.pathname);
 
+    const history = updatedMessages.map(({ role, content }) => ({ role, content }));
+
     try {
-      const { message, quick_actions } = await callWizard(
-        updatedMessages.map(({ role, content }) => ({ role, content })),
-        currentPage,
-        resolveHelpSlug(location.pathname),
-      );
+      let message = "";
+      let quick_actions: QuickAction[] = [];
+      let receipts: Receipt[] = [];
+
+      // Data questions about the org's own records go to the read-only data
+      // assistant; how-to questions go to the help notes. The data function can
+      // bounce a question back to the help notes if it misroutes.
+      if (classifyAssistantQuestion(text) === "data") {
+        const res = await callDataAssistant(history, currentPage);
+        if (res.route === "help" || !res.message) {
+          const fallback = await callWizard(history, currentPage, resolveHelpSlug(location.pathname));
+          message = fallback.message;
+          quick_actions = fallback.quick_actions || [];
+        } else {
+          message = res.message;
+          quick_actions = res.quick_actions || [];
+          receipts = res.receipts || [];
+        }
+      } else {
+        const res = await callWizard(history, currentPage, resolveHelpSlug(location.pathname));
+        message = res.message;
+        quick_actions = res.quick_actions || [];
+      }
+
       setMessages((prev) => {
         const copy = [...prev];
-        copy[copy.length - 1] = { role: "assistant", content: message, quick_actions: quick_actions || [] };
+        copy[copy.length - 1] = { role: "assistant", content: message, quick_actions, receipts };
         debouncedSave(copy);
         return copy;
       });
