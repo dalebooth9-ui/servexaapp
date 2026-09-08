@@ -7,12 +7,15 @@ import { toast } from "sonner";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveHelpSlug } from "@/lib/helpArticles";
+import { classifyAssistantQuestion } from "@/lib/assistantRouting";
 
 type QuickAction = { label: string; url: string; description: string };
+type Receipt = { label: string; url: string; description: string };
 type Message = {
   role: "user" | "assistant";
   content: string;
   quick_actions?: QuickAction[];
+  receipts?: Receipt[];
 };
 
 // Map route patterns to human-readable names for context
@@ -174,6 +177,45 @@ async function callWizard(
   }
 
   return data as { message: string; quick_actions: QuickAction[] };
+}
+
+// Data mode: ask a question about the org's own records. Runs read-only queries
+// under the signed-in user's own access rules. Returns route:"help" when the
+// question turns out to be a how-to question instead.
+async function callDataAssistant(
+  messages: Array<{ role: string; content: string }>,
+  currentPage: string,
+): Promise<{ route?: string; message: string; quick_actions: QuickAction[]; receipts: Receipt[] }> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+  const resp = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-data-assistant`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token ?? anonKey}`,
+        "apikey": anonKey,
+      },
+      body: JSON.stringify({ messages, currentPage }),
+    }
+  );
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ error: "AI error" }));
+    throw Object.assign(new Error(err.error || "AI error"), { status: resp.status });
+  }
+
+  const data = await resp.json();
+  if (data?.error) throw Object.assign(new Error(data.error), { status: 500 });
+  return {
+    route: data.route,
+    message: data.message ?? "",
+    quick_actions: data.quick_actions ?? [],
+    receipts: data.receipts ?? [],
+  };
 }
 
 // --- Persistence helpers ---
