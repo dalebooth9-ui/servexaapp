@@ -481,7 +481,45 @@ export async function generateJobSheetPdf(
       : undefined,
   });
 
+  // --- Customer summary block (AI-drafted, office-editable) --------------
+  // Rendered only when a summary has been saved onto the report answers under
+  // the reserved `_ai_summary` key. Both live job reports and archive
+  // conversions flow through this generator, so one block serves both.
+  const summaryText = String((resolvedFormData as any)._ai_summary || "").trim();
+  if (summaryText) {
+    const [ar, ag, ab] = headerAccent as [number, number, number];
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    const innerW = maxWidth - 8;
+    const lines = doc.splitTextToSize(summaryText, innerW) as string[];
+    const lineH = 3.6;
+    const boxH = 5.5 + lines.length * lineH + 3.5;
+    doc.setFillColor(248, 249, 251);
+    doc.setDrawColor(ar, ag, ab);
+    doc.setLineWidth(0.2);
+    doc.rect(margin, y, maxWidth, boxH, "FD");
+    // Accent spine
+    doc.setFillColor(ar, ag, ab);
+    doc.rect(margin, y, 1.2, boxH, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(ar, ag, ab);
+    doc.text("SUMMARY", margin + 4, y + 4);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(40, 40, 40);
+    let sy = y + 8;
+    lines.forEach((ln) => {
+      doc.text(ln, margin + 4, sy);
+      sy += lineH;
+    });
+    doc.setTextColor(0, 0, 0);
+    doc.setLineWidth(0.2);
+    y += boxH + 3;
+  }
+
   // Service scope line removed per request — kept off the job sheet PDF.
+
 
   // --- Shared layout utilities ---
   // footerSpace must accommodate: sigs (18mm) + logos (12mm) + logo gap (3mm) + footer box (9mm) + buffer (8mm)
