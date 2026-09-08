@@ -33,6 +33,10 @@ type JobLite = {
   site_name?: string | null;
   site_postcode?: string | null;
   what3words?: string | null;
+  site_id?: string | null;
+  open_defects?: number;
+  last_visit?: string | null;
+  rams_state?: "none" | "attached" | "signed";
 };
 
 function priorityChip(p?: string) {
@@ -133,6 +137,24 @@ function BigJobCard({ job, showDate = false }: { job: JobLite; showDate?: boolea
           </div>
         )}
 
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          <span className={job.open_defects ? "text-destructive font-medium" : "text-muted-foreground"}>
+            {job.open_defects ? `${job.open_defects} open defect${job.open_defects === 1 ? "" : "s"} at this site` : "No open defects here"}
+          </span>
+          <span className="text-muted-foreground">
+            {job.last_visit ? `Last visit ${format(parseISO(job.last_visit), "d MMM yyyy")}` : "No previous visit"}
+          </span>
+          <span className={
+            job.rams_state === "signed" ? "text-emerald-600 font-medium"
+            : job.rams_state === "attached" ? "text-amber-600 font-medium"
+            : "text-muted-foreground"
+          }>
+            {job.rams_state === "signed" ? "RAMS ✓ signed"
+              : job.rams_state === "attached" ? "RAMS ✗ not signed"
+              : "No RAMS attached"}
+          </span>
+        </div>
+
         <div className="grid grid-cols-2 gap-2 pt-1">
           <Button
             asChild={!!mapsUrl}
@@ -219,7 +241,7 @@ export default function EngineerTodayHome() {
     if (jobIds.length) {
       const { data: js } = await supabase
         .from("jobs")
-        .select("id, name, reference_number, address, status, priority, customer, category, sites(name, postcode, what3words)")
+        .select("id, site_id, name, reference_number, address, status, priority, customer, category, sites(name, postcode, what3words)")
         .in("id", jobIds);
       (js || []).forEach((j: any) => jobsById.set(j.id, {
         ...j,
@@ -244,8 +266,43 @@ export default function EngineerTodayHome() {
       })
       .filter(Boolean) as JobLite[];
 
-    setToday(combined.filter((j) => j.schedule_date === todayStr));
-    setWeek(combined);
+    // Site context: outstanding defects, last completed visit, RAMS state.
+    const siteIds = Array.from(new Set(combined.map((j) => j.site_id).filter(Boolean))) as string[];
+    const scheduledJobIds = combined.map((j) => j.id);
+    const [defectRes, visitRes, ramsRes, signoffRes] = await Promise.all([
+      siteIds.length
+        ? supabase.from("defects").select("site_id").in("site_id", siteIds).eq("status", "open")
+        : Promise.resolve({ data: [] as any[] }),
+      siteIds.length
+        ? supabase.from("jobs").select("site_id, updated_at").in("site_id", siteIds).eq("status", "completed")
+        : Promise.resolve({ data: [] as any[] }),
+      scheduledJobIds.length
+        ? supabase.from("rams").select("job_id").in("job_id", scheduledJobIds)
+        : Promise.resolve({ data: [] as any[] }),
+      scheduledJobIds.length
+        ? supabase.from("rams_signoffs").select("job_id").in("job_id", scheduledJobIds)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+
+    const defectCounts = new Map<string, number>();
+    (defectRes.data || []).forEach((d: any) => defectCounts.set(d.site_id, (defectCounts.get(d.site_id) || 0) + 1));
+    const lastVisits = new Map<string, string>();
+    (visitRes.data || []).forEach((j: any) => {
+      const cur = lastVisits.get(j.site_id);
+      if (!cur || j.updated_at > cur) lastVisits.set(j.site_id, j.updated_at);
+    });
+    const ramsJobs = new Set((ramsRes.data || []).map((r: any) => r.job_id));
+    const signedJobs = new Set((signoffRes.data || []).map((r: any) => r.job_id));
+
+    const enriched = combined.map((j) => ({
+      ...j,
+      open_defects: j.site_id ? defectCounts.get(j.site_id) || 0 : 0,
+      last_visit: j.site_id ? lastVisits.get(j.site_id) ?? null : null,
+      rams_state: (signedJobs.has(j.id) ? "signed" : ramsJobs.has(j.id) ? "attached" : "none") as JobLite["rams_state"],
+    }));
+
+    setToday(enriched.filter((j) => j.schedule_date === todayStr));
+    setWeek(enriched);
 
     // 3. Next scheduled date beyond today (for empty-state hint)
     if (!combined.some((j) => j.schedule_date === todayStr)) {

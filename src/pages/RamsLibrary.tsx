@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Library, Plus, Trash2, Pencil, Archive, ArchiveRestore, ArrowLeft } from "lucide-react";
 import { Link, Navigate } from "react-router-dom";
 import HazardModulesAdmin from "@/components/rams/HazardModulesAdmin";
+import RamsAutoAttachAdmin from "@/components/rams/RamsAutoAttachAdmin";
 
 const BLOCK_TYPES = [
   { value: "working_at_height", label: "Working at height (ladders / MEWP)" },
@@ -37,8 +38,8 @@ const WORK_TYPES = [
 export default function RamsLibrary() {
   const { userRole } = useAuth();
   const { toast } = useToast();
-  const [tab, setTab] = useState<"whole" | "block" | "hazard">("block");
-  const libraryKind: "whole" | "block" = tab === "hazard" ? "block" : tab;
+  const [tab, setTab] = useState<"whole" | "block" | "hazard" | "autoattach">("block");
+  const libraryKind: "whole" | "block" = tab === "hazard" || tab === "autoattach" ? "block" : tab;
   const { items, loading, refetch } = useRamsLibrary({ kind: libraryKind, includeArchived: true });
   const [editing, setEditing] = useState<RamsLibraryItem | null>(null);
   const [creating, setCreating] = useState(false);
@@ -81,7 +82,7 @@ export default function RamsLibrary() {
                 </CardDescription>
               </div>
             </div>
-            {tab !== "hazard" && (
+            {tab !== "hazard" && tab !== "autoattach" && (
               <Button size="sm" onClick={() => setCreating(true)}>
                 <Plus className="h-4 w-4 mr-1" /> New {tab === "whole" ? "template" : "block"}
               </Button>
@@ -94,9 +95,13 @@ export default function RamsLibrary() {
               <TabsTrigger value="block">Content blocks</TabsTrigger>
               <TabsTrigger value="whole">Whole RAMS templates</TabsTrigger>
               <TabsTrigger value="hazard">Hazard modules</TabsTrigger>
+              <TabsTrigger value="autoattach">Auto-attach by job type</TabsTrigger>
             </TabsList>
             <TabsContent value="hazard" className="mt-4">
               <HazardModulesAdmin />
+            </TabsContent>
+            <TabsContent value="autoattach" className="mt-4">
+              <RamsAutoAttachAdmin />
             </TabsContent>
             <TabsContent value={libraryKind} className="mt-4">
               {loading ? (

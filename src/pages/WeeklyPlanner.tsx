@@ -11,8 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Plus, Printer, Copy, LayoutGrid, Calendar as CalendarIcon, List, Map as MapIcon, Zap, Users, Download, FileText, FileSpreadsheet, Sparkles, Briefcase, Bot } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ChevronLeft, ChevronRight, Plus, Printer, Copy, LayoutGrid, Calendar as CalendarIcon, List, Map as MapIcon, Zap, Users, Download, FileText, FileSpreadsheet, Sparkles, Briefcase, Bot, MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { exportWorksheetPdf, exportWorksheetXlsx } from "@/components/planner/PlannerWorksheetExport";
 import { format, addDays, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { useNavigate } from "react-router-dom";
@@ -920,42 +920,9 @@ export default function WeeklyPlanner() {
           </Button>
 
           {isAdmin && (
-            <>
-              <Button
-                size="sm"
-                className="gap-1.5 bg-primary/90 hover:bg-primary"
-                onClick={() => setAiSchedulerOpen(true)}
-              >
-                <Sparkles className="h-4 w-4" /> AI Schedule
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5 border-primary/40 text-primary hover:bg-primary/5"
-                onClick={() => setAgentOpen(true)}
-              >
-                <Bot className="h-4 w-4" /> Auto-Agent
-              </Button>
-              <Button size="sm" onClick={() => { setAddDay(format(weekDays[0], "yyyy-MM-dd")); setAddEngineerId(""); setAddJobId(""); setAddSiteId(""); setAddNotes(""); setAddOpen(true); }}>
-                <Plus className="mr-1.5 h-4 w-4" /> Add Entry
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => { setAdhocDay(format(weekDays[0], "yyyy-MM-dd")); setAdhocEngineerId(""); setAdhocCompany(""); setAdhocDesc(""); setAdhocOpen(true); }}
-              >
-                <Briefcase className="mr-1.5 h-4 w-4" /> Labour
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => { setBatchEngineerId(""); setBatchJobIds(new Set()); setBatchDate(format(weekDays[0], "yyyy-MM-dd")); setBatchOpen(true); }}>
-                <Users className="mr-1.5 h-4 w-4" /> Batch Deploy
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => { setShuntEngineerId(""); setShuntDays("1"); setShuntDirection("forward"); setShuntFromDate(format(new Date(), "yyyy-MM-dd")); setShuntSkipWeekends(false); setShuntOpen(true); }}>
-                <Zap className="mr-1.5 h-4 w-4" /> Shunt
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleCopyToNextWeek} disabled={copying || schedule.length === 0}>
-                <Copy className="mr-1.5 h-4 w-4" /> {copying ? "Copying..." : "Copy Week"}
-              </Button>
-            </>
+            <Button size="sm" onClick={() => { setAddDay(format(weekDays[0], "yyyy-MM-dd")); setAddEngineerId(""); setAddJobId(""); setAddSiteId(""); setAddNotes(""); setAddOpen(true); }}>
+              <Plus className="mr-1.5 h-4 w-4" /> Add Entry
+            </Button>
           )}
           {isAdmin && (
             <EngineerVisibilityFilter
@@ -964,88 +931,117 @@ export default function WeeklyPlanner() {
               onChange={updateHiddenEngineers}
             />
           )}
-          {isAdmin && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Printer className="mr-1.5 h-4 w-4" /> Print sheets
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="max-h-[60vh] overflow-y-auto">
-                <DropdownMenuItem
-                  onClick={() => {
-                    const visits = filteredSchedule.map((s) => ({
-                      job_id: s.job_id,
-                      engineer_id: s.engineer_id,
-                      engineer_name: visibleEngineers.find((e) => e.user_id === s.engineer_id)?.full_name || "Unassigned",
-                      schedule_date: s.schedule_date,
-                    }));
-                    if (visits.length === 0) {
-                      toast({ title: "Nothing scheduled this week" });
-                      return;
-                    }
-                    setBulkPrintSelection({
-                      weekStart,
-                      weekEnd: _endOfWeek(weekStart, { weekStartsOn: 1 }),
-                      scopeLabel: `All engineers — w/c ${fmtDate(weekStart, "d MMM yyyy")}`,
-                      visits,
-                    });
-                  }}
-                >
-                  <Users className="mr-2 h-4 w-4" /> Whole week (all engineers)
-                </DropdownMenuItem>
-                {visibleEngineers.length > 0 && (
-                  <>
-                    <div className="px-2 py-1.5 text-xs text-muted-foreground">Per engineer</div>
-                    {visibleEngineers.map((e) => {
-                      const count = filteredSchedule.filter((s) => s.engineer_id === e.user_id).length;
-                      return (
-                        <DropdownMenuItem
-                          key={e.user_id}
-                          disabled={count === 0}
-                          onClick={() => {
-                            const visits = filteredSchedule
-                              .filter((s) => s.engineer_id === e.user_id)
-                              .map((s) => ({
-                                job_id: s.job_id,
-                                engineer_id: s.engineer_id,
-                                engineer_name: e.full_name,
-                                schedule_date: s.schedule_date,
-                              }));
-                            setBulkPrintSelection({
-                              weekStart,
-                              weekEnd: _endOfWeek(weekStart, { weekStartsOn: 1 }),
-                              scopeLabel: `${e.full_name} — w/c ${fmtDate(weekStart, "d MMM yyyy")}`,
-                              visits,
-                            });
-                          }}
-                        >
-                          <Printer className="mr-2 h-4 w-4" />
-                          <span className="flex-1">{e.full_name}</span>
-                          <span className="ml-2 text-xs text-muted-foreground">{count}</span>
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+
+          {/* Everything else lives in one overflow menu — nothing removed, just tucked away. */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Download className="mr-1.5 h-4 w-4" /> Export
+              <Button variant="outline" size="sm" title="More planner tools" aria-label="More planner tools">
+                <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => exportWorksheetPdf(weekStart, filteredSchedule, scopedJobs as any, visibleEngineers, jobParts, submissionComments, optimisedJobOrder, jobVisitNotes)}>
-                <FileText className="mr-2 h-4 w-4" /> Download PDF
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportWorksheetXlsx(weekStart, filteredSchedule, scopedJobs as any, visibleEngineers, jobParts, submissionComments, optimisedJobOrder, jobVisitNotes)}>
-                <FileSpreadsheet className="mr-2 h-4 w-4" /> Download Excel (.xlsx)
-              </DropdownMenuItem>
+            <DropdownMenuContent align="end" className="max-h-[70vh] w-56 overflow-y-auto">
+              {isAdmin && (
+                <>
+                  <DropdownMenuItem onClick={() => setAiSchedulerOpen(true)}>
+                    <Sparkles className="mr-2 h-4 w-4" /> AI Schedule
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setAgentOpen(true)}>
+                    <Bot className="mr-2 h-4 w-4" /> Auto-Agent
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setAdhocDay(format(weekDays[0], "yyyy-MM-dd")); setAdhocEngineerId(""); setAdhocCompany(""); setAdhocDesc(""); setAdhocOpen(true); }}>
+                    <Briefcase className="mr-2 h-4 w-4" /> Labour
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setBatchEngineerId(""); setBatchJobIds(new Set()); setBatchDate(format(weekDays[0], "yyyy-MM-dd")); setBatchOpen(true); }}>
+                    <Users className="mr-2 h-4 w-4" /> Batch Deploy
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setShuntEngineerId(""); setShuntDays("1"); setShuntDirection("forward"); setShuntFromDate(format(new Date(), "yyyy-MM-dd")); setShuntSkipWeekends(false); setShuntOpen(true); }}>
+                    <Zap className="mr-2 h-4 w-4" /> Shunt
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleCopyToNextWeek} disabled={copying || schedule.length === 0}>
+                    <Copy className="mr-2 h-4 w-4" /> {copying ? "Copying..." : "Copy Week"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Printer className="mr-2 h-4 w-4" /> Print sheets
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="max-h-[60vh] overflow-y-auto">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          const visits = filteredSchedule.map((s) => ({
+                            job_id: s.job_id,
+                            engineer_id: s.engineer_id,
+                            engineer_name: visibleEngineers.find((e) => e.user_id === s.engineer_id)?.full_name || "Unassigned",
+                            schedule_date: s.schedule_date,
+                          }));
+                          if (visits.length === 0) {
+                            toast({ title: "Nothing scheduled this week" });
+                            return;
+                          }
+                          setBulkPrintSelection({
+                            weekStart,
+                            weekEnd: _endOfWeek(weekStart, { weekStartsOn: 1 }),
+                            scopeLabel: `All engineers — w/c ${fmtDate(weekStart, "d MMM yyyy")}`,
+                            visits,
+                          });
+                        }}
+                      >
+                        <Users className="mr-2 h-4 w-4" /> Whole week (all engineers)
+                      </DropdownMenuItem>
+                      {visibleEngineers.length > 0 && (
+                        <>
+                          <div className="px-2 py-1.5 text-xs text-muted-foreground">Per engineer</div>
+                          {visibleEngineers.map((e) => {
+                            const count = filteredSchedule.filter((s) => s.engineer_id === e.user_id).length;
+                            return (
+                              <DropdownMenuItem
+                                key={e.user_id}
+                                disabled={count === 0}
+                                onClick={() => {
+                                  const visits = filteredSchedule
+                                    .filter((s) => s.engineer_id === e.user_id)
+                                    .map((s) => ({
+                                      job_id: s.job_id,
+                                      engineer_id: s.engineer_id,
+                                      engineer_name: e.full_name,
+                                      schedule_date: s.schedule_date,
+                                    }));
+                                  setBulkPrintSelection({
+                                    weekStart,
+                                    weekEnd: _endOfWeek(weekStart, { weekStartsOn: 1 }),
+                                    scopeLabel: `${e.full_name} — w/c ${fmtDate(weekStart, "d MMM yyyy")}`,
+                                    visits,
+                                  });
+                                }}
+                              >
+                                <Printer className="mr-2 h-4 w-4" />
+                                <span className="flex-1">{e.full_name}</span>
+                                <span className="ml-2 text-xs text-muted-foreground">{count}</span>
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </>
+                      )}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                </>
+              )}
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Download className="mr-2 h-4 w-4" /> Export
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={() => exportWorksheetPdf(weekStart, filteredSchedule, scopedJobs as any, visibleEngineers, jobParts, submissionComments, optimisedJobOrder, jobVisitNotes)}>
+                    <FileText className="mr-2 h-4 w-4" /> Download PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportWorksheetXlsx(weekStart, filteredSchedule, scopedJobs as any, visibleEngineers, jobParts, submissionComments, optimisedJobOrder, jobVisitNotes)}>
+                    <FileSpreadsheet className="mr-2 h-4 w-4" /> Download Excel (.xlsx)
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
             </DropdownMenuContent>
           </DropdownMenu>
+
 
         </div>
       </div>
