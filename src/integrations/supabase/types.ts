@@ -3733,33 +3733,42 @@ export type Database = {
       }
       invoice_line_items: {
         Row: {
+          ai_flag: string | null
           amount: number
           description: string
           id: string
           invoice_id: string
           org_id: string
+          price_match: string | null
           quantity: number
           sort_order: number
+          source_defect_ids: string[] | null
           unit_price: number
         }
         Insert: {
+          ai_flag?: string | null
           amount?: number
           description?: string
           id?: string
           invoice_id: string
           org_id?: string
+          price_match?: string | null
           quantity?: number
           sort_order?: number
+          source_defect_ids?: string[] | null
           unit_price?: number
         }
         Update: {
+          ai_flag?: string | null
           amount?: number
           description?: string
           id?: string
           invoice_id?: string
           org_id?: string
+          price_match?: string | null
           quantity?: number
           sort_order?: number
+          source_defect_ids?: string[] | null
           unit_price?: number
         }
         Relationships: [
@@ -3788,6 +3797,8 @@ export type Database = {
       }
       invoices: {
         Row: {
+          ai_draft_notes: string | null
+          ai_drafted: boolean
           contract_id: string | null
           created_at: string
           created_by: string
@@ -3813,6 +3824,8 @@ export type Database = {
           xero_synced_at: string | null
         }
         Insert: {
+          ai_draft_notes?: string | null
+          ai_drafted?: boolean
           contract_id?: string | null
           created_at?: string
           created_by: string
@@ -3838,6 +3851,8 @@ export type Database = {
           xero_synced_at?: string | null
         }
         Update: {
+          ai_draft_notes?: string | null
+          ai_drafted?: boolean
           contract_id?: string | null
           created_at?: string
           created_by?: string

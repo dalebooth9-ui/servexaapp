@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Download, Send, Loader2, RefreshCw, ArrowRightLeft, Pencil, Trash2, Plus, X, Save, Wrench, Eye } from "lucide-react";
+import { ArrowLeft, Download, Send, Loader2, RefreshCw, ArrowRightLeft, Pencil, Trash2, Plus, X, Save, Wrench, Eye, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import html2canvas from "html2canvas";
@@ -599,6 +599,38 @@ export default function InvoiceDetail() {
           )}
         </div>
       </div>
+
+      {/* AI draft notice — never shown on the printed document */}
+      {invoice.ai_drafted && (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="p-4 space-y-2">
+            <div className="flex items-start gap-2">
+              <Sparkles className="mt-0.5 h-4 w-4 text-amber-600 shrink-0" />
+              <div className="text-sm">
+                <p className="font-medium">AI-drafted from defects — review before sending</p>
+                <p className="text-muted-foreground">
+                  {invoice.ai_draft_notes || "Descriptions were written from the defect records. Prices come from your price book only."}
+                </p>
+              </div>
+            </div>
+            {lineItems.some((it: any) => it.price_match === "unmatched" || it.ai_flag) && (
+              <ul className="ml-6 list-disc space-y-1 text-xs text-amber-700">
+                {lineItems
+                  .filter((it: any) => it.price_match === "unmatched" || it.ai_flag)
+                  .map((it: any) => (
+                    <li key={it.id}>
+                      <span className="font-medium">{it.description}</span>
+                      {it.price_match === "unmatched" && " — no price book match, add a price"}
+                      {it.ai_flag && ` — ${it.ai_flag}`}
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+
 
       {/* Edit form */}
       {editing ? (
