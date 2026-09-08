@@ -312,6 +312,8 @@ ${schemaDoc()}
 USEFUL VALUES:
 - jobs.status: pending_review, active, completed, requires_revisit, rejected
 - jobs.category examples: dry_riser_service, dry_riser_visual, dry_riser_pressure_test, dry_riser_installation, dry_riser_remedial, sprinkler_service, sprinkler_remedial, commercial_sprinkler_service, extinguisher_service, wet_riser_annual_service, pressure_test, general
+- For a FAMILY of work ("dry riser work", "sprinkler jobs") use ilike on category with the stem, e.g. category ilike "dry_riser" — do not guess one exact value.
+- jobs.completed_at is NULL on some older completed jobs. For "what did we complete in <period>", filter status eq completed and use completed_at for the period, but ALSO run a second query on created_at for that period so nothing with a missing completion date is silently dropped; mention in the answer if a record had no completion date recorded.
 - defects.status: open, quoted, resolved. defects.severity: low, medium, high
 - job_visits.status: upcoming, completed
 - Engineers are people in profiles (full_name). To count an engineer's work: find their profiles.user_id by name, then filter job_visits.engineer_id / jobs.completed_by.
