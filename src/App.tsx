@@ -87,6 +87,7 @@ const JobApprovalAuditLog = lazy(() => import("@/pages/JobApprovalAuditLog"));
 const MyProfile = lazy(() => import("@/pages/MyProfile"));
 const MyTimesheet = lazy(() => import("@/pages/MyTimesheet"));
 const SyncStatus = lazy(() => import("@/pages/SyncStatus"));
+const HelpGuides = lazy(() => import("@/pages/HelpGuides"));
 const SetupGuide = lazy(() => import("@/pages/SetupGuide"));
 const ErrorLog = lazy(() => import("@/pages/ErrorLog"));
 const SupportTickets = lazy(() => import("@/pages/SupportTickets"));
@@ -189,7 +190,10 @@ const App = () => (
               <Route path="/app" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
               <Route path="/my-timesheet" element={<ProtectedRoute><MyTimesheet /></ProtectedRoute>} />
+              <Route path="/help" element={<ProtectedRoute><HelpGuides /></ProtectedRoute>} />
+              <Route path="/help/:slug" element={<ProtectedRoute><HelpGuides /></ProtectedRoute>} />
               <Route path="/sync-status" element={<ProtectedRoute><SyncStatus /></ProtectedRoute>} />
+
               <Route path="/setup" element={<AdminRoute><SetupGuide /></AdminRoute>} />
               <Route path="/admin/error-log" element={<AdminRoute><ErrorLog /></AdminRoute>} />
               <Route path="/admin/support-tickets" element={<AdminRoute><SupportTickets /></AdminRoute>} />

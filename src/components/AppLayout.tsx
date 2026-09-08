@@ -70,6 +70,7 @@ const DEFAULT_NAV_ITEMS = [
   { to: "/report-downloads", label: "Report Downloads", icon: FileArchive, section: "more", adminOnly: true },
   { to: "/paper-scans", label: "Paper scans", icon: ScanLine, section: "more", adminOnly: true, badgeKey: "paper_scans_pending" as const },
 
+{ to: "/help", label: "Help & guides", icon: BookOpen, section: "more", adminOnly: false },
   { to: "/sync-status", label: "Sync Status", icon: CloudUpload, section: "more", adminOnly: false },
 { to: "/industry-templates", label: "Templates", icon: BookOpen, section: "admin", adminOnly: true },
 { to: "/reports", label: "Reports", icon: BarChart2, section: "admin", adminOnly: true },

@@ -3207,9 +3207,13 @@ export type Database = {
       }
       help_articles: {
         Row: {
+          audience: string[]
+          category: string | null
           common_problems: Json
           created_at: string
+          guide_order: number
           id: string
+          is_guide: boolean
           keywords: string[]
           last_updated: string
           purpose: string
@@ -3222,9 +3226,13 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          audience?: string[]
+          category?: string | null
           common_problems?: Json
           created_at?: string
+          guide_order?: number
           id?: string
+          is_guide?: boolean
           keywords?: string[]
           last_updated?: string
           purpose: string
@@ -3237,9 +3245,13 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          audience?: string[]
+          category?: string | null
           common_problems?: Json
           created_at?: string
+          guide_order?: number
           id?: string
+          is_guide?: boolean
           keywords?: string[]
           last_updated?: string
           purpose?: string
