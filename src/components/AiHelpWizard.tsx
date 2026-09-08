@@ -412,7 +412,20 @@ export default function AiHelpWizard() {
         const res = await callWizard(history, currentPage, resolveHelpSlug(location.pathname));
         message = res.message;
         quick_actions = res.quick_actions || [];
+        // Always offer the full step-by-step guide alongside the quick answer.
+        const guideSlug = resolveHelpSlug(location.pathname);
+        if (!quick_actions.some((a) => a.url.startsWith("/help"))) {
+          quick_actions = [
+            ...quick_actions,
+            {
+              label: "Open the full guide",
+              url: guideSlug ? `/help/${guideSlug}` : "/help",
+              description: "Step-by-step guide in Help & guides",
+            },
+          ];
+        }
       }
+
 
       setMessages((prev) => {
         const copy = [...prev];
