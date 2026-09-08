@@ -59,7 +59,7 @@ export default function SyncStatus() {
 
   const handleSyncNow = async () => {
     if (!isOnline) {
-      toast.warning("You're offline — nothing can sync right now");
+      toast.warning("No signal — everything here is saved and will send automatically when you're back online");
       return;
     }
     setSyncing(true);
@@ -83,7 +83,7 @@ export default function SyncStatus() {
             {isOnline ? (
               <span className="inline-flex items-center gap-1"><Wifi className="h-3 w-3 text-success" /> Online</span>
             ) : (
-              <span className="inline-flex items-center gap-1"><WifiOff className="h-3 w-3 text-warning" /> Offline — sync will resume automatically</span>
+              <span className="inline-flex items-center gap-1"><WifiOff className="h-3 w-3 text-warning" /> No signal — your work is saved on this device and will send automatically</span>
             )}
             {lastSync && (
               <span className="ml-3">Last synced {formatDistanceToNow(new Date(lastSync), { addSuffix: true })}</span>
