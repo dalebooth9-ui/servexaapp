@@ -1535,7 +1535,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     // Engineers cannot re-edit their own once submitted — office reviews and edits.
                     const canEdit = userRole === "admin";
                     return (
-                      <div key={resp.id} className="flex items-center justify-between px-3 py-2 min-h-[38px]">
+                      <div key={resp.id} className="px-3 py-2">
+                      <div className="flex items-center justify-between min-h-[38px]">
                         <div className="flex items-center gap-2 min-w-0">
                           <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-600" />
                           <span className="text-sm truncate">{tpl?.name || "Unknown Template"}</span>
@@ -1584,7 +1585,38 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           )}
                         </div>
                       </div>
+                      {tpl && (tpl as any).category !== "rams" && (
+                        <div className="mt-2">
+                          <ReportSummaryEditor
+                            templateName={tpl.name}
+                            fields={(tpl.fields || []) as any}
+                            responses={resp.responses as Record<string, any>}
+                            jobId={jobId}
+                            context={{
+                              customer: jobInfo?.customer ?? null,
+                              site: (jobInfo as any)?.site?.name ?? jobInfo?.address ?? null,
+                            }}
+                            value={String((resp.responses as any)?._ai_summary || "") || null}
+                            canEdit={canEdit}
+                            onSave={async (text) => {
+                              const next = { ...((resp.responses as any) || {}) };
+                              if (text) next._ai_summary = text;
+                              else delete next._ai_summary;
+                              const { error } = await supabase
+                                .from("job_sheet_responses")
+                                .update({ responses: next as any })
+                                .eq("id", resp.id);
+                              if (error) throw error;
+                              setResponses((prev) =>
+                                prev.map((r) => (r.id === resp.id ? ({ ...r, responses: next } as any) : r)),
+                              );
+                            }}
+                          />
+                        </div>
+                      )}
+                      </div>
                     );
+
                   })}
                 </div>
               </div>
