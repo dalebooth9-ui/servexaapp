@@ -20,7 +20,7 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const MAX_FILES = 1500;
 const MAX_TOTAL_BYTES = 400 * 1024 * 1024; // 400MB of source files in total
-const PART_BYTES = 35 * 1024 * 1024; // flush a zip part every ~35MB (edge memory safety)
+const PART_BYTES = 25 * 1024 * 1024; // flush a zip part every ~35MB (edge memory safety)
 const DAILY_LIMIT = 3;
 const LINK_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
@@ -63,8 +63,9 @@ function parseRef(input: string | null | undefined, defaultBucket: string) {
 }
 
 function zipAsync(files: Record<string, Uint8Array>): Promise<Uint8Array> {
+  // Store-only (level 0): PDFs/images are already compressed and the edge CPU budget is tight.
   // zipSync: fflate's async path spawns a Worker, which the edge runtime lacks.
-  return Promise.resolve(zipSync(files, { level: 6 }));
+  return Promise.resolve(zipSync(files, { level: 0 }));
 }
 
 // ---------- export worker ----------
@@ -342,6 +343,12 @@ serve(async (req) => {
 
 
   if (action === "start") {
+    await admin
+      .from("data_exports")
+      .update({ status: "failed", error: "This export stopped unexpectedly — please try again." })
+      .eq("org_id", orgId)
+      .in("status", ["queued", "running"])
+      .lt("updated_at", new Date(Date.now() - 10 * 60 * 1000).toISOString());
     const { data: running } = await admin
       .from("data_exports")
       .select("id")
