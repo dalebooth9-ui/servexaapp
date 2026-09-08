@@ -132,10 +132,10 @@ function getPageSuggestions(pathname: string): string[] {
     "How are audit scores calculated?",
   ];
   return [
+    "Which jobs are still open this week?",
+    "Which customers have renewals due next month?",
     "How do I create a new job?",
     "How does auto-attach paperwork work?",
-    "How do I schedule a visit for an engineer?",
-    "What job statuses are available?",
   ];
 }
 
