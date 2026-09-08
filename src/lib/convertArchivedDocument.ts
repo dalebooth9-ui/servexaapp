@@ -152,7 +152,30 @@ export async function convertArchivedDocument(
     mergedHeader._manual_engineer_signature_path = manualEngineerSignaturePath;
   }
 
+  // Customer summary (opt-in per org). Composed only from the answers we just
+  // extracted plus this document's recorded defects; the office can edit or
+  // remove it afterwards, which re-renders the PDF.
+  try {
+    const { loadAiSummarySettings, generateSummaryForReport, AI_SUMMARY_KEY } =
+      await import("@/lib/reportSummary");
+    const { enabled } = await loadAiSummarySettings();
+    if (enabled && !(extracted as any)[AI_SUMMARY_KEY]) {
+      const { summary } = await generateSummaryForReport({
+        templateName: (tpl as any).name,
+        fields: fields as any,
+        responses: extracted as any,
+        archivedDocumentId: archivedId,
+        context: {
+          site: (doc as any).site_name || (header as any)?.site || null,
+          date: (doc as any).document_date || null,
+        },
+      });
+      if (summary) (extracted as any)[AI_SUMMARY_KEY] = summary;
+    }
+  } catch { /* summary is optional — never block conversion */ }
+
   const { path, pageCount } = await generateAndUploadArchivePdf({
+
     archivedId,
     template: {
       id: (tpl as any).id,
