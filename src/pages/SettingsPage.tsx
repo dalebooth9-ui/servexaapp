@@ -40,6 +40,7 @@ import FilenameFormatSettings from "@/components/FilenameFormatSettings";
 import { WordExportSettings } from "@/components/WordExportSettings";
 import WatermarkSettings from "@/components/WatermarkSettings";
 import AiReportSummarySettings from "@/components/settings/AiReportSummarySettings";
+import DataExportSettings from "@/components/settings/DataExportSettings";
 
 import EngineerSignatureSettings from "@/components/EngineerSignatureSettings";
 import AppVersion from "@/components/AppVersion";
@@ -471,6 +472,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="advanced" className="space-y-6 mt-0">
+          <DataExportSettings />
           <HelpArticlesAdmin />
           {/* Weekly Report Settings */}
           <Card>
