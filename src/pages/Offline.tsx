@@ -28,9 +28,9 @@ export default function Offline() {
           <WifiOff className="h-10 w-10 text-muted-foreground" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold">You're offline</h1>
+          <h1 className="text-2xl font-bold">No signal</h1>
           <p className="text-muted-foreground">
-            No internet connection detected. Your cached jobs and templates are still available — reconnect to sync changes.
+            Keep going — your work is saved on this device and will send automatically when you're back online. Your jobs and forms are still available here.
           </p>
         </div>
         <Button

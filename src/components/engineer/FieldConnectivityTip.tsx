@@ -36,11 +36,11 @@ export default function FieldConnectivityTip() {
       <div className="flex items-start gap-3">
         <Wifi className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
         <div className="flex-1 leading-snug">
-          <p className="font-medium">Working on site?</p>
+          <p className="font-medium">No signal on site? Keep working.</p>
           <p className="text-muted-foreground mt-0.5">
-            Servexa needs an internet connection to save your work. If site wifi
-            isn't available, use a SIM data plan or a phone hotspot on your
-            tablet.
+            Your answers, photos and signatures are saved on this device and send
+            automatically when you're back online. A SIM data plan or phone
+            hotspot just means things send sooner.
           </p>
         </div>
         <Button
