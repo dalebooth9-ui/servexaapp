@@ -20,7 +20,7 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const MAX_FILES = 1500;
 const MAX_TOTAL_BYTES = 400 * 1024 * 1024; // 400MB of source files in total
-const PART_BYTES = 25 * 1024 * 1024; // flush a zip part every ~35MB (edge memory safety)
+const PART_BYTES = 25 * 1024 * 1024; // flush a zip part every ~25MB (edge memory safety)
 const DAILY_LIMIT = 3;
 const LINK_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
