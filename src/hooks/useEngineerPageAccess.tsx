@@ -26,12 +26,17 @@ export function useEngineerPageAccess() {
   const genericPreview = isPreviewingAsEngineer && !previewEngineerId;
 
   useEffect(() => {
+    // Re-entering the effect (e.g. once userRole resolves) must go back to a
+    // loading state, otherwise the route guard sees "not loading + no pages"
+    // for a frame and bounces the engineer back to the home screen.
+    setLoading(true);
     if (!user) {
       setAllowedPages([]);
       setHasAnyRows(false);
       setLoading(false);
       return;
     }
+
 
     if (userRole === "admin") {
       setAllowedPages(["all"]);
@@ -64,7 +69,9 @@ export function useEngineerPageAccess() {
       return;
     }
 
-    setLoading(false);
+    // Role not resolved yet — stay loading rather than reporting "no access".
+    if (userRole) setLoading(false);
+
   }, [user, userRole, effectiveUserId, genericPreview]);
 
   const hasAccess = (slug: string) => {

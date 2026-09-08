@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
 import ProductWalkthrough from "@/components/landing/ProductWalkthrough";
+import ProductScreenshots from "@/components/landing/ProductScreenshots";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -263,6 +265,10 @@ export default function LandingPage() {
           </Button>
         </div>
       </section>
+
+      <ProductScreenshots />
+
+
 
       <section className="bg-background px-6 py-24 border-t border-border">
         <div className="mx-auto max-w-7xl">

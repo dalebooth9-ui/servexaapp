@@ -19,6 +19,10 @@ import jsPDF from "jspdf";
 import { useRef } from "react";
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import { UKDateInput } from "@/components/ui/uk-date-input";
+import { getGeneratingOrgBranding, getGeneratingOrgFallbackLogoUrl, getGeneratingOrgWatermarkUrl } from "@/lib/generatingOrgBranding";
+import { fetchCustomerAccreditationLogos } from "@/lib/pdfAccreditations";
+
+
 
 
 const statusStyles: Record<string, string> = {
@@ -38,6 +42,10 @@ export default function InvoiceDetail() {
   const { toast } = useToast();
   const [invoice, setInvoice] = useState<any>(null);
   const [custAccredLogos, setCustAccredLogos] = useState<string[]>([]);
+  const [brandLogo, setBrandLogo] = useState<string>("");
+  const [brandName, setBrandName] = useState<string>("");
+  const [brandWatermark, setBrandWatermark] = useState<string | null>(null);
+
   const [lineItems, setLineItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -75,28 +83,33 @@ export default function InvoiceDetail() {
     setInvoice(invRes.data);
     setLineItems(itemsRes.data || []);
     setLinkedDefects((defRes.data as any[]) || []);
-    // Fetch customer accreditation logos (fall back to Viva Fire defaults)
-    const defaultLogos = [
-      "/accreditation/smas-logo.png",
-      "/accreditation/constructionline-logo.png",
-      "/accreditation/iso-9001-logo.jpg",
-      "/accreditation/bafe-logo.jpeg",
-    ];
-    if (invRes.data?.customer_name) {
-      const { data: cust } = await supabase
-        .from("customers")
-        .select("accreditation_logos")
-        .ilike("name", invRes.data.customer_name)
-        .maybeSingle();
-      const custLogos = (cust as any)?.accreditation_logos as string[] | undefined;
-      setCustAccredLogos(custLogos && custLogos.length > 0 ? custLogos : defaultLogos);
-    } else {
-      setCustAccredLogos(defaultLogos);
-    }
+    // Accreditation badges follow the same org-aware rule as PDFs — never fall
+    // back to another organisation's badges.
+    setCustAccredLogos(await fetchCustomerAccreditationLogos(invRes.data?.customer_name));
+
     setLoading(false);
   };
 
   useEffect(() => { fetchData(); }, [id]);
+
+  // Branding on this document belongs to the generating org — never fall back
+  // to another organisation's logo/watermark.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const [g, logo, wm] = await Promise.all([
+        getGeneratingOrgBranding(),
+        getGeneratingOrgFallbackLogoUrl(),
+        getGeneratingOrgWatermarkUrl(),
+      ]);
+      if (!alive) return;
+      setBrandLogo(logo);
+      setBrandName(g.name ?? "");
+      setBrandWatermark(wm);
+    })();
+    return () => { alive = false; };
+  }, []);
+
 
   // --- Edit helpers ---
   const startEditing = () => {
@@ -747,34 +760,41 @@ export default function InvoiceDetail() {
                 flexDirection: "column",
               }}
             >
-              {/* Blue flame watermark */}
-              <div
-                aria-hidden="true"
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  backgroundImage: "url('/images/viva-watermark.png')",
-                  backgroundRepeat: "no-repeat",
-                  backgroundPosition: "center center",
-                  backgroundSize: "70%",
-                  opacity: 0.07,
-                  pointerEvents: "none",
-                  zIndex: 0,
-                }}
-              />
+              {/* Watermark — only for orgs that have one of their own */}
+              {brandWatermark && (
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    backgroundImage: `url('${brandWatermark}')`,
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "center center",
+                    backgroundSize: "70%",
+                    opacity: 0.07,
+                    pointerEvents: "none",
+                    zIndex: 0,
+                  }}
+                />
+              )}
 
               {/* All content sits above the watermark */}
               <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column" }}>
 
-                {/* ── Viva Fire branded header ─────────────────────────── */}
+                {/* ── Generating-org branded header ────────────────────── */}
               <div className="mb-6 flex flex-col items-center">
-                <img
-                  src="/images/vivafire-logo-new.jpg"
-                  alt="Viva Fire"
-                  className="mb-2"
-                  style={{ maxHeight: 56, maxWidth: 180, objectFit: "contain" }}
-                  crossOrigin="anonymous"
-                />
+                {brandLogo ? (
+                  <img
+                    src={brandLogo}
+                    alt={brandName || "Company logo"}
+                    className="mb-2"
+                    style={{ maxHeight: 56, maxWidth: 180, objectFit: "contain" }}
+                    crossOrigin="anonymous"
+                  />
+                ) : brandName ? (
+                  <p className="mb-2 text-xl font-bold" style={{ color: "#213D63" }}>{brandName}</p>
+                ) : null}
+
                 <h2
                   className="text-lg font-bold tracking-widest uppercase"
                   style={{ color: "#213D63", letterSpacing: "0.15em" }}
