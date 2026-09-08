@@ -1,0 +1,1 @@
+ALTER TABLE public.data_exports ADD COLUMN IF NOT EXISTS parts jsonb NOT NULL DEFAULT '[]'::jsonb;

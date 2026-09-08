@@ -1938,6 +1938,60 @@ export type Database = {
           },
         ]
       }
+      data_exports: {
+        Row: {
+          completed_at: string | null
+          counts: Json
+          created_at: string
+          error: string | null
+          expires_at: string | null
+          file_path: string | null
+          file_size: number | null
+          id: string
+          org_id: string
+          parts: Json
+          progress: number
+          requested_by: string
+          stage: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          counts?: Json
+          created_at?: string
+          error?: string | null
+          expires_at?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          org_id: string
+          parts?: Json
+          progress?: number
+          requested_by: string
+          stage?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          counts?: Json
+          created_at?: string
+          error?: string | null
+          expires_at?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          org_id?: string
+          parts?: Json
+          progress?: number
+          requested_by?: string
+          stage?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       defects: {
         Row: {
           asset_id: string | null
