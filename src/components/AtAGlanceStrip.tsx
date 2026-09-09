@@ -257,7 +257,18 @@ export function CustomerAtAGlance({ customerId, customerName }: { customerId: st
           to: `/archive?${q}`,
           zero: !archiveCount,
         },
+        {
+          key: "compliance",
+          icon: ShieldCheck,
+          label: "Evidence complete",
+          value: `${evidenced}/${completedIds.length}`,
+          sub: "Completed jobs fully evidenced",
+          to: `/jobs?${q}`,
+          tone: completedIds.length > 0 && evidenced < completedIds.length ? "warning" : "default",
+          zero: completedIds.length === 0,
+        },
       ]);
+
     })();
     return () => {
       cancelled = true;
