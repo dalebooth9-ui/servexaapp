@@ -195,8 +195,10 @@ export default function EngineerTodayHome() {
   const [vcDialogOpen, setVcDialogOpen] = useState(false);
 
   const todayStr = format(new Date(), "yyyy-MM-dd");
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+  // Rolling 14-day window (today .. today + 13) so upcoming work is visible
+  // beyond the current calendar week.
+  const weekStart = new Date();
+  const weekEnd = addDays(new Date(), 13);
 
   const load = async () => {
     if (!user) return;
@@ -370,7 +372,7 @@ export default function EngineerTodayHome() {
   const weekGroups = useMemo(() => {
 
     const days: { date: Date; jobs: JobLite[] }[] = [];
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 14; i++) {
       const d = addDays(weekStart, i);
       const key = format(d, "yyyy-MM-dd");
       const dayJobs = week.filter((j) => j.schedule_date === key);
@@ -444,7 +446,7 @@ export default function EngineerTodayHome() {
       <Tabs defaultValue="today" className="w-full">
         <TabsList className="w-full h-12">
           <TabsTrigger value="today" className="flex-1 text-base h-full">Today</TabsTrigger>
-          <TabsTrigger value="week" className="flex-1 text-base h-full">This week</TabsTrigger>
+          <TabsTrigger value="week" className="flex-1 text-base h-full">Next 14 days</TabsTrigger>
         </TabsList>
 
         <TabsContent value="today" className="mt-4 space-y-3">
@@ -510,7 +512,7 @@ export default function EngineerTodayHome() {
               {weekGroups.length === 0 && awaitingDate.length === 0 && (
                 <Card>
                   <CardContent className="py-10 text-center text-muted-foreground">
-                    Nothing scheduled this week.
+                    Nothing scheduled in the next 14 days.
                   </CardContent>
                 </Card>
               )}
