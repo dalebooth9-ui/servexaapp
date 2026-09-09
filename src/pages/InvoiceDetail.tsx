@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAccountingConnections } from "@/hooks/useAccountingConnections";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +52,8 @@ export default function InvoiceDetail() {
   const [sending, setSending] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [syncingXero, setSyncingXero] = useState(false);
+  const [syncingQuickBooks, setSyncingQuickBooks] = useState(false);
+  const accounting = useAccountingConnections();
   const [converting, setConverting] = useState(false);
   const [creatingRemedial, setCreatingRemedial] = useState(false);
   const [linkedDefects, setLinkedDefects] = useState<any[]>([]);
@@ -481,6 +484,27 @@ export default function InvoiceDetail() {
     }
   };
 
+  const handleSyncQuickBooks = async () => {
+    setSyncingQuickBooks(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("quickbooks-sync", {
+        body: { action: "sync_invoice", invoiceId: id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setInvoice((prev: any) => ({
+        ...prev,
+        quickbooks_invoice_id: data.quickbooks_invoice_id,
+        quickbooks_synced_at: new Date().toISOString(),
+      }));
+      toast({ title: "Synced to QuickBooks" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to sync.", variant: "destructive" });
+    } finally {
+      setSyncingQuickBooks(false);
+    }
+  };
+
   if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading...</div>;
   if (!invoice) return <div className="flex h-64 items-center justify-center text-muted-foreground">Not found.</div>;
 
@@ -596,10 +620,16 @@ export default function InvoiceDetail() {
                 {generatingPdf ? "Generating..." : "PDF"}
               </Button>
 
-              {userRole === "admin" && (
+              {userRole === "admin" && accounting.xero && (
                 <Button size="sm" variant="outline" onClick={handleSyncXero} disabled={syncingXero}>
                   {syncingXero ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />}
                   {invoice.xero_invoice_id ? "Re-sync Xero" : "Send to Xero"}
+                </Button>
+              )}
+              {userRole === "admin" && accounting.quickbooks && (
+                <Button size="sm" variant="outline" onClick={handleSyncQuickBooks} disabled={syncingQuickBooks}>
+                  {syncingQuickBooks ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />}
+                  {invoice.quickbooks_invoice_id ? "Re-sync QuickBooks" : "Send to QuickBooks"}
                 </Button>
               )}
               {userRole === "admin" && (
