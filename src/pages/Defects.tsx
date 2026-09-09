@@ -95,8 +95,12 @@ export default function Defects() {
   const [quotedFilter, setQuotedFilter] = useState<"all" | "unquoted" | "quoted">(
     searchParams.get("filter") === "unquoted" ? "unquoted" : "all"
   );
-  const [sourceFilter, setSourceFilter] = useState<"all" | "job" | "archive">(
-    searchParams.get("source") === "archive" ? "archive" : "all"
+  const [sourceFilter, setSourceFilter] = useState<"all" | "job" | "archive" | "carried_forward">(
+    searchParams.get("source") === "archive"
+      ? "archive"
+      : searchParams.get("source") === "carried_forward"
+        ? "carried_forward"
+        : "all"
   );
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -275,6 +279,7 @@ export default function Defects() {
     if (quotedFilter === "quoted" && !d.quote_id) return false;
     if (sourceFilter === "archive" && d.source_kind !== "archive") return false;
     if (sourceFilter === "job" && d.source_kind === "archive") return false;
+    if (sourceFilter === "carried_forward" && d.source_kind !== "carried_forward") return false;
     if (search) {
       const s = search.toLowerCase();
       return d.title.toLowerCase().includes(s) || (d.description || "").toLowerCase().includes(s);
@@ -382,6 +387,7 @@ export default function Defects() {
             <SelectItem value="all">All Sources</SelectItem>
             <SelectItem value="job">From jobs</SelectItem>
             <SelectItem value="archive">From archive</SelectItem>
+            <SelectItem value="carried_forward">Carried forward</SelectItem>
           </SelectContent>
         </Select>
       </div>

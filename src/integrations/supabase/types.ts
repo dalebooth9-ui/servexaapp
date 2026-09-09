@@ -9855,6 +9855,10 @@ export type Database = {
         }[]
       }
       apply_backfill_rewrites: { Args: { _row_id: string }; Returns: number }
+      attach_defects_to_quote: {
+        Args: { _defect_ids: string[]; _quote_id: string }
+        Returns: string
+      }
       build_backfill_manifest: {
         Args: { _bucket: string }
         Returns: {

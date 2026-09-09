@@ -13,10 +13,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Plus, Camera, ShieldAlert, ExternalLink, X } from "lucide-react";
+import { ChevronDown, Plus, Camera, ShieldAlert, ExternalLink, X, FileText, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { batchQuoteDefects, attachDefectsToQuote, listOpenQuotes, type OpenQuote } from "@/lib/defectQuoting";
 
 type Defect = {
   id: string;
@@ -68,11 +69,17 @@ interface JobDefectsProps {
 }
 
 export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
+  const isAdmin = userRole === "admin";
   const [defects, setDefects] = useState<Defect[]>([]);
+  const [quoteTotals, setQuoteTotals] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [quoting, setQuoting] = useState(false);
+  const [addTarget, setAddTarget] = useState<Defect | null>(null);
+  const [openQuotes, setOpenQuotes] = useState<OpenQuote[]>([]);
+  const [chosenQuote, setChosenQuote] = useState<string>("");
   const [pendingPhotos, setPendingPhotos] = useState<File[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
@@ -90,8 +97,45 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
       .select("*")
       .eq("job_id", jobId)
       .order("created_at", { ascending: false });
-    setDefects((data || []) as any);
+    const list = (data || []) as any as Defect[];
+    setDefects(list);
+
+    const quoteIds = Array.from(new Set(list.map(d => d.quote_id).filter(Boolean))) as string[];
+    if (quoteIds.length) {
+      const { data: qs } = await supabase
+        .from("invoices")
+        .select("id, total")
+        .in("id", quoteIds);
+      setQuoteTotals(Object.fromEntries((qs || []).map((q: any) => [q.id, Number(q.total || 0)])));
+    } else {
+      setQuoteTotals({});
+    }
     setLoading(false);
+  };
+
+  const unquoted = defects.filter(d => !d.quote_id && ["open", "in_progress"].includes(d.status));
+
+  const handleQuoteAll = async () => {
+    setQuoting(true);
+    const quoteId = await batchQuoteDefects(unquoted.map(d => d.id));
+    setQuoting(false);
+    if (quoteId) fetchDefects();
+  };
+
+  const openAddToQuote = async (d: Defect) => {
+    setAddTarget(d);
+    setChosenQuote("");
+    setOpenQuotes(await listOpenQuotes());
+  };
+
+  const handleAddToQuote = async () => {
+    if (!addTarget) return;
+    setQuoting(true);
+    const ok = chosenQuote === "__new__"
+      ? !!(await batchQuoteDefects([addTarget.id]))
+      : await attachDefectsToQuote([addTarget.id], chosenQuote);
+    setQuoting(false);
+    if (ok) { setAddTarget(null); fetchDefects(); }
   };
 
   useEffect(() => {
@@ -145,6 +189,12 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
 
   const openCount = defects.filter(d => d.status === "open").length;
 
+  const quotedDefects = defects.filter(d => d.quote_id);
+  const quotedValue = Array.from(new Set(quotedDefects.map(d => d.quote_id as string)))
+    .reduce((sum, qid) => sum + (quoteTotals[qid] || 0), 0);
+  const approvedCount = defects.filter(d => ["approved", "job_created"].includes(d.status)).length;
+  const resolvedCount = defects.filter(d => d.status === "resolved").length;
+
   return (
     <Collapsible defaultOpen className="mb-6">
       <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
@@ -155,12 +205,43 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
         <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-3 space-y-3">
-        <div className="flex justify-between items-center">
-          <p className="text-xs text-muted-foreground">Track deficiencies found on this job. Logged defects appear in the global Defects page for batch quoting.</p>
-          <Button size="sm" onClick={() => setOpen(true)}>
-            <Plus className="mr-1.5 h-4 w-4" /> Log Defect
-          </Button>
+        <div className="flex flex-wrap justify-between items-center gap-2">
+          <p className="text-xs text-muted-foreground max-w-md">Track deficiencies found on this job. Logged defects appear in the global Defects page for batch quoting.</p>
+          <div className="flex gap-2">
+            {isAdmin && unquoted.length > 0 && (
+              <Button size="sm" variant="outline" onClick={handleQuoteAll} disabled={quoting}>
+                <FileText className="mr-1.5 h-4 w-4" />
+                {quoting ? "Creating…" : `Quote all unquoted (${unquoted.length})`}
+              </Button>
+            )}
+            <Button size="sm" onClick={() => setOpen(true)}>
+              <Plus className="mr-1.5 h-4 w-4" /> Log Defect
+            </Button>
+          </div>
         </div>
+
+        {!loading && defects.length > 0 && (
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-xs font-medium mb-2">Remedial pipeline</p>
+            <div className="flex items-center gap-2 overflow-x-auto text-center">
+              {[
+                { label: "Defects", value: String(defects.length), sub: `${unquoted.length} unquoted` },
+                { label: "Quoted", value: String(quotedDefects.length), sub: quotedValue > 0 ? `£${quotedValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "no value yet" },
+                { label: "Approved", value: String(approvedCount), sub: "ready for works" },
+                { label: "Resolved", value: String(resolvedCount), sub: "completed" },
+              ].map((step, i, arr) => (
+                <div key={step.label} className="flex items-center gap-2 shrink-0">
+                  <div className="rounded-md bg-background border px-3 py-1.5 min-w-[92px]">
+                    <p className="text-lg font-bold leading-tight">{step.value}</p>
+                    <p className="text-[11px] font-medium">{step.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{step.sub}</p>
+                  </div>
+                  {i < arr.length - 1 && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
@@ -201,13 +282,47 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
                         {photos.length > 4 && <span className="text-xs text-muted-foreground self-center">+{photos.length - 4} more</span>}
                       </div>
                     )}
-                    <p className="text-[10px] text-muted-foreground">{format(new Date(d.created_at), "dd MMM yyyy HH:mm")}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] text-muted-foreground">{format(new Date(d.created_at), "dd MMM yyyy HH:mm")}</p>
+                      {isAdmin && !d.quote_id && (
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openAddToQuote(d)}>
+                          <FileText className="mr-1 h-3.5 w-3.5" /> Add to quote
+                        </Button>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               );
             })}
           </div>
         )}
+
+        <Dialog open={!!addTarget} onOpenChange={(o) => !o && setAddTarget(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Add to quote</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground line-clamp-2">{addTarget?.title}</p>
+              <div>
+                <Label>Choose a quote</Label>
+                <Select value={chosenQuote} onValueChange={setChosenQuote}>
+                  <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__new__">Create a new draft quote</SelectItem>
+                    {openQuotes.map(q => (
+                      <SelectItem key={q.id} value={q.id}>
+                        {q.invoice_number} · {q.customer_name || "No customer"} ({q.status})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={() => setAddTarget(null)}>Cancel</Button>
+                <Button onClick={handleAddToQuote} disabled={!chosenQuote || quoting}>{quoting ? "Adding…" : "Add"}</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent className="max-w-lg">
