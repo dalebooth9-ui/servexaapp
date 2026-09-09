@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { addMonths, format } from "date-fns";
 import { UKDateInput } from "@/components/ui/uk-date-input";
+import { carryForwardRemedials } from "@/lib/carryForwardRemedials";
 
 interface ScheduleFollowUpJobsProps {
   sourceJob: any;
