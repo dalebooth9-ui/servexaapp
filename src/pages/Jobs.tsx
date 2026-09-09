@@ -1769,7 +1769,7 @@ export default function Jobs() {
                           type="button"
                           size="sm"
                           variant="ghost"
-                          onClick={() => setDialogParsedFiles([])}
+                          onClick={() => { setDialogParsedFiles([]); setExtractedRemedials([]); }}
                           disabled={dialogParsingFile}
                         >
                           Clear
@@ -1779,6 +1779,41 @@ export default function Jobs() {
                   </div>
                   {dialogParsedFiles.length > 0 && (
                     <DroppedPoFilesReorder files={dialogParsedFiles} onChange={setDialogParsedFiles} />
+                  )}
+                  {extractedRemedials.length > 0 && (
+                    <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
+                      <p className="text-sm font-medium">
+                        Remedials found (will be added as defects):
+                      </p>
+                      <ul className="space-y-1.5">
+                        {extractedRemedials.map((r, i) => (
+                          <li key={`${i}-${r.description.slice(0, 20)}`} className="flex items-start gap-2 text-sm">
+                            <Badge
+                              variant={r.severity === "critical" || r.severity === "high" ? "destructive" : "secondary"}
+                              className="shrink-0 capitalize"
+                            >
+                              {r.severity}
+                            </Badge>
+                            <span className="flex-1 break-words">
+                              {r.description}
+                              {r.already_completed && (
+                                <span className="ml-1 text-xs text-muted-foreground">(already completed)</span>
+                              )}
+                            </span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 shrink-0"
+                              aria-label={`Remove remedial: ${r.description.slice(0, 40)}`}
+                              onClick={() => setExtractedRemedials((prev) => prev.filter((_, idx) => idx !== i))}
+                            >
+                              Remove
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </div>
                 <div className="space-y-2">
