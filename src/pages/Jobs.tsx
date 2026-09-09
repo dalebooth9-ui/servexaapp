@@ -1046,9 +1046,18 @@ export default function Jobs() {
         other_qty: oQty || prev.other_qty,
         other_service_type: ext2.other_service_type || prev.other_service_type,
       }));
+      const allowedSeverity = ["low", "medium", "high", "critical"];
+      const remedials = (Array.isArray(ext2.remedial_items) ? ext2.remedial_items : [])
+        .map((r: any) => ({
+          description: String(r?.description || "").trim(),
+          severity: allowedSeverity.includes(String(r?.severity || "")) ? String(r.severity) : "medium",
+          already_completed: r?.already_completed === true,
+        }))
+        .filter((r: any) => r.description.length > 2);
+      setExtractedRemedials(remedials);
       toast({
         title: "Details extracted",
-        description: `Combined ${dialogParsedFiles.length} file(s). Review and adjust.`,
+        description: `Combined ${dialogParsedFiles.length} file(s). Review and adjust.${remedials.length ? ` ${remedials.length} remedial item(s) found.` : ""}`,
       });
     } catch (err: any) {
       toast({ title: "Could not extract details", description: err.message || "Please fill in manually.", variant: "destructive" });
