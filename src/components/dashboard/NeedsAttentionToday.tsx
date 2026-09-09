@@ -138,6 +138,7 @@ export default function NeedsAttentionToday() {
         { key: "review", label: "Reports awaiting review", value: awaitingReviewRes.count || 0, to: "/jobs?view=awaiting-report", icon: ClipboardCheck, tone: "warn" },
         { key: "defects", label: "Defects awaiting quote", value: defectsRes.count || 0, to: "/defects", icon: ShieldAlert, tone: "warn" },
         { key: "high-defects", label: "High-priority defects not quoted", value: highDefectsRes.count || 0, to: "/defects", icon: ShieldAlert, tone: "urgent" },
+        { key: "overdue-remedials", label: "Jobs with overdue remedials", value: overdueRemedialJobs, to: "/defects?filter=unquoted&source=carried_forward", icon: History, tone: "urgent" },
         { key: "quotes", label: "Quotes expiring", value: quotesRes.count || 0, to: "/quotes", icon: Clock, tone: "warn" },
         { key: "stale-quotes", label: "Quotes sent, no reply in 14 days", value: staleQuotesRes.count || 0, to: "/quotes", icon: Clock, tone: "warn" },
         { key: "agreements", label: "Agreements expiring in 30 days", value: expiringAgreementsRes.count || 0, to: "/agreements", icon: FileSignature, tone: "warn" },
