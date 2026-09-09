@@ -260,6 +260,56 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
         <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-3 space-y-3">
+        {!loading && carried.length > 0 && (
+          <div className={`rounded-lg border-l-4 border bg-amber-500/10 border-amber-500/40 border-l-amber-500 p-3 space-y-3 ${allCarriedDone ? "bg-emerald-500/10 border-emerald-500/40 border-l-emerald-500" : ""}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-start gap-2">
+                {allCarriedDone
+                  ? <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-600" />
+                  : <History className="h-4 w-4 mt-0.5 text-amber-600" />}
+                <div>
+                  <p className="text-sm font-semibold">
+                    {allCarriedDone ? "All remedials from previous visit completed" : "Remedials from previous visit"}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {allCarriedDone
+                      ? `${carried.length} item${carried.length === 1 ? "" : "s"} carried forward, all done.`
+                      : `${carriedOutstanding.length} of ${carried.length} outstanding — these are not new defects, they are work left from last time.`}
+                  </p>
+                </div>
+              </div>
+              <Button size="sm" variant={checklistMode ? "default" : "outline"} onClick={() => setChecklistMode(m => !m)}>
+                <ListChecks className="mr-1.5 h-4 w-4" /> {checklistMode ? "Hide checklist" : "Remedial checklist"}
+              </Button>
+            </div>
+
+            {checklistMode && (
+              <div className="space-y-1.5">
+                {[...carriedOutstanding, ...carriedDone].map(d => {
+                  const done = !OUTSTANDING_STATUSES.includes(d.status);
+                  return (
+                    <div key={d.id} className="flex items-start gap-3 rounded-md bg-background border p-3 min-h-[44px]">
+                      <Checkbox
+                        className="mt-0.5 h-5 w-5"
+                        checked={done}
+                        disabled={done}
+                        onCheckedChange={(v) => { if (v) { setTickTarget(d); setTickNote(""); setTickPhotos([]); } }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm ${done ? "line-through text-muted-foreground" : ""}`}>{d.description || d.title}</p>
+                        {done && d.resolution_notes && <p className="text-[11px] text-muted-foreground mt-0.5">{d.resolution_notes}</p>}
+                        {done && d.resolved_at && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Done {format(new Date(d.resolved_at), "dd/MM/yyyy HH:mm")}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex flex-wrap justify-between items-center gap-2">
           <p className="text-xs text-muted-foreground max-w-md">Track deficiencies found on this job. Logged defects appear in the global Defects page for batch quoting.</p>
           <div className="flex gap-2">
