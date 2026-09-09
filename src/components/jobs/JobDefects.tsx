@@ -282,13 +282,47 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
                         {photos.length > 4 && <span className="text-xs text-muted-foreground self-center">+{photos.length - 4} more</span>}
                       </div>
                     )}
-                    <p className="text-[10px] text-muted-foreground">{format(new Date(d.created_at), "dd MMM yyyy HH:mm")}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] text-muted-foreground">{format(new Date(d.created_at), "dd MMM yyyy HH:mm")}</p>
+                      {isAdmin && !d.quote_id && (
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openAddToQuote(d)}>
+                          <FileText className="mr-1 h-3.5 w-3.5" /> Add to quote
+                        </Button>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               );
             })}
           </div>
         )}
+
+        <Dialog open={!!addTarget} onOpenChange={(o) => !o && setAddTarget(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Add to quote</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground line-clamp-2">{addTarget?.title}</p>
+              <div>
+                <Label>Choose a quote</Label>
+                <Select value={chosenQuote} onValueChange={setChosenQuote}>
+                  <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__new__">Create a new draft quote</SelectItem>
+                    {openQuotes.map(q => (
+                      <SelectItem key={q.id} value={q.id}>
+                        {q.invoice_number} · {q.customer_name || "No customer"} ({q.status})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={() => setAddTarget(null)}>Cancel</Button>
+                <Button onClick={handleAddToQuote} disabled={!chosenQuote || quoting}>{quoting ? "Adding…" : "Add"}</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent className="max-w-lg">
