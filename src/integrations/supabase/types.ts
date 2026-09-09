@@ -2079,6 +2079,7 @@ export type Database = {
           phone: string | null
           quickbooks_contact_id: string | null
           renewal_reminders_opt_out: boolean
+          sage_contact_id: string | null
           updated_at: string
           xero_contact_id: string | null
         }
@@ -2098,6 +2099,7 @@ export type Database = {
           phone?: string | null
           quickbooks_contact_id?: string | null
           renewal_reminders_opt_out?: boolean
+          sage_contact_id?: string | null
           updated_at?: string
           xero_contact_id?: string | null
         }
@@ -2117,6 +2119,7 @@ export type Database = {
           phone?: string | null
           quickbooks_contact_id?: string | null
           renewal_reminders_opt_out?: boolean
+          sage_contact_id?: string | null
           updated_at?: string
           xero_contact_id?: string | null
         }
@@ -4087,6 +4090,8 @@ export type Database = {
           paid_at: string | null
           quickbooks_invoice_id: string | null
           quickbooks_synced_at: string | null
+          sage_invoice_id: string | null
+          sage_synced_at: string | null
           sent_at: string | null
           status: string
           subtotal: number
@@ -4116,6 +4121,8 @@ export type Database = {
           paid_at?: string | null
           quickbooks_invoice_id?: string | null
           quickbooks_synced_at?: string | null
+          sage_invoice_id?: string | null
+          sage_synced_at?: string | null
           sent_at?: string | null
           status?: string
           subtotal?: number
@@ -4145,6 +4152,8 @@ export type Database = {
           paid_at?: string | null
           quickbooks_invoice_id?: string | null
           quickbooks_synced_at?: string | null
+          sage_invoice_id?: string | null
+          sage_synced_at?: string | null
           sent_at?: string | null
           status?: string
           subtotal?: number
@@ -7121,6 +7130,7 @@ export type Database = {
           notes: string | null
           org_id: string
           quickbooks_item_id: string | null
+          sage_product_id: string | null
           unit: string
           unit_price: number
           updated_at: string
@@ -7136,6 +7146,7 @@ export type Database = {
           notes?: string | null
           org_id: string
           quickbooks_item_id?: string | null
+          sage_product_id?: string | null
           unit?: string
           unit_price?: number
           updated_at?: string
@@ -7151,6 +7162,7 @@ export type Database = {
           notes?: string | null
           org_id?: string
           quickbooks_item_id?: string | null
+          sage_product_id?: string | null
           unit?: string
           unit_price?: number
           updated_at?: string
@@ -8143,6 +8155,63 @@ export type Database = {
             columns: ["schedule_id"]
             isOneToOne: false
             referencedRelation: "site_service_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sage_connections: {
+        Row: {
+          access_token: string
+          business_id: string
+          business_name: string | null
+          connection_error: string | null
+          created_at: string
+          id: string
+          org_id: string
+          refresh_token: string
+          token_expires_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          business_id: string
+          business_name?: string | null
+          connection_error?: string | null
+          created_at?: string
+          id?: string
+          org_id: string
+          refresh_token: string
+          token_expires_at: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          business_id?: string
+          business_name?: string | null
+          connection_error?: string | null
+          created_at?: string
+          id?: string
+          org_id?: string
+          refresh_token?: string
+          token_expires_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sage_connections_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sage_connections_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
             referencedColumns: ["id"]
           },
         ]
