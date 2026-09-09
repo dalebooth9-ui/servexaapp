@@ -69,11 +69,17 @@ interface JobDefectsProps {
 }
 
 export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
+  const isAdmin = userRole === "admin";
   const [defects, setDefects] = useState<Defect[]>([]);
+  const [quoteTotals, setQuoteTotals] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [quoting, setQuoting] = useState(false);
+  const [addTarget, setAddTarget] = useState<Defect | null>(null);
+  const [openQuotes, setOpenQuotes] = useState<OpenQuote[]>([]);
+  const [chosenQuote, setChosenQuote] = useState<string>("");
   const [pendingPhotos, setPendingPhotos] = useState<File[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
@@ -91,8 +97,45 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
       .select("*")
       .eq("job_id", jobId)
       .order("created_at", { ascending: false });
-    setDefects((data || []) as any);
+    const list = (data || []) as any as Defect[];
+    setDefects(list);
+
+    const quoteIds = Array.from(new Set(list.map(d => d.quote_id).filter(Boolean))) as string[];
+    if (quoteIds.length) {
+      const { data: qs } = await supabase
+        .from("invoices")
+        .select("id, total")
+        .in("id", quoteIds);
+      setQuoteTotals(Object.fromEntries((qs || []).map((q: any) => [q.id, Number(q.total || 0)])));
+    } else {
+      setQuoteTotals({});
+    }
     setLoading(false);
+  };
+
+  const unquoted = defects.filter(d => !d.quote_id && ["open", "in_progress"].includes(d.status));
+
+  const handleQuoteAll = async () => {
+    setQuoting(true);
+    const quoteId = await batchQuoteDefects(unquoted.map(d => d.id));
+    setQuoting(false);
+    if (quoteId) fetchDefects();
+  };
+
+  const openAddToQuote = async (d: Defect) => {
+    setAddTarget(d);
+    setChosenQuote("");
+    setOpenQuotes(await listOpenQuotes());
+  };
+
+  const handleAddToQuote = async () => {
+    if (!addTarget) return;
+    setQuoting(true);
+    const ok = chosenQuote === "__new__"
+      ? !!(await batchQuoteDefects([addTarget.id]))
+      : await attachDefectsToQuote([addTarget.id], chosenQuote);
+    setQuoting(false);
+    if (ok) { setAddTarget(null); fetchDefects(); }
   };
 
   useEffect(() => {
