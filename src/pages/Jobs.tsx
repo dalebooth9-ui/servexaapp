@@ -1099,7 +1099,7 @@ export default function Jobs() {
       other_service_type: form.other_service_type || null,
       due_date: form.due_date || null,
       allocated_days: form.allocated_days ? parseInt(form.allocated_days) : null,
-    } as any).select("id, reference_number").single();
+    } as any).select("id, reference_number, org_id, site_id").single();
     if (error) {
       if (import.meta.env.DEV) console.error("Job creation error:", error);
       const message = error.code === "23505"
