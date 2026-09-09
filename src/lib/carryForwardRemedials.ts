@@ -91,6 +91,16 @@ export async function carryForwardRemedials(opts: {
     }
   }
 
+  // Structured remedial items always win where present; free-text lines are
+  // still parsed so mixed templates (Comments + Remedial items) both carry.
+  type Candidate = {
+    description: string;
+    severity: string;
+    photo_ids: string[];
+    responseId?: string | null;
+  };
+  const candidates: Candidate[] = [];
+
   for (const r of (responses || []) as any[]) {
     const fields = templateFields.get(r.template_id) || [];
     let answers: Record<string, any> = {};
@@ -99,8 +109,29 @@ export async function carryForwardRemedials(opts: {
       try { answers = JSON.parse(r.responses); } catch { answers = {}; }
     }
     for (const f of fields) {
-      if (!f?.id || !isRemedialField(f)) continue;
-      texts.push(...splitRemedialLines(answers[f.id]));
+      if (!f?.id) continue;
+      if (isRemedialItemsField(f)) {
+        for (const item of parseRemedialItems(answers[f.id])) {
+          if (!item.description) continue;
+          candidates.push({
+            description: item.description,
+            // Verification items ("already completed, please check") are low.
+            severity: item.already_completed ? "low" : item.severity,
+            photo_ids: item.photo_ids,
+            responseId: r.id,
+          });
+        }
+        continue;
+      }
+      if (!isRemedialField(f)) continue;
+      for (const line of splitRemedialLines(answers[f.id])) {
+        candidates.push({
+          description: line,
+          severity: /already completed/i.test(line) ? "low" : "medium",
+          photo_ids: [],
+          responseId: r.id,
+        });
+      }
     }
   }
 
@@ -113,33 +144,43 @@ export async function carryForwardRemedials(opts: {
   for (const n of (notes || []) as any[]) {
     const detail = String(n.details || "");
     if (!NOTE_HINTS.test(detail)) continue;
-    texts.push(...splitRemedialLines(detail).filter((l) => NOTE_HINTS.test(l)));
+    for (const line of splitRemedialLines(detail).filter((l) => NOTE_HINTS.test(l))) {
+      candidates.push({
+        description: line,
+        severity: /already completed/i.test(line) ? "low" : "medium",
+        photo_ids: [],
+      });
+    }
   }
 
-  if (!texts.length) return 0;
+  if (!candidates.length) return 0;
 
   // Dedupe within the batch and against existing defects on the new job
   const { data: existing } = await supabase
     .from("defects")
     .select("description")
     .eq("job_id", newJobId);
-  const seen = new Set((existing || []).map((d: any) => String(d.description || "").trim()));
+  const seen = new Set((existing || []).map((d: any) => String(d.description || "").trim().toLowerCase()));
 
   const rows = [] as any[];
-  for (const text of texts) {
-    const key = text.trim();
-    if (!key || seen.has(key)) continue;
+  for (const c of candidates) {
+    const text = c.description.trim();
+    const key = text.toLowerCase();
+    if (!text || seen.has(key)) continue;
     seen.add(key);
     rows.push({
       job_id: newJobId,
       org_id: orgId,
       site_id: siteId,
-      title: key.slice(0, 80),
-      description: key,
-      severity: /already completed/i.test(key) ? "low" : "medium",
+      title: text.slice(0, 80),
+      description: text,
+      severity: c.severity || "medium",
       status: "open",
       reported_by: userId,
       source_kind: "carried_forward",
+      source_response_id: c.responseId || null,
+      photos: c.photo_ids.length ? c.photo_ids : null,
+      photo_url: c.photo_ids[0] || null,
     });
   }
 
@@ -151,3 +192,4 @@ export async function carryForwardRemedials(opts: {
   }
   return rows.length;
 }
+
