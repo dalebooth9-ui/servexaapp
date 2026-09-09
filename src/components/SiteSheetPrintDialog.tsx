@@ -18,6 +18,7 @@ import BlankTemplatePdfExport, {
 } from "@/components/BlankTemplatePdfExport";
 import { useToast } from "@/hooks/use-toast";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
+import { useAuth } from "@/hooks/useAuth";
 import { UKDateInput } from "@/components/ui/uk-date-input";
 
 
