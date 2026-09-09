@@ -89,6 +89,7 @@ const EMPTY_OVERRIDES: PrintOverrides = {
 };
 
 export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Props) {
+  const { userRole } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [bundle, setBundle] = useState<JobBundle | null>(null);
