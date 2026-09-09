@@ -32,7 +32,13 @@ type Defect = {
   quote_id: string | null;
   created_at: string;
   reported_by: string;
+  source_kind: string | null;
+  resolved_at: string | null;
+  resolution_notes: string | null;
 };
+
+export const CARRIED_FORWARD = "carried_forward";
+const OUTSTANDING_STATUSES = ["open", "in_progress", "quoted", "approved", "job_created"];
 
 const SEVERITY_BADGE: Record<string, string> = {
   critical: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
