@@ -153,3 +153,12 @@ verify_jwt = false
 
 [functions.sage-sync]
 verify_jwt = false
+
+[functions.freeagent-auth]
+verify_jwt = false
+
+[functions.freeagent-oauth-callback]
+verify_jwt = false
+
+[functions.freeagent-sync]
+verify_jwt = false
