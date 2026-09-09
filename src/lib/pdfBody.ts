@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
+import { formatRemedialItemsText } from "@/lib/remedialItems";
 
 export interface AutoPopulateJobInfo {
   address?: string | null;
@@ -746,6 +747,14 @@ export function renderFilledFieldRow(
     if (rows.length === 0) return y;
     return renderRepeatingTableBlock(doc, field, cols, rows, y, { margin, maxWidth });
   }
+
+  // Structured remedial items render as a bulleted text block.
+  if (field.type === "remedial_items") {
+    const text = formatRemedialItemsText(value);
+    if (!text) return y;
+    value = text;
+  }
+
 
   const baseRowH = field.type === "signature" ? Math.max(opts.rowH * 2, 10) : opts.rowH;
   const resultCellWidth = maxWidth - colSplit - 2;

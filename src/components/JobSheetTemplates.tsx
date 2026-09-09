@@ -45,6 +45,7 @@ import { downloadTemplateJson } from "@/lib/templateJson";
 import RamsPdfExport from "./RamsPdfExport";
 import AiRamsAutoFill from "./AiRamsAutoFill";
 import RepeatingTableField from "./job-sheets/RepeatingTableField";
+import RemedialItemsField from "./job-sheets/RemedialItemsField";
 import RepeatingTableReadOnly from "./job-sheets/RepeatingTableReadOnly";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { buildDurableRef } from "@/lib/durableStorageRef";
@@ -2380,7 +2381,10 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                               value={formData[field.id]}
                               label={field.label}
                             />
+                          ) : field.type === "remedial_items" ? (
+                            <RemedialItemsField value={formData[field.id]} onChange={() => {}} readOnly />
                           ) : (
+
                             <span className="text-xs font-medium whitespace-pre-wrap">
                               {field.type === "checkbox"
                                 ? (() => {
@@ -2621,6 +2625,18 @@ function renderFormField(
       const cols = ((field as any).columns || []) as any[];
       return <RepeatingTableField columns={cols} value={value} onChange={onChange} jobId={jobId} userId={userId} fieldId={field.id} />;
     }
+    case "remedial_items":
+      return (
+        <RemedialItemsField
+          value={value}
+          onChange={(items) => onChange(items)}
+          fieldId={field.id}
+          jobId={jobId}
+          userId={userId}
+          readOnly={locked}
+        />
+      );
+
     default:
       return (
         <Input
