@@ -747,6 +747,14 @@ export function renderFilledFieldRow(
     return renderRepeatingTableBlock(doc, field, cols, rows, y, { margin, maxWidth });
   }
 
+  // Structured remedial items render as a bulleted text block.
+  if (field.type === "remedial_items") {
+    const text = formatRemedialItemsText(value);
+    if (!text) return y;
+    value = text;
+  }
+
+
   const baseRowH = field.type === "signature" ? Math.max(opts.rowH * 2, 10) : opts.rowH;
   const resultCellWidth = maxWidth - colSplit - 2;
 
