@@ -2621,6 +2621,18 @@ function renderFormField(
       const cols = ((field as any).columns || []) as any[];
       return <RepeatingTableField columns={cols} value={value} onChange={onChange} jobId={jobId} userId={userId} fieldId={field.id} />;
     }
+    case "remedial_items":
+      return (
+        <RemedialItemsField
+          value={value}
+          onChange={(items) => onChange(items)}
+          fieldId={field.id}
+          jobId={jobId}
+          userId={userId}
+          readOnly={locked}
+        />
+      );
+
     default:
       return (
         <Input
