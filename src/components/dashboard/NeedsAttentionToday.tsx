@@ -10,6 +10,7 @@ import {
   Clock,
   PoundSterling,
   CalendarDays,
+  FileSignature,
 } from "lucide-react";
 
 /**
@@ -141,7 +142,7 @@ export default function NeedsAttentionToday() {
       </CardHeader>
       <CardContent>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {(loading ? Array.from({ length: 6 }) : tiles).map((t: any, i: number) => {
+          {(loading ? Array.from({ length: 9 }) : tiles).map((t: any, i: number) => {
             if (loading) {
               return <div key={i} className="h-[74px] animate-pulse rounded-lg bg-muted" />;
             }
