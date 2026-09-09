@@ -100,6 +100,24 @@ export default function ScheduleFollowUpJobs({ sourceJob, onCreated }: ScheduleF
         scheduled_date: scheduledDate,
         status: "upcoming",
       } as any);
+
+      try {
+        const carried = await carryForwardRemedials({
+          sourceJobId: sourceJob.id,
+          newJobId: (newJob as any).id,
+          orgId: sourceJob.org_id ?? null,
+          siteId: sourceJob.site_id ?? null,
+          userId: user?.id ?? null,
+        });
+        if (carried > 0) {
+          toast({
+            title: "Remedials carried forward",
+            description: `${carried} remedial item${carried === 1 ? "" : "s"} carried forward from previous job`,
+          });
+        }
+      } catch (e) {
+        console.error("carry forward remedials failed", e);
+      }
     }
 
     toast({
