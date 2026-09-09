@@ -1121,6 +1121,32 @@ export default function Jobs() {
       setDialogOpen(false);
       const capturedPoFiles = dialogParsedFiles;
       setDialogParsedFiles([]);
+      const capturedRemedials = extractedRemedials;
+      setExtractedRemedials([]);
+
+      if (createdJob && capturedRemedials.length > 0) {
+        // Remedials read off the dropped paperwork become trackable defects.
+        const rows = capturedRemedials.map((r) => ({
+          job_id: (createdJob as any).id,
+          org_id: (createdJob as any).org_id ?? null,
+          site_id: (createdJob as any).site_id ?? null,
+          title: r.description.slice(0, 80),
+          description: r.description,
+          severity: r.already_completed ? "low" : r.severity || "medium",
+          status: "open",
+          reported_by: user?.id ?? null,
+          source_kind: "document_import",
+        }));
+        const { error: defectErr } = await supabase.from("defects").insert(rows as any);
+        if (defectErr) {
+          console.error("document remedial import failed", defectErr);
+        } else {
+          toast({
+            title: `${rows.length} remedial item${rows.length === 1 ? "" : "s"} extracted from document`,
+            description: "Added as defects on the new job.",
+          });
+        }
+      }
       const capturedCostingSheet = costingSheetFile;
       setCostingSheetFile(null);
       const capturedReferenceFiles = newJobReferenceFiles;
