@@ -154,6 +154,33 @@ export function CustomerAtAGlance({ customerId, customerName }: { customerId: st
         .select("id", { count: "exact", head: true })
         .eq("customer_id", customerId);
 
+      // Compliance evidence: completed jobs with report + both signatures + sent
+      const completedIds = jobs.filter((j) => ["completed", "archived"].includes(j.status || "")).map((j) => j.id);
+      let evidenced = 0;
+      if (completedIds.length) {
+        const [{ data: sheets }, { data: sigs }, { data: outEmails }] = await Promise.all([
+          supabase.from("job_sheet_responses").select("job_id, status, submitted_at").in("job_id", completedIds),
+          supabase.from("job_signatures").select("job_id, signer_role").in("job_id", completedIds),
+          supabase.from("job_emails").select("job_id").in("job_id", completedIds).eq("direction", "outbound"),
+        ]);
+        const reported = new Set(
+          (sheets || [])
+            .filter((r: any) => !!r.submitted_at || r.status === "submitted" || r.status === "approved")
+            .map((r: any) => r.job_id),
+        );
+        const engSig = new Set(
+          (sigs || []).filter((s: any) => (s.signer_role || "").toLowerCase().includes("engineer")).map((s: any) => s.job_id),
+        );
+        const custSig = new Set(
+          (sigs || []).filter((s: any) => (s.signer_role || "").toLowerCase().includes("customer")).map((s: any) => s.job_id),
+        );
+        const sent = new Set((outEmails || []).map((e: any) => e.job_id));
+        evidenced = completedIds.filter(
+          (id) => reported.has(id) && engSig.has(id) && custSig.has(id) && sent.has(id),
+        ).length;
+      }
+
+
       if (cancelled) return;
 
       const activeJobs = jobs.filter((j) => ACTIVE_JOB_STATUSES.includes(j.status || "")).length;
