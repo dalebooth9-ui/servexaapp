@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { format, startOfWeek, endOfWeek, addDays, isSameDay, parseISO } from "date-fns";
+import { format, addDays, isSameDay, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTimeClock } from "@/hooks/useTimeClock";
