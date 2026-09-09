@@ -121,25 +121,50 @@ export default function SiteHistoryPanel({ currentJobId, siteId, address }: Site
             .limit(200);
           prev = (data as PrevJob[] | null) || [];
         } else if (hasUsableAddress) {
-          // Fuzzy address fallback — load a window of recent jobs and filter client-side
-          const { data } = await supabase
+          // Fuzzy address fallback.
+          // Best fix: scope to the current job's customer first (when known),
+          // then apply stricter token matching within that customer's jobs only.
+          const { data: currentJob } = await supabase
+            .from("jobs")
+            .select("customer_id")
+            .eq("id", currentJobId)
+            .maybeSingle();
+          const customerId = (currentJob as { customer_id?: string | null } | null)?.customer_id || null;
+
+          let query = supabase
             .from("jobs")
             .select("id, name, reference_number, status, due_date, created_at, address")
             .neq("id", currentJobId)
             .not("address", "is", null)
             .order("created_at", { ascending: false })
             .limit(500);
-          const tokens = normalisedAddress.split(" ").filter((t) => t.length >= 3);
+          if (customerId) query = query.eq("customer_id", customerId);
+          const { data } = await query;
+
+          const tokens = normalisedAddress.split(" ").filter(isMeaningfulToken);
+          const postcode = extractPostcode(normalisedAddress);
           prev =
             (data as (PrevJob & { address: string | null })[] | null)
               ?.filter((j) => {
                 const cand = normAddr(j.address);
                 if (!cand) return false;
                 if (cand === normalisedAddress) return true;
-                if (cand.includes(normalisedAddress) || normalisedAddress.includes(cand)) return true;
-                // require at least 2 shared meaningful tokens
+
+                // Postcode is a strong signal: exact postcode match + at least 1
+                // shared meaningful token (e.g. street number or building name).
+                const candPostcode = extractPostcode(cand);
+                const postcodeMatch = Boolean(postcode && candPostcode && postcode === candPostcode);
                 const hits = tokens.filter((t) => cand.includes(t)).length;
-                return hits >= 2;
+
+                if (cand.includes(normalisedAddress) || normalisedAddress.includes(cand)) {
+                  // Substring match still needs customer scoping (done above) or a postcode match
+                  return Boolean(customerId) || postcodeMatch;
+                }
+
+                // Require at least 3 shared meaningful tokens; if postcodes don't
+                // match, require even stronger overlap (4+).
+                if (postcodeMatch) return hits >= 1;
+                return hits >= (postcode && candPostcode ? 4 : 3);
               })
               .map(({ address: _a, ...rest }) => rest) || [];
         }
