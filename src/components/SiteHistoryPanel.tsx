@@ -57,6 +57,39 @@ const normAddr = (a?: string | null) =>
     .replace(/\s+/g, " ")
     .trim();
 
+// Generic address words that appear in many unrelated addresses — excluded from token matching
+const GENERIC_ADDRESS_WORDS = new Set([
+  "road", "street", "lane", "drive", "close", "avenue", "crescent", "way",
+  "place", "court", "terrace", "house", "building", "unit", "floor", "level",
+  "suite", "block", "the", "and", "estate", "park", "works", "centre", "center",
+  "north", "south", "east", "west", "upper", "lower", "ground", "first", "office",
+]);
+
+// County / region names — shared by many addresses, not a site signal
+const REGION_WORDS = new Set([
+  "cumbria", "lancashire", "yorkshire", "london", "england", "wales", "scotland",
+  "britain", "uk", "cheshire", "devon", "cornwall", "kent", "essex", "surrey",
+  "hampshire", "dorset", "somerset", "gloucestershire", "oxfordshire", "berkshire",
+  "buckinghamshire", "hertfordshire", "bedfordshire", "cambridgeshire", "norfolk",
+  "suffolk", "northamptonshire", "warwickshire", "leicestershire", "nottinghamshire",
+  "derbyshire", "staffordshire", "shropshire", "herefordshire", "worcestershire",
+  "merseyside", "durham", "tyne", "wear", "cleveland", "humberside", "lincolnshire",
+  "rutland", "northumberland", "westmorland", "cumberland", "avon", "midlands",
+]);
+
+const isMeaningfulToken = (t: string) =>
+  t.length >= 3 && !GENERIC_ADDRESS_WORDS.has(t) && !REGION_WORDS.has(t);
+
+// Extract postcode (last 1-2 tokens that look like a UK postcode)
+const extractPostcode = (normalised: string): string | null => {
+  const tokens = normalised.split(" ");
+  const tail = tokens.slice(-2).join(" ");
+  if (/^[a-z]{1,2}[0-9]{1,2}[a-z]?\s?[0-9][a-z]{2}$/.test(tail)) return tail.replace(/\s+/g, "");
+  const last = tokens[tokens.length - 1] || "";
+  if (/^[a-z]{1,2}[0-9]{1,2}[a-z]?$/.test(last)) return last; // outward code only
+  return null;
+};
+
 export default function SiteHistoryPanel({ currentJobId, siteId, address }: SiteHistoryPanelProps) {
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState<PrevJob[]>([]);
