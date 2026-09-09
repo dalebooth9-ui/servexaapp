@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, FileText, ArrowRight, PoundSterling, CheckCircle2 } from "lucide-react";
 
-type Row = { id: string; status: string; quote_id: string | null; remedial_job_id: string | null; created_at: string };
+type Row = { id: string; status: string; quote_id: string | null; remedial_job_id: string | null; created_at: string; source_kind: string | null };
 type Quote = { id: string; status: string; total: number | null };
 
 export default function DefectFlywheelCard() {
   const [loading, setLoading] = useState(true);
   const [openUnquoted, setOpenUnquoted] = useState(0);
+  const [carriedForward, setCarriedForward] = useState(0);
   const [oldestDays, setOldestDays] = useState(0);
   const [quotesAwaiting, setQuotesAwaiting] = useState(0);
   const [quotesAwaitingValue, setQuotesAwaitingValue] = useState(0);
@@ -21,11 +22,12 @@ export default function DefectFlywheelCard() {
     (async () => {
       const { data: defects } = await supabase
         .from("defects")
-        .select("id, status, quote_id, remedial_job_id, created_at");
+        .select("id, status, quote_id, remedial_job_id, created_at, source_kind");
       const list = (defects || []) as Row[];
 
       const openList = list.filter(d => (d.status === "open" || d.status === "in_progress") && !d.quote_id);
       setOpenUnquoted(openList.length);
+      setCarriedForward(openList.filter(d => d.source_kind === "carried_forward").length);
       if (openList.length) {
         const oldest = Math.min(...openList.map(d => new Date(d.created_at).getTime()));
         setOldestDays(Math.floor((Date.now() - oldest) / (1000 * 60 * 60 * 24)));
