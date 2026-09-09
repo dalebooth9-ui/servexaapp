@@ -412,11 +412,13 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
     return Array.from(t).sort();
   }, [docs]);
 
+  const linkedSiteId = params.get("site");
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     return docs.filter((d) => {
+      if (linkedSiteId && d.site_id !== linkedSiteId) return false;
       if (statusFilter !== "all" && d.status !== statusFilter) return false;
-      if (typeFilter !== "all" && d.document_type !== typeFilter) return false;
+      if (typeFilter !== "all" && (d.template_name || d.document_type) !== typeFilter) return false;
       if (customerFilter !== "all" && d.customer_id !== customerFilter) return false;
       if (!term) return true;
       const hay = [
@@ -433,7 +435,7 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
         .toLowerCase();
       return hay.includes(term);
     });
-  }, [docs, q, statusFilter, typeFilter, customerFilter, customers, sites]);
+  }, [docs, q, statusFilter, typeFilter, customerFilter, customers, sites, linkedSiteId]);
 
   // Queue of successful conversions awaiting defect review. FIFO: the
   // dialog shows one at a time so the office isn't overwhelmed by a bulk

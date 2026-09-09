@@ -261,7 +261,14 @@ export default function Defects() {
   const assetLookup = Object.fromEntries(assets.map(a => [a.id, a.name]));
   const siteLookup = Object.fromEntries(sites.map(s => [s.id, s.name]));
 
+  const linkedCustomerId = searchParams.get("customer");
+  const linkedSiteId = searchParams.get("site");
   const filtered = defects.filter(d => {
+    if (linkedSiteId && d.site_id !== linkedSiteId) return false;
+    if (linkedCustomerId) {
+      const cid = d.site_id ? customerSites[d.site_id]?.customer_id : undefined;
+      if (cid !== linkedCustomerId) return false;
+    }
     if (statusFilter !== "all" && d.status !== statusFilter) return false;
     if (severityFilter !== "all" && d.severity !== severityFilter) return false;
     if (quotedFilter === "unquoted" && d.quote_id) return false;

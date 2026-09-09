@@ -39,6 +39,17 @@ export default function Quotes() {
 
   useEffect(() => { fetchQuotes(); }, []);
 
+  // Deep-link from a customer's at-a-glance strip: prefill the search box with
+  // that customer's name so the pipeline shows only their quotes.
+  useEffect(() => {
+    const customerId = new URLSearchParams(window.location.search).get("customer");
+    if (!customerId) return;
+    (async () => {
+      const { data } = await supabase.from("customers").select("name").eq("id", customerId).maybeSingle();
+      if (data?.name) setSearch(data.name);
+    })();
+  }, []);
+
   const filtered = quotes.filter((q) => {
     if (!search) return true;
     const s = search.toLowerCase();

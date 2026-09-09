@@ -1472,7 +1472,11 @@ export default function Jobs() {
     setMergeTarget("");
   };
 
+  const linkedCustomerId = new URLSearchParams(window.location.search).get("customer");
+  const linkedSiteId = new URLSearchParams(window.location.search).get("site");
   const prefiltered = jobs.filter((j) => {
+    if (linkedCustomerId && (j as any).customer_id !== linkedCustomerId) return false;
+    if (linkedSiteId && (j as any).site_id !== linkedSiteId) return false;
     if (smartView && !matchesSmartView(j, smartView)) return false;
     if (statusFilter !== "all" && j.status !== statusFilter) return false;
     if (priorityFilter !== "all" && j.priority !== priorityFilter) return false;
