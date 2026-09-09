@@ -8,6 +8,7 @@ import {
 import { Plus, Trash2, Camera, Loader2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { buildDurableRef } from "@/lib/durableStorageRef";
 import {
   parseRemedialItems,
   newRemedialItemId,
@@ -120,7 +121,7 @@ export default function RemedialItemsField({ value, onChange, fieldId, jobId, us
           job_id: jobId,
           engineer_id: userId,
           type: "photo",
-          file_url: `submissions/${storagePath}`,
+          file_url: buildDurableRef("submissions", storagePath),
           file_name: fileName,
         } as any).then(({ error: subErr }) => {
           if (subErr) console.error("Remedial photo submission insert failed", subErr);
