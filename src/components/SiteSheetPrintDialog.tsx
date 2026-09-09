@@ -485,7 +485,7 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          {bundle && bundle.templates.length > 0 && (
+          {userRole === "admin" && bundle && bundle.templates.length > 0 && (
             <Button type="button" onClick={printAll} disabled={loading || printingAll}>
               {printingAll ? (
                 <>
