@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
+import { SiteAtAGlance } from "@/components/AtAGlanceStrip";
 
 interface SiteHistoryPanelProps {
   currentJobId: string;
@@ -157,6 +158,7 @@ export default function SiteHistoryPanel({ currentJobId, siteId, address }: Site
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {siteId && <SiteAtAGlance siteId={siteId} />}
         {loading ? (
           <div className="space-y-2">
             <Skeleton className="h-12 w-full" />

@@ -36,7 +36,7 @@ export default function Renewals() {
   const [rows, setRows] = useState<ScheduleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [customerFilter, setCustomerFilter] = useState<string>("all");
+  const [customerFilter, setCustomerFilter] = useState<string>(() => new URLSearchParams(window.location.search).get("customer") || "all");
   const [workFilter, setWorkFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [remindersEnabled, setRemindersEnabled] = useState(false);

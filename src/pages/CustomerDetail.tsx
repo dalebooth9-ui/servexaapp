@@ -17,6 +17,7 @@ import CustomerArchivedDocumentsCard from "@/components/customers/CustomerArchiv
 import CustomerDefectsCard from "@/components/customers/CustomerDefectsCard";
 import CustomerAgreementsCard from "@/components/CustomerAgreementsCard";
 import CustomerAccreditationLogos from "@/components/CustomerAccreditationLogos";
+import { CustomerAtAGlance } from "@/components/AtAGlanceStrip";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -891,6 +892,10 @@ export default function CustomerDetail() {
           </div>
         </div>
       </div>
+
+      {/* Live at-a-glance strip — every figure is a real, org-scoped query */}
+      <CustomerAtAGlance customerId={id!} customerName={customer.name} />
+
 
 
       {/* Admin actions */}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,10 @@ const STATUS_CLASS: Record<string, string> = {
 
 export default function ContractAgreements() {
   const navigate = useNavigate();
-  const [rows, setRows] = useState<AgreementRow[]>([]);
+  const [searchParams] = useSearchParams();
+  const linkedCustomerId = searchParams.get("customer");
+  const [allRows, setRows] = useState<AgreementRow[]>([]);
+  const rows = linkedCustomerId ? allRows.filter((r) => r.customer_id === linkedCustomerId) : allRows;
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
 
