@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { carryForwardRemedials } from "@/lib/carryForwardRemedials";
 
 export default function CloneJobDialog({ sourceJob }: { sourceJob: any }) {
   const { user } = useAuth();
