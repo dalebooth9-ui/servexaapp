@@ -14,6 +14,8 @@ import { ResponsiveContainer, BarChart, Bar, Tooltip, XAxis } from "recharts";
 import { formatDistanceToNow, startOfWeek, addWeeks, format, startOfMonth, subMonths } from "date-fns";
 import VehicleCheckReviewCard from "@/components/VehicleCheckReviewCard";
 import SetupChecklist from "@/components/SetupChecklist";
+import NeedsAttentionToday from "@/components/dashboard/NeedsAttentionToday";
+
 import { toast } from "sonner";
 import RenewalsTile from "@/components/renewals/RenewalsTile";
 
