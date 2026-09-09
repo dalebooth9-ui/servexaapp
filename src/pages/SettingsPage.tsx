@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import ComplianceReminderSettings from "@/components/ComplianceReminderSettings";
 import XeroSettings from "@/components/XeroSettings";
+import QuickBooksSettings from "@/components/QuickBooksSettings";
 import RamsTemplateSettings from "@/components/RamsTemplateSettings";
 import RenewalsSettingsCard from "@/components/settings/RenewalsSettingsCard";
 import FollowUpReminderSettings from "@/components/FollowUpReminderSettings";
@@ -463,6 +464,7 @@ export default function SettingsPage() {
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-6 pt-4">
               <XeroSettings />
+              <QuickBooksSettings />
               <QuoteHoundIntegrationCard />
               <CustomerMergeSuggestionsPanel />
               <CustomerReassignWizard />
