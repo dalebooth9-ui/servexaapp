@@ -18,6 +18,7 @@ import BlankTemplatePdfExport, {
 } from "@/components/BlankTemplatePdfExport";
 import { useToast } from "@/hooks/use-toast";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
+import { useAuth } from "@/hooks/useAuth";
 import { UKDateInput } from "@/components/ui/uk-date-input";
 
 
@@ -88,6 +89,7 @@ const EMPTY_OVERRIDES: PrintOverrides = {
 };
 
 export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Props) {
+  const { userRole } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [bundle, setBundle] = useState<JobBundle | null>(null);
@@ -483,7 +485,7 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          {bundle && bundle.templates.length > 0 && (
+          {userRole === "admin" && bundle && bundle.templates.length > 0 && (
             <Button type="button" onClick={printAll} disabled={loading || printingAll}>
               {printingAll ? (
                 <>
