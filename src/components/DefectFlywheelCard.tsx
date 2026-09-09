@@ -91,7 +91,7 @@ export default function DefectFlywheelCard() {
 
             {carriedForward > 0 && (
               <Link
-                to="/defects?filter=unquoted&source=job"
+                to="/defects?filter=unquoted&source=carried_forward"
                 className="block rounded-md border border-amber-500/40 bg-amber-500/10 p-3 hover:bg-amber-500/15 transition-colors"
               >
                 <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
