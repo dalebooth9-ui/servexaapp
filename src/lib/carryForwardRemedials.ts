@@ -6,6 +6,7 @@
  * Pure background logic — callers just await it after creating the new job.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { parseRemedialItems, isRemedialItemsField } from "@/lib/remedialItems";
 
 const LABEL_HINTS = [
   "comment", "remedial", "defect", "recommendation",
@@ -67,8 +68,6 @@ export async function carryForwardRemedials(opts: {
     userId = auth?.user?.id ?? null;
   }
   if (!orgId || !userId) return 0;
-
-  const texts: string[] = [];
 
   // 1–4. Submitted job sheet responses → remedial comment lines
   const { data: responses } = await supabase
