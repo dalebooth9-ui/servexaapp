@@ -135,3 +135,12 @@ verify_jwt = false
 
 [functions.reverify-scan-item]
 verify_jwt = false
+
+[functions.quickbooks-auth]
+verify_jwt = false
+
+[functions.quickbooks-oauth-callback]
+verify_jwt = false
+
+[functions.quickbooks-sync]
+verify_jwt = false
