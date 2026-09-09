@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
+import { formatRemedialItemsText } from "@/lib/remedialItems";
 
 export interface AutoPopulateJobInfo {
   address?: string | null;
