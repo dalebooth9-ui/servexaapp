@@ -165,6 +165,11 @@ export default function Jobs() {
   const [fileDragging, setFileDragging] = useState(false);
   const [dialogParsingFile, setDialogParsingFile] = useState(false);
   const [dialogParsedFiles, setDialogParsedFiles] = useState<File[]>([]);
+  // Remedial items the AI spotted in the dropped document(s). Shown for review
+  // before the job is created, then inserted as defects on the new job.
+  const [extractedRemedials, setExtractedRemedials] = useState<
+    { description: string; severity: string; already_completed: boolean }[]
+  >([]);
   const dialogFileInputRef = useRef<HTMLInputElement | null>(null);
   const [fileDropUploading, setFileDropUploading] = useState(false);
   const [fileDropDialogOpen, setFileDropDialogOpen] = useState(false);
@@ -1041,9 +1046,18 @@ export default function Jobs() {
         other_qty: oQty || prev.other_qty,
         other_service_type: ext2.other_service_type || prev.other_service_type,
       }));
+      const allowedSeverity = ["low", "medium", "high", "critical"];
+      const remedials = (Array.isArray(ext2.remedial_items) ? ext2.remedial_items : [])
+        .map((r: any) => ({
+          description: String(r?.description || "").trim(),
+          severity: allowedSeverity.includes(String(r?.severity || "")) ? String(r.severity) : "medium",
+          already_completed: r?.already_completed === true,
+        }))
+        .filter((r: any) => r.description.length > 2);
+      setExtractedRemedials(remedials);
       toast({
         title: "Details extracted",
-        description: `Combined ${dialogParsedFiles.length} file(s). Review and adjust.`,
+        description: `Combined ${dialogParsedFiles.length} file(s). Review and adjust.${remedials.length ? ` ${remedials.length} remedial item(s) found.` : ""}`,
       });
     } catch (err: any) {
       toast({ title: "Could not extract details", description: err.message || "Please fill in manually.", variant: "destructive" });
@@ -1085,7 +1099,7 @@ export default function Jobs() {
       other_service_type: form.other_service_type || null,
       due_date: form.due_date || null,
       allocated_days: form.allocated_days ? parseInt(form.allocated_days) : null,
-    } as any).select("id, reference_number").single();
+    } as any).select("id, reference_number, org_id, site_id").single();
     if (error) {
       if (import.meta.env.DEV) console.error("Job creation error:", error);
       const message = error.code === "23505"
@@ -1107,6 +1121,32 @@ export default function Jobs() {
       setDialogOpen(false);
       const capturedPoFiles = dialogParsedFiles;
       setDialogParsedFiles([]);
+      const capturedRemedials = extractedRemedials;
+      setExtractedRemedials([]);
+
+      if (createdJob && capturedRemedials.length > 0) {
+        // Remedials read off the dropped paperwork become trackable defects.
+        const rows = capturedRemedials.map((r) => ({
+          job_id: (createdJob as any).id,
+          org_id: (createdJob as any).org_id ?? null,
+          site_id: (createdJob as any).site_id ?? null,
+          title: r.description.slice(0, 80),
+          description: r.description,
+          severity: r.already_completed ? "low" : r.severity || "medium",
+          status: "open",
+          reported_by: user?.id ?? null,
+          source_kind: "document_import",
+        }));
+        const { error: defectErr } = await supabase.from("defects").insert(rows as any);
+        if (defectErr) {
+          console.error("document remedial import failed", defectErr);
+        } else {
+          toast({
+            title: `${rows.length} remedial item${rows.length === 1 ? "" : "s"} extracted from document`,
+            description: "Added as defects on the new job.",
+          });
+        }
+      }
       const capturedCostingSheet = costingSheetFile;
       setCostingSheetFile(null);
       const capturedReferenceFiles = newJobReferenceFiles;
@@ -1729,7 +1769,7 @@ export default function Jobs() {
                           type="button"
                           size="sm"
                           variant="ghost"
-                          onClick={() => setDialogParsedFiles([])}
+                          onClick={() => { setDialogParsedFiles([]); setExtractedRemedials([]); }}
                           disabled={dialogParsingFile}
                         >
                           Clear
@@ -1739,6 +1779,41 @@ export default function Jobs() {
                   </div>
                   {dialogParsedFiles.length > 0 && (
                     <DroppedPoFilesReorder files={dialogParsedFiles} onChange={setDialogParsedFiles} />
+                  )}
+                  {extractedRemedials.length > 0 && (
+                    <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
+                      <p className="text-sm font-medium">
+                        Remedials found (will be added as defects):
+                      </p>
+                      <ul className="space-y-1.5">
+                        {extractedRemedials.map((r, i) => (
+                          <li key={`${i}-${r.description.slice(0, 20)}`} className="flex items-start gap-2 text-sm">
+                            <Badge
+                              variant={r.severity === "critical" || r.severity === "high" ? "destructive" : "secondary"}
+                              className="shrink-0 capitalize"
+                            >
+                              {r.severity}
+                            </Badge>
+                            <span className="flex-1 break-words">
+                              {r.description}
+                              {r.already_completed && (
+                                <span className="ml-1 text-xs text-muted-foreground">(already completed)</span>
+                              )}
+                            </span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 shrink-0"
+                              aria-label={`Remove remedial: ${r.description.slice(0, 40)}`}
+                              onClick={() => setExtractedRemedials((prev) => prev.filter((_, idx) => idx !== i))}
+                            >
+                              Remove
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </div>
                 <div className="space-y-2">

@@ -1232,6 +1232,19 @@ serve(async (req) => {
         }));
         const { error: itemsErr } = await admin.from("job_remedial_items").insert(rows as any);
         if (itemsErr) console.error("inbound-po-email remedial-items seed failed", itemsErr);
+
+        // Mirror them into defects so they are trackable/quotable like any other.
+        const defectRows = inferred.remedialItems.map((description: string) => ({
+          job_id: jobId,
+          org_id: orgId,
+          title: String(description).slice(0, 80),
+          description,
+          severity: "medium",
+          status: "open",
+          source_kind: "document_import",
+        }));
+        const { error: defErr } = await admin.from("defects").insert(defectRows as any);
+        if (defErr) console.error("inbound-po-email defect seed failed", defErr);
       } catch (e) {
         console.error("inbound-po-email remedial-items seed threw", e);
       }
