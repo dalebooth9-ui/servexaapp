@@ -189,6 +189,12 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
 
   const openCount = defects.filter(d => d.status === "open").length;
 
+  const quotedDefects = defects.filter(d => d.quote_id);
+  const quotedValue = Array.from(new Set(quotedDefects.map(d => d.quote_id as string)))
+    .reduce((sum, qid) => sum + (quoteTotals[qid] || 0), 0);
+  const approvedCount = defects.filter(d => ["approved", "job_created"].includes(d.status)).length;
+  const resolvedCount = defects.filter(d => d.status === "resolved").length;
+
   return (
     <Collapsible defaultOpen className="mb-6">
       <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
@@ -199,12 +205,43 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
         <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-3 space-y-3">
-        <div className="flex justify-between items-center">
-          <p className="text-xs text-muted-foreground">Track deficiencies found on this job. Logged defects appear in the global Defects page for batch quoting.</p>
-          <Button size="sm" onClick={() => setOpen(true)}>
-            <Plus className="mr-1.5 h-4 w-4" /> Log Defect
-          </Button>
+        <div className="flex flex-wrap justify-between items-center gap-2">
+          <p className="text-xs text-muted-foreground max-w-md">Track deficiencies found on this job. Logged defects appear in the global Defects page for batch quoting.</p>
+          <div className="flex gap-2">
+            {isAdmin && unquoted.length > 0 && (
+              <Button size="sm" variant="outline" onClick={handleQuoteAll} disabled={quoting}>
+                <FileText className="mr-1.5 h-4 w-4" />
+                {quoting ? "Creating…" : `Quote all unquoted (${unquoted.length})`}
+              </Button>
+            )}
+            <Button size="sm" onClick={() => setOpen(true)}>
+              <Plus className="mr-1.5 h-4 w-4" /> Log Defect
+            </Button>
+          </div>
         </div>
+
+        {!loading && defects.length > 0 && (
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-xs font-medium mb-2">Remedial pipeline</p>
+            <div className="flex items-center gap-2 overflow-x-auto text-center">
+              {[
+                { label: "Defects", value: String(defects.length), sub: `${unquoted.length} unquoted` },
+                { label: "Quoted", value: String(quotedDefects.length), sub: quotedValue > 0 ? `£${quotedValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "no value yet" },
+                { label: "Approved", value: String(approvedCount), sub: "ready for works" },
+                { label: "Resolved", value: String(resolvedCount), sub: "completed" },
+              ].map((step, i, arr) => (
+                <div key={step.label} className="flex items-center gap-2 shrink-0">
+                  <div className="rounded-md bg-background border px-3 py-1.5 min-w-[92px]">
+                    <p className="text-lg font-bold leading-tight">{step.value}</p>
+                    <p className="text-[11px] font-medium">{step.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{step.sub}</p>
+                  </div>
+                  {i < arr.length - 1 && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
