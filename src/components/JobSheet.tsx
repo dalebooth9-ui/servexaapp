@@ -346,13 +346,11 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
         <Badge variant="outline" className="gap-1 text-xs">
           <Activity className="h-3 w-3" /> {activities.length} Events
         </Badge>
-        {userRole === "admin" && (
-          <div className="ml-auto">
-            <Button variant="outline" size="sm" onClick={handleExportPdf}>
-              <Printer className="mr-1.5 h-3.5 w-3.5" /> Export Job Sheet
-            </Button>
-          </div>
-        )}
+        <div className="ml-auto">
+          <Button variant="outline" size="sm" onClick={handleExportPdf}>
+            <Printer className="mr-1.5 h-3.5 w-3.5" /> Export Job Sheet
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
