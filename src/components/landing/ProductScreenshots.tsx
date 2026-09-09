@@ -48,7 +48,7 @@ export default function ProductScreenshots() {
                 loading="lazy"
                 decoding="async"
                 width={1600}
-                height={1055}
+                height={1111}
                 className="w-full"
               />
               <figcaption className="border-t border-border px-4 py-3 text-sm text-muted-foreground">
