@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounting_sync_log: {
+        Row: {
+          action: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          error_message: string | null
+          id: string
+          org_id: string
+          provider: string
+          status: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          id?: string
+          org_id: string
+          provider: string
+          status?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          id?: string
+          org_id?: string
+          provider?: string
+          status?: string
+        }
+        Relationships: []
+      }
       ai_data_usage: {
         Row: {
           id: string
@@ -2041,6 +2077,7 @@ export type Database = {
           name: string
           org_id: string | null
           phone: string | null
+          quickbooks_contact_id: string | null
           renewal_reminders_opt_out: boolean
           updated_at: string
           xero_contact_id: string | null
@@ -2059,6 +2096,7 @@ export type Database = {
           name: string
           org_id?: string | null
           phone?: string | null
+          quickbooks_contact_id?: string | null
           renewal_reminders_opt_out?: boolean
           updated_at?: string
           xero_contact_id?: string | null
@@ -2077,6 +2115,7 @@ export type Database = {
           name?: string
           org_id?: string | null
           phone?: string | null
+          quickbooks_contact_id?: string | null
           renewal_reminders_opt_out?: boolean
           updated_at?: string
           xero_contact_id?: string | null
@@ -4046,6 +4085,8 @@ export type Database = {
           notes: string | null
           org_id: string | null
           paid_at: string | null
+          quickbooks_invoice_id: string | null
+          quickbooks_synced_at: string | null
           sent_at: string | null
           status: string
           subtotal: number
@@ -4073,6 +4114,8 @@ export type Database = {
           notes?: string | null
           org_id?: string | null
           paid_at?: string | null
+          quickbooks_invoice_id?: string | null
+          quickbooks_synced_at?: string | null
           sent_at?: string | null
           status?: string
           subtotal?: number
@@ -4100,6 +4143,8 @@ export type Database = {
           notes?: string | null
           org_id?: string | null
           paid_at?: string | null
+          quickbooks_invoice_id?: string | null
+          quickbooks_synced_at?: string | null
           sent_at?: string | null
           status?: string
           subtotal?: number
@@ -7075,6 +7120,7 @@ export type Database = {
           is_active: boolean
           notes: string | null
           org_id: string
+          quickbooks_item_id: string | null
           unit: string
           unit_price: number
           updated_at: string
@@ -7089,6 +7135,7 @@ export type Database = {
           is_active?: boolean
           notes?: string | null
           org_id: string
+          quickbooks_item_id?: string | null
           unit?: string
           unit_price?: number
           updated_at?: string
@@ -7103,6 +7150,7 @@ export type Database = {
           is_active?: boolean
           notes?: string | null
           org_id?: string
+          quickbooks_item_id?: string | null
           unit?: string
           unit_price?: number
           updated_at?: string
@@ -7174,6 +7222,63 @@ export type Database = {
           },
           {
             foreignKeyName: "profiles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quickbooks_connections: {
+        Row: {
+          access_token: string
+          company_name: string | null
+          connection_error: string | null
+          created_at: string
+          id: string
+          org_id: string
+          realm_id: string
+          refresh_token: string
+          token_expires_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          company_name?: string | null
+          connection_error?: string | null
+          created_at?: string
+          id?: string
+          org_id: string
+          realm_id: string
+          refresh_token: string
+          token_expires_at: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          company_name?: string | null
+          connection_error?: string | null
+          created_at?: string
+          id?: string
+          org_id?: string
+          realm_id?: string
+          refresh_token?: string
+          token_expires_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quickbooks_connections_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quickbooks_connections_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organisations_safe"
