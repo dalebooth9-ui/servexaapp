@@ -89,6 +89,19 @@ export default function DefectFlywheelCard() {
               )}
             </Link>
 
+            {carriedForward > 0 && (
+              <Link
+                to="/defects?filter=unquoted&source=job"
+                className="block rounded-md border border-amber-500/40 bg-amber-500/10 p-3 hover:bg-amber-500/15 transition-colors"
+              >
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                  {carriedForward} remedial{carriedForward === 1 ? "" : "s"} from previous jobs need quoting
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Carried forward from earlier visits — quote them to turn them into work.</p>
+              </Link>
+            )}
+
+
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-md border p-3">
                 <p className="text-lg font-semibold">{quotesAwaiting}</p>
