@@ -1,5 +1,6 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import JobStageTimeline from "@/components/jobs/JobStageTimeline";
+import ComplianceRecord from "@/components/jobs/ComplianceRecord";
 import ChunkErrorBoundary from "@/components/ChunkErrorBoundary";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useParams, Link, useNavigate } from "react-router-dom";
@@ -1052,7 +1053,14 @@ export default function JobDetail() {
           </CollapsibleContent>
         </Collapsible>
       )}
+
+      {["completed", "archived", "pending_review"].includes(job.status) && (
+        <div className="mb-6">
+          <ComplianceRecord jobId={id!} />
+        </div>
+      )}
       </>)}
+
 
 
       {activeTab === "documents" && (<>

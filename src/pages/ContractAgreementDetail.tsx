@@ -15,6 +15,7 @@ import {
 } from "@/lib/contractTemplates";
 import { generateAgreementPdf } from "@/lib/contractAgreementPdf";
 import { getGeneratingOrgBranding } from "@/lib/generatingOrgBranding";
+import AgreementRollup from "@/components/agreements/AgreementRollup";
 
 export default function ContractAgreementDetail() {
   const { id } = useParams<{ id: string }>();
@@ -245,6 +246,15 @@ export default function ContractAgreementDetail() {
           <p className="text-xs text-muted-foreground">Annual value</p>
         </CardContent></Card>
       </div>
+
+      <AgreementRollup
+        agreementId={row.id}
+        customerId={row.customer_id}
+        startDate={row.start_date}
+        endDate={row.end_date}
+        termMonths={row.term_months}
+        details={details}
+      />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>

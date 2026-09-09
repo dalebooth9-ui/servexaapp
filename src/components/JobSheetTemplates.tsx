@@ -6,6 +6,7 @@ import { buildRemedialWorksPrefill } from "@/lib/remedialWorksPrefill";
 import { useAuth } from "@/hooks/useAuth";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { deriveScopeFromTemplateName, fetchJobPrefillContext } from "@/lib/jobSheetPrefill";
+import { buildLastVisitPrefill, findLastVisitReport, type LastVisit } from "@/lib/lastVisitPrefill";
 import { logReportEdits, jobHasSignatures } from "@/lib/logReportEdits";
 import { enqueueReportSubmission, newReportId } from "@/lib/reportSubmissionQueue";
 import { isNetworkError } from "@/lib/syncQueue";
@@ -28,7 +29,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy, Lock, Unlock, RotateCcw, FileJson, Download,
+  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy, Lock, Unlock, RotateCcw, FileJson, Download, History,
 } from "lucide-react";
 import JobSheetPdfExport from "./JobSheetPdfExport";
 import ReportSummaryEditor from "./reports/ReportSummaryEditor";
@@ -133,6 +134,10 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [aiRamsData, setAiRamsData] = useState<Record<string, any> | null>(null);
   const [jobInfo, setJobInfo] = useState<JobInfo | null>(null);
   const [scheduledDate, setScheduledDate] = useState<string>("");
+  // "Prefill from last visit" — offered only when a matching completed report exists.
+  const [lastVisit, setLastVisit] = useState<LastVisit | null>(null);
+  const [lastVisitApplied, setLastVisitApplied] = useState(false);
+  const [lastVisitFieldIds, setLastVisitFieldIds] = useState<Set<string>>(new Set());
 
   // Auto-save template form data — IndexedDB-backed for offline resilience
   const templateFormKey = activeTemplate ? `template-form-${jobId}-${activeTemplate.id}${activeResponse ? `-${activeResponse.id}` : ""}` : null;
@@ -887,6 +892,22 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const handleStartForm = async (template: Template, existingResponse?: Response) => {
     setActiveTemplate(template);
     setViewingResponse(null);
+    setLastVisit(null);
+    setLastVisitApplied(false);
+    setLastVisitFieldIds(new Set());
+    void (async () => {
+      try {
+        const { data: jobRow } = await supabase.from("jobs").select("site_id").eq("id", jobId).maybeSingle();
+        const found = await findLastVisitReport(supabase, {
+          jobId,
+          siteId: (jobRow as any)?.site_id ?? null,
+          templateId: template.id,
+        });
+        if (found) setLastVisit(found);
+      } catch (e) {
+        console.warn("[JobSheetTemplates] last-visit lookup failed", e);
+      }
+    })();
 
     // If the async fetchData hasn't populated jobInfo yet (e.g. engineer taps
     // "Fill in" the instant the tab mounts), fetch the job context on demand
@@ -1075,6 +1096,31 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
   const handleFieldValue = (fieldId: string, value: any) => {
     setFormData((prev) => ({ ...prev, [fieldId]: value }));
+    setLastVisitFieldIds((prev) => {
+      if (!prev.has(fieldId)) return prev;
+      const next = new Set(prev);
+      next.delete(fieldId);
+      return next;
+    });
+  };
+
+  /** Copy stable facts (assets, counts, equipment) forward from the last visit. */
+  const applyLastVisitPrefill = () => {
+    if (!activeTemplate || !lastVisit) return;
+    const patch = buildLastVisitPrefill(
+      (activeTemplate.fields || []) as any,
+      lastVisit.answers || {},
+      formData,
+    );
+    const keys = Object.keys(patch);
+    setLastVisitApplied(true);
+    if (keys.length === 0) {
+      toast({ title: "Nothing to copy", description: "Everything that can carry forward is already filled in." });
+      return;
+    }
+    setFormData((prev) => ({ ...prev, ...patch }));
+    setLastVisitFieldIds(new Set(keys));
+    toast({ title: `Filled ${keys.length} field${keys.length === 1 ? "" : "s"} from the last visit`, description: "Check each one before you submit — condition answers stay blank." });
   };
 
   const handleSaveDraft = async () => {
@@ -1962,6 +2008,22 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                 </span>
               </div>
             )}
+            {lastVisit && !lastVisitApplied && (
+              <div className="flex flex-wrap items-center gap-2 border-b border-primary/30 bg-primary/5 px-4 py-2 text-[11px]">
+                <History className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <span className="flex-1">
+                  This site had the same sheet completed on{" "}
+                  <strong>{lastVisit.date ? new Date(lastVisit.date).toLocaleDateString("en-GB") : "a previous visit"}</strong>
+                  {lastVisit.jobReference ? ` (${lastVisit.jobReference})` : ""}. Copy the standing details across — checks and comments stay blank.
+                </span>
+                <Button type="button" size="sm" className="h-7 text-[11px]" onClick={applyLastVisitPrefill}>
+                  Prefill from last visit
+                </Button>
+                <Button type="button" size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setLastVisit(null)}>
+                  No thanks
+                </Button>
+              </div>
+            )}
             {sections.map((section) => {
               const omitted = isSectionOmitted(section);
               return (
@@ -1980,12 +2042,20 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                 {!omitted && activeTemplate?.fields
                   .filter((f) => (f.section || "General") === section)
                   .map((field) => (
-                    <div key={field.id} className="border-b border-border last:border-b-0">
+                    <div
+                      key={field.id}
+                      className={`border-b border-border last:border-b-0 ${lastVisitFieldIds.has(field.id) ? "bg-amber-50" : ""}`}
+                    >
                       <div className="grid grid-cols-[1fr,1fr]">
                         <div className="px-3 py-2 border-r border-border flex items-start">
                           <Label className="text-xs leading-tight">
                             {field.label}
                             {field.required && <span className="text-destructive ml-0.5">*</span>}
+                            {lastVisitFieldIds.has(field.id) && (
+                              <span className="ml-1 rounded bg-amber-200 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-900">
+                                from last visit
+                              </span>
+                            )}
                           </Label>
                         </div>
                         <div className="px-2 py-1.5 flex items-center">

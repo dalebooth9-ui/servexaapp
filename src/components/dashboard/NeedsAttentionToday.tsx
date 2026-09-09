@@ -10,6 +10,7 @@ import {
   Clock,
   PoundSterling,
   CalendarDays,
+  FileSignature,
 } from "lucide-react";
 
 /**
@@ -52,6 +53,9 @@ export default function NeedsAttentionToday() {
       const weekStart = startOfWeekISO();
       const in7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 
+      const in30 = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+      const days14Ago = new Date(Date.now() - 14 * 86400000).toISOString();
+
       const [
         overdueRes,
         awaitingReviewRes,
@@ -62,6 +66,9 @@ export default function NeedsAttentionToday() {
         weekCompletedRes,
         weekDefectsRes,
         outstandingRes,
+        highDefectsRes,
+        staleQuotesRes,
+        expiringAgreementsRes,
       ] = await Promise.all([
         supabase.from("jobs").select("id", { count: "exact", head: true })
           .lt("due_date", today).not("status", "in", OPEN_JOB_STATUSES),
@@ -80,6 +87,12 @@ export default function NeedsAttentionToday() {
           .gte("created_at", weekStart),
         supabase.from("invoices").select("id", { count: "exact", head: true })
           .eq("document_type", "invoice").not("status", "in", "(paid,cancelled)"),
+        supabase.from("defects").select("id", { count: "exact", head: true })
+          .eq("status", "open").is("quote_id", null).in("severity", ["high", "critical", "urgent"]),
+        supabase.from("invoices").select("id", { count: "exact", head: true })
+          .eq("document_type", "quote").eq("status", "sent").lt("sent_at", days14Ago),
+        supabase.from("contract_agreements").select("id", { count: "exact", head: true })
+          .eq("status", "signed").gte("end_date", today).lte("end_date", in30),
       ]);
 
       // Completed but not invoiced — compare completed job ids against invoice job links.
@@ -102,10 +115,14 @@ export default function NeedsAttentionToday() {
         { key: "overdue", label: "Overdue jobs", value: overdueRes.count || 0, to: "/jobs?view=overdue", icon: AlertTriangle, tone: "urgent" },
         { key: "review", label: "Reports awaiting review", value: awaitingReviewRes.count || 0, to: "/jobs?view=awaiting-report", icon: ClipboardCheck, tone: "warn" },
         { key: "defects", label: "Defects awaiting quote", value: defectsRes.count || 0, to: "/defects", icon: ShieldAlert, tone: "warn" },
+        { key: "high-defects", label: "High-priority defects not quoted", value: highDefectsRes.count || 0, to: "/defects", icon: ShieldAlert, tone: "urgent" },
         { key: "quotes", label: "Quotes expiring", value: quotesRes.count || 0, to: "/quotes", icon: Clock, tone: "warn" },
+        { key: "stale-quotes", label: "Quotes sent, no reply in 14 days", value: staleQuotesRes.count || 0, to: "/quotes", icon: Clock, tone: "warn" },
+        { key: "agreements", label: "Agreements expiring in 30 days", value: expiringAgreementsRes.count || 0, to: "/agreements", icon: FileSignature, tone: "warn" },
         { key: "invoice", label: "Completed, not invoiced", value: notInvoiced, to: "/jobs?view=ready-to-invoice", icon: PoundSterling, tone: "normal" },
         { key: "today", label: "Jobs scheduled today", value: scheduledToday, to: "/planner", icon: CalendarDays, tone: "normal" },
       ]);
+
       setWeek({
         completed: weekCompletedRes.count || 0,
         defects: weekDefectsRes.count || 0,
@@ -125,7 +142,7 @@ export default function NeedsAttentionToday() {
       </CardHeader>
       <CardContent>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {(loading ? Array.from({ length: 6 }) : tiles).map((t: any, i: number) => {
+          {(loading ? Array.from({ length: 9 }) : tiles).map((t: any, i: number) => {
             if (loading) {
               return <div key={i} className="h-[74px] animate-pulse rounded-lg bg-muted" />;
             }
