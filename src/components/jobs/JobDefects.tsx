@@ -97,6 +97,12 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
     location_on_site: "",
     bs_standard_reference: "",
   });
+  const [checklistMode, setChecklistMode] = useState(false);
+  const [tickTarget, setTickTarget] = useState<Defect | null>(null);
+  const [tickNote, setTickNote] = useState("");
+  const [tickPhotos, setTickPhotos] = useState<File[]>([]);
+  const [ticking, setTicking] = useState(false);
+  const tickFileRef = useRef<HTMLInputElement>(null);
 
   const fetchDefects = async () => {
     const { data } = await supabase
@@ -121,6 +127,48 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
   };
 
   const unquoted = defects.filter(d => !d.quote_id && ["open", "in_progress"].includes(d.status));
+  const carried = defects.filter(d => d.source_kind === CARRIED_FORWARD);
+  const carriedOutstanding = carried.filter(d => OUTSTANDING_STATUSES.includes(d.status));
+  const carriedDone = carried.filter(d => !OUTSTANDING_STATUSES.includes(d.status));
+  const allCarriedDone = carried.length > 0 && carriedOutstanding.length === 0;
+
+  const completeRemedial = async () => {
+    if (!tickTarget || !user) return;
+    setTicking(true);
+    let photos = (tickTarget.photos as string[] | null) || [];
+    if (tickPhotos.length) photos = [...photos, ...(await uploadPhotos(tickTarget.id, tickPhotos))];
+
+    const { error } = await supabase
+      .from("defects")
+      .update({
+        status: "resolved",
+        resolved_at: new Date().toISOString(),
+        resolved_by: user.id,
+        resolution_notes: tickNote.trim() || null,
+        photos,
+      } as any)
+      .eq("id", tickTarget.id);
+    setTicking(false);
+    if (error) { toast.error("Couldn't mark that remedial as done. Please try again."); return; }
+
+    const stillOpen = carriedOutstanding.filter(d => d.id !== tickTarget.id).length;
+    setTickTarget(null);
+    setTickNote("");
+    setTickPhotos([]);
+    await fetchDefects();
+
+    if (stillOpen === 0 && carried.length > 0) {
+      toast.success("All remedials from previous visit completed");
+      await supabase.from("job_activity_log").insert({
+        job_id: jobId,
+        user_id: user.id,
+        action: "note",
+        details: `All ${carried.length} remedial${carried.length === 1 ? "" : "s"} carried forward from the previous visit are now completed.`,
+      } as any);
+    } else {
+      toast.success("Remedial marked as done", { description: `${stillOpen} still outstanding.` });
+    }
+  };
 
   const handleQuoteAll = async () => {
     setQuoting(true);
