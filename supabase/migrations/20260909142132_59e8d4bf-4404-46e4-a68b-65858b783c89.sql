@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.sync_job_assignment_from_schedule() FROM PUBLIC, anon, authenticated;
