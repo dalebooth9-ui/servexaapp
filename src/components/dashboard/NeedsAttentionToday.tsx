@@ -95,6 +95,28 @@ export default function NeedsAttentionToday() {
           .eq("status", "signed").gte("end_date", today).lte("end_date", in30),
       ]);
 
+      // Jobs due today or earlier that still carry unresolved remedials from a previous visit.
+      const { data: carriedRows } = await supabase
+        .from("defects")
+        .select("job_id")
+        .eq("source_kind", "carried_forward")
+        .in("status", ["open", "in_progress", "quoted", "approved", "job_created"])
+        .not("job_id", "is", null)
+        .limit(1000);
+      const carriedJobIds = Array.from(new Set((carriedRows || []).map((d: any) => d.job_id)));
+      let overdueRemedialJobs = 0;
+      if (carriedJobIds.length) {
+        const [{ data: dueJobs }, { data: schedRows }] = await Promise.all([
+          supabase.from("jobs").select("id, due_date").in("id", carriedJobIds)
+            .not("status", "in", OPEN_JOB_STATUSES).lte("due_date", today),
+          supabase.from("job_schedule").select("job_id").in("job_id", carriedJobIds).lte("schedule_date", today),
+        ]);
+        overdueRemedialJobs = new Set([
+          ...(dueJobs || []).map((j: any) => j.id),
+          ...(schedRows || []).map((s: any) => s.job_id),
+        ]).size;
+      }
+
       // Completed but not invoiced — compare completed job ids against invoice job links.
       const completedIds = (completedJobsRes.data || []).map((j: any) => j.id);
       let notInvoiced = 0;
