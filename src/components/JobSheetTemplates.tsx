@@ -45,6 +45,7 @@ import { downloadTemplateJson } from "@/lib/templateJson";
 import RamsPdfExport from "./RamsPdfExport";
 import AiRamsAutoFill from "./AiRamsAutoFill";
 import RepeatingTableField from "./job-sheets/RepeatingTableField";
+import RemedialItemsField from "./job-sheets/RemedialItemsField";
 import RepeatingTableReadOnly from "./job-sheets/RepeatingTableReadOnly";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { buildDurableRef } from "@/lib/durableStorageRef";
