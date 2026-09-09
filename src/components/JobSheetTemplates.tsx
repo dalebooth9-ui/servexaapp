@@ -6,6 +6,7 @@ import { buildRemedialWorksPrefill } from "@/lib/remedialWorksPrefill";
 import { useAuth } from "@/hooks/useAuth";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { deriveScopeFromTemplateName, fetchJobPrefillContext } from "@/lib/jobSheetPrefill";
+import { buildLastVisitPrefill, findLastVisitReport, type LastVisit } from "@/lib/lastVisitPrefill";
 import { logReportEdits, jobHasSignatures } from "@/lib/logReportEdits";
 import { enqueueReportSubmission, newReportId } from "@/lib/reportSubmissionQueue";
 import { isNetworkError } from "@/lib/syncQueue";
@@ -2007,6 +2008,22 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                 </span>
               </div>
             )}
+            {lastVisit && !lastVisitApplied && (
+              <div className="flex flex-wrap items-center gap-2 border-b border-primary/30 bg-primary/5 px-4 py-2 text-[11px]">
+                <History className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <span className="flex-1">
+                  This site had the same sheet completed on{" "}
+                  <strong>{lastVisit.date ? new Date(lastVisit.date).toLocaleDateString("en-GB") : "a previous visit"}</strong>
+                  {lastVisit.jobReference ? ` (${lastVisit.jobReference})` : ""}. Copy the standing details across — checks and comments stay blank.
+                </span>
+                <Button type="button" size="sm" className="h-7 text-[11px]" onClick={applyLastVisitPrefill}>
+                  Prefill from last visit
+                </Button>
+                <Button type="button" size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setLastVisit(null)}>
+                  No thanks
+                </Button>
+              </div>
+            )}
             {sections.map((section) => {
               const omitted = isSectionOmitted(section);
               return (
@@ -2025,12 +2042,20 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                 {!omitted && activeTemplate?.fields
                   .filter((f) => (f.section || "General") === section)
                   .map((field) => (
-                    <div key={field.id} className="border-b border-border last:border-b-0">
+                    <div
+                      key={field.id}
+                      className={`border-b border-border last:border-b-0 ${lastVisitFieldIds.has(field.id) ? "bg-amber-50" : ""}`}
+                    >
                       <div className="grid grid-cols-[1fr,1fr]">
                         <div className="px-3 py-2 border-r border-border flex items-start">
                           <Label className="text-xs leading-tight">
                             {field.label}
                             {field.required && <span className="text-destructive ml-0.5">*</span>}
+                            {lastVisitFieldIds.has(field.id) && (
+                              <span className="ml-1 rounded bg-amber-200 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-900">
+                                from last visit
+                              </span>
+                            )}
                           </Label>
                         </div>
                         <div className="px-2 py-1.5 flex items-center">
