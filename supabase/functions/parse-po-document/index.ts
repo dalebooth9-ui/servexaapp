@@ -149,6 +149,13 @@ serve(async (req) => {
 - total_value: numeric value of the PO if present (strip currency symbols), else null
 - currency: currency code (e.g. "GBP", "USD", "EUR") detected from symbols £/$€ or explicit text, else ""
 - notes: any other important instructions, special requirements, or notes
+- remedial_items: array of remedial/defect items found in the document. Each entry: { "description": string, "severity": "low"|"medium"|"high"|"critical", "already_completed": boolean }.
+    * Look in any "Comments", "Remedials", "Remedial Works", "Observations", "Recommendations", "Defects", "Faults", "Actions Required" or similar section, plus any free-text/handwritten lines describing work that needs doing.
+    * Include lines like "INLET NEEDS SPINNING TO CORRECT POSITION", "SUPPLY AND FIT NEW VALVE", "REPLACE DAMAGED GLASS".
+    * DO NOT include pass/fail answers, YES/NO ticks, signatures, names, dates, addresses, PO numbers, or standard inspection checkbox results.
+    * severity: default "medium"; use "high" or "critical" when the wording implies urgency/danger (e.g. "URGENT", "immediate", "system out of service", "leaking badly"); use "low" for minor or verification-only items.
+    * already_completed: true when the line says "ALREADY COMPLETED", "COMPLETED ON SITE", "DONE", "rectified" or similar. Otherwise false.
+    * Return [] when there are no genuine remedial items.
 
 Rules:
 - Extract ALL available information — do not leave fields empty if the information exists anywhere in the document(s)
