@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 export interface AccountingConnections {
   xero: boolean;
   quickbooks: boolean;
+  sage: boolean;
   loading: boolean;
 }
 
-async function statusFor(fn: "xero-auth" | "quickbooks-auth"): Promise<boolean | null> {
+async function statusFor(fn: "xero-auth" | "quickbooks-auth" | "sage-auth"): Promise<boolean | null> {
   try {
     const session = await supabase.auth.getSession();
     const token = session.data.session?.access_token;
@@ -38,18 +39,25 @@ export function useAccountingConnections(): AccountingConnections {
   const [state, setState] = useState<AccountingConnections>({
     xero: false,
     quickbooks: false,
+    sage: false,
     loading: true,
   });
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [xero, quickbooks] = await Promise.all([
+      const [xero, quickbooks, sage] = await Promise.all([
         statusFor("xero-auth"),
         statusFor("quickbooks-auth"),
+        statusFor("sage-auth"),
       ]);
       if (cancelled) return;
-      setState({ xero: xero ?? true, quickbooks: quickbooks ?? false, loading: false });
+      setState({
+        xero: xero ?? true,
+        quickbooks: quickbooks ?? false,
+        sage: sage ?? false,
+        loading: false,
+      });
     })();
     return () => {
       cancelled = true;

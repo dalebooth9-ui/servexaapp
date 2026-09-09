@@ -144,3 +144,12 @@ verify_jwt = false
 
 [functions.quickbooks-sync]
 verify_jwt = false
+
+[functions.sage-auth]
+verify_jwt = false
+
+[functions.sage-oauth-callback]
+verify_jwt = false
+
+[functions.sage-sync]
+verify_jwt = false
