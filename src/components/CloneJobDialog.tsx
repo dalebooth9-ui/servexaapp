@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { carryForwardRemedials } from "@/lib/carryForwardRemedials";
 
 export default function CloneJobDialog({ sourceJob }: { sourceJob: any }) {
   const { user } = useAuth();
@@ -72,6 +73,23 @@ export default function CloneJobDialog({ sourceJob }: { sourceJob: any }) {
             visits.map((v: any) => ({ ...v, job_id: newJob.id })) as any
           );
         }
+      }
+      try {
+        const carried = await carryForwardRemedials({
+          sourceJobId: sourceJob.id,
+          newJobId: (newJob as any).id,
+          orgId: sourceJob.org_id ?? null,
+          siteId: sourceJob.site_id ?? null,
+          userId: user?.id ?? null,
+        });
+        if (carried > 0) {
+          toast({
+            title: "Remedials carried forward",
+            description: `${carried} remedial item${carried === 1 ? "" : "s"} carried forward from previous job`,
+          });
+        }
+      } catch (e) {
+        console.error("carry forward remedials failed", e);
       }
     }
 
