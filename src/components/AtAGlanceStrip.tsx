@@ -14,6 +14,7 @@ import {
   Archive,
   CalendarClock,
   History,
+  ShieldCheck,
 } from "lucide-react";
 
 /**
@@ -275,7 +276,7 @@ export function CustomerAtAGlance({ customerId, customerName }: { customerId: st
     };
   }, [customerId, customerName]);
 
-  if (!chips) return <LoadingStrip count={7} />;
+  if (!chips) return <LoadingStrip count={8} />;
   return (
     <StripShell>
       {chips.map((c) => (
