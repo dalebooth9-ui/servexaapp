@@ -495,6 +495,39 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
             </div>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={!!tickTarget} onOpenChange={(o) => { if (!o) { setTickTarget(null); setTickPhotos([]); } }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Mark remedial as done</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <p className="text-sm">{tickTarget?.description || tickTarget?.title}</p>
+              <div>
+                <Label>Note (optional)</Label>
+                <Textarea rows={3} value={tickNote} onChange={e => setTickNote(e.target.value)} placeholder="What was done?" />
+              </div>
+              <div>
+                <Label>Photo (optional)</Label>
+                <input ref={tickFileRef} type="file" accept="image/*" multiple capture="environment" className="hidden"
+                  onChange={e => { setTickPhotos(p => [...p, ...Array.from(e.target.files || [])]); if (tickFileRef.current) tickFileRef.current.value = ""; }} />
+                <div className="flex flex-wrap gap-2 mt-1.5">
+                  <Button type="button" size="sm" variant="outline" className="min-h-[44px]" onClick={() => tickFileRef.current?.click()}>
+                    <Camera className="h-4 w-4 mr-1.5" /> Add photo
+                  </Button>
+                  {tickPhotos.map((f, i) => (
+                    <span key={i} className="text-xs bg-muted rounded px-2 py-1 inline-flex items-center gap-1">
+                      {f.name.slice(0, 20)}
+                      <button onClick={() => setTickPhotos(p => p.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={() => setTickTarget(null)}>Cancel</Button>
+                <Button onClick={completeRemedial} disabled={ticking}>{ticking ? "Saving…" : "Mark as done"}</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </CollapsibleContent>
     </Collapsible>
   );
