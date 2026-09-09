@@ -11,6 +11,7 @@ import {
   PoundSterling,
   CalendarDays,
   FileSignature,
+  History,
 } from "lucide-react";
 
 /**
