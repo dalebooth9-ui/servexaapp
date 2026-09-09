@@ -92,7 +92,9 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   photo: "Photo",
   signature: "Signature",
   repeating_table: "Table",
+  remedial_items: "Remedial items",
 };
+
 
 // One-click option presets for "Multiple choice" fields. Order matters — the
 // first entry is the most common (matches how inspectors mark paper sheets).
