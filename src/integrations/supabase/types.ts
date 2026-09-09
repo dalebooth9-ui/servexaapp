@@ -2070,6 +2070,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           email: string | null
+          freeagent_contact_id: string | null
           id: string
           import_batch_id: string | null
           imported_at: string | null
@@ -2090,6 +2091,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           email?: string | null
+          freeagent_contact_id?: string | null
           id?: string
           import_batch_id?: string | null
           imported_at?: string | null
@@ -2110,6 +2112,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           email?: string | null
+          freeagent_contact_id?: string | null
           id?: string
           import_batch_id?: string | null
           imported_at?: string | null
@@ -3223,6 +3226,63 @@ export type Database = {
           },
         ]
       }
+      freeagent_connections: {
+        Row: {
+          access_token: string
+          company_name: string | null
+          company_url: string
+          connection_error: string | null
+          created_at: string
+          id: string
+          org_id: string
+          refresh_token: string
+          token_expires_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          company_name?: string | null
+          company_url: string
+          connection_error?: string | null
+          created_at?: string
+          id?: string
+          org_id: string
+          refresh_token: string
+          token_expires_at: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          company_name?: string | null
+          company_url?: string
+          connection_error?: string | null
+          created_at?: string
+          id?: string
+          org_id?: string
+          refresh_token?: string
+          token_expires_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "freeagent_connections_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "freeagent_connections_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generic_rams: {
         Row: {
           approved_at: string | null
@@ -4082,6 +4142,8 @@ export type Database = {
           customer_name: string
           document_type: string
           due_date: string | null
+          freeagent_invoice_id: string | null
+          freeagent_synced_at: string | null
           id: string
           invoice_number: string
           job_id: string | null
@@ -4113,6 +4175,8 @@ export type Database = {
           customer_name?: string
           document_type?: string
           due_date?: string | null
+          freeagent_invoice_id?: string | null
+          freeagent_synced_at?: string | null
           id?: string
           invoice_number: string
           job_id?: string | null
@@ -4144,6 +4208,8 @@ export type Database = {
           customer_name?: string
           document_type?: string
           due_date?: string | null
+          freeagent_invoice_id?: string | null
+          freeagent_synced_at?: string | null
           id?: string
           invoice_number?: string
           job_id?: string | null

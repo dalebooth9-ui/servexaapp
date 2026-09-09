@@ -5,10 +5,13 @@ export interface AccountingConnections {
   xero: boolean;
   quickbooks: boolean;
   sage: boolean;
+  freeagent: boolean;
   loading: boolean;
 }
 
-async function statusFor(fn: "xero-auth" | "quickbooks-auth" | "sage-auth"): Promise<boolean | null> {
+type AuthFunction = "xero-auth" | "quickbooks-auth" | "sage-auth" | "freeagent-auth";
+
+async function statusFor(fn: AuthFunction): Promise<boolean | null> {
   try {
     const session = await supabase.auth.getSession();
     const token = session.data.session?.access_token;
@@ -40,22 +43,25 @@ export function useAccountingConnections(): AccountingConnections {
     xero: false,
     quickbooks: false,
     sage: false,
+    freeagent: false,
     loading: true,
   });
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [xero, quickbooks, sage] = await Promise.all([
+      const [xero, quickbooks, sage, freeagent] = await Promise.all([
         statusFor("xero-auth"),
         statusFor("quickbooks-auth"),
         statusFor("sage-auth"),
+        statusFor("freeagent-auth"),
       ]);
       if (cancelled) return;
       setState({
         xero: xero ?? true,
         quickbooks: quickbooks ?? false,
         sage: sage ?? false,
+        freeagent: freeagent ?? false,
         loading: false,
       });
     })();

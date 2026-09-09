@@ -54,6 +54,7 @@ export default function InvoiceDetail() {
   const [syncingXero, setSyncingXero] = useState(false);
   const [syncingQuickBooks, setSyncingQuickBooks] = useState(false);
   const [syncingSage, setSyncingSage] = useState(false);
+  const [syncingFreeAgent, setSyncingFreeAgent] = useState(false);
   const accounting = useAccountingConnections();
   const [converting, setConverting] = useState(false);
   const [creatingRemedial, setCreatingRemedial] = useState(false);
@@ -527,6 +528,27 @@ export default function InvoiceDetail() {
     }
   };
 
+  const handleSyncFreeAgent = async () => {
+    setSyncingFreeAgent(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("freeagent-sync", {
+        body: { action: "sync_invoice", invoiceId: id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setInvoice((prev: any) => ({
+        ...prev,
+        freeagent_invoice_id: data.freeagent_invoice_id,
+        freeagent_synced_at: new Date().toISOString(),
+      }));
+      toast({ title: "Synced to FreeAgent" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to sync.", variant: "destructive" });
+    } finally {
+      setSyncingFreeAgent(false);
+    }
+  };
+
   if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading...</div>;
   if (!invoice) return <div className="flex h-64 items-center justify-center text-muted-foreground">Not found.</div>;
 
@@ -658,6 +680,12 @@ export default function InvoiceDetail() {
                 <Button size="sm" variant="outline" onClick={handleSyncSage} disabled={syncingSage}>
                   {syncingSage ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />}
                   {invoice.sage_invoice_id ? "Re-sync Sage" : "Send to Sage"}
+                </Button>
+              )}
+              {userRole === "admin" && accounting.freeagent && (
+                <Button size="sm" variant="outline" onClick={handleSyncFreeAgent} disabled={syncingFreeAgent}>
+                  {syncingFreeAgent ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />}
+                  {invoice.freeagent_invoice_id ? "Re-sync FreeAgent" : "Send to FreeAgent"}
                 </Button>
               )}
               {userRole === "admin" && (

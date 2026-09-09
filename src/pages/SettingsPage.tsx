@@ -13,6 +13,7 @@ import ComplianceReminderSettings from "@/components/ComplianceReminderSettings"
 import XeroSettings from "@/components/XeroSettings";
 import QuickBooksSettings from "@/components/QuickBooksSettings";
 import SageSettings from "@/components/SageSettings";
+import FreeAgentSettings from "@/components/FreeAgentSettings";
 import RamsTemplateSettings from "@/components/RamsTemplateSettings";
 import RenewalsSettingsCard from "@/components/settings/RenewalsSettingsCard";
 import FollowUpReminderSettings from "@/components/FollowUpReminderSettings";
@@ -467,6 +468,7 @@ export default function SettingsPage() {
               <XeroSettings />
               <QuickBooksSettings />
               <SageSettings />
+              <FreeAgentSettings />
               <QuoteHoundIntegrationCard />
               <CustomerMergeSuggestionsPanel />
               <CustomerReassignWizard />
