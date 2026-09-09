@@ -14,6 +14,8 @@ import { ResponsiveContainer, BarChart, Bar, Tooltip, XAxis } from "recharts";
 import { formatDistanceToNow, startOfWeek, addWeeks, format, startOfMonth, subMonths } from "date-fns";
 import VehicleCheckReviewCard from "@/components/VehicleCheckReviewCard";
 import SetupChecklist from "@/components/SetupChecklist";
+import NeedsAttentionToday from "@/components/dashboard/NeedsAttentionToday";
+
 import { toast } from "sonner";
 import RenewalsTile from "@/components/renewals/RenewalsTile";
 
@@ -359,6 +361,10 @@ export default function DirectorDashboard() {
       </div>
 
       <SetupChecklist />
+
+      <NeedsAttentionToday />
+
+
 
       {/* ── Needs me today ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
