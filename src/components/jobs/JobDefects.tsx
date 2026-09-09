@@ -13,7 +13,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Plus, Camera, ShieldAlert, ExternalLink, X, FileText, ArrowRight } from "lucide-react";
+import { ChevronDown, Plus, Camera, ShieldAlert, ExternalLink, X, FileText, ArrowRight, History, CheckCircle2, ListChecks } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
