@@ -165,6 +165,11 @@ export default function Jobs() {
   const [fileDragging, setFileDragging] = useState(false);
   const [dialogParsingFile, setDialogParsingFile] = useState(false);
   const [dialogParsedFiles, setDialogParsedFiles] = useState<File[]>([]);
+  // Remedial items the AI spotted in the dropped document(s). Shown for review
+  // before the job is created, then inserted as defects on the new job.
+  const [extractedRemedials, setExtractedRemedials] = useState<
+    { description: string; severity: string; already_completed: boolean }[]
+  >([]);
   const dialogFileInputRef = useRef<HTMLInputElement | null>(null);
   const [fileDropUploading, setFileDropUploading] = useState(false);
   const [fileDropDialogOpen, setFileDropDialogOpen] = useState(false);
