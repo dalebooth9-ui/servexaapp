@@ -11,6 +11,7 @@ import {
   PoundSterling,
   CalendarDays,
   FileSignature,
+  History,
 } from "lucide-react";
 
 /**
@@ -95,6 +96,28 @@ export default function NeedsAttentionToday() {
           .eq("status", "signed").gte("end_date", today).lte("end_date", in30),
       ]);
 
+      // Jobs due today or earlier that still carry unresolved remedials from a previous visit.
+      const { data: carriedRows } = await supabase
+        .from("defects")
+        .select("job_id")
+        .eq("source_kind", "carried_forward")
+        .in("status", ["open", "in_progress", "quoted", "approved", "job_created"])
+        .not("job_id", "is", null)
+        .limit(1000);
+      const carriedJobIds = Array.from(new Set((carriedRows || []).map((d: any) => d.job_id)));
+      let overdueRemedialJobs = 0;
+      if (carriedJobIds.length) {
+        const [{ data: dueJobs }, { data: schedRows }] = await Promise.all([
+          supabase.from("jobs").select("id, due_date").in("id", carriedJobIds)
+            .not("status", "in", OPEN_JOB_STATUSES).lte("due_date", today),
+          supabase.from("job_schedule").select("job_id").in("job_id", carriedJobIds).lte("schedule_date", today),
+        ]);
+        overdueRemedialJobs = new Set([
+          ...(dueJobs || []).map((j: any) => j.id),
+          ...(schedRows || []).map((s: any) => s.job_id),
+        ]).size;
+      }
+
       // Completed but not invoiced — compare completed job ids against invoice job links.
       const completedIds = (completedJobsRes.data || []).map((j: any) => j.id);
       let notInvoiced = 0;
@@ -116,6 +139,7 @@ export default function NeedsAttentionToday() {
         { key: "review", label: "Reports awaiting review", value: awaitingReviewRes.count || 0, to: "/jobs?view=awaiting-report", icon: ClipboardCheck, tone: "warn" },
         { key: "defects", label: "Defects awaiting quote", value: defectsRes.count || 0, to: "/defects", icon: ShieldAlert, tone: "warn" },
         { key: "high-defects", label: "High-priority defects not quoted", value: highDefectsRes.count || 0, to: "/defects", icon: ShieldAlert, tone: "urgent" },
+        { key: "overdue-remedials", label: "Jobs with overdue remedials", value: overdueRemedialJobs, to: "/defects?filter=unquoted&source=carried_forward", icon: History, tone: "urgent" },
         { key: "quotes", label: "Quotes expiring", value: quotesRes.count || 0, to: "/quotes", icon: Clock, tone: "warn" },
         { key: "stale-quotes", label: "Quotes sent, no reply in 14 days", value: staleQuotesRes.count || 0, to: "/quotes", icon: Clock, tone: "warn" },
         { key: "agreements", label: "Agreements expiring in 30 days", value: expiringAgreementsRes.count || 0, to: "/agreements", icon: FileSignature, tone: "warn" },

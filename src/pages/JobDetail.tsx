@@ -300,6 +300,22 @@ export default function JobDetail() {
 
   const handleStatusChange = async (newStatus: string) => {
     if (!id) return;
+
+    if (newStatus === "completed" && job?.status !== "completed") {
+      const { count } = await supabase
+        .from("defects")
+        .select("id", { count: "exact", head: true })
+        .eq("job_id", id)
+        .eq("source_kind", "carried_forward")
+        .in("status", ["open", "in_progress", "quoted", "approved", "job_created"]);
+      if ((count || 0) > 0) {
+        const proceed = window.confirm(
+          `${count} remedial${count === 1 ? "" : "s"} from the previous visit ${count === 1 ? "is" : "are"} still unresolved. Continue anyway?`
+        );
+        if (!proceed) return;
+      }
+    }
+
     const { error } = await supabase.from("jobs").update({ status: newStatus }).eq("id", id);
     if (error) {
       toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });

@@ -13,7 +13,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Plus, Camera, ShieldAlert, ExternalLink, X, FileText, ArrowRight } from "lucide-react";
+import { ChevronDown, Plus, Camera, ShieldAlert, ExternalLink, X, FileText, ArrowRight, History, CheckCircle2, ListChecks } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
@@ -32,7 +33,13 @@ type Defect = {
   quote_id: string | null;
   created_at: string;
   reported_by: string;
+  source_kind: string | null;
+  resolved_at: string | null;
+  resolution_notes: string | null;
 };
+
+export const CARRIED_FORWARD = "carried_forward";
+const OUTSTANDING_STATUSES = ["open", "in_progress", "quoted", "approved", "job_created"];
 
 const SEVERITY_BADGE: Record<string, string> = {
   critical: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
@@ -90,6 +97,12 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
     location_on_site: "",
     bs_standard_reference: "",
   });
+  const [checklistMode, setChecklistMode] = useState(false);
+  const [tickTarget, setTickTarget] = useState<Defect | null>(null);
+  const [tickNote, setTickNote] = useState("");
+  const [tickPhotos, setTickPhotos] = useState<File[]>([]);
+  const [ticking, setTicking] = useState(false);
+  const tickFileRef = useRef<HTMLInputElement>(null);
 
   const fetchDefects = async () => {
     const { data } = await supabase
@@ -114,6 +127,48 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
   };
 
   const unquoted = defects.filter(d => !d.quote_id && ["open", "in_progress"].includes(d.status));
+  const carried = defects.filter(d => d.source_kind === CARRIED_FORWARD);
+  const carriedOutstanding = carried.filter(d => OUTSTANDING_STATUSES.includes(d.status));
+  const carriedDone = carried.filter(d => !OUTSTANDING_STATUSES.includes(d.status));
+  const allCarriedDone = carried.length > 0 && carriedOutstanding.length === 0;
+
+  const completeRemedial = async () => {
+    if (!tickTarget || !user) return;
+    setTicking(true);
+    let photos = (tickTarget.photos as string[] | null) || [];
+    if (tickPhotos.length) photos = [...photos, ...(await uploadPhotos(tickTarget.id, tickPhotos))];
+
+    const { error } = await supabase
+      .from("defects")
+      .update({
+        status: "resolved",
+        resolved_at: new Date().toISOString(),
+        resolved_by: user.id,
+        resolution_notes: tickNote.trim() || null,
+        photos,
+      } as any)
+      .eq("id", tickTarget.id);
+    setTicking(false);
+    if (error) { toast.error("Couldn't mark that remedial as done. Please try again."); return; }
+
+    const stillOpen = carriedOutstanding.filter(d => d.id !== tickTarget.id).length;
+    setTickTarget(null);
+    setTickNote("");
+    setTickPhotos([]);
+    await fetchDefects();
+
+    if (stillOpen === 0 && carried.length > 0) {
+      toast.success("All remedials from previous visit completed");
+      await supabase.from("job_activity_log").insert({
+        job_id: jobId,
+        user_id: user.id,
+        action: "note",
+        details: `All ${carried.length} remedial${carried.length === 1 ? "" : "s"} carried forward from the previous visit are now completed.`,
+      } as any);
+    } else {
+      toast.success("Remedial marked as done", { description: `${stillOpen} still outstanding.` });
+    }
+  };
 
   const handleQuoteAll = async () => {
     setQuoting(true);
@@ -205,6 +260,56 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
         <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-3 space-y-3">
+        {!loading && carried.length > 0 && (
+          <div className={`rounded-lg border-l-4 border bg-amber-500/10 border-amber-500/40 border-l-amber-500 p-3 space-y-3 ${allCarriedDone ? "bg-emerald-500/10 border-emerald-500/40 border-l-emerald-500" : ""}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-start gap-2">
+                {allCarriedDone
+                  ? <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-600" />
+                  : <History className="h-4 w-4 mt-0.5 text-amber-600" />}
+                <div>
+                  <p className="text-sm font-semibold">
+                    {allCarriedDone ? "All remedials from previous visit completed" : "Remedials from previous visit"}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {allCarriedDone
+                      ? `${carried.length} item${carried.length === 1 ? "" : "s"} carried forward, all done.`
+                      : `${carriedOutstanding.length} of ${carried.length} outstanding — these are not new defects, they are work left from last time.`}
+                  </p>
+                </div>
+              </div>
+              <Button size="sm" variant={checklistMode ? "default" : "outline"} onClick={() => setChecklistMode(m => !m)}>
+                <ListChecks className="mr-1.5 h-4 w-4" /> {checklistMode ? "Hide checklist" : "Remedial checklist"}
+              </Button>
+            </div>
+
+            {checklistMode && (
+              <div className="space-y-1.5">
+                {[...carriedOutstanding, ...carriedDone].map(d => {
+                  const done = !OUTSTANDING_STATUSES.includes(d.status);
+                  return (
+                    <div key={d.id} className="flex items-start gap-3 rounded-md bg-background border p-3 min-h-[44px]">
+                      <Checkbox
+                        className="mt-0.5 h-5 w-5"
+                        checked={done}
+                        disabled={done}
+                        onCheckedChange={(v) => { if (v) { setTickTarget(d); setTickNote(""); setTickPhotos([]); } }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm ${done ? "line-through text-muted-foreground" : ""}`}>{d.description || d.title}</p>
+                        {done && d.resolution_notes && <p className="text-[11px] text-muted-foreground mt-0.5">{d.resolution_notes}</p>}
+                        {done && d.resolved_at && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Done {format(new Date(d.resolved_at), "dd/MM/yyyy HH:mm")}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex flex-wrap justify-between items-center gap-2">
           <p className="text-xs text-muted-foreground max-w-md">Track deficiencies found on this job. Logged defects appear in the global Defects page for batch quoting.</p>
           <div className="flex gap-2">
@@ -386,6 +491,39 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
                 <Button onClick={handleCreate} disabled={creating || !form.title.trim()}>{creating ? "Logging…" : "Log Defect"}</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!tickTarget} onOpenChange={(o) => { if (!o) { setTickTarget(null); setTickPhotos([]); } }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Mark remedial as done</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <p className="text-sm">{tickTarget?.description || tickTarget?.title}</p>
+              <div>
+                <Label>Note (optional)</Label>
+                <Textarea rows={3} value={tickNote} onChange={e => setTickNote(e.target.value)} placeholder="What was done?" />
+              </div>
+              <div>
+                <Label>Photo (optional)</Label>
+                <input ref={tickFileRef} type="file" accept="image/*" multiple capture="environment" className="hidden"
+                  onChange={e => { setTickPhotos(p => [...p, ...Array.from(e.target.files || [])]); if (tickFileRef.current) tickFileRef.current.value = ""; }} />
+                <div className="flex flex-wrap gap-2 mt-1.5">
+                  <Button type="button" size="sm" variant="outline" className="min-h-[44px]" onClick={() => tickFileRef.current?.click()}>
+                    <Camera className="h-4 w-4 mr-1.5" /> Add photo
+                  </Button>
+                  {tickPhotos.map((f, i) => (
+                    <span key={i} className="text-xs bg-muted rounded px-2 py-1 inline-flex items-center gap-1">
+                      {f.name.slice(0, 20)}
+                      <button onClick={() => setTickPhotos(p => p.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={() => setTickTarget(null)}>Cancel</Button>
+                <Button onClick={completeRemedial} disabled={ticking}>{ticking ? "Saving…" : "Mark as done"}</Button>
               </div>
             </div>
           </DialogContent>
