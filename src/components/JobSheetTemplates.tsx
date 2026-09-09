@@ -2380,7 +2380,10 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                               value={formData[field.id]}
                               label={field.label}
                             />
+                          ) : field.type === "remedial_items" ? (
+                            <RemedialItemsField value={formData[field.id]} onChange={() => {}} readOnly />
                           ) : (
+
                             <span className="text-xs font-medium whitespace-pre-wrap">
                               {field.type === "checkbox"
                                 ? (() => {
