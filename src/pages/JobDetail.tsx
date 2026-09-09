@@ -1052,7 +1052,14 @@ export default function JobDetail() {
           </CollapsibleContent>
         </Collapsible>
       )}
+
+      {["completed", "archived", "pending_review"].includes(job.status) && (
+        <div className="mb-6">
+          <ComplianceRecord jobId={id!} />
+        </div>
+      )}
       </>)}
+
 
 
       {activeTab === "documents" && (<>
