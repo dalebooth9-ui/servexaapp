@@ -139,7 +139,7 @@ export async function carryForwardRemedials(opts: {
       severity: /already completed/i.test(key) ? "low" : "medium",
       status: "open",
       reported_by: userId,
-      source_kind: "carry_forward",
+      source_kind: "job",
     });
   }
 
