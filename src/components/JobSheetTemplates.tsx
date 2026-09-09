@@ -133,6 +133,10 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [aiRamsData, setAiRamsData] = useState<Record<string, any> | null>(null);
   const [jobInfo, setJobInfo] = useState<JobInfo | null>(null);
   const [scheduledDate, setScheduledDate] = useState<string>("");
+  // "Prefill from last visit" — offered only when a matching completed report exists.
+  const [lastVisit, setLastVisit] = useState<LastVisit | null>(null);
+  const [lastVisitApplied, setLastVisitApplied] = useState(false);
+  const [lastVisitFieldIds, setLastVisitFieldIds] = useState<Set<string>>(new Set());
 
   // Auto-save template form data — IndexedDB-backed for offline resilience
   const templateFormKey = activeTemplate ? `template-form-${jobId}-${activeTemplate.id}${activeResponse ? `-${activeResponse.id}` : ""}` : null;
@@ -887,6 +891,22 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const handleStartForm = async (template: Template, existingResponse?: Response) => {
     setActiveTemplate(template);
     setViewingResponse(null);
+    setLastVisit(null);
+    setLastVisitApplied(false);
+    setLastVisitFieldIds(new Set());
+    void (async () => {
+      try {
+        const { data: jobRow } = await supabase.from("jobs").select("site_id").eq("id", jobId).maybeSingle();
+        const found = await findLastVisitReport(supabase, {
+          jobId,
+          siteId: (jobRow as any)?.site_id ?? null,
+          templateId: template.id,
+        });
+        if (found) setLastVisit(found);
+      } catch (e) {
+        console.warn("[JobSheetTemplates] last-visit lookup failed", e);
+      }
+    })();
 
     // If the async fetchData hasn't populated jobInfo yet (e.g. engineer taps
     // "Fill in" the instant the tab mounts), fetch the job context on demand
@@ -1075,6 +1095,31 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
   const handleFieldValue = (fieldId: string, value: any) => {
     setFormData((prev) => ({ ...prev, [fieldId]: value }));
+    setLastVisitFieldIds((prev) => {
+      if (!prev.has(fieldId)) return prev;
+      const next = new Set(prev);
+      next.delete(fieldId);
+      return next;
+    });
+  };
+
+  /** Copy stable facts (assets, counts, equipment) forward from the last visit. */
+  const applyLastVisitPrefill = () => {
+    if (!activeTemplate || !lastVisit) return;
+    const patch = buildLastVisitPrefill(
+      (activeTemplate.fields || []) as any,
+      lastVisit.answers || {},
+      formData,
+    );
+    const keys = Object.keys(patch);
+    setLastVisitApplied(true);
+    if (keys.length === 0) {
+      toast({ title: "Nothing to copy", description: "Everything that can carry forward is already filled in." });
+      return;
+    }
+    setFormData((prev) => ({ ...prev, ...patch }));
+    setLastVisitFieldIds(new Set(keys));
+    toast({ title: `Filled ${keys.length} field${keys.length === 1 ? "" : "s"} from the last visit`, description: "Check each one before you submit — condition answers stay blank." });
   };
 
   const handleSaveDraft = async () => {
