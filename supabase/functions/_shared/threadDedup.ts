@@ -195,3 +195,34 @@ export async function findExistingThreadJob(
   return null;
 }
 
+
+/** Case / whitespace / punctuation insensitive key for a customer PO. */
+export function normalisePoKey(v: string | null | undefined): string {
+  return (v || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Find the most recent non-cancelled job in the org whose customer PO matches
+ * any of the supplied normalised PO keys. Shared by the email intake paths so
+ * automated flows attach to the existing job instead of duplicating it.
+ */
+export async function findJobByPoKeys(
+  admin: any,
+  orgId: string,
+  poKeys: string[],
+): Promise<any | null> {
+  const keys = poKeys.filter((k) => k && k.length >= 3);
+  if (!keys.length) return null;
+  const { data } = await admin
+    .from("jobs")
+    .select("id, reference_number, brief, name, status, customer_po, intake_message_ids")
+    .eq("org_id", orgId)
+    .neq("status", "cancelled")
+    .not("customer_po", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  for (const row of (data || [])) {
+    if (keys.includes(normalisePoKey(row.customer_po))) return row;
+  }
+  return null;
+}
