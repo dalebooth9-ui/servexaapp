@@ -191,6 +191,42 @@ serve(async (req) => {
   }
   const brief = briefParts.join("\n").trim() || null;
 
+  // ---------- Duplicate guard (no user in the loop) ----------
+  // A PO that is already on a live job must never spawn a second job. Attach
+  // the email to the existing job, log it, and flag the job for review.
+  if (po_number?.trim()) {
+    const existing = await findJobByPoKeys(admin, orgId!, [normalisePoKey(po_number)]);
+    if (existing) {
+      const note = [
+        `Duplicate PO email received (${po_number.trim()})`,
+        email_subject ? `Subject: ${email_subject}` : "",
+        sender_email ? `From: ${sender_email}` : "",
+      ].filter(Boolean).join(" — ");
+      await admin.from("job_activity_log").insert({
+        job_id: existing.id,
+        org_id: orgId,
+        action: "email_received",
+        detail: note,
+      } as any);
+      await admin
+        .from("jobs")
+        .update({ email_review_flag: true, has_unread_email: true })
+        .eq("id", existing.id);
+      console.log("po-intake attached duplicate PO to existing job", {
+        job_id: existing.id,
+        reference_number: existing.reference_number,
+        po_number: po_number.trim(),
+      });
+      return json(200, {
+        ok: true,
+        duplicate: true,
+        job_id: existing.id,
+        reference_number: existing.reference_number,
+        message: "PO already on an existing job — email attached for review",
+      });
+    }
+  }
+
   const jobInsert: Record<string, unknown> = {
     name,
     customer: resolvedCustomerName,
