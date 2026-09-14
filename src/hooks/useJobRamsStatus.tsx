@@ -69,7 +69,12 @@ export function useJobRamsStatus(jobId?: string | null): JobRamsStatus {
     const [ramsRes, genRes, docsRes, signoffRes] = await Promise.all([
       supabase.from("rams" as any).select("id, works_description, version").eq("job_id", jobId),
       supabase.from("generic_rams" as any).select("id, description").eq("job_id", jobId),
-      supabase.from("rams_documents" as any).select("id, rams_type, contract_job_name").eq("job_id", jobId),
+      supabase
+        .from("rams_documents" as any)
+        .select(
+          "id, rams_type, contract_job_name, is_external, external_file_path, external_file_url, external_file_name, issued_by, external_approval_status, valid_until, created_at",
+        )
+        .eq("job_id", jobId),
       supabase.from("rams_signoffs" as any).select("rams_kind, rams_id, engineer_id").eq("job_id", jobId),
     ]);
 
