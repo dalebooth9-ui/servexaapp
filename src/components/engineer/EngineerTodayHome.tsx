@@ -277,7 +277,10 @@ export default function EngineerTodayHome() {
           acknowledged_at: s.acknowledged_at,
         } as JobLite;
       })
-      .filter(Boolean) as JobLite[];
+      .filter(Boolean)
+      // A finished job stays visible on the day it was completed/cancelled,
+      // but drops off any later scheduled days.
+      .filter((j: JobLite) => !isFinished(j.status) || (j.schedule_date ?? "") <= finishedOn(j, todayStr)) as JobLite[];
 
     // Site context: outstanding defects, last completed visit, RAMS state.
     const siteIds = Array.from(new Set(combined.map((j) => j.site_id).filter(Boolean))) as string[];
