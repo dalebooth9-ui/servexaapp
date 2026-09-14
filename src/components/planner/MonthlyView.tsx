@@ -95,8 +95,8 @@ function DraggableJobCard({ job }: { job: Job }) {
         isDragging && "opacity-30"
       )}
     >
-      <div className="flex items-center justify-between gap-1 mb-0.5">
-        <span className="font-mono font-medium text-primary">{job.reference_number}</span>
+      <div className="flex items-start justify-between gap-1 mb-0.5">
+        <div className="truncate text-foreground flex-1 min-w-0 pr-1">{job.name}</div>
         {isOverdue ? (
           <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
             <AlertTriangle className="h-2.5 w-2.5" /> OVERDUE
@@ -111,13 +111,8 @@ function DraggableJobCard({ job }: { job: Job }) {
           </span>
         ) : null}
       </div>
-      <div className="truncate text-foreground">{job.name}</div>
-      {job.customer && <div className="text-muted-foreground truncate">{job.customer}</div>}
-      {(job.site?.name || job.site?.postcode) && (
-        <div className="text-muted-foreground truncate text-[10px]">
-          {job.site!.name}{job.site!.postcode ? ` · ${job.site!.postcode}` : ""}
-        </div>
-      )}
+      <JobCardSubtitle job={job} className="text-muted-foreground truncate text-[10px]" />
+      {job.customer && <div className="text-muted-foreground truncate text-[10px]">{job.customer}</div>}
     </div>
   );
 }
