@@ -86,10 +86,20 @@ export default function JobRamsPanel({ jobId, job, canEdit = false, showSignActi
   const [creating, setCreating] = useState(false);
   const [signDoc, setSignDoc] = useState<JobRamsStatus["documents"][number] | null>(null);
   const [hazardSlugs, setHazardSlugs] = useState<string[]>([]);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const { modules: hazardModules, loading: hazardLoading } = useHazardModules({ approvedOnly: true });
 
   const toggleHazard = (slug: string) =>
     setHazardSlugs((prev) => (prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]));
+
+  const openExternal = async (d: JobRamsStatus["documents"][number]) => {
+    const url = await externalRamsUrl(d.externalFilePath, d.externalFileUrl);
+    if (!url) {
+      toast({ title: "File unavailable", description: "Could not open this document.", variant: "destructive" });
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
 
   const types = useMemo(() => {
     const all = Object.keys(RAMS_TYPE_LABELS) as RamsType[];
