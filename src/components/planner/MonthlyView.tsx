@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { AlertTriangle, X } from "lucide-react";
 import { Link } from "react-router-dom";
+import { JobCardSubtitle } from "@/lib/jobCardLabel";
 import {
   DndContext,
   DragOverlay,
