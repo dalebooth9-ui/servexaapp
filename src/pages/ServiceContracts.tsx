@@ -15,6 +15,8 @@ import { Plus, FileSignature, PoundSterling, Calendar, AlertTriangle } from "luc
 import { format, differenceInDays } from "date-fns";
 import { toast } from "sonner";
 import { UKDateInput } from "@/components/ui/uk-date-input";
+import DeleteRecordAction from "@/components/common/DeleteRecordAction";
+
 
 type Contract = {
   id: string;
