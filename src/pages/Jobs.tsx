@@ -1144,6 +1144,7 @@ export default function Jobs() {
       name: parsed.data.name,
     });
 
+    const hadCustomerLink = !!form.customer_id;
     const { data: createdJob, error } = await supabase.from("jobs").insert({
       name: parsed.data.name,
       ...(parsed.data.reference_number ? { reference_number: parsed.data.reference_number } : {}),
