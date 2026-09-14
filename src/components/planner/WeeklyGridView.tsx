@@ -160,15 +160,8 @@ function DraggableUnallocatedJob({
         <CalendarDays className="h-3 w-3" />
       </button>
       <div className="relative z-[1]">
-        <div className="flex items-center justify-between gap-1 mb-0.5 pr-5">
-          <Link
-            to={`/jobs/${job.id}`}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            className="font-mono font-medium text-primary hover:underline z-10"
-          >
-            {job.reference_number}
-          </Link>
+        <div className="flex items-start justify-between gap-1 mb-0.5 pr-5">
+          <div className="text-foreground break-words line-clamp-2 flex-1 min-w-0 pr-1">{job.name}</div>
           {isOverdue ? (
             <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
               <AlertTriangle className="h-2.5 w-2.5" /> OVERDUE
@@ -183,13 +176,8 @@ function DraggableUnallocatedJob({
             </span>
           ) : null}
         </div>
-        <div className="text-foreground break-words line-clamp-2">{job.name}</div>
-        {((job as any).customers?.name || job.customer) && <div className="text-muted-foreground break-words line-clamp-2">{(job as any).customers?.name || job.customer}</div>}
-        {(job.site?.name || job.site?.postcode) && (
-          <div className="text-muted-foreground truncate">
-            {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
-          </div>
-        )}
+        <JobCardSubtitle job={job} className="text-muted-foreground truncate text-[10px]" />
+        {((job as any).customers?.name || job.customer) && <div className="text-muted-foreground break-words line-clamp-2 text-[10px]">{(job as any).customers?.name || job.customer}</div>}
         <div className="flex flex-wrap gap-1 mt-0.5">
           {(job as any).preassigned_engineer_name && (
             <span
