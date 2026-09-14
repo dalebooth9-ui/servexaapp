@@ -2693,6 +2693,19 @@ export default function Jobs() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <DuplicateJobWarningDialog
+        open={duplicateDialogOpen}
+        onOpenChange={setDuplicateDialogOpen}
+        duplicates={duplicateJobs}
+        customerPo={form.customer_po}
+        onCreateAnyway={() => {
+          const status = pendingCreateStatus;
+          setDuplicateJobs([]);
+          setPendingCreateStatus(null);
+          handleCreate({ preventDefault: () => {} } as any, status || undefined, true);
+        }}
+      />
+
       <Dialog open={fileDropChoiceOpen} onOpenChange={(open) => { setFileDropChoiceOpen(open); if (!open) { setFileDropPendingFiles([]); setFileDropTargetJob(null); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Add Files to Job</DialogTitle></DialogHeader>
