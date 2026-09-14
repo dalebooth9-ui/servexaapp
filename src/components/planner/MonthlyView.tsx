@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { AlertTriangle, X } from "lucide-react";
 import { Link } from "react-router-dom";
+import { JobCardSubtitle } from "@/lib/jobCardLabel";
 import {
   DndContext,
   DragOverlay,
@@ -94,8 +95,8 @@ function DraggableJobCard({ job }: { job: Job }) {
         isDragging && "opacity-30"
       )}
     >
-      <div className="flex items-center justify-between gap-1 mb-0.5">
-        <span className="font-mono font-medium text-primary">{job.reference_number}</span>
+      <div className="flex items-start justify-between gap-1 mb-0.5">
+        <div className="truncate text-foreground flex-1 min-w-0 pr-1">{job.name}</div>
         {isOverdue ? (
           <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
             <AlertTriangle className="h-2.5 w-2.5" /> OVERDUE
@@ -110,13 +111,8 @@ function DraggableJobCard({ job }: { job: Job }) {
           </span>
         ) : null}
       </div>
-      <div className="truncate text-foreground">{job.name}</div>
-      {job.customer && <div className="text-muted-foreground truncate">{job.customer}</div>}
-      {(job.site?.name || job.site?.postcode) && (
-        <div className="text-muted-foreground truncate text-[10px]">
-          {job.site!.name}{job.site!.postcode ? ` · ${job.site!.postcode}` : ""}
-        </div>
-      )}
+      <JobCardSubtitle job={job} className="text-muted-foreground truncate text-[10px]" />
+      {job.customer && <div className="text-muted-foreground truncate text-[10px]">{job.customer}</div>}
     </div>
   );
 }
@@ -148,41 +144,39 @@ function DraggableEntryChip({
     <div
       ref={setNodeRef}
       className={cn(
-        "group relative flex items-center gap-1 rounded px-1 py-0.5 text-[10px] cursor-grab",
+        "group relative flex flex-col gap-0.5 rounded px-1 py-0.5 text-[10px] cursor-grab",
         isOverdue ? "bg-destructive/10 text-destructive" : dueToday ? "bg-amber-500/10 text-amber-700" : "bg-muted/60 text-foreground",
         isDragging && "opacity-30",
         isAdmin && "cursor-grab"
       )}
       {...(isAdmin ? { ...attributes, ...listeners } : {})}
     >
-      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", PRIORITY_DOT[job.priority] || "bg-muted-foreground")} />
-      <Link
-        to={`/jobs/${job.id}`}
-        className="font-mono font-semibold text-primary hover:underline shrink-0"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {job.reference_number}
-      </Link>
-      <span className="truncate flex-1 min-w-0">{job.name}</span>
-      {job.due_date && (() => {
-        return isOverdue ? (
-          <span className="inline-flex items-center rounded bg-destructive px-1 py-0.5 text-[8px] font-bold text-destructive-foreground shrink-0 ml-auto">OD</span>
-        ) : dueToday ? (
-          <span className="inline-flex items-center rounded bg-amber-500 px-1 py-0.5 text-[8px] font-bold text-white shrink-0 ml-auto">TODAY</span>
-        ) : (
-          <span className="inline-flex items-center rounded bg-muted border border-border px-1 py-0.5 text-[8px] font-mono text-muted-foreground shrink-0 ml-auto">
-            {format(parseISO(job.due_date), "dd/MM")}
-          </span>
-        );
-      })()}
-      {isAdmin && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
-          className="shrink-0 opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
-        >
-          <X className="h-2.5 w-2.5" />
-        </button>
-      )}
+      <div className="flex items-center gap-1">
+        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", PRIORITY_DOT[job.priority] || "bg-muted-foreground")} />
+        <span className="truncate flex-1 min-w-0 text-foreground">{job.name}</span>
+        {job.due_date && (() => {
+          return isOverdue ? (
+            <span className="inline-flex items-center rounded bg-destructive px-1 py-0.5 text-[8px] font-bold text-destructive-foreground shrink-0 ml-auto">OD</span>
+          ) : dueToday ? (
+            <span className="inline-flex items-center rounded bg-amber-500 px-1 py-0.5 text-[8px] font-bold text-white shrink-0 ml-auto">TODAY</span>
+          ) : (
+            <span className="inline-flex items-center rounded bg-muted border border-border px-1 py-0.5 text-[8px] font-mono text-muted-foreground shrink-0 ml-auto">
+              {format(parseISO(job.due_date), "dd/MM")}
+            </span>
+          );
+        })()}
+        {isAdmin && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
+            className="shrink-0 opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
+          >
+            <X className="h-2.5 w-2.5" />
+          </button>
+        )}
+      </div>
+      <div className="pl-2.5">
+        <JobCardSubtitle job={job} className="text-[10px] text-muted-foreground truncate" />
+      </div>
     </div>
   );
 }

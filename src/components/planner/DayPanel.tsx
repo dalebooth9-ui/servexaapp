@@ -27,6 +27,7 @@ interface DayPanelJob {
   name: string;
   status: string;
   priority: string;
+  address?: string | null;
   site?: { name: string; postcode: string | null } | null;
 }
 
@@ -53,6 +54,7 @@ function SortableRow({ entry, onRemove }: { entry: DayPanelEntry; onRemove: (id:
         title={job?.name || "Untitled"}
         siteName={job?.site?.name}
         postcode={job?.site?.postcode}
+        address={job?.address}
         priority={job?.priority}
         status={job?.status}
         dragHandleProps={listeners}
@@ -108,7 +110,7 @@ export default function DayPanel({
       if (jobIds.length > 0) {
         const { data: jobsData } = await supabase
           .from("jobs")
-          .select("id, reference_number, name, status, priority, site_id")
+          .select("id, reference_number, name, status, priority, site_id, address")
           .in("id", jobIds);
         const siteIds = Array.from(new Set((jobsData || []).map((j: any) => j.site_id).filter(Boolean)));
         let sitesById: Record<string, { name: string; postcode: string | null }> = {};
@@ -128,6 +130,7 @@ export default function DayPanel({
             name: j.name,
             status: j.status,
             priority: j.priority,
+            address: j.address,
             site: j.site_id ? sitesById[j.site_id] : null,
           };
         });

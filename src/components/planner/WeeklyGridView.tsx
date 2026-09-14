@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { X, GripVertical, AlertTriangle, CalendarDays, Palmtree, Users } from "lucide-react";
 import { Link } from "react-router-dom";
+import { JobCardSubtitle } from "@/lib/jobCardLabel";
 import {
   DndContext,
   DragOverlay,
@@ -159,15 +160,8 @@ function DraggableUnallocatedJob({
         <CalendarDays className="h-3 w-3" />
       </button>
       <div className="relative z-[1]">
-        <div className="flex items-center justify-between gap-1 mb-0.5 pr-5">
-          <Link
-            to={`/jobs/${job.id}`}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            className="font-mono font-medium text-primary hover:underline z-10"
-          >
-            {job.reference_number}
-          </Link>
+        <div className="flex items-start justify-between gap-1 mb-0.5 pr-5">
+          <div className="text-foreground break-words line-clamp-2 flex-1 min-w-0 pr-1">{job.name}</div>
           {isOverdue ? (
             <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
               <AlertTriangle className="h-2.5 w-2.5" /> OVERDUE
@@ -182,13 +176,8 @@ function DraggableUnallocatedJob({
             </span>
           ) : null}
         </div>
-        <div className="text-foreground break-words line-clamp-2">{job.name}</div>
-        {((job as any).customers?.name || job.customer) && <div className="text-muted-foreground break-words line-clamp-2">{(job as any).customers?.name || job.customer}</div>}
-        {(job.site?.name || job.site?.postcode) && (
-          <div className="text-muted-foreground truncate">
-            {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
-          </div>
-        )}
+        <JobCardSubtitle job={job} className="text-muted-foreground truncate text-[10px]" />
+        {((job as any).customers?.name || job.customer) && <div className="text-muted-foreground break-words line-clamp-2 text-[10px]">{(job as any).customers?.name || job.customer}</div>}
         <div className="flex flex-wrap gap-1 mt-0.5">
           {(job as any).preassigned_engineer_name && (
             <span
@@ -301,30 +290,25 @@ function SpanningJobCard({
       )}
       <div className="flex items-start gap-1 min-w-0">
         <div className="flex-1 min-w-0 pr-16">
-          <div className="flex items-center gap-1 flex-wrap mb-0.5">
-            <Link to={`/jobs/${job.id}`} className="font-mono font-semibold text-primary hover:underline shrink-0 text-[11px]">
-              {job.reference_number}
-            </Link>
-            {STATUS_INDICATOR[job.status] && (
-              <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none shrink-0", STATUS_INDICATOR[job.status].class)}>
-                {STATUS_INDICATOR[job.status].label}
-              </span>
-            )}
-            {isOverdue && (
-              <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
-                <AlertTriangle className="h-2 w-2" /> OVR
-              </span>
-            )}
-            {dueToday && !isOverdue && (
-              <span className="inline-flex items-center rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white shrink-0">TODAY</span>
-            )}
-          </div>
-          <div className="truncate text-foreground font-medium">{job.name}</div>
-          {(job.site?.name || job.site?.postcode) && (
-            <div className="truncate text-muted-foreground text-[10px]">
-              📍 {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
+          <div className="flex items-start justify-between gap-1 mb-0.5">
+            <div className="truncate text-foreground font-medium flex-1 min-w-0 pr-1">{job.name}</div>
+            <div className="flex items-center gap-1 flex-wrap shrink-0">
+              {STATUS_INDICATOR[job.status] && (
+                <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none shrink-0", STATUS_INDICATOR[job.status].class)}>
+                  {STATUS_INDICATOR[job.status].label}
+                </span>
+              )}
+              {isOverdue && (
+                <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
+                  <AlertTriangle className="h-2 w-2" /> OVR
+                </span>
+              )}
+              {dueToday && !isOverdue && (
+                <span className="inline-flex items-center rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white shrink-0">TODAY</span>
+              )}
             </div>
-          )}
+          </div>
+          <JobCardSubtitle job={job} className="truncate text-muted-foreground text-[10px]" />
           {entry?.notes && (
             <div
               className="truncate italic text-[10px] font-medium"
@@ -426,44 +410,32 @@ function DraggableScheduleCard({
         </div>
       )}
       <div className={cn("flex-1 min-w-0", isAdmin && "pr-14")}>
-        <div className="flex items-center justify-between gap-1 mb-0.5">
-          <div className="flex items-center gap-1 min-w-0">
-            <Link
-              to={`/jobs/${job.id}`}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              className="font-mono font-semibold text-primary hover:underline shrink-0"
-            >
-              {job.reference_number}
-            </Link>
+        <div className="flex items-start justify-between gap-1 mb-0.5">
+          <div className="truncate text-foreground flex-1 min-w-0 pr-1">{job.name}</div>
+          <div className="flex items-center gap-1 flex-wrap shrink-0">
             {STATUS_INDICATOR[job.status] && (
               <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none shrink-0", STATUS_INDICATOR[job.status].class)}>
                 {STATUS_INDICATOR[job.status].label}
               </span>
             )}
+            {job.due_date && (() => {
+              return isOverdue ? (
+                <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
+                  <AlertTriangle className="h-2 w-2" /> OVERDUE
+                </span>
+              ) : dueToday ? (
+                <span className="inline-flex items-center rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white shrink-0">
+                  TODAY
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded bg-muted border border-border px-1.5 py-0.5 text-[9px] font-mono text-muted-foreground shrink-0">
+                  {format(parseISO(job.due_date!), "dd/MM/yy")}
+                </span>
+              );
+            })()}
           </div>
-          {job.due_date && (() => {
-            return isOverdue ? (
-              <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
-                <AlertTriangle className="h-2 w-2" /> OVERDUE
-              </span>
-            ) : dueToday ? (
-              <span className="inline-flex items-center rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white shrink-0">
-                TODAY
-              </span>
-            ) : (
-              <span className="inline-flex items-center rounded bg-muted border border-border px-1.5 py-0.5 text-[9px] font-mono text-muted-foreground shrink-0">
-                {format(parseISO(job.due_date!), "dd/MM/yy")}
-              </span>
-            );
-          })()}
         </div>
-        <div className="truncate text-foreground">{job.name}</div>
-        {(job.site?.name || job.site?.postcode) && (
-          <div className="truncate text-muted-foreground text-[10px]">
-            📍 {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
-          </div>
-        )}
+        <JobCardSubtitle job={job} className="truncate text-muted-foreground text-[10px]" />
         {entry.notes && (
           <div
             className="truncate italic text-[10px] font-medium"
@@ -1627,6 +1599,7 @@ function SortableEngineerRow({
                           title={r.job?.name || "Untitled"}
                           siteName={r.job?.site?.name}
                           postcode={r.job?.site?.postcode}
+                          address={r.job?.address}
                           priority={r.job?.priority}
                           status={r.job?.status}
                           onRemove={isAdmin && r.entryId ? () => onRemove(r.entryId!) : undefined}

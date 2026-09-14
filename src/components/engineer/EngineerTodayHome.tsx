@@ -14,6 +14,7 @@ import { Loader2, MapPin, CalendarClock, Truck, AlertTriangle, CheckCircle2, Log
 import VehicleCheckSheet from "@/components/VehicleCheckSheet";
 import { buildMapsUrl, hasDestination } from "@/lib/openInMaps";
 import FieldConnectivityTip from "@/components/engineer/FieldConnectivityTip";
+import { jobCardSubtitle } from "@/lib/jobCardLabel";
 
 
 
@@ -89,15 +90,16 @@ function BigJobCard({ job, showDate = false }: { job: JobLite; showDate?: boolea
             {job.customer && (
               <p className="text-sm font-semibold text-muted-foreground truncate">{job.customer}</p>
             )}
-            <p className="text-2xl font-bold leading-tight break-words">
-              {job.site_name || job.name}
+            <p className="text-2xl font-bold leading-tight break-words">{job.name}</p>
+            <p className="text-sm text-muted-foreground truncate">
+              {jobCardSubtitle({
+                site: { name: job.site_name ?? null, postcode: job.site_postcode ?? null },
+                address: job.address,
+                reference_number: job.reference_number,
+              })}
             </p>
-            {job.site_name && (
-              <p className="text-base text-muted-foreground mt-0.5 break-words">{job.name}</p>
-            )}
           </div>
           <div className="flex flex-col items-end gap-1 shrink-0">
-            <span className="font-mono text-xs text-muted-foreground">{job.reference_number}</span>
             {needsAck && (
               <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 gap-1 text-[11px]">
                 <AlertTriangle className="h-3 w-3" /> Ack
