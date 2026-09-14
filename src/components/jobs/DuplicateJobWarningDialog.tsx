@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { duplicateJobLabel, type DuplicateJob } from "@/lib/duplicateJobs";
-import { formatUKDate } from "@/lib/dateFormat";
+import { formatDate } from "@/lib/dateFormat";
 
 interface Props {
   open: boolean;
@@ -61,7 +61,7 @@ export default function DuplicateJobWarningDialog({
                 <span className="font-mono">{d.reference_number}</span>
                 {d.customer_po && <> · PO {d.customer_po}</>}
                 {(d.sites?.name || d.address) && <> · {d.sites?.name || d.address}</>}
-                {d.created_at && <> · created {formatUKDate(d.created_at)}</>}
+                {d.created_at && <> · created {formatDate(d.created_at)}</>}
                 {d.status && <> · {d.status}</>}
               </div>
               <Button
