@@ -193,7 +193,7 @@ export default function JobCompleteAction({
     );
 
   const hasMissing = missingRequired.length > 0;
-  const canProceed = !hasMissing || (userRole === "admin" && overrideReason.trim().length >= 3);
+  const canProceed = !hasMissing || userRole === "admin";
 
   const handleDeleteDraft = async (draftId: string) => {
     const { error } = await supabase.from("job_sheet_responses").delete().eq("id", draftId);
@@ -231,7 +231,7 @@ export default function JobCompleteAction({
         completed_at: new Date().toISOString(),
         completed_by: user.id,
       };
-      if (hasMissing && userRole === "admin") {
+      if (hasMissing && userRole === "admin" && overrideReason.trim()) {
         patch.completion_override_reason = overrideReason.trim();
       }
       const { error } = await supabase.from("jobs").update(patch).eq("id", jobId);
@@ -447,13 +447,13 @@ export default function JobCompleteAction({
                     {userRole === "admin" ? (
                       <div className="mt-3 space-y-1.5">
                         <Label htmlFor="override" className="text-xs">
-                          Admin override reason (required to proceed)
+                          Admin override reason (optional)
                         </Label>
                         <Textarea
                           id="override"
                           value={overrideReason}
                           onChange={(e) => setOverrideReason(e.target.value)}
-                          placeholder="e.g. Customer left site before signing; will follow up remotely."
+                          placeholder="Optional: reason for completing without all items"
                           rows={2}
                           className="bg-background"
                         />
