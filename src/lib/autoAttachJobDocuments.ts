@@ -199,8 +199,34 @@ export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan
     }
   }
 
+  // Every detected work type must contribute its mapped sheet, so a
+  // "pressure test + remedial" job ends up with both forms — not just the one
+  // the primary category points at.
+  const plannedIds = new Set<string>([
+    ...existing.map((r) => r.template_id || ""),
+    ...plan.autoSlots.map((s) => s.template.id),
+    ...plan.needsChoice.flatMap((s) => s.candidates.map((c) => c.id)),
+  ]);
+  for (const slug of workTypes) {
+    if (!slug || slug === jobCategory) continue;
+    const tpls = templatesForSlug(slug);
+    if (tpls.length === 0) continue;
+    // One sheet per work type (the first mapped/canonical one).
+    const pick = [...tpls].sort((a, b) => Number(!!b.locked) - Number(!!a.locked))[0];
+    if (plannedIds.has(pick.id)) continue;
+    plannedIds.add(pick.id);
+    plan.autoSlots.push({ bucket: "category_default", index: plan.autoSlots.length + 1, template: pick });
+  }
+
+  // Last resort — never leave a job with zero sheets.
+  if (guaranteeOne && plan.autoSlots.length === 0 && plan.needsChoice.length === 0 && existing.length === 0) {
+    const fallback = templatesForSlug("general")[0];
+    if (fallback) plan.autoSlots.push({ bucket: "category_default", index: 1, template: fallback });
+  }
+
   return plan;
 }
+
 
 /**
  * Persist a per-job template lock so the same template is always used for this
