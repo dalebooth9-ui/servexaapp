@@ -18,6 +18,8 @@ import { format } from "date-fns";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { useRef } from "react";
+import DeleteRecordAction from "@/components/common/DeleteRecordAction";
+
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import { UKDateInput } from "@/components/ui/uk-date-input";
 import { getGeneratingOrgBranding, getGeneratingOrgFallbackLogoUrl, getGeneratingOrgWatermarkUrl } from "@/lib/generatingOrgBranding";
