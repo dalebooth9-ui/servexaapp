@@ -177,6 +177,19 @@ export default function Customers() {
 
   const isAdmin = userRole === "admin";
 
+  // Pending duplicate-customer suggestions drive the review banner.
+  const [dupCount, setDupCount] = useState(0);
+  useEffect(() => {
+    if (!isAdmin) return;
+    (async () => {
+      const { count } = await supabase
+        .from("customer_merge_suggestions")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending");
+      setDupCount(count ?? 0);
+    })();
+  }, [isAdmin]);
+
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
