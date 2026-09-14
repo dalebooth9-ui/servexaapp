@@ -46,7 +46,7 @@ export default function Invoices() {
 
   const records = allRecords.filter((r) => (r.document_type || "invoice") === docTab);
 
-  const isOffice = userRole === "admin" || userRole === "platform_admin";
+  const isOffice = userRole === "admin";
   const docWord = (inv: any) => ((inv.document_type || "invoice") === "quote" ? "quote" : "invoice");
 
   // Paid invoices and anything already pushed to an accounting package are kept —

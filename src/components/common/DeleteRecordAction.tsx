@@ -67,7 +67,7 @@ export default function DeleteRecordAction({
   const [busy, setBusy] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
 
-  const isOffice = userRole === "admin" || userRole === "platform_admin";
+  const isOffice = userRole === "admin";
   if (!isOffice && !allowNonAdmin) return null;
 
   const openDialog = async () => {
