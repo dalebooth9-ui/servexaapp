@@ -30,6 +30,7 @@ type JobLite = {
   scheduled_time: string | null;
   schedule_id: string | null;
   acknowledged_at: string | null;
+  completed_at?: string | null;
   site_name?: string | null;
   site_postcode?: string | null;
   what3words?: string | null;
@@ -38,6 +39,16 @@ type JobLite = {
   last_visit?: string | null;
   rams_state?: "none" | "attached" | "signed";
 };
+
+/** Jobs that are finished (or called off) — no longer active work. */
+function isFinished(status?: string) {
+  return status === "completed" || status === "cancelled";
+}
+
+/** Date (yyyy-MM-dd) the job stopped being active; falls back to today. */
+function finishedOn(job: { completed_at?: string | null }, fallback: string) {
+  return job.completed_at ? job.completed_at.slice(0, 10) : fallback;
+}
 
 function priorityChip(p?: string) {
   switch (p) {
