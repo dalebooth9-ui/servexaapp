@@ -43,8 +43,30 @@ export default function RamsLibrary() {
   const { items, loading, refetch } = useRamsLibrary({ kind: libraryKind, includeArchived: true });
   const [editing, setEditing] = useState<RamsLibraryItem | null>(null);
   const [creating, setCreating] = useState(false);
+  const { user } = useAuth();
+  const [uploading, setUploading] = useState(false);
 
   if (userRole && userRole !== "admin") return <Navigate to="/" replace />;
+
+  // Upload a RAMS written outside Servexa (client / principal contractor /
+  // Word) into the org library so it can be reused across jobs.
+  const handleExternalUpload = async (file: File | null) => {
+    if (!file || !user?.id) return;
+    setUploading(true);
+    try {
+      const { data: prof } = await supabase.from("profiles").select("org_id").eq("id", user.id).maybeSingle();
+      const orgId = (prof as any)?.org_id;
+      if (!orgId) throw new Error("Missing organisation");
+      const res = await uploadExternalRamsToLibrary({ file, userId: user.id, orgId });
+      if (!res.ok) throw new Error(res.error);
+      toast({ title: "External RAMS added to the library" });
+      refetch();
+    } catch (e: any) {
+      toast({ title: "Upload failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleArchive = async (item: RamsLibraryItem) => {
     const { error } = await supabase
