@@ -141,3 +141,53 @@ export async function deleteExternalRams(params: {
   }
   return { ok: true };
 }
+
+/**
+ * Org-level library copy of an external RAMS (RAMS Library → Whole RAMS
+ * templates), so a client's or contractor's document can be reused on future
+ * jobs without re-uploading it.
+ */
+export async function uploadExternalRamsToLibrary(params: {
+  file: File;
+  userId: string;
+  orgId: string;
+  name?: string;
+  issuedBy?: string | null;
+  validUntil?: string | null;
+}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const { file, userId, orgId } = params;
+  try {
+    const storagePath = await buildOrgPathAsync(
+      `rams-library/external/${Date.now()}-${SAFE(file.name)}`,
+    );
+    const { error: upErr } = await supabase.storage
+      .from("submissions")
+      .upload(storagePath, file, { upsert: false, contentType: file.type || undefined });
+    if (upErr) return { ok: false, error: upErr.message };
+    const { data: urlData } = await supabase.storage
+      .from("submissions")
+      .createSignedUrl(storagePath, FIVE_YEARS);
+
+    const { data, error } = await (supabase.from("rams_library_items" as any) as any)
+      .insert({
+        org_id: orgId,
+        kind: "whole",
+        name: (params.name || "").trim() || file.name.replace(/\.[^.]+$/, ""),
+        description: "External RAMS document",
+        payload: {},
+        created_by: userId,
+        is_external: true,
+        external_file_path: storagePath,
+        external_file_url: urlData?.signedUrl || null,
+        external_file_name: file.name,
+        issued_by: (params.issuedBy || "").trim() || null,
+        valid_until: params.validUntil || null,
+      })
+      .select("id")
+      .single();
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, id: (data as any).id };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Upload failed" };
+  }
+}
