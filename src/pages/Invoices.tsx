@@ -190,7 +190,9 @@ export default function Invoices() {
                 <TableHead>Due Date</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Status</TableHead>
+                {isOffice && <TableHead className="w-12 text-right" />}
               </TableRow>
+
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
