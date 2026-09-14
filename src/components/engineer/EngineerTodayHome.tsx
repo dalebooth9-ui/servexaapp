@@ -14,6 +14,7 @@ import { Loader2, MapPin, CalendarClock, Truck, AlertTriangle, CheckCircle2, Log
 import VehicleCheckSheet from "@/components/VehicleCheckSheet";
 import { buildMapsUrl, hasDestination } from "@/lib/openInMaps";
 import FieldConnectivityTip from "@/components/engineer/FieldConnectivityTip";
+import { jobCardSubtitle } from "@/lib/jobCardLabel";
 
 
 
