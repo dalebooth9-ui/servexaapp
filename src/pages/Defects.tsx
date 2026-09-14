@@ -23,6 +23,8 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { draftQuoteFromDefects } from "@/lib/draftDefectQuote";
+import DeleteRecordAction from "@/components/common/DeleteRecordAction";
+
 
 type Defect = {
   id: string;
