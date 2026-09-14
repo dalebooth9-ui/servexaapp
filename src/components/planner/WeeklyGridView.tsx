@@ -1599,6 +1599,7 @@ function SortableEngineerRow({
                           title={r.job?.name || "Untitled"}
                           siteName={r.job?.site?.name}
                           postcode={r.job?.site?.postcode}
+                          address={r.job?.address}
                           priority={r.job?.priority}
                           status={r.job?.status}
                           onRemove={isAdmin && r.entryId ? () => onRemove(r.entryId!) : undefined}
