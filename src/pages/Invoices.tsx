@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { FileText, Search, Plus, ClipboardList } from "lucide-react";
 import { format } from "date-fns";
 import CreateInvoiceDialog from "@/components/CreateInvoiceDialog";
+import DeleteRecordAction from "@/components/common/DeleteRecordAction";
+
 
 const statusStyles: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
