@@ -237,7 +237,9 @@ Deno.serve(async (req) => {
     if (action === "import_contacts") {
       const contacts = await sagePaged(conn, "/contacts?contact_type_id=CUSTOMER");
       let imported = 0;
+      let linked = 0;
       let skipped = 0;
+      const nameIndex = await loadCustomerNameIndex(svc, orgId);
 
       for (const c of contacts) {
         if (!c.id) continue;
@@ -252,15 +254,31 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const { error: insertErr } = await svc.from("customers").insert({
+        const name = c.name || c.reference || "Unnamed customer";
+        const email = c.email || c.main_contact_person?.email || null;
+        const phone = c.telephone || c.mobile || c.main_contact_person?.telephone || null;
+        const address = addressOf(c);
+
+        const key = normaliseCustomerNameKey(name);
+        const match = key ? nameIndex.get(key) : undefined;
+        if (match) {
+          const { error: linkErr } = await linkExistingCustomer(
+            svc, match, "sage_contact_id", String(c.id), { email, phone, address },
+          );
+          if (linkErr) console.error("Customer link failed:", linkErr.message);
+          else linked++;
+          continue;
+        }
+
+        const { data: inserted, error: insertErr } = await svc.from("customers").insert({
           org_id: orgId,
-          name: c.name || c.reference || "Unnamed customer",
-          email: c.email || c.main_contact_person?.email || null,
-          phone: c.telephone || c.mobile || c.main_contact_person?.telephone || null,
-          address: addressOf(c),
+          name,
+          email,
+          phone,
+          address,
           sage_contact_id: String(c.id),
           created_by: user.id,
-        });
+        }).select("id, name, email, phone, address").maybeSingle();
         if (insertErr) {
           console.error("Customer insert failed:", insertErr);
           await logSync(svc, {
@@ -271,12 +289,13 @@ Deno.serve(async (req) => {
             error_message: insertErr.message,
           });
         } else {
+          if (key && inserted) nameIndex.set(key, inserted as any);
           imported++;
         }
       }
 
       await logSync(svc, { org_id: orgId, action, entity_type: "customer" });
-      return json({ success: true, imported, skipped, total: contacts.length });
+      return json({ success: true, imported, linked, skipped, total: contacts.length });
     }
 
     // ================= PULL UNPAID INVOICES =================

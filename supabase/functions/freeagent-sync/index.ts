@@ -249,7 +249,9 @@ Deno.serve(async (req) => {
     if (action === "import_contacts") {
       const contacts = await faPaged(conn, "/contacts?view=active", "contacts");
       let imported = 0;
+      let linked = 0;
       let skipped = 0;
+      const nameIndex = await loadCustomerNameIndex(svc, orgId);
 
       for (const c of contacts) {
         const faId = idFromUrl(c.url);
@@ -266,15 +268,31 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const { error: insertErr } = await svc.from("customers").insert({
+        const name = contactName(c);
+        const email = c.email || null;
+        const phone = c.phone_number || c.mobile || null;
+        const address = contactAddress(c);
+
+        const key = normaliseCustomerNameKey(name);
+        const match = key ? nameIndex.get(key) : undefined;
+        if (match) {
+          const { error: linkErr } = await linkExistingCustomer(
+            svc, match, "freeagent_contact_id", faId, { email, phone, address },
+          );
+          if (linkErr) console.error("Customer link failed:", linkErr.message);
+          else linked++;
+          continue;
+        }
+
+        const { data: inserted, error: insertErr } = await svc.from("customers").insert({
           org_id: orgId,
-          name: contactName(c),
-          email: c.email || null,
-          phone: c.phone_number || c.mobile || null,
-          address: contactAddress(c),
+          name,
+          email,
+          phone,
+          address,
           freeagent_contact_id: faId,
           created_by: user.id,
-        });
+        }).select("id, name, email, phone, address").maybeSingle();
         if (insertErr) {
           console.error("Customer insert failed:", insertErr);
           await logSync(svc, {
@@ -285,12 +303,13 @@ Deno.serve(async (req) => {
             error_message: insertErr.message,
           });
         } else {
+          if (key && inserted) nameIndex.set(key, inserted as any);
           imported++;
         }
       }
 
       await logSync(svc, { org_id: orgId, action, entity_type: "customer" });
-      return json({ success: true, imported, skipped, total: contacts.length });
+      return json({ success: true, imported, linked, skipped, total: contacts.length });
     }
 
     // ================= PULL UNPAID (OPEN) INVOICES =================
