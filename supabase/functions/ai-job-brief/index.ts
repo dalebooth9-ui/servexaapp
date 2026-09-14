@@ -34,6 +34,11 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    const remedialItems: string[] = Array.isArray(job?.remedial_items)
+      ? job.remedial_items.map((r: any) => String(r || "").trim()).filter(Boolean)
+      : [];
+    const paperworkProvided = job?.paperwork_provided === true;
+
     const systemPrompt = `You are an expert field service operations manager for a UK fire safety company specialising in dry risers, sprinkler systems, fire extinguishers, and fire hydrants.
 Generate a clear, professional job brief for engineers attending a job.
 Format your response in clean markdown with sections:
@@ -44,6 +49,13 @@ Format your response in clean markdown with sections:
 ## Equipment & Parts
 ## Completion Criteria
 Keep it concise but actionable. Engineers should know exactly what to do.
+
+SCOPE INTEGRITY — the most important rule:
+- The "Scope of Work" section must be built ONLY from the remedial/works items supplied below (and the stated service quantities). Reproduce each supplied item as its own bullet, in the customer's own wording. Do not reword the substance, merge items, split them, or add any extra task.
+- NEVER invent work. Do not add pressure tests, servicing, inspections, extinguisher or hydrant work, cabinet repairs, or any other task unless it is explicitly in the supplied items or the stated service quantities.
+- "Equipment & Parts" must list only the parts and equipment needed for those same items. No speculative spares.
+- If no items are supplied, write exactly: "No remedial works were listed on the supplied paperwork — confirm scope with the office before attending." and leave the scope at that.
+- "Safety Requirements" and "Access & Site Information" are generic guidance and must stay clearly separate from the scope; never let guidance imply extra work.
 
 CRITICAL DOMAIN RULES — you must follow these exactly:
 - Dry riser pressure tests are ALWAYS hydraulic (water-filled) tests in accordance with BS 9990:2015. NEVER reference air pressure tests for dry risers — air pressure testing is NOT part of BS 9990:2015 and must never be mentioned.
@@ -58,16 +70,23 @@ CRITICAL DOMAIN RULES — you must follow these exactly:
 
 Job Name: ${job.name || "N/A"}
 Reference: ${job.reference_number || "N/A"}
+${job.customer_po ? `Customer PO: ${job.customer_po}` : ""}
 Category: ${job.category || "N/A"}
 Priority: ${job.priority || "medium"}
 Customer: ${job.customer || "N/A"}
 Address: ${job.address || "N/A"}
+${job.riser_location ? `Riser location: ${job.riser_location}` : ""}
+${job.outlet_count ? `Number of outlets: ${job.outlet_count}` : ""}
 Job Type: ${job.job_type || "one_off"}
 Status: ${job.status || "active"}
 ${job.due_date ? `Due Date: ${job.due_date}` : ""}
 ${job.visual_qty ? `Visual Checks Required: ${job.visual_qty}` : ""}
 ${job.pressure_test_qty ? `Pressure Tests Required: ${job.pressure_test_qty}` : ""}
-${job.other_service_type ? `Service Type: ${job.other_service_type}` : ""}`;
+${job.other_service_type ? `Service Type: ${job.other_service_type}` : ""}
+
+Works items taken verbatim from the customer's paperwork (the ONLY permitted scope):
+${remedialItems.length ? remedialItems.map((r, i) => `${i + 1}. ${r}`).join("\n") : paperworkProvided ? "(none listed on the paperwork)" : "(no paperwork supplied)"}`;
+
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
