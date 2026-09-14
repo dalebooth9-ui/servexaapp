@@ -357,6 +357,14 @@ export default function JobRamsPanel({ jobId, job, canEdit = false, showSignActi
         </DialogContent>
       </Dialog>
 
+      <UploadExternalRamsDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        jobId={jobId}
+        onUploaded={() => ramsStatus.refetch()}
+      />
+
+
       {signDoc && (
         <RamsReadAndSignSheet
           open={!!signDoc}
