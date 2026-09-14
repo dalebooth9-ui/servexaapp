@@ -110,7 +110,7 @@ export default function DayPanel({
       if (jobIds.length > 0) {
         const { data: jobsData } = await supabase
           .from("jobs")
-          .select("id, reference_number, name, status, priority, site_id")
+          .select("id, reference_number, name, status, priority, site_id, address")
           .in("id", jobIds);
         const siteIds = Array.from(new Set((jobsData || []).map((j: any) => j.site_id).filter(Boolean)));
         let sitesById: Record<string, { name: string; postcode: string | null }> = {};
