@@ -197,7 +197,7 @@ export default function Invoices() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
+                  <TableCell colSpan={isOffice ? 7 : 6} className="py-12 text-center text-muted-foreground">
                     <FileText className="mx-auto mb-2 h-8 w-8 opacity-40" />
                     <p>No {docTab}s found</p>
                     {userRole === "admin" && (
@@ -226,8 +226,21 @@ export default function Invoices() {
                         {inv.status}
                       </Badge>
                     </TableCell>
+                    {isOffice && (
+                      <TableCell className="text-right">
+                        <DeleteRecordAction
+                          variant="icon"
+                          label={inv.invoice_number || `this ${docWord(inv)}`}
+                          description={`This removes the ${docWord(inv)} and all of its lines.`}
+                          successMessage={`${inv.invoice_number} deleted`}
+                          checkDependants={async () => deleteBlockedReason(inv)}
+                          onDelete={() => deleteRecord(inv)}
+                        />
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
+
               )}
             </TableBody>
           </Table>
