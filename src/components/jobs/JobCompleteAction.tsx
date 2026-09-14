@@ -193,7 +193,7 @@ export default function JobCompleteAction({
     );
 
   const hasMissing = missingRequired.length > 0;
-  const canProceed = !hasMissing || (userRole === "admin" && overrideReason.trim().length >= 3);
+  const canProceed = !hasMissing || userRole === "admin";
 
   const handleDeleteDraft = async (draftId: string) => {
     const { error } = await supabase.from("job_sheet_responses").delete().eq("id", draftId);
