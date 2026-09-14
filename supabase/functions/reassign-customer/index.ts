@@ -42,15 +42,104 @@ interface UndoSnapshot {
   job_customer_text: Record<string, string | null>;
 }
 
+/**
+ * Every table with a foreign key to customers.id (checked against
+ * pg_constraint). Merging must re-point all of them, not just jobs.
+ */
 const RELATED_TABLES = [
   "jobs",
   "customer_documents",
   "customer_paperwork",
   "customer_portal_tokens",
+  "customer_portal_invites",
+  "customer_portal_users",
   "customer_sites",
   "fire_log_tokens",
   "handover_tokens",
+  "archived_documents",
+  "contract_agreements",
+  "historic_reports",
+  "portal_visit_requests",
+  "service_contracts",
+  "site_service_schedules",
+  "site_surveys",
 ] as const;
+
+/** Fields copied from the duplicate onto the survivor where the survivor is blank. */
+const CARRY_FIELDS = [
+  "address",
+  "phone",
+  "email",
+  "xero_contact_id",
+  "quickbooks_contact_id",
+  "sage_contact_id",
+  "freeagent_contact_id",
+  "logo_url",
+  "brand_colour",
+] as const;
+
+/** Copy non-null values from the duplicate onto the survivor where it has none. */
+async function carryOverFields(admin: any, fromRow: any, toId: string) {
+  const { data: toRow } = await admin
+    .from("customers")
+    .select(CARRY_FIELDS.join(","))
+    .eq("id", toId)
+    .maybeSingle();
+  if (!toRow) return;
+  const patch: Record<string, unknown> = {};
+  for (const f of CARRY_FIELDS) {
+    if ((toRow as any)[f] == null && fromRow?.[f] != null) patch[f] = fromRow[f];
+  }
+  if (Object.keys(patch).length > 0) {
+    await admin.from("customers").update(patch).eq("id", toId);
+  }
+}
+
+/**
+ * customer_sites is unique on (customer_id, site_id) — drop links the survivor
+ * already has before re-pointing, otherwise the update violates the constraint.
+ */
+async function dropDuplicateSiteLinks(admin: any, fromId: string, toId: string) {
+  const { data: targetLinks } = await admin
+    .from("customer_sites")
+    .select("site_id")
+    .eq("customer_id", toId);
+  const have = new Set((targetLinks || []).map((r: any) => r.site_id));
+  if (have.size === 0) return;
+  const { data: sourceLinks } = await admin
+    .from("customer_sites")
+    .select("id, site_id")
+    .eq("customer_id", fromId);
+  const dupes = (sourceLinks || []).filter((r: any) => have.has(r.site_id)).map((r: any) => r.id);
+  if (dupes.length > 0) {
+    await admin.from("customer_sites").delete().in("id", dupes);
+  }
+}
+
+/** Merge one duplicate into a survivor. Used by the bulk exact-match run. */
+async function mergePair(admin: any, fromId: string, toId: string, userId: string) {
+  const errors: string[] = [];
+  const { data: fromRow } = await admin.from("customers").select("*").eq("id", fromId).maybeSingle();
+  if (!fromRow) return { errors: ["source customer not found"] };
+  const { data: toRow } = await admin.from("customers").select("id, name").eq("id", toId).maybeSingle();
+  if (!toRow) return { errors: ["target customer not found"] };
+
+  await carryOverFields(admin, fromRow, toId);
+  await dropDuplicateSiteLinks(admin, fromId, toId);
+
+  for (const table of RELATED_TABLES) {
+    const { error } = await admin.from(table).update({ customer_id: toId }).eq("customer_id", fromId);
+    if (error) errors.push(`${table}: ${error.message}`);
+  }
+  await admin.from("jobs").update({ customer: toRow.name }).eq("customer_id", toId);
+
+  if (errors.length === 0) {
+    const { error: delErr } = await admin.from("customers").delete().eq("id", fromId);
+    if (delErr) errors.push(`delete duplicate: ${delErr.message}`);
+  }
+  return { errors };
+}
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
