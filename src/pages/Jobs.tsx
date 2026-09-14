@@ -1152,6 +1152,18 @@ export default function Jobs() {
       setDialogParsedFiles([]);
       const capturedRemedials = extractedRemedials;
       setExtractedRemedials([]);
+      const capturedContext = extractedContext;
+      setExtractedContext({ riser_location: "", outlet_count: null, had_paperwork: false });
+
+      // Paperwork was read but listed no remedial work — flag it for review
+      // rather than letting anything fill the gap with guesswork.
+      if (createdJob && capturedContext.had_paperwork && capturedRemedials.length === 0) {
+        await supabase
+          .from("jobs")
+          .update({ paperwork_review_note: "No remedials found in paperwork — please review" } as any)
+          .eq("id", (createdJob as any).id);
+      }
+
 
       if (createdJob && capturedRemedials.length > 0) {
         // Remedials read off the dropped paperwork become trackable defects.
