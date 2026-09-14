@@ -1082,6 +1082,19 @@ export default function Jobs() {
     const selectedCustomer = customers.find((c) => c.id === form.customer_id);
     const customerName = selectedCustomer?.name || null;
 
+    // Work out what work the job actually covers. When the office leaves the
+    // category on its "general" default (typical for jobs created straight off
+    // dropped paperwork), derive it from the quantities / service type so the
+    // right sheets attach and engineers don't open an empty job.
+    const derived = deriveJobWorkTypes({
+      category: form.category,
+      pressure_test_qty: form.pressure_test_qty,
+      visual_qty: form.visual_qty,
+      other_qty: form.other_qty,
+      other_service_type: form.other_service_type,
+      name: parsed.data.name,
+    });
+
     const { data: createdJob, error } = await supabase.from("jobs").insert({
       name: parsed.data.name,
       ...(parsed.data.reference_number ? { reference_number: parsed.data.reference_number } : {}),
@@ -1090,7 +1103,8 @@ export default function Jobs() {
       customer: customerName,
       address: form.address || null,
       priority: form.priority,
-      category: form.category,
+      category: derived.category,
+      detected_work_types: derived.detectedWorkTypes,
       status: statusOverride || "active",
       created_by: user?.id,
       pressure_test_qty: form.pressure_test_qty || 0,
@@ -1100,6 +1114,7 @@ export default function Jobs() {
       due_date: form.due_date || null,
       allocated_days: form.allocated_days ? parseInt(form.allocated_days) : null,
     } as any).select("id, reference_number, org_id, site_id").single();
+
     if (error) {
       if (import.meta.env.DEV) console.error("Job creation error:", error);
       const message = error.code === "23505"
