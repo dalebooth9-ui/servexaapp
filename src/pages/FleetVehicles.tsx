@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Car, Loader2, Plus, Search } from "lucide-react";
+import DeleteRecordAction from "@/components/common/DeleteRecordAction";
 
 type Vehicle = {
   id: string;
@@ -236,7 +237,7 @@ export default function FleetVehicles() {
                   onDelete={async () => {
                     const { error } = await supabase.from("vehicles").delete().eq("id", editing.id);
                     if (error) throw new Error(error.message);
-                    setVehicles((prev: any[]) => prev.filter((x) => x.id !== editing.id));
+                    setRows((prev: any[]) => prev.filter((x) => x.id !== editing.id));
                   }}
                   onDeleted={() => setEditing(null)}
                 />
