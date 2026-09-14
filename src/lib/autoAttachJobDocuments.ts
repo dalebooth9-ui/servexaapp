@@ -35,12 +35,23 @@ interface BuildPlanInput {
   qtys: { pressure_test: number; visual: number; other: number };
   otherServiceType?: string | null;
   /**
+   * Every work type the job covers (jobs.detected_work_types). Each mapped
+   * template for these slugs is attached, so a "pressure test + remedial"
+   * job gets both sheets.
+   */
+  workTypes?: string[];
+  /**
    * When > 0, add a fallback bucket that attaches a single canonical job sheet
    * matched purely by `job_category` (used for categories like sprinkler /
    * wet riser / fire hydrant that don't drive attachments through qty fields).
    * Existing attachments are still respected — no duplicates.
    */
   categoryDefaultQty?: number;
+  /**
+   * When true and nothing else resolves, fall back to the platform-default
+   * sheet mapped to `general` so a job never shows zero forms.
+   */
+  guaranteeOne?: boolean;
 }
 
 /**
@@ -49,7 +60,10 @@ interface BuildPlanInput {
  * candidates apply.
  */
 export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan> {
-  const { jobId, jobCategory, qtys, otherServiceType, categoryDefaultQty = 0 } = input;
+  const { jobId, jobCategory, qtys, otherServiceType, categoryDefaultQty = 0, workTypes = [], guaranteeOne = false } = input;
+
+  const slugs = Array.from(new Set([jobCategory, ...workTypes].filter(Boolean))) as string[];
+  const lookupSlugs = guaranteeOne ? Array.from(new Set([...slugs, "general"])) : slugs;
 
   // Pull all templates + existing responses + per-job template locks + explicit
   // job-type→template mapping in parallel.
@@ -57,13 +71,14 @@ export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan
     supabase.from("job_sheet_templates").select("id, name, category, job_category, fields, locked").eq("status", "published"),
     supabase.from("job_sheet_responses").select("id, template_id").eq("job_id", jobId),
     supabase.from("job_template_locks").select("bucket, template_id").eq("job_id", jobId),
-    jobCategory
+    lookupSlugs.length
       ? supabase
           .from("job_category_template_map" as any)
-          .select("template_id, sort_order, org_id")
-          .eq("job_category_slug", jobCategory)
+          .select("template_id, sort_order, org_id, job_category_slug")
+          .in("job_category_slug", lookupSlugs)
       : Promise.resolve({ data: [] as any[] }),
   ]);
+
 
   const allTemplates = (tplsRes.data || []) as TemplateOption[];
   const existing = (respsRes.data || []) as { id: string; template_id: string | null }[];
