@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       token_expires_at: expiresAt,
-    }, { onConflict: "user_id,tenant_id" });
+    }, { onConflict: "org_id,tenant_id" });
 
     if (upsertError) {
       console.error("Upsert error:", upsertError);
