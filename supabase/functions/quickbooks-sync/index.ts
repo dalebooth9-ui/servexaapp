@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { loadCustomerNameIndex, normaliseCustomerNameKey, linkExistingCustomer } from "../_shared/customerMatch.ts";
 import {
   getValidConnection,
   logSync,
@@ -210,8 +211,10 @@ Deno.serve(async (req) => {
       let start = 1;
       const pageSize = 100;
       let imported = 0;
+      let linked = 0;
       let skipped = 0;
       let total = 0;
+      const nameIndex = await loadCustomerNameIndex(svc, orgId);
 
       for (;;) {
         const res = await qbFetch(
@@ -242,15 +245,31 @@ Deno.serve(async (req) => {
               .filter(Boolean).join(", ")
             : null;
 
-          const { error: insertErr } = await svc.from("customers").insert({
+          const name = c.DisplayName || c.CompanyName || "Unnamed customer";
+          const email = c.PrimaryEmailAddr?.Address || null;
+          const phone = c.PrimaryPhone?.FreeFormNumber || c.Mobile?.FreeFormNumber || null;
+
+          const key = normaliseCustomerNameKey(name);
+          const match = key ? nameIndex.get(key) : undefined;
+          if (match) {
+            const { error: linkErr } = await linkExistingCustomer(
+              svc, match, "quickbooks_contact_id", String(c.Id),
+              { email, phone, address: addressStr },
+            );
+            if (linkErr) console.error("Customer link failed:", linkErr.message);
+            else linked++;
+            continue;
+          }
+
+          const { data: inserted, error: insertErr } = await svc.from("customers").insert({
             org_id: orgId,
-            name: c.DisplayName || c.CompanyName || "Unnamed customer",
-            email: c.PrimaryEmailAddr?.Address || null,
-            phone: c.PrimaryPhone?.FreeFormNumber || c.Mobile?.FreeFormNumber || null,
+            name,
+            email,
+            phone,
             address: addressStr,
             quickbooks_contact_id: String(c.Id),
             created_by: user.id,
-          });
+          }).select("id, name, email, phone, address").maybeSingle();
           if (insertErr) {
             console.error("Customer insert failed:", insertErr);
             await logSync(svc, {
@@ -261,6 +280,7 @@ Deno.serve(async (req) => {
               error_message: insertErr.message,
             });
           } else {
+            if (key && inserted) nameIndex.set(key, inserted as any);
             imported++;
           }
         }
@@ -270,7 +290,7 @@ Deno.serve(async (req) => {
       }
 
       await logSync(svc, { org_id: orgId, action, entity_type: "customer" });
-      return json({ success: true, imported, skipped, total });
+      return json({ success: true, imported, linked, skipped, total });
     }
 
     // ================= PULL UNPAID INVOICES =================

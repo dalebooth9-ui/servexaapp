@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { loadCustomerNameIndex, normaliseCustomerNameKey, linkExistingCustomer } from "../_shared/customerMatch.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -291,12 +292,24 @@ Deno.serve(async (req) => {
       const contacts = contactsData.Contacts || [];
       let imported = 0;
       let skipped = 0;
+      let linked = 0;
+
+      const { data: profileRow } = await serviceClient
+        .from("profiles").select("org_id").eq("user_id", user.id).maybeSingle();
+      const orgId = (profileRow as any)?.org_id as string | undefined;
+      if (!orgId) {
+        return new Response(JSON.stringify({ error: "No organisation found for this user" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const nameIndex = await loadCustomerNameIndex(serviceClient, orgId);
 
       for (const contact of contacts) {
         // Check if already imported
         const { data: existing } = await serviceClient
           .from("customers")
           .select("id")
+          .eq("org_id", orgId)
           .eq("xero_contact_id", contact.ContactID)
           .maybeSingle();
 
@@ -313,18 +326,33 @@ Deno.serve(async (req) => {
               .filter(Boolean).join(", ")
           : null;
 
-        await serviceClient.from("customers").insert({
+        // Match an existing customer on a normalised name key before inserting
+        const key = normaliseCustomerNameKey(contact.Name);
+        const match = key ? nameIndex.get(key) : undefined;
+        if (match) {
+          const { error: linkErr } = await linkExistingCustomer(
+            serviceClient, match, "xero_contact_id", contact.ContactID,
+            { email, phone, address: addressStr },
+          );
+          if (linkErr) console.error("Customer link failed:", linkErr.message);
+          else linked++;
+          continue;
+        }
+
+        const { data: inserted } = await serviceClient.from("customers").insert({
+          org_id: orgId,
           name: contact.Name,
           email,
           phone,
           address: addressStr,
           xero_contact_id: contact.ContactID,
           created_by: user.id,
-        });
+        }).select("id, name, email, phone, address").maybeSingle();
+        if (key && inserted) nameIndex.set(key, inserted as any);
         imported++;
       }
 
-      return new Response(JSON.stringify({ success: true, imported, skipped, total: contacts.length }), {
+      return new Response(JSON.stringify({ success: true, imported, linked, skipped, total: contacts.length }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
