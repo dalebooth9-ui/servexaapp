@@ -147,14 +147,31 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
+    // Resolve the user's organisation (xero_connections is keyed on org_id + tenant_id)
+    const { data: membership, error: membershipError } = await supabase
+      .from("organisation_members")
+      .select("org_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle();
+
+    if (membershipError || !membership?.org_id) {
+      console.error("Could not resolve org for user:", userId, membershipError);
+      return new Response(null, {
+        status: 302,
+        headers: { Location: `${appUrl}/settings?xero_error=no_organisation` },
+      });
+    }
+
     const { error: upsertError } = await supabase.from("xero_connections").upsert({
       user_id: userId,
+      org_id: membership.org_id,
       tenant_id: tenant.tenantId,
       tenant_name: tenant.tenantName,
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       token_expires_at: expiresAt,
-    }, { onConflict: "user_id,tenant_id" });
+    }, { onConflict: "org_id,tenant_id" });
 
     if (upsertError) {
       console.error("Upsert error:", upsertError);
