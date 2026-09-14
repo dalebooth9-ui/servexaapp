@@ -1080,7 +1080,7 @@ export default function Jobs() {
     }
   };
 
-  const handleCreate = async (e: React.FormEvent, statusOverride?: string) => {
+  const handleCreate = async (e: React.FormEvent, statusOverride?: string, force?: boolean) => {
     e.preventDefault();
     setLoading(true);
 
@@ -1090,6 +1090,27 @@ export default function Jobs() {
       toast({ title: "Validation error", description: firstError, variant: "destructive" });
       setLoading(false);
       return;
+    }
+
+    // Duplicate guard — same customer PO, or same customer + address in the
+    // last 90 days. Never create silently over the top of an existing job.
+    if (!force) {
+      try {
+        const dupes = await findDuplicateJobs({
+          customerPo: form.customer_po,
+          address: form.address,
+          customerId: form.customer_id || null,
+        });
+        if (dupes.length > 0) {
+          setDuplicateJobs(dupes);
+          setPendingCreateStatus(statusOverride ?? null);
+          setDuplicateDialogOpen(true);
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.error("duplicate job check failed", err);
+      }
     }
 
     // Resolve customer name for backward compat
