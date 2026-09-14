@@ -60,7 +60,7 @@ export default function RamsLibrary() {
       const orgId = (prof as any)?.org_id;
       if (!orgId) throw new Error("Missing organisation");
       const res = await uploadExternalRamsToLibrary({ file, userId: user.id, orgId });
-      if (!res.ok) throw new Error(res.error);
+      if (res.ok !== true) throw new Error(res.error);
       toast({ title: "External RAMS added to the library" });
       refetch();
     } catch (e: any) {

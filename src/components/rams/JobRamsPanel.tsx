@@ -277,7 +277,7 @@ export default function JobRamsPanel({ jobId, job, canEdit = false, showSignActi
                       filePath: d.externalFilePath,
                       fileName: d.externalFileName,
                     });
-                    if (!res.ok) throw new Error(res.error);
+                    if (!res.ok) throw new Error(res.error || "Delete failed");
                   }}
                   onDeleted={() => ramsStatus.refetch()}
                 />

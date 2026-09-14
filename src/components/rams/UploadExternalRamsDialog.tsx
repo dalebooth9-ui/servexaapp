@@ -58,7 +58,7 @@ export default function UploadExternalRamsDialog({ open, onOpenChange, jobId, on
       userId: user.id,
     });
     setBusy(false);
-    if (!res.ok) {
+    if (res.ok !== true) {
       toast({ title: "Upload failed", description: res.error, variant: "destructive" });
       return;
     }
