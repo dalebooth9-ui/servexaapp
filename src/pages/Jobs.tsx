@@ -173,6 +173,11 @@ export default function Jobs() {
   const [extractedRemedials, setExtractedRemedials] = useState<
     { description: string; severity: string; already_completed: boolean }[]
   >([]);
+  // Extra detail read off the dropped paperwork — feeds the job brief.
+  const [extractedContext, setExtractedContext] = useState<
+    { riser_location: string; outlet_count: number | null; had_paperwork: boolean }
+  >({ riser_location: "", outlet_count: null, had_paperwork: false });
+
   const dialogFileInputRef = useRef<HTMLInputElement | null>(null);
   const [fileDropUploading, setFileDropUploading] = useState(false);
   const [fileDropDialogOpen, setFileDropDialogOpen] = useState(false);
@@ -1058,6 +1063,12 @@ export default function Jobs() {
         }))
         .filter((r: any) => r.description.length > 2);
       setExtractedRemedials(remedials);
+      setExtractedContext({
+        riser_location: String(ext2.riser_location || "").trim(),
+        outlet_count: Number.isFinite(Number(ext2.outlet_count)) && Number(ext2.outlet_count) > 0 ? Number(ext2.outlet_count) : null,
+        had_paperwork: true,
+      });
+
       toast({
         title: "Details extracted",
         description: `Combined ${dialogParsedFiles.length} file(s). Review and adjust.${remedials.length ? ` ${remedials.length} remedial item(s) found.` : ""}`,
@@ -1141,6 +1152,18 @@ export default function Jobs() {
       setDialogParsedFiles([]);
       const capturedRemedials = extractedRemedials;
       setExtractedRemedials([]);
+      const capturedContext = extractedContext;
+      setExtractedContext({ riser_location: "", outlet_count: null, had_paperwork: false });
+
+      // Paperwork was read but listed no remedial work — flag it for review
+      // rather than letting anything fill the gap with guesswork.
+      if (createdJob && capturedContext.had_paperwork && capturedRemedials.length === 0) {
+        await supabase
+          .from("jobs")
+          .update({ paperwork_review_note: "No remedials found in paperwork — please review" } as any)
+          .eq("id", (createdJob as any).id);
+      }
+
 
       if (createdJob && capturedRemedials.length > 0) {
         // Remedials read off the dropped paperwork become trackable defects.
@@ -1330,12 +1353,14 @@ export default function Jobs() {
           });
         }
 
-        // Generate AI job brief in background and save to job record
+        // Generate AI job brief in background and save to job record.
+        // The remedial list read off the paperwork is the ONLY source for the
+        // brief's scope of work — nothing may be added to it.
         generateAndSaveAiBrief({
           id: createdJob.id,
           name: form.name,
           reference_number: createdJob.reference_number,
-          category: form.category,
+          category: derived.category,
           priority: form.priority,
           customer: customerName || undefined,
           address: form.address || undefined,
@@ -1344,7 +1369,13 @@ export default function Jobs() {
           visual_qty: form.visual_qty || undefined,
           pressure_test_qty: form.pressure_test_qty || undefined,
           other_service_type: form.other_service_type || undefined,
+          customer_po: (form.customer_po || "").trim() || undefined,
+          riser_location: extractedContext.riser_location || undefined,
+          outlet_count: extractedContext.outlet_count ?? undefined,
+          remedial_items: extractedRemedials.map((r) => r.description),
+          paperwork_provided: extractedContext.had_paperwork,
         });
+
       }
     }
   };

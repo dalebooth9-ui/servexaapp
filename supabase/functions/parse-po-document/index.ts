@@ -149,13 +149,18 @@ serve(async (req) => {
 - total_value: numeric value of the PO if present (strip currency symbols), else null
 - currency: currency code (e.g. "GBP", "USD", "EUR") detected from symbols £/$€ or explicit text, else ""
 - notes: any other important instructions, special requirements, or notes
+- riser_location: where the riser/system is located if stated (e.g. "Multi Storey Car Park", "Block A stair core"), else ""
+- outlet_count: number of outlets/landing valves stated on the document as a number, else null
 - remedial_items: array of remedial/defect items found in the document. Each entry: { "description": string, "severity": "low"|"medium"|"high"|"critical", "already_completed": boolean }.
     * Look in any "Comments", "Remedials", "Remedial Works", "Observations", "Recommendations", "Defects", "Faults", "Actions Required" or similar section, plus any free-text/handwritten lines describing work that needs doing.
-    * Include lines like "INLET NEEDS SPINNING TO CORRECT POSITION", "SUPPLY AND FIT NEW VALVE", "REPLACE DAMAGED GLASS".
+    * COPY THE WORDING FROM THE DOCUMENT. Reproduce each item verbatim (tidy capitalisation and obvious spelling only). NEVER add work that is not written on the document — no pressure tests, servicing, inspections, parts or maintenance that the paperwork does not state. Inventing items is a serious error.
+    * Expand quantities into separate items. "NEW OUTLET LOCKS REQUIRED X 3" becomes three entries: "New outlet lock required (1 of 3)", "New outlet lock required (2 of 3)", "New outlet lock required (3 of 3)". A line with no quantity is one item.
+    * Include lines like "INLET NEEDS SPINNING TO CORRECT POSITION", "SUPPLY AND FIT NEW VALVE", "REPLACE DAMAGED GLASS", "NEW INLET GLASS REQUIRED".
     * DO NOT include pass/fail answers, YES/NO ticks, signatures, names, dates, addresses, PO numbers, or standard inspection checkbox results.
     * severity: default "medium"; use "high" or "critical" when the wording implies urgency/danger (e.g. "URGENT", "immediate", "system out of service", "leaking badly"); use "low" for minor or verification-only items.
     * already_completed: true when the line says "ALREADY COMPLETED", "COMPLETED ON SITE", "DONE", "rectified" or similar. Otherwise false.
-    * Return [] when there are no genuine remedial items.
+    * Return [] when the document states no remedial work. An empty list is the correct answer in that case — never fill it with plausible work.
+
 
 Rules:
 - Extract ALL available information — do not leave fields empty if the information exists anywhere in the document(s)
