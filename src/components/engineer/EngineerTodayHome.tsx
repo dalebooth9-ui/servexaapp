@@ -501,6 +501,22 @@ export default function EngineerTodayHome() {
               </CollapsibleContent>
             </Collapsible>
           )}
+
+          {!loading && completedToday.length > 0 && (
+            <Collapsible className="pt-2">
+              <CollapsibleTrigger className="w-full min-h-14 rounded-xl border-2 border-emerald-500/30 bg-emerald-500/10 px-4 py-3 flex items-center justify-between active:scale-[0.99]">
+                <span className="flex items-center gap-2 font-semibold text-base">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  Completed
+                  <Badge variant="secondary" className="text-xs">{completedToday.length}</Badge>
+                </span>
+                <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-3 pt-3">
+                {completedToday.map((j) => <BigJobCard key={"done-" + j.id} job={j} />)}
+              </CollapsibleContent>
+            </Collapsible>
+          )}
         </TabsContent>
 
 
