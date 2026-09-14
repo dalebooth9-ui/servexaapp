@@ -254,7 +254,7 @@ export default function EngineerTodayHome() {
     if (jobIds.length) {
       const { data: js } = await supabase
         .from("jobs")
-        .select("id, site_id, name, reference_number, address, status, priority, customer, category, sites(name, postcode, what3words)")
+        .select("id, site_id, name, reference_number, address, status, priority, customer, category, completed_at, sites(name, postcode, what3words)")
         .in("id", jobIds);
       (js || []).forEach((j: any) => jobsById.set(j.id, {
         ...j,
