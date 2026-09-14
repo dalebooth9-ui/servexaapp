@@ -231,7 +231,7 @@ export default function JobCompleteAction({
         completed_at: new Date().toISOString(),
         completed_by: user.id,
       };
-      if (hasMissing && userRole === "admin") {
+      if (hasMissing && userRole === "admin" && overrideReason.trim()) {
         patch.completion_override_reason = overrideReason.trim();
       }
       const { error } = await supabase.from("jobs").update(patch).eq("id", jobId);
