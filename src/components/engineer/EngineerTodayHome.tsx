@@ -221,6 +221,7 @@ export default function EngineerTodayHome() {
     if (isGenericPreview || !engineerId) {
       setVehicleCheckOk(null);
       setToday([]);
+      setCompletedToday([]);
       setWeek([]);
       setAwaitingDate([]);
       setNextDate(null);
@@ -382,7 +383,7 @@ export default function EngineerTodayHome() {
 
   const tomorrow = useMemo(() => {
     const key = format(addDays(new Date(), 1), "yyyy-MM-dd");
-    return week.filter((j) => j.schedule_date === key);
+    return week.filter((j) => j.schedule_date === key && !isFinished(j.status));
   }, [week]);
 
   const weekGroups = useMemo(() => {
@@ -391,7 +392,7 @@ export default function EngineerTodayHome() {
     for (let i = 0; i < 14; i++) {
       const d = addDays(weekStart, i);
       const key = format(d, "yyyy-MM-dd");
-      const dayJobs = week.filter((j) => j.schedule_date === key);
+      const dayJobs = week.filter((j) => j.schedule_date === key && !isFinished(j.status));
       if (dayJobs.length) days.push({ date: d, jobs: dayJobs });
     }
     return days;
