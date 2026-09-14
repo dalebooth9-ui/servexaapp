@@ -92,6 +92,9 @@ export default function Jobs() {
   const [scanPaperOpen, setScanPaperOpen] = useState(false);
   const [scanInitialFile, setScanInitialFile] = useState<File | null>(null);
   const [siteSheetJobId, setSiteSheetJobId] = useState<string | null>(null);
+  const [duplicateJobs, setDuplicateJobs] = useState<DuplicateJob[]>([]);
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [pendingCreateStatus, setPendingCreateStatus] = useState<string | null>(null);
   const [activeJob, setActiveJob] = useState<any>(null);
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
