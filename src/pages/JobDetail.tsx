@@ -1,6 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import JobStageTimeline from "@/components/jobs/JobStageTimeline";
 import ComplianceRecord from "@/components/jobs/ComplianceRecord";
+import PossibleDuplicates from "@/components/jobs/PossibleDuplicates";
 import ChunkErrorBoundary from "@/components/ChunkErrorBoundary";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useParams, Link, useNavigate } from "react-router-dom";
