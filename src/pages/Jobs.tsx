@@ -56,6 +56,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import DroppedPoFilesReorder from "@/components/jobs/DroppedPoFilesReorder";
 import { UKDateInput } from "@/components/ui/uk-date-input";
+import DuplicateJobWarningDialog from "@/components/jobs/DuplicateJobWarningDialog";
+import { findDuplicateJobs, type DuplicateJob } from "@/lib/duplicateJobs";
 
 const jobSchema = z.object({
   name: z.string().trim().min(1, "Job name is required").max(200, "Job name must be under 200 characters"),
