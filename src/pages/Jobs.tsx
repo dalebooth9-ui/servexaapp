@@ -1024,9 +1024,18 @@ export default function Jobs() {
       });
       if (error || data?.error) throw new Error(error?.message || data?.error || "Parse failed");
       const ext2: any = data?.data || {};
-      const matchedCustomer = customers.find(
-        (c) => c.name.toLowerCase() === (ext2.customer_name || "").toLowerCase()
-      );
+      // Match on the exact name first, then on a tidied key (case, punctuation
+      // and a trailing Ltd/Limited/PLC/LLP ignored) so paperwork jobs get a
+      // customer linked wherever we can do it confidently.
+      const custKey = (v: string) =>
+        v.toLowerCase().replace(/[\s,]*\b(ltd|limited|plc|llp)\.?\s*$/i, "").replace(/[^a-z0-9]/g, "");
+      const extName = (ext2.customer_name || "").trim();
+      const extKey = custKey(extName);
+      let matchedCustomer = customers.find((c) => c.name.toLowerCase() === extName.toLowerCase());
+      if (!matchedCustomer && extKey.length >= 3) {
+        const keyHits = customers.filter((c) => custKey(c.name) === extKey);
+        if (keyHits.length === 1) matchedCustomer = keyHits[0];
+      }
       const ptQty = Math.max(0, Number(ext2.pressure_test_qty) || 0);
       const vQty = Math.max(0, Number(ext2.visual_qty) || 0);
       let oQty = Math.max(0, Number(ext2.other_qty) || 0);
