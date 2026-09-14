@@ -16,6 +16,9 @@ interface ReassignBody {
   /** Reverse a prior merge using a snapshot returned by a previous call. */
   undo?: boolean;
   undo_snapshot?: UndoSnapshot;
+  /** Merge every pending exact-match (similarity 1.0) suggestion, in batches. */
+  bulk_exact?: boolean;
+  batch_size?: number;
 }
 
 interface UndoSnapshot {
@@ -189,6 +192,70 @@ serve(async (req) => {
       return await runUndo(admin, snap);
     }
 
+    // ===== BULK EXACT-MATCH MODE =====
+    // Merges pending suggestions with similarity >= 1.0 in batches so the
+    // request always finishes; the client calls again while remaining > 0.
+    if (body.bulk_exact) {
+      const batchSize = Math.min(Math.max(body.batch_size ?? 20, 1), 50);
+      const { data: pending, error: pendErr } = await admin
+        .from("customer_merge_suggestions")
+        .select("id, incoming_name, existing_customer_id, new_customer_id")
+        .eq("status", "pending")
+        .gte("similarity", 1)
+        .not("new_customer_id", "is", null)
+        .order("created_at", { ascending: true })
+        .limit(batchSize);
+      if (pendErr) return json({ error: pendErr.message }, 500);
+
+      const { count: totalPending } = await admin
+        .from("customer_merge_suggestions")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending")
+        .gte("similarity", 1)
+        .not("new_customer_id", "is", null);
+
+      let merged = 0;
+      const failures: { name: string; error: string }[] = [];
+      for (const s of pending || []) {
+        if (!s.new_customer_id || s.new_customer_id === s.existing_customer_id) {
+          await admin
+            .from("customer_merge_suggestions")
+            .update({ status: "accepted", reviewed_by: userId, reviewed_at: new Date().toISOString() })
+            .eq("id", s.id);
+          continue;
+        }
+        const { errors: mergeErrors } = await mergePair(
+          admin,
+          s.new_customer_id,
+          s.existing_customer_id,
+          userId,
+        );
+        if (mergeErrors.length > 0) {
+          failures.push({ name: s.incoming_name, error: mergeErrors.join("; ") });
+          await admin
+            .from("customer_merge_suggestions")
+            .update({ status: "failed", reviewed_by: userId, reviewed_at: new Date().toISOString() })
+            .eq("id", s.id);
+          continue;
+        }
+        await admin
+          .from("customer_merge_suggestions")
+          .update({ status: "accepted", reviewed_by: userId, reviewed_at: new Date().toISOString() })
+          .eq("id", s.id);
+        merged++;
+      }
+
+      const processed = (pending || []).length;
+      return json({
+        bulk: true,
+        merged,
+        processed,
+        failures,
+        remaining: Math.max((totalPending ?? 0) - processed, 0),
+      });
+    }
+
+
     // ===== NORMAL / PREVIEW MODE =====
     const fromId = body.from_customer_id?.trim();
     if (!fromId) return json({ error: "from_customer_id required" }, 400);
@@ -297,6 +364,10 @@ serve(async (req) => {
         jobCustomerText[j.id] = j.customer ?? null;
       });
     }
+
+    // Carry over any details the survivor is missing, then avoid unique clashes
+    await carryOverFields(admin, fromCustomer, toId!);
+    await dropDuplicateSiteLinks(admin, fromId, toId!);
 
     // Apply reassignment
     const errors: string[] = [];
