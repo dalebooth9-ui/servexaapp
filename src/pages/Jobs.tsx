@@ -45,6 +45,9 @@ import {
 } from "@dnd-kit/core";
 import { getStatusColor, getFileExtension, IMAGE_EXTENSIONS, isImageFile } from "@/lib/fileUtils";
 import { generateAndSaveAiBrief } from "@/lib/aiJobBrief";
+import { deriveJobWorkTypes } from "@/lib/jobWorkTypes";
+import { buildAttachPlan, insertDraftResponses } from "@/lib/autoAttachJobDocuments";
+
 import { useFileUpload } from "@/hooks/useFileUpload";
 import DroppableCustomerFolder from "@/components/jobs/DroppableCustomerFolder";
 import NewCustomerDropZone from "@/components/jobs/NewCustomerDropZone";
@@ -1082,6 +1085,19 @@ export default function Jobs() {
     const selectedCustomer = customers.find((c) => c.id === form.customer_id);
     const customerName = selectedCustomer?.name || null;
 
+    // Work out what work the job actually covers. When the office leaves the
+    // category on its "general" default (typical for jobs created straight off
+    // dropped paperwork), derive it from the quantities / service type so the
+    // right sheets attach and engineers don't open an empty job.
+    const derived = deriveJobWorkTypes({
+      category: form.category,
+      pressure_test_qty: form.pressure_test_qty,
+      visual_qty: form.visual_qty,
+      other_qty: form.other_qty,
+      other_service_type: form.other_service_type,
+      name: parsed.data.name,
+    });
+
     const { data: createdJob, error } = await supabase.from("jobs").insert({
       name: parsed.data.name,
       ...(parsed.data.reference_number ? { reference_number: parsed.data.reference_number } : {}),
@@ -1090,7 +1106,8 @@ export default function Jobs() {
       customer: customerName,
       address: form.address || null,
       priority: form.priority,
-      category: form.category,
+      category: derived.category,
+      detected_work_types: derived.detectedWorkTypes,
       status: statusOverride || "active",
       created_by: user?.id,
       pressure_test_qty: form.pressure_test_qty || 0,
@@ -1100,6 +1117,7 @@ export default function Jobs() {
       due_date: form.due_date || null,
       allocated_days: form.allocated_days ? parseInt(form.allocated_days) : null,
     } as any).select("id, reference_number, org_id, site_id").single();
+
     if (error) {
       if (import.meta.env.DEV) console.error("Job creation error:", error);
       const message = error.code === "23505"
@@ -1143,10 +1161,23 @@ export default function Jobs() {
         } else {
           toast({
             title: `${rows.length} remedial item${rows.length === 1 ? "" : "s"} extracted from document`,
-            description: "Added as defects on the new job.",
+            description: "Added as defects and to the engineer's remedial checklist.",
           });
         }
+        // Same items also drive the engineer's on-site remedial checklist.
+        const checklistRows = capturedRemedials.map((r, idx) => ({
+          job_id: (createdJob as any).id,
+          org_id: (createdJob as any).org_id ?? null,
+          seq: idx + 1,
+          description: r.description,
+          status: "pending",
+          source: "document_import",
+          created_by: user?.id ?? null,
+        }));
+        const { error: remErr } = await supabase.from("job_remedial_items" as any).insert(checklistRows as any);
+        if (remErr) console.error("remedial checklist import failed", remErr);
       }
+
       const capturedCostingSheet = costingSheetFile;
       setCostingSheetFile(null);
       const capturedReferenceFiles = newJobReferenceFiles;
@@ -1237,66 +1268,49 @@ export default function Jobs() {
 
 
       if (createdJob) {
-        // Fetch templates for the job category, plus pressure_test/visual if quantities are set
-        const categoriesToFetch = new Set<string>();
-        categoriesToFetch.add(form.category);
-        if (form.pressure_test_qty > 0) categoriesToFetch.add("pressure_test");
-        if (form.visual_qty > 0) categoriesToFetch.add("visual");
-
-        const { data: matchingTemplates } = await supabase
-          .from("job_sheet_templates")
-          .select("id, name, fields")
-          .in("category", Array.from(categoriesToFetch))
-          .eq("status", "published");
-        if (matchingTemplates && matchingTemplates.length > 0) {
-          for (const tpl of matchingTemplates) {
-            const tplName = (tpl.name || "").toLowerCase();
-            // Determine how many copies based on service type quantities
-            let copies = 1;
-            if (tplName.includes("pressure") && form.pressure_test_qty > 0) {
-              copies = form.pressure_test_qty;
-            } else if (tplName.includes("visual") && form.visual_qty > 0) {
-              copies = form.visual_qty;
-            } else if (tplName.includes("pressure") && form.pressure_test_qty === 0) {
-              continue; // Skip pressure test template if qty is 0
-            } else if (tplName.includes("visual") && form.visual_qty === 0) {
-              continue; // Skip visual template if qty is 0
-            }
-
-            const fields = (typeof tpl.fields === "string" ? JSON.parse(tpl.fields) : tpl.fields) as any[];
-            const address = form.address || "";
-            const category = form.category || "";
-
-            for (let copyIndex = 0; copyIndex < copies; copyIndex++) {
-              const riserLabel = copies > 1 ? `Riser ${copyIndex + 1}` : "";
-              const prefilled: Record<string, any> = {};
-              fields.forEach((f: any) => {
-                const label = (f.label || "").toLowerCase();
-                if (label.includes("riser") && label.includes("location")) {
-                  prefilled[f.id] = riserLabel;
-                } else if (label.includes("customer") && (label.includes("detail") || label.includes("name") || label.includes("site"))) {
-                  prefilled[f.id] = customerName || "";
-                } else if ((label.includes("site") && label.includes("detail")) || label === "site address" || label === "address") {
-                  prefilled[f.id] = address;
-                } else if (label.includes("po number") || label.includes("reference")) {
-                  prefilled[f.id] = createdJob.reference_number || parsed.data.reference_number || "";
-                } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category")) {
-                  const catLabel = categories.find(c => c.slug === category)?.name || category;
-                  prefilled[f.id] = catLabel;
-                } else if (label === "date" || label === "date:" || label === "inspection date") {
-                  prefilled[f.id] = new Date().toISOString().split("T")[0];
-                }
-              });
-              await supabase.from("job_sheet_responses").insert({
-                job_id: createdJob.id,
-                template_id: tpl.id,
-                submitted_by: user!.id,
-                status: "draft",
-                responses: prefilled,
-              } as any);
-            }
+        // Attach sheets through the shared resolver so the explicit
+        // job type → sheet mapping (job_category_template_map) is honoured and
+        // every detected work type contributes its form.
+        try {
+          const plan = await buildAttachPlan({
+            jobId: createdJob.id,
+            jobCategory: derived.category,
+            qtys: {
+              pressure_test: form.pressure_test_qty || 0,
+              visual: form.visual_qty || 0,
+              other: form.other_qty || 0,
+            },
+            otherServiceType: form.other_service_type || null,
+            workTypes: derived.detectedWorkTypes,
+            categoryDefaultQty:
+              (form.pressure_test_qty || 0) + (form.visual_qty || 0) + (form.other_qty || 0) > 0 ? 0 : 1,
+            guaranteeOne: true,
+          });
+          const slots = [
+            ...plan.autoSlots.map((s) => ({ template: s.template })),
+            // No-one is around to choose at creation time — take the canonical one.
+            ...plan.needsChoice.map((s) => ({
+              template: [...s.candidates].sort((a, b) => Number(!!b.locked) - Number(!!a.locked))[0],
+            })),
+          ].filter((s) => !!s.template);
+          if (slots.length > 0 && user?.id) {
+            await insertDraftResponses({
+              jobId: createdJob.id,
+              userId: user.id,
+              prefill: {
+                customerName,
+                siteName: null,
+                siteAddress: form.address || null,
+                referenceNumber: createdJob.reference_number || null,
+                categoryLabel: categories.find((c) => c.slug === derived.category)?.name || derived.category,
+              },
+              slots,
+            });
           }
+        } catch (attachErr) {
+          console.error("Job sheet auto-attach failed", attachErr);
         }
+
 
 
         if (form.customer_id) {

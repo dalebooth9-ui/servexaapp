@@ -35,12 +35,23 @@ interface BuildPlanInput {
   qtys: { pressure_test: number; visual: number; other: number };
   otherServiceType?: string | null;
   /**
+   * Every work type the job covers (jobs.detected_work_types). Each mapped
+   * template for these slugs is attached, so a "pressure test + remedial"
+   * job gets both sheets.
+   */
+  workTypes?: string[];
+  /**
    * When > 0, add a fallback bucket that attaches a single canonical job sheet
    * matched purely by `job_category` (used for categories like sprinkler /
    * wet riser / fire hydrant that don't drive attachments through qty fields).
    * Existing attachments are still respected — no duplicates.
    */
   categoryDefaultQty?: number;
+  /**
+   * When true and nothing else resolves, fall back to the platform-default
+   * sheet mapped to `general` so a job never shows zero forms.
+   */
+  guaranteeOne?: boolean;
 }
 
 /**
@@ -49,7 +60,10 @@ interface BuildPlanInput {
  * candidates apply.
  */
 export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan> {
-  const { jobId, jobCategory, qtys, otherServiceType, categoryDefaultQty = 0 } = input;
+  const { jobId, jobCategory, qtys, otherServiceType, categoryDefaultQty = 0, workTypes = [], guaranteeOne = false } = input;
+
+  const slugs = Array.from(new Set([jobCategory, ...workTypes].filter(Boolean))) as string[];
+  const lookupSlugs = guaranteeOne ? Array.from(new Set([...slugs, "general"])) : slugs;
 
   // Pull all templates + existing responses + per-job template locks + explicit
   // job-type→template mapping in parallel.
@@ -57,33 +71,48 @@ export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan
     supabase.from("job_sheet_templates").select("id, name, category, job_category, fields, locked").eq("status", "published"),
     supabase.from("job_sheet_responses").select("id, template_id").eq("job_id", jobId),
     supabase.from("job_template_locks").select("bucket, template_id").eq("job_id", jobId),
-    jobCategory
+    lookupSlugs.length
       ? supabase
           .from("job_category_template_map" as any)
-          .select("template_id, sort_order, org_id")
-          .eq("job_category_slug", jobCategory)
+          .select("template_id, sort_order, org_id, job_category_slug")
+          .in("job_category_slug", lookupSlugs)
       : Promise.resolve({ data: [] as any[] }),
   ]);
+
 
   const allTemplates = (tplsRes.data || []) as TemplateOption[];
   const existing = (respsRes.data || []) as { id: string; template_id: string | null }[];
   const locks = (locksRes.data || []) as { bucket: CategoryKey; template_id: string }[];
   const lockByBucket = new Map<CategoryKey, string>(locks.map((l) => [l.bucket, l.template_id]));
 
-  // Explicit mapping: templates the admin has wired to this job type.
+  // Explicit mapping: templates the admin has wired to each job type.
   // Prefer org-specific rows over platform defaults when both exist.
-  const mapRows = ((mapRes as any).data || []) as { template_id: string; sort_order: number; org_id: string | null }[];
+  // NOTE: platform defaults carry org_id = null and must NOT be filtered out.
+  const mapRows = ((mapRes as any).data || []) as { template_id: string; sort_order: number; org_id: string | null; job_category_slug: string }[];
+  const templatesForSlug = (slug: string): TemplateOption[] => {
+    const rows = mapRows.filter((r) => r.job_category_slug === slug);
+    if (rows.length === 0) return [];
+    const hasOrgRows = rows.some((r) => r.org_id !== null);
+    const use = hasOrgRows ? rows.filter((r) => r.org_id !== null) : rows;
+    const seen = new Set<string>();
+    const out: TemplateOption[] = [];
+    for (const r of [...use].sort((a, b) => a.sort_order - b.sort_order)) {
+      if (seen.has(r.template_id)) continue;
+      const t = allTemplates.find((x) => x.id === r.template_id);
+      if (t) { seen.add(r.template_id); out.push(t); }
+    }
+    return out;
+  };
   const mappedIds = new Set<string>();
   const mappedTemplates: TemplateOption[] = [];
-  if (mapRows.length > 0) {
-    const hasOrgRows = mapRows.some((r) => r.org_id !== null);
-    const rows = hasOrgRows ? mapRows.filter((r) => r.org_id !== null) : mapRows;
-    for (const r of rows.sort((a, b) => a.sort_order - b.sort_order)) {
-      if (mappedIds.has(r.template_id)) continue;
-      const t = allTemplates.find((x) => x.id === r.template_id);
-      if (t) { mappedIds.add(r.template_id); mappedTemplates.push(t); }
+  for (const slug of slugs) {
+    for (const t of templatesForSlug(slug)) {
+      if (mappedIds.has(t.id)) continue;
+      mappedIds.add(t.id);
+      mappedTemplates.push(t);
     }
   }
+
 
   const plan: AttachPlan = { needsChoice: [], autoSlots: [], noMatches: [] };
 
@@ -170,8 +199,34 @@ export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan
     }
   }
 
+  // Every detected work type must contribute its mapped sheet, so a
+  // "pressure test + remedial" job ends up with both forms — not just the one
+  // the primary category points at.
+  const plannedIds = new Set<string>([
+    ...existing.map((r) => r.template_id || ""),
+    ...plan.autoSlots.map((s) => s.template.id),
+    ...plan.needsChoice.flatMap((s) => s.candidates.map((c) => c.id)),
+  ]);
+  for (const slug of workTypes) {
+    if (!slug || slug === jobCategory) continue;
+    const tpls = templatesForSlug(slug);
+    if (tpls.length === 0) continue;
+    // One sheet per work type (the first mapped/canonical one).
+    const pick = [...tpls].sort((a, b) => Number(!!b.locked) - Number(!!a.locked))[0];
+    if (plannedIds.has(pick.id)) continue;
+    plannedIds.add(pick.id);
+    plan.autoSlots.push({ bucket: "category_default", index: plan.autoSlots.length + 1, template: pick });
+  }
+
+  // Last resort — never leave a job with zero sheets.
+  if (guaranteeOne && plan.autoSlots.length === 0 && plan.needsChoice.length === 0 && existing.length === 0) {
+    const fallback = templatesForSlug("general")[0];
+    if (fallback) plan.autoSlots.push({ bucket: "category_default", index: 1, template: fallback });
+  }
+
   return plan;
 }
+
 
 /**
  * Persist a per-job template lock so the same template is always used for this
@@ -295,6 +350,9 @@ export async function insertDraftResponses(input: InsertResponsesInput) {
     const { error: docErr } = await supabase
       .from("job_documents" as any)
       .upsert(docRows as any, { onConflict: "job_id,document_type,label", ignoreDuplicates: true });
-    if (docErr) throw docErr;
+    // Engineers can create their own sheet drafts but may not write job
+    // documents — never let that block the sheet itself.
+    if (docErr) console.warn("blank_job_sheet document row skipped", docErr.message);
+
   }
 }
