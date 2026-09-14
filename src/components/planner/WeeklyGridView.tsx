@@ -440,12 +440,7 @@ function DraggableScheduleCard({
             })()}
           </div>
         </div>
-        <div className="truncate text-foreground">{job.name}</div>
-        {(job.site?.name || job.site?.postcode) && (
-          <div className="truncate text-muted-foreground text-[10px]">
-            📍 {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
-          </div>
-        )}
+        <JobCardSubtitle job={job} className="truncate text-muted-foreground text-[10px]" />
         {entry.notes && (
           <div
             className="truncate italic text-[10px] font-medium"
