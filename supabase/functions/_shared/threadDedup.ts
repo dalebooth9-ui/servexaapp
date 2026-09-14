@@ -162,23 +162,17 @@ export async function findExistingThreadJob(
     if (hit) return { ...hit, matchedBy: "headers" };
   }
 
-  const cleanPoNumbers = Array.from(
+  // PO match ignores case, spaces and punctuation ("phd-000248/1" ===
+  // "PHD 000248 1") so a reformatted PO never spawns a second job.
+  const poKeys = Array.from(
     new Set(
       (poNumbers || [])
-        .map((p) => (p || "").trim())
+        .map((p) => normalisePoKey(p))
         .filter((p) => p.length >= 3),
     ),
   );
-  if (cleanPoNumbers.length) {
-    const { data: hit } = await admin
-      .from("jobs")
-      .select("id, reference_number, brief, name, status, customer_po, intake_message_ids")
-      .eq("org_id", orgId)
-      .neq("status", "cancelled")
-      .in("customer_po", cleanPoNumbers)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  if (poKeys.length) {
+    const hit = await findJobByPoKeys(admin, orgId, poKeys);
     if (hit) return { ...hit, matchedBy: "po_number" };
   }
 
