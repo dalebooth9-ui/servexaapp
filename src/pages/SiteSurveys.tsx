@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ClipboardList, Loader2, Plus, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import DeleteRecordAction from "@/components/common/DeleteRecordAction";
+
 
 type Row = {
   id: string;
@@ -107,25 +109,41 @@ export default function SiteSurveys() {
       ) : (
         <div className="space-y-2">
           {filtered.map((r) => (
-            <Link key={r.id} to={`/site-surveys/${r.id}`} className="block">
-              <Card className="hover:bg-accent/30 transition-colors">
-                <CardContent className="p-3 flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs text-muted-foreground">{r.reference_number || "—"}</span>
-                      <Badge variant={STATUS_VARIANT[r.status] || "outline"} className="capitalize">{r.status}</Badge>
+            <div key={r.id} className="relative">
+              <Link to={`/site-surveys/${r.id}`} className="block">
+                <Card className="hover:bg-accent/30 transition-colors">
+                  <CardContent className="p-3 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-muted-foreground">{r.reference_number || "—"}</span>
+                        <Badge variant={STATUS_VARIANT[r.status] || "outline"} className="capitalize">{r.status}</Badge>
+                      </div>
+                      <p className="font-medium truncate">{r.title}</p>
+                      {r.site_address && <p className="text-xs text-muted-foreground truncate">{r.site_address}</p>}
                     </div>
-                    <p className="font-medium truncate">{r.title}</p>
-                    {r.site_address && <p className="text-xs text-muted-foreground truncate">{r.site_address}</p>}
-                  </div>
-                  <div className="text-xs text-muted-foreground shrink-0">
-                    {r.survey_date ? new Date(r.survey_date).toLocaleDateString("en-GB") : new Date(r.created_at).toLocaleDateString("en-GB")}
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+                    <div className="text-xs text-muted-foreground shrink-0 pr-10">
+                      {r.survey_date ? new Date(r.survey_date).toLocaleDateString("en-GB") : new Date(r.created_at).toLocaleDateString("en-GB")}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <DeleteRecordAction
+                  variant="icon"
+                  label={r.reference_number || r.title}
+                  description="This removes the survey and its photos."
+                  successMessage="Survey deleted"
+                  onDelete={async () => {
+                    const { error } = await supabase.from("site_surveys" as any).delete().eq("id", r.id);
+                    if (error) throw new Error(error.message);
+                    setRows((prev: any[]) => prev.filter((x) => x.id !== r.id));
+                  }}
+                />
+              </div>
+            </div>
           ))}
         </div>
+
       )}
     </div>
   );

@@ -15,6 +15,8 @@ import { Plus, FileSignature, PoundSterling, Calendar, AlertTriangle } from "luc
 import { format, differenceInDays } from "date-fns";
 import { toast } from "sonner";
 import { UKDateInput } from "@/components/ui/uk-date-input";
+import DeleteRecordAction from "@/components/common/DeleteRecordAction";
+
 
 type Contract = {
   id: string;
@@ -162,11 +164,12 @@ export default function ServiceContracts() {
                 <TableHead>Billing</TableHead>
                 <TableHead>Renewal</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {contracts.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No contracts yet.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No contracts yet.</TableCell></TableRow>
               ) : contracts.map(c => {
                 const status = computeDerivedStatus(c);
                 const days = differenceInDays(new Date(c.renewal_date), new Date());
@@ -182,8 +185,34 @@ export default function ServiceContracts() {
                       <div className="text-muted-foreground">{days >= 0 ? `${days}d away` : `${Math.abs(days)}d overdue`}</div>
                     </TableCell>
                     <TableCell><Badge variant="outline" className={STATUS_BADGE[status]}>{status.replace(/_/g, " ")}</Badge></TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <DeleteRecordAction
+                        variant="icon"
+                        label={c.reference_number || c.name}
+                        description="This removes the contract along with its sites, services and renewal history."
+                        successMessage="Contract deleted"
+                        checkDependants={async () => {
+                          const [{ count: jobCount }, { count: invCount }] = await Promise.all([
+                            supabase.from("jobs").select("id", { count: "exact", head: true }).eq("contract_id", c.id),
+                            supabase.from("invoices").select("id", { count: "exact", head: true }).eq("contract_id", c.id),
+                          ]);
+                          const bits: string[] = [];
+                          if (jobCount) bits.push(`${jobCount} job${jobCount === 1 ? "" : "s"}`);
+                          if (invCount) bits.push(`${invCount} invoice${invCount === 1 ? "" : "s"}`);
+                          return bits.length
+                            ? `This contract has ${bits.join(" and ")} attached to it. Mark it cancelled instead of deleting it.`
+                            : null;
+                        }}
+                        onDelete={async () => {
+                          const { error } = await supabase.from("service_contracts").delete().eq("id", c.id);
+                          if (error) throw new Error(error.message);
+                          setContracts((prev: any[]) => prev.filter((x) => x.id !== c.id));
+                        }}
+                      />
+                    </TableCell>
                   </TableRow>
                 );
+
               })}
             </TableBody>
           </Table>

@@ -15,6 +15,8 @@ import {
   Unlock, FileDown, Lock, AlertTriangle,
 } from "lucide-react";
 import { generateBrandedRamsPdf } from "@/lib/brandedRamsPdf";
+import DeleteRecordAction from "@/components/common/DeleteRecordAction";
+
 
 type RiskRow = {
   hazard: string;
@@ -254,6 +256,23 @@ export default function RamsDetail() {
             {status === "Approved" && <Lock className="h-3 w-3 mr-1" />}
             {status}
           </Badge>
+          <DeleteRecordAction
+            variant="icon"
+            label={`RAMS v${rams?.version ?? 1}`}
+            description="This removes the RAMS document and its risk assessment."
+            successMessage="RAMS deleted"
+            checkDependants={async () =>
+              status === "Approved"
+                ? "This RAMS has been approved, so it must stay on record. Create a new revision instead."
+                : null
+            }
+            onDelete={async () => {
+              const { error } = await supabase.from("rams").delete().eq("id", rams.id);
+              if (error) throw new Error(error.message);
+            }}
+            onDeleted={() => navigate(-1)}
+          />
+
         </div>
       </div>
 

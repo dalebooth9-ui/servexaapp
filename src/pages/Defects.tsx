@@ -23,6 +23,8 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { draftQuoteFromDefects } from "@/lib/draftDefectQuote";
+import DeleteRecordAction from "@/components/common/DeleteRecordAction";
+
 
 type Defect = {
   id: string;
@@ -487,7 +489,24 @@ export default function Defects() {
                             <CheckCircle2 className="h-3.5 w-3.5" />
                           </Button>
                         )}
+                        <DeleteRecordAction
+                          variant="icon"
+                          label={d.title}
+                          description="This removes the defect and its photos from the register."
+                          successMessage="Defect deleted"
+                          checkDependants={async () =>
+                            d.quote_id
+                              ? "This defect is already on a quote. Remove it from the quote first, then it can be deleted."
+                              : null
+                          }
+                          onDelete={async () => {
+                            const { error } = await supabase.from("defects").delete().eq("id", d.id);
+                            if (error) throw new Error(error.message);
+                            setDefects((prev: any[]) => prev.filter((x) => x.id !== d.id));
+                          }}
+                        />
                       </div>
+
                     </TableCell>
                   </TableRow>
                 );

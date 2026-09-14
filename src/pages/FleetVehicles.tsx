@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Car, Loader2, Plus, Search } from "lucide-react";
+import DeleteRecordAction from "@/components/common/DeleteRecordAction";
 
 type Vehicle = {
   id: string;
@@ -210,15 +211,39 @@ export default function FleetVehicles() {
               Active (shown in engineers' dropdown)
             </label>
           </div>
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 sm:justify-between">
             {editing && (
-              <Button
-                variant="outline"
-                onClick={() => { setActive(editing, !editing.active); setEditing(null); }}
-              >
-                {editing.active ? "Deactivate" : "Reactivate"}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => { setActive(editing, !editing.active); setEditing(null); }}
+                >
+                  {editing.active ? "Deactivate" : "Reactivate"}
+                </Button>
+                <DeleteRecordAction
+                  variant="button"
+                  label={editing.registration}
+                  description="This removes the vehicle from the fleet."
+                  successMessage="Vehicle deleted"
+                  checkDependants={async () => {
+                    const { count } = await supabase
+                      .from("vehicle_checks")
+                      .select("id", { count: "exact", head: true })
+                      .eq("vehicle_id", editing.id);
+                    return count
+                      ? `This vehicle has ${count} daily check${count === 1 ? "" : "s"} recorded against it. Deactivate it instead so the history is kept.`
+                      : null;
+                  }}
+                  onDelete={async () => {
+                    const { error } = await supabase.from("vehicles").delete().eq("id", editing.id);
+                    if (error) throw new Error(error.message);
+                    setRows((prev: any[]) => prev.filter((x) => x.id !== editing.id));
+                  }}
+                  onDeleted={() => setEditing(null)}
+                />
+              </div>
             )}
+
             <Button onClick={save} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
             </Button>
