@@ -68,7 +68,9 @@ export default function NewRamsPage() {
       .then(({ data }) => setJobs(data || []));
   }, []);
 
-  // Auto-fill site/client/address from the selected job
+  // Auto-fill site/client/address and the scope of work from the selected job.
+  // The scope comes from the job's remedial checklist, so the RAMS covers the
+  // work that was actually recorded on the paperwork — nothing invented.
   useEffect(() => {
     if (!jobId) return;
     supabase.from("jobs")
@@ -82,7 +84,19 @@ export default function NewRamsPage() {
         setSiteAddress((prev) => prev || site.address || data.address || "");
         setClientName((prev) => prev || cust.name || "");
       });
+    supabase.from("job_remedial_items" as any)
+      .select("seq, description")
+      .eq("job_id", jobId)
+      .order("seq", { ascending: true })
+      .then(({ data }) => {
+        const items = ((data as any[]) || []).map((r) => String(r.description || "").trim()).filter(Boolean);
+        if (items.length === 0) return;
+        setWorksDescription((prev) =>
+          prev.trim() ? prev : `Scope of work (from job paperwork):\n${items.map((d) => `- ${d}`).join("\n")}`
+        );
+      });
   }, [jobId]);
+
 
   const onDictate = useCallback((text: string) => {
     setWorksDescription((prev) => (prev ? prev.trimEnd() + " " : "") + text);
