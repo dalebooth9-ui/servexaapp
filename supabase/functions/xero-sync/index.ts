@@ -352,7 +352,7 @@ Deno.serve(async (req) => {
         imported++;
       }
 
-      return new Response(JSON.stringify({ success: true, imported, skipped, total: contacts.length }), {
+      return new Response(JSON.stringify({ success: true, imported, linked, skipped, total: contacts.length }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
