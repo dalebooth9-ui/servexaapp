@@ -27,6 +27,7 @@ interface DayPanelJob {
   name: string;
   status: string;
   priority: string;
+  address?: string | null;
   site?: { name: string; postcode: string | null } | null;
 }
 
