@@ -130,6 +130,7 @@ export default function DayPanel({
             name: j.name,
             status: j.status,
             priority: j.priority,
+            address: j.address,
             site: j.site_id ? sitesById[j.site_id] : null,
           };
         });
