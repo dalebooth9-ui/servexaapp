@@ -233,26 +233,28 @@ export default function JobDetail() {
 
   useEffect(() => { fetchData(); }, [id]);
 
-  // On job load, auto-attach a canonical fillable job sheet for categories
-  // that don't rely on the qty fields (sprinkler, wet riser, fire hydrant,
-  // fire extinguishers, etc.). buildAttachPlan checks for existing
-  // attachments so this is safe to re-run.
+  // On job load, make sure the job has at least one fillable sheet attached.
+  // This runs for engineers too — previously it was admin-only and skipped any
+  // job with a quantity set, which left AI/paperwork-created "general" jobs
+  // with no forms at all in the engineer view.
   useEffect(() => {
-    if (!id || !job?.category || !user || userRole !== "admin") return;
+    if (!id || !job || !user) return;
     if (job?.status === "completed" || job?.status === "cancelled") return;
     const ptQ = Number(job?.pressure_test_qty || 0);
     const visQ = Number(job?.visual_qty || 0);
     const othQ = Number(job?.other_qty || 0);
-    // Only attempt the default when no qty-driven attachments are in play.
-    if (ptQ + visQ + othQ > 0) return;
+    const workTypes: string[] = Array.isArray(job?.detected_work_types) ? job.detected_work_types : [];
     let cancelled = false;
     (async () => {
       try {
         const plan = await buildAttachPlan({
           jobId: id,
-          jobCategory: job.category,
-          qtys: { pressure_test: 0, visual: 0, other: 0 },
-          categoryDefaultQty: 1,
+          jobCategory: job.category || null,
+          qtys: { pressure_test: ptQ, visual: visQ, other: othQ },
+          otherServiceType: job?.other_service_type || null,
+          workTypes,
+          categoryDefaultQty: ptQ + visQ + othQ > 0 ? 0 : 1,
+          guaranteeOne: true,
         });
         if (cancelled) return;
         const prefill = {
@@ -271,16 +273,18 @@ export default function JobDetail() {
           });
           fetchData();
         }
-        if (!cancelled && plan.needsChoice.length > 0) {
+        // Only the office picks between competing templates.
+        if (!cancelled && plan.needsChoice.length > 0 && userRole === "admin") {
           setChooserSlots(plan.needsChoice);
           setChooserOpen(true);
         }
       } catch (e) {
-        console.error("Category default auto-attach failed", e);
+        console.error("Job sheet auto-attach failed", e);
       }
     })();
     return () => { cancelled = true; };
   }, [id, job?.category, job?.status, user?.id, userRole]);
+
 
   useEffect(() => {
     if (!id) return;
