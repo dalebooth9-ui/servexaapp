@@ -1158,10 +1158,23 @@ export default function Jobs() {
         } else {
           toast({
             title: `${rows.length} remedial item${rows.length === 1 ? "" : "s"} extracted from document`,
-            description: "Added as defects on the new job.",
+            description: "Added as defects and to the engineer's remedial checklist.",
           });
         }
+        // Same items also drive the engineer's on-site remedial checklist.
+        const checklistRows = capturedRemedials.map((r, idx) => ({
+          job_id: (createdJob as any).id,
+          org_id: (createdJob as any).org_id ?? null,
+          seq: idx + 1,
+          description: r.description,
+          status: "pending",
+          source: "document_import",
+          created_by: user?.id ?? null,
+        }));
+        const { error: remErr } = await supabase.from("job_remedial_items" as any).insert(checklistRows as any);
+        if (remErr) console.error("remedial checklist import failed", remErr);
       }
+
       const capturedCostingSheet = costingSheetFile;
       setCostingSheetFile(null);
       const capturedReferenceFiles = newJobReferenceFiles;
