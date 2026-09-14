@@ -173,6 +173,11 @@ export default function Jobs() {
   const [extractedRemedials, setExtractedRemedials] = useState<
     { description: string; severity: string; already_completed: boolean }[]
   >([]);
+  // Extra detail read off the dropped paperwork — feeds the job brief.
+  const [extractedContext, setExtractedContext] = useState<
+    { riser_location: string; outlet_count: number | null; had_paperwork: boolean }
+  >({ riser_location: "", outlet_count: null, had_paperwork: false });
+
   const dialogFileInputRef = useRef<HTMLInputElement | null>(null);
   const [fileDropUploading, setFileDropUploading] = useState(false);
   const [fileDropDialogOpen, setFileDropDialogOpen] = useState(false);
