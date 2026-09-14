@@ -54,6 +54,7 @@ function SortableRow({ entry, onRemove }: { entry: DayPanelEntry; onRemove: (id:
         title={job?.name || "Untitled"}
         siteName={job?.site?.name}
         postcode={job?.site?.postcode}
+        address={job?.address}
         priority={job?.priority}
         status={job?.status}
         dragHandleProps={listeners}
