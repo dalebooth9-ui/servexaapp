@@ -694,6 +694,36 @@ export default function InvoiceDetail() {
                   {sending ? "Sending..." : `Email ${isQuote ? "Quote" : "Invoice"}`}
                 </Button>
               )}
+              {userRole === "admin" && (
+                <DeleteRecordAction
+                  variant="button"
+                  label={invoice.invoice_number || (isQuote ? "this quote" : "this invoice")}
+                  description={`This removes the ${isQuote ? "quote" : "invoice"} and all of its lines.`}
+                  successMessage={`${invoice.invoice_number} deleted`}
+                  checkDependants={async () => {
+                    if (invoice.status === "paid" || invoice.paid_at) {
+                      return `This ${isQuote ? "quote" : "invoice"} is marked as paid, so it has to stay on record. Set it to cancelled instead if it was raised in error.`;
+                    }
+                    const synced = [
+                      invoice.xero_invoice_id && "Xero",
+                      (invoice as any).quickbooks_invoice_id && "QuickBooks",
+                      (invoice as any).sage_invoice_id && "Sage",
+                      (invoice as any).freeagent_invoice_id && "FreeAgent",
+                    ].filter(Boolean) as string[];
+                    if (synced.length) {
+                      return `This ${isQuote ? "quote" : "invoice"} has already been sent to ${synced.join(" and ")}. Void it there first, then it can be removed here.`;
+                    }
+                    return null;
+                  }}
+                  onDelete={async () => {
+                    await supabase.from("invoice_line_items").delete().eq("invoice_id", invoice.id);
+                    const { error } = await supabase.from("invoices").delete().eq("id", invoice.id);
+                    if (error) throw new Error(error.message);
+                  }}
+                  onDeleted={() => navigate("/invoices")}
+                />
+              )}
+
             </>
           )}
         </div>
