@@ -1199,6 +1199,18 @@ export default function Jobs() {
           .eq("id", (createdJob as any).id);
       }
 
+      // Paperwork job with no customer we could confidently match — create it
+      // anyway, but put it in the review queue so it can't be forgotten.
+      if (createdJob && capturedContext.had_paperwork && !(createdJob as any).customer_id) {
+        await supabase
+          .from("jobs")
+          .update({
+            email_review_flag: true,
+            paperwork_review_note: "No customer linked — please review",
+          } as any)
+          .eq("id", (createdJob as any).id);
+      }
+
 
       if (createdJob && capturedRemedials.length > 0) {
         // Remedials read off the dropped paperwork become trackable defects.
