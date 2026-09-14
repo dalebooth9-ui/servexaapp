@@ -30,6 +30,7 @@ type JobLite = {
   scheduled_time: string | null;
   schedule_id: string | null;
   acknowledged_at: string | null;
+  completed_at?: string | null;
   site_name?: string | null;
   site_postcode?: string | null;
   what3words?: string | null;
@@ -38,6 +39,16 @@ type JobLite = {
   last_visit?: string | null;
   rams_state?: "none" | "attached" | "signed";
 };
+
+/** Jobs that are finished (or called off) — no longer active work. */
+function isFinished(status?: string) {
+  return status === "completed" || status === "cancelled";
+}
+
+/** Date (yyyy-MM-dd) the job stopped being active; falls back to today. */
+function finishedOn(job: { completed_at?: string | null }, fallback: string) {
+  return job.completed_at ? job.completed_at.slice(0, 10) : fallback;
+}
 
 function priorityChip(p?: string) {
   switch (p) {
@@ -188,6 +199,7 @@ export default function EngineerTodayHome() {
   const { isClockedIn, clockIn, clockOut, loading: clockLoading } = useTimeClock();
   const [loading, setLoading] = useState(true);
   const [today, setToday] = useState<JobLite[]>([]);
+  const [completedToday, setCompletedToday] = useState<JobLite[]>([]);
   const [week, setWeek] = useState<JobLite[]>([]);
   const [awaitingDate, setAwaitingDate] = useState<JobLite[]>([]);
   const [nextDate, setNextDate] = useState<string | null>(null);
@@ -209,6 +221,7 @@ export default function EngineerTodayHome() {
     if (isGenericPreview || !engineerId) {
       setVehicleCheckOk(null);
       setToday([]);
+      setCompletedToday([]);
       setWeek([]);
       setAwaitingDate([]);
       setNextDate(null);
@@ -243,7 +256,7 @@ export default function EngineerTodayHome() {
     if (jobIds.length) {
       const { data: js } = await supabase
         .from("jobs")
-        .select("id, site_id, name, reference_number, address, status, priority, customer, category, sites(name, postcode, what3words)")
+        .select("id, site_id, name, reference_number, address, status, priority, customer, category, completed_at, sites(name, postcode, what3words)")
         .in("id", jobIds);
       (js || []).forEach((j: any) => jobsById.set(j.id, {
         ...j,
@@ -266,7 +279,10 @@ export default function EngineerTodayHome() {
           acknowledged_at: s.acknowledged_at,
         } as JobLite;
       })
-      .filter(Boolean) as JobLite[];
+      .filter(Boolean)
+      // A finished job stays visible on the day it was completed/cancelled,
+      // but drops off any later scheduled days.
+      .filter((j: JobLite) => !isFinished(j.status) || (j.schedule_date ?? "") <= finishedOn(j, todayStr)) as JobLite[];
 
     // Site context: outstanding defects, last completed visit, RAMS state.
     const siteIds = Array.from(new Set(combined.map((j) => j.site_id).filter(Boolean))) as string[];
@@ -303,7 +319,8 @@ export default function EngineerTodayHome() {
       rams_state: (signedJobs.has(j.id) ? "signed" : ramsJobs.has(j.id) ? "attached" : "none") as JobLite["rams_state"],
     }));
 
-    setToday(enriched.filter((j) => j.schedule_date === todayStr));
+    setToday(enriched.filter((j) => j.schedule_date === todayStr && !isFinished(j.status)));
+    setCompletedToday(enriched.filter((j) => j.schedule_date === todayStr && isFinished(j.status)));
     setWeek(enriched);
 
     // 3. Next scheduled date beyond today (for empty-state hint)
@@ -366,7 +383,7 @@ export default function EngineerTodayHome() {
 
   const tomorrow = useMemo(() => {
     const key = format(addDays(new Date(), 1), "yyyy-MM-dd");
-    return week.filter((j) => j.schedule_date === key);
+    return week.filter((j) => j.schedule_date === key && !isFinished(j.status));
   }, [week]);
 
   const weekGroups = useMemo(() => {
@@ -375,7 +392,7 @@ export default function EngineerTodayHome() {
     for (let i = 0; i < 14; i++) {
       const d = addDays(weekStart, i);
       const key = format(d, "yyyy-MM-dd");
-      const dayJobs = week.filter((j) => j.schedule_date === key);
+      const dayJobs = week.filter((j) => j.schedule_date === key && !isFinished(j.status));
       if (dayJobs.length) days.push({ date: d, jobs: dayJobs });
     }
     return days;
@@ -481,6 +498,22 @@ export default function EngineerTodayHome() {
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-3 pt-3">
                 {tomorrow.map((j) => <BigJobCard key={"tmw-" + j.id} job={j} />)}
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+
+          {!loading && completedToday.length > 0 && (
+            <Collapsible className="pt-2">
+              <CollapsibleTrigger className="w-full min-h-14 rounded-xl border-2 border-emerald-500/30 bg-emerald-500/10 px-4 py-3 flex items-center justify-between active:scale-[0.99]">
+                <span className="flex items-center gap-2 font-semibold text-base">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  Completed
+                  <Badge variant="secondary" className="text-xs">{completedToday.length}</Badge>
+                </span>
+                <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-3 pt-3">
+                {completedToday.map((j) => <BigJobCard key={"done-" + j.id} job={j} />)}
               </CollapsibleContent>
             </Collapsible>
           )}
