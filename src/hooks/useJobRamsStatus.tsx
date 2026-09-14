@@ -12,6 +12,15 @@ export interface JobRamsStatus {
     name: string;
     version: number;
     signoffs: number;
+    /** Uploaded from outside Servexa (client / principal contractor / Word). */
+    isExternal?: boolean;
+    externalFilePath?: string | null;
+    externalFileUrl?: string | null;
+    externalFileName?: string | null;
+    issuedBy?: string | null;
+    approvalStatus?: string | null;
+    validUntil?: string | null;
+    uploadedAt?: string | null;
   }>;
   totalSignoffs: number;
   refetch: () => void;
