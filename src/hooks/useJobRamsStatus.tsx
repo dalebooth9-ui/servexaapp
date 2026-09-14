@@ -95,6 +95,14 @@ export function useJobRamsStatus(jobId?: string | null): JobRamsStatus {
         name: r.contract_job_name || r.rams_type || "RAMS",
         version: 1,
         signoffs: countFor("rams_documents", r.id),
+        isExternal: !!r.is_external,
+        externalFilePath: r.external_file_path ?? null,
+        externalFileUrl: r.external_file_url ?? null,
+        externalFileName: r.external_file_name ?? null,
+        issuedBy: r.issued_by ?? null,
+        approvalStatus: r.external_approval_status ?? null,
+        validUntil: r.valid_until ?? null,
+        uploadedAt: r.created_at ?? null,
       }),
     );
 
