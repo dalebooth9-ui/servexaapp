@@ -447,13 +447,13 @@ export default function JobCompleteAction({
                     {userRole === "admin" ? (
                       <div className="mt-3 space-y-1.5">
                         <Label htmlFor="override" className="text-xs">
-                          Admin override reason (required to proceed)
+                          Admin override reason (optional)
                         </Label>
                         <Textarea
                           id="override"
                           value={overrideReason}
                           onChange={(e) => setOverrideReason(e.target.value)}
-                          placeholder="e.g. Customer left site before signing; will follow up remotely."
+                          placeholder="Optional: reason for completing without all items"
                           rows={2}
                           className="bg-background"
                         />
