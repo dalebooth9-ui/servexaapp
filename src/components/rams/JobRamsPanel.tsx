@@ -11,10 +11,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { FileText, Plus, ShieldCheck, Loader2, ExternalLink } from "lucide-react";
+import { FileText, Plus, ShieldCheck, Loader2, ExternalLink, Upload, Download } from "lucide-react";
 import { useJobRamsStatus, type JobRamsStatus } from "@/hooks/useJobRamsStatus";
 import { getRamsDefaults, type RamsType } from "@/lib/ramsDefaults";
 import RamsReadAndSignSheet from "@/components/rams/RamsReadAndSignSheet";
+import UploadExternalRamsDialog from "@/components/rams/UploadExternalRamsDialog";
+import DeleteRecordAction from "@/components/common/DeleteRecordAction";
+import { deleteExternalRams, externalRamsUrl } from "@/lib/externalRams";
+import { isoToUk } from "@/components/ui/uk-date-input";
 import {
   applyHazardModule, appliedFrom, useHazardModules,
   type AppliedHazardModule, type RamsModuleContent,
