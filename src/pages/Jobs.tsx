@@ -45,6 +45,9 @@ import {
 } from "@dnd-kit/core";
 import { getStatusColor, getFileExtension, IMAGE_EXTENSIONS, isImageFile } from "@/lib/fileUtils";
 import { generateAndSaveAiBrief } from "@/lib/aiJobBrief";
+import { deriveJobWorkTypes } from "@/lib/jobWorkTypes";
+import { buildAttachPlan, insertDraftResponses } from "@/lib/autoAttachJobDocuments";
+
 import { useFileUpload } from "@/hooks/useFileUpload";
 import DroppableCustomerFolder from "@/components/jobs/DroppableCustomerFolder";
 import NewCustomerDropZone from "@/components/jobs/NewCustomerDropZone";
