@@ -1202,7 +1202,7 @@ export default function Jobs() {
 
       // Paperwork job with no customer we could confidently match — create it
       // anyway, but put it in the review queue so it can't be forgotten.
-      if (createdJob && capturedContext.had_paperwork && !(createdJob as any).customer_id) {
+      if (createdJob && capturedContext.had_paperwork && !hadCustomerLink) {
         await supabase
           .from("jobs")
           .update({
