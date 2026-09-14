@@ -56,6 +56,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import DroppedPoFilesReorder from "@/components/jobs/DroppedPoFilesReorder";
 import { UKDateInput } from "@/components/ui/uk-date-input";
+import DuplicateJobWarningDialog from "@/components/jobs/DuplicateJobWarningDialog";
+import { findDuplicateJobs, type DuplicateJob } from "@/lib/duplicateJobs";
 
 const jobSchema = z.object({
   name: z.string().trim().min(1, "Job name is required").max(200, "Job name must be under 200 characters"),
@@ -92,6 +94,9 @@ export default function Jobs() {
   const [scanPaperOpen, setScanPaperOpen] = useState(false);
   const [scanInitialFile, setScanInitialFile] = useState<File | null>(null);
   const [siteSheetJobId, setSiteSheetJobId] = useState<string | null>(null);
+  const [duplicateJobs, setDuplicateJobs] = useState<DuplicateJob[]>([]);
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [pendingCreateStatus, setPendingCreateStatus] = useState<string | null>(null);
   const [activeJob, setActiveJob] = useState<any>(null);
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -1019,9 +1024,18 @@ export default function Jobs() {
       });
       if (error || data?.error) throw new Error(error?.message || data?.error || "Parse failed");
       const ext2: any = data?.data || {};
-      const matchedCustomer = customers.find(
-        (c) => c.name.toLowerCase() === (ext2.customer_name || "").toLowerCase()
-      );
+      // Match on the exact name first, then on a tidied key (case, punctuation
+      // and a trailing Ltd/Limited/PLC/LLP ignored) so paperwork jobs get a
+      // customer linked wherever we can do it confidently.
+      const custKey = (v: string) =>
+        v.toLowerCase().replace(/[\s,]*\b(ltd|limited|plc|llp)\.?\s*$/i, "").replace(/[^a-z0-9]/g, "");
+      const extName = (ext2.customer_name || "").trim();
+      const extKey = custKey(extName);
+      let matchedCustomer = customers.find((c) => c.name.toLowerCase() === extName.toLowerCase());
+      if (!matchedCustomer && extKey.length >= 3) {
+        const keyHits = customers.filter((c) => custKey(c.name) === extKey);
+        if (keyHits.length === 1) matchedCustomer = keyHits[0];
+      }
       const ptQty = Math.max(0, Number(ext2.pressure_test_qty) || 0);
       const vQty = Math.max(0, Number(ext2.visual_qty) || 0);
       let oQty = Math.max(0, Number(ext2.other_qty) || 0);
@@ -1080,7 +1094,7 @@ export default function Jobs() {
     }
   };
 
-  const handleCreate = async (e: React.FormEvent, statusOverride?: string) => {
+  const handleCreate = async (e: React.FormEvent, statusOverride?: string, force?: boolean) => {
     e.preventDefault();
     setLoading(true);
 
@@ -1090,6 +1104,27 @@ export default function Jobs() {
       toast({ title: "Validation error", description: firstError, variant: "destructive" });
       setLoading(false);
       return;
+    }
+
+    // Duplicate guard — same customer PO, or same customer + address in the
+    // last 90 days. Never create silently over the top of an existing job.
+    if (!force) {
+      try {
+        const dupes = await findDuplicateJobs({
+          customerPo: form.customer_po,
+          address: form.address,
+          customerId: form.customer_id || null,
+        });
+        if (dupes.length > 0) {
+          setDuplicateJobs(dupes);
+          setPendingCreateStatus(statusOverride ?? null);
+          setDuplicateDialogOpen(true);
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.error("duplicate job check failed", err);
+      }
     }
 
     // Resolve customer name for backward compat
@@ -1109,6 +1144,7 @@ export default function Jobs() {
       name: parsed.data.name,
     });
 
+    const hadCustomerLink = !!form.customer_id;
     const { data: createdJob, error } = await supabase.from("jobs").insert({
       name: parsed.data.name,
       ...(parsed.data.reference_number ? { reference_number: parsed.data.reference_number } : {}),
@@ -1161,6 +1197,18 @@ export default function Jobs() {
         await supabase
           .from("jobs")
           .update({ paperwork_review_note: "No remedials found in paperwork — please review" } as any)
+          .eq("id", (createdJob as any).id);
+      }
+
+      // Paperwork job with no customer we could confidently match — create it
+      // anyway, but put it in the review queue so it can't be forgotten.
+      if (createdJob && capturedContext.had_paperwork && !hadCustomerLink) {
+        await supabase
+          .from("jobs")
+          .update({
+            email_review_flag: true,
+            paperwork_review_note: "No customer linked — please review",
+          } as any)
           .eq("id", (createdJob as any).id);
       }
 
@@ -2666,6 +2714,19 @@ export default function Jobs() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <DuplicateJobWarningDialog
+        open={duplicateDialogOpen}
+        onOpenChange={setDuplicateDialogOpen}
+        duplicates={duplicateJobs}
+        customerPo={form.customer_po}
+        onCreateAnyway={() => {
+          const status = pendingCreateStatus;
+          setDuplicateJobs([]);
+          setPendingCreateStatus(null);
+          handleCreate({ preventDefault: () => {} } as any, status || undefined, true);
+        }}
+      />
 
       <Dialog open={fileDropChoiceOpen} onOpenChange={(open) => { setFileDropChoiceOpen(open); if (!open) { setFileDropPendingFiles([]); setFileDropTargetJob(null); } }}>
         <DialogContent className="sm:max-w-md">
