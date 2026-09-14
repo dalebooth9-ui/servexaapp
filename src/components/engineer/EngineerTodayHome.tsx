@@ -199,6 +199,7 @@ export default function EngineerTodayHome() {
   const { isClockedIn, clockIn, clockOut, loading: clockLoading } = useTimeClock();
   const [loading, setLoading] = useState(true);
   const [today, setToday] = useState<JobLite[]>([]);
+  const [completedToday, setCompletedToday] = useState<JobLite[]>([]);
   const [week, setWeek] = useState<JobLite[]>([]);
   const [awaitingDate, setAwaitingDate] = useState<JobLite[]>([]);
   const [nextDate, setNextDate] = useState<string | null>(null);
@@ -317,7 +318,8 @@ export default function EngineerTodayHome() {
       rams_state: (signedJobs.has(j.id) ? "signed" : ramsJobs.has(j.id) ? "attached" : "none") as JobLite["rams_state"],
     }));
 
-    setToday(enriched.filter((j) => j.schedule_date === todayStr));
+    setToday(enriched.filter((j) => j.schedule_date === todayStr && !isFinished(j.status)));
+    setCompletedToday(enriched.filter((j) => j.schedule_date === todayStr && isFinished(j.status)));
     setWeek(enriched);
 
     // 3. Next scheduled date beyond today (for empty-state hint)
