@@ -7564,6 +7564,10 @@ export type Database = {
       }
       rams_documents: {
         Row: {
+          approval_date: string | null
+          approver_name: string | null
+          approver_role: string | null
+          approver_signature: string | null
           assessment_date: string | null
           attendance_date: string | null
           client: string | null
@@ -7578,6 +7582,7 @@ export type Database = {
           operatives: Json | null
           org_id: string
           personnel: string | null
+          personnel_list: Json | null
           plant_and_equipment: Json | null
           ppe_items: Json | null
           rams_type: string
@@ -7588,10 +7593,18 @@ export type Database = {
           significant_risks: Json | null
           site_location: string | null
           special_training: string | null
+          supervisor_contact: string | null
+          supervisor_name: string | null
+          supervisor_role: string | null
+          supervisor_signature: string | null
           task_specific_ops: Json | null
           updated_at: string
         }
         Insert: {
+          approval_date?: string | null
+          approver_name?: string | null
+          approver_role?: string | null
+          approver_signature?: string | null
           assessment_date?: string | null
           attendance_date?: string | null
           client?: string | null
@@ -7606,6 +7619,7 @@ export type Database = {
           operatives?: Json | null
           org_id?: string
           personnel?: string | null
+          personnel_list?: Json | null
           plant_and_equipment?: Json | null
           ppe_items?: Json | null
           rams_type?: string
@@ -7616,10 +7630,18 @@ export type Database = {
           significant_risks?: Json | null
           site_location?: string | null
           special_training?: string | null
+          supervisor_contact?: string | null
+          supervisor_name?: string | null
+          supervisor_role?: string | null
+          supervisor_signature?: string | null
           task_specific_ops?: Json | null
           updated_at?: string
         }
         Update: {
+          approval_date?: string | null
+          approver_name?: string | null
+          approver_role?: string | null
+          approver_signature?: string | null
           assessment_date?: string | null
           attendance_date?: string | null
           client?: string | null
@@ -7634,6 +7656,7 @@ export type Database = {
           operatives?: Json | null
           org_id?: string
           personnel?: string | null
+          personnel_list?: Json | null
           plant_and_equipment?: Json | null
           ppe_items?: Json | null
           rams_type?: string
@@ -7644,6 +7667,10 @@ export type Database = {
           significant_risks?: Json | null
           site_location?: string | null
           special_training?: string | null
+          supervisor_contact?: string | null
+          supervisor_name?: string | null
+          supervisor_role?: string | null
+          supervisor_signature?: string | null
           task_specific_ops?: Json | null
           updated_at?: string
         }
