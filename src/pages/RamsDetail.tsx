@@ -15,6 +15,8 @@ import {
   Unlock, FileDown, Lock, AlertTriangle,
 } from "lucide-react";
 import { generateBrandedRamsPdf } from "@/lib/brandedRamsPdf";
+import DeleteRecordAction from "@/components/common/DeleteRecordAction";
+
 
 type RiskRow = {
   hazard: string;
