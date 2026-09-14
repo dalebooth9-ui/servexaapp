@@ -1353,12 +1353,14 @@ export default function Jobs() {
           });
         }
 
-        // Generate AI job brief in background and save to job record
+        // Generate AI job brief in background and save to job record.
+        // The remedial list read off the paperwork is the ONLY source for the
+        // brief's scope of work — nothing may be added to it.
         generateAndSaveAiBrief({
           id: createdJob.id,
           name: form.name,
           reference_number: createdJob.reference_number,
-          category: form.category,
+          category: derived.category,
           priority: form.priority,
           customer: customerName || undefined,
           address: form.address || undefined,
@@ -1367,7 +1369,13 @@ export default function Jobs() {
           visual_qty: form.visual_qty || undefined,
           pressure_test_qty: form.pressure_test_qty || undefined,
           other_service_type: form.other_service_type || undefined,
+          customer_po: (form.customer_po || "").trim() || undefined,
+          riser_location: extractedContext.riser_location || undefined,
+          outlet_count: extractedContext.outlet_count ?? undefined,
+          remedial_items: extractedRemedials.map((r) => r.description),
+          paperwork_provided: extractedContext.had_paperwork,
         });
+
       }
     }
   };
