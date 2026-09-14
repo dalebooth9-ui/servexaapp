@@ -94,16 +94,26 @@ export function parseRemedialActionsFromBrief(brief?: string | null): string[] {
   const isListItem = (s: string) => /^\s*(?:[*\-+]|\d+\.)\s+\S/.test(s);
   const isNested = (s: string) => /^\s{4,}(?:[*\-+]|\d+\.)\s+/.test(s);
 
+  // Only the scope/remedial part of a brief describes work to do — equipment
+  // lists and completion criteria are not remedial actions.
+  let inScope = false;
+
   for (const raw of lines) {
-    if (/^#{1,6}\s/.test(raw)) {
+    const heading = raw.match(/^#{1,6}\s+(.*)$/);
+    if (heading) {
       inRemedialList = false;
+      inScope = /scope of work|remedial|works? required|defects?/i.test(heading[1]);
       continue;
     }
     if (!isListItem(raw)) {
       // A prose lead-in such as "rectify the following defects:" opens a list.
-      if (/rectify the following|following remedial|remedial actions?\s*:/i.test(raw)) inRemedialList = true;
+      if (/rectify the following|following remedial|remedial actions?\s*:/i.test(raw)) {
+        inRemedialList = true;
+        inScope = true;
+      }
       continue;
     }
+    if (!inScope) continue;
     if (isNested(raw)) continue; // sub-bullets are detail, not separate items
 
     const body = clean(raw);
@@ -118,10 +128,11 @@ export function parseRemedialActionsFromBrief(brief?: string | null): string[] {
       if (after.length > 5) items.push(after);
       continue;
     }
-    if (mentionsRemedial(body) || /^\s*replace\b|\breplace(?:ment)?\b|\brenew\b/i.test(body)) {
+    if (mentionsRemedial(body) || /^replace(?:ment)?\b|\brenew\b/i.test(body)) {
       items.push(body);
     }
   }
+
 
   // De-duplicate, cap length
   const seen = new Set<string>();
