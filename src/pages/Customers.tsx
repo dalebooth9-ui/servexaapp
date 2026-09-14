@@ -299,6 +299,16 @@ export default function Customers() {
 
   return (
     <div>
+      {isAdmin && dupCount > 0 && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 flex-wrap">
+          <span className="text-sm font-medium">
+            {dupCount} possible duplicate customer{dupCount === 1 ? "" : "s"} found
+          </span>
+          <Button size="sm" variant="outline" onClick={() => navigate("/customers/duplicates")}>
+            Review
+          </Button>
+        </div>
+      )}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Customers</h1>
         {isAdmin && (
