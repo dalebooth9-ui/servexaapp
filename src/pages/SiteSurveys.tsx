@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ClipboardList, Loader2, Plus, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import DeleteRecordAction from "@/components/common/DeleteRecordAction";
+
 
 type Row = {
   id: string;
