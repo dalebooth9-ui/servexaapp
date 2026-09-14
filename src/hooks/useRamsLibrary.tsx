@@ -15,6 +15,12 @@ export interface RamsLibraryItem {
   source_rams_kind: string | null;
   source_rams_id: string | null;
   archived: boolean;
+  is_external?: boolean;
+  external_file_path?: string | null;
+  external_file_url?: string | null;
+  external_file_name?: string | null;
+  issued_by?: string | null;
+  valid_until?: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
