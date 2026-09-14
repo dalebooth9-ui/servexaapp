@@ -204,6 +204,9 @@ export default function JobRamsPanel({ jobId, job, canEdit = false, showSignActi
             <Button size="sm" variant="secondary" onClick={() => setAttachOpen(true)}>
               <Plus className="h-3.5 w-3.5 mr-1.5" /> Attach RAMS
             </Button>
+            <Button size="sm" variant="outline" onClick={() => setUploadOpen(true)}>
+              <Upload className="h-3.5 w-3.5 mr-1.5" /> Upload external RAMS
+            </Button>
             <Button size="sm" variant="outline" onClick={() => navigate(`/jobs/${jobId}/rams?new=1`)}>
               Create blank
             </Button>
@@ -221,9 +224,27 @@ export default function JobRamsPanel({ jobId, job, canEdit = false, showSignActi
             <li key={`${d.kind}:${d.id}`} className="flex flex-wrap items-center gap-3 p-3">
               <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium break-words">{d.name}</p>
+                <p className="text-sm font-medium break-words">
+                  {d.name}
+                  {d.isExternal && <Badge variant="outline" className="ml-2 align-middle">External</Badge>}
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  v{d.version} · {d.signoffs} sign-off{d.signoffs === 1 ? "" : "s"}
+                  {d.isExternal ? (
+                    <>
+                      {d.issuedBy ? `Issued by ${d.issuedBy} · ` : ""}
+                      {d.approvalStatus === "approved"
+                        ? "Approved"
+                        : d.approvalStatus === "pending"
+                          ? "Pending approval"
+                          : d.approvalStatus === "for_information"
+                            ? "For information"
+                            : "Uploaded"}
+                      {d.validUntil ? ` · valid until ${isoToUk(d.validUntil)}` : ""}
+                      {` · ${d.signoffs} sign-off${d.signoffs === 1 ? "" : "s"}`}
+                    </>
+                  ) : (
+                    <>v{d.version} · {d.signoffs} sign-off{d.signoffs === 1 ? "" : "s"}</>
+                  )}
                 </p>
               </div>
               {showSignActions && (
@@ -235,14 +256,37 @@ export default function JobRamsPanel({ jobId, job, canEdit = false, showSignActi
                 size="sm"
                 variant="outline"
                 className={showSignActions ? "min-h-[44px]" : undefined}
-                onClick={() => navigate(editorPathFor(d, jobId))}
+                onClick={() => (d.isExternal ? openExternal(d) : navigate(editorPathFor(d, jobId)))}
               >
-                <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> {canEdit ? "Open" : "View"}
+                {d.isExternal ? (
+                  <><Download className="h-3.5 w-3.5 mr-1.5" /> View file</>
+                ) : (
+                  <><ExternalLink className="h-3.5 w-3.5 mr-1.5" /> {canEdit ? "Open" : "View"}</>
+                )}
               </Button>
+              {canEdit && d.isExternal && (
+                <DeleteRecordAction
+                  variant="icon"
+                  label={d.name}
+                  description="The uploaded file and its entry in this job's documents will be removed."
+                  successMessage="External RAMS deleted"
+                  onDelete={async () => {
+                    const res = await deleteExternalRams({
+                      id: d.id,
+                      jobId,
+                      filePath: d.externalFilePath,
+                      fileName: d.externalFileName,
+                    });
+                    if (!res.ok) throw new Error(res.error);
+                  }}
+                  onDeleted={() => ramsStatus.refetch()}
+                />
+              )}
             </li>
           ))}
         </ul>
       )}
+
 
       <Dialog open={attachOpen} onOpenChange={setAttachOpen}>
         <DialogContent className="max-w-lg">
