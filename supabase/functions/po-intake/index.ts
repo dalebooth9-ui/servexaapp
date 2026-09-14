@@ -19,6 +19,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { inferJobScope } from "../_shared/inferJobScope.ts";
+import { findJobByPoKeys, normalisePoKey } from "../_shared/threadDedup.ts";
 
 
 const corsHeaders = {
