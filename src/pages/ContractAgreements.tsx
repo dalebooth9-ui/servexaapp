@@ -15,6 +15,8 @@ import { UKDateInput } from "@/components/ui/uk-date-input";
 import { FileSignature, Plus, Library, Loader2, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/dateFormat";
+import DeleteRecordAction from "@/components/common/DeleteRecordAction";
+
 import {
   AGREEMENT_STATUS_LABEL, AgreementServiceLine, ContractTemplate, agreementEndDate,
 } from "@/lib/contractTemplates";
@@ -95,6 +97,7 @@ export default function ContractAgreements() {
             <TableHeader><TableRow>
               <TableHead>Reference</TableHead><TableHead>Customer</TableHead><TableHead>Title</TableHead>
               <TableHead>Term</TableHead><TableHead className="text-right">Value</TableHead><TableHead>Status</TableHead>
+              <TableHead className="w-12" />
             </TableRow></TableHeader>
             <TableBody>
               {rows.map((r) => (
@@ -107,8 +110,27 @@ export default function ContractAgreements() {
                   </TableCell>
                   <TableCell className="text-right">£{Number(r.total_value || 0).toLocaleString("en-GB", { minimumFractionDigits: 2 })}</TableCell>
                   <TableCell><Badge variant="outline" className={STATUS_CLASS[r.status]}>{AGREEMENT_STATUS_LABEL[r.status] || r.status}</Badge></TableCell>
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <DeleteRecordAction
+                      variant="icon"
+                      label={r.reference}
+                      description="This removes the agreement and its service lines."
+                      successMessage={`${r.reference} deleted`}
+                      checkDependants={async () =>
+                        r.status === "signed"
+                          ? "This agreement has been signed, so it must stay on record. Mark it cancelled or expired instead."
+                          : null
+                      }
+                      onDelete={async () => {
+                        const { error } = await supabase.from("contract_agreements").delete().eq("id", r.id);
+                        if (error) throw new Error(error.message);
+                        setRows((prev) => prev.filter((x) => x.id !== r.id));
+                      }}
+                    />
+                  </TableCell>
                 </TableRow>
               ))}
+
             </TableBody>
           </Table>
         </CardContent></Card>
