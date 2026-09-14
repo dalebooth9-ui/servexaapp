@@ -207,7 +207,7 @@ serve(async (req) => {
         job_id: existing.id,
         org_id: orgId,
         action: "email_received",
-        detail: note,
+        details: note,
       } as any);
       await admin
         .from("jobs")
