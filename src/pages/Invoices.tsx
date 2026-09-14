@@ -46,6 +46,35 @@ export default function Invoices() {
 
   const records = allRecords.filter((r) => (r.document_type || "invoice") === docTab);
 
+  const isOffice = userRole === "admin" || userRole === "platform_admin";
+  const docWord = (inv: any) => ((inv.document_type || "invoice") === "quote" ? "quote" : "invoice");
+
+  // Paid invoices and anything already pushed to an accounting package are kept —
+  // removing them here would leave the books out of step.
+  const deleteBlockedReason = (inv: any): string | null => {
+    if (inv.status === "paid" || inv.paid_at) {
+      return `This ${docWord(inv)} is marked as paid, so it has to stay on record. Set it to cancelled instead if it was raised in error.`;
+    }
+    const synced = [
+      inv.xero_invoice_id && "Xero",
+      inv.quickbooks_invoice_id && "QuickBooks",
+      inv.sage_invoice_id && "Sage",
+      inv.freeagent_invoice_id && "FreeAgent",
+    ].filter(Boolean) as string[];
+    if (synced.length) {
+      return `This ${docWord(inv)} has already been sent to ${synced.join(" and ")}. Void it there first, then it can be removed here.`;
+    }
+    return null;
+  };
+
+  const deleteRecord = async (inv: any) => {
+    await supabase.from("invoice_line_items").delete().eq("invoice_id", inv.id);
+    const { error } = await supabase.from("invoices").delete().eq("id", inv.id);
+    if (error) throw new Error(error.message);
+    setAllRecords((prev) => prev.filter((r) => r.id !== inv.id));
+  };
+
+
   const filtered = records.filter((inv) => {
     if (statusFilter !== "all" && inv.status !== statusFilter) return false;
     if (search) {
