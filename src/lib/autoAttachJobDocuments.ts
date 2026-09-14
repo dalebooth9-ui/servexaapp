@@ -85,20 +85,34 @@ export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan
   const locks = (locksRes.data || []) as { bucket: CategoryKey; template_id: string }[];
   const lockByBucket = new Map<CategoryKey, string>(locks.map((l) => [l.bucket, l.template_id]));
 
-  // Explicit mapping: templates the admin has wired to this job type.
+  // Explicit mapping: templates the admin has wired to each job type.
   // Prefer org-specific rows over platform defaults when both exist.
-  const mapRows = ((mapRes as any).data || []) as { template_id: string; sort_order: number; org_id: string | null }[];
+  // NOTE: platform defaults carry org_id = null and must NOT be filtered out.
+  const mapRows = ((mapRes as any).data || []) as { template_id: string; sort_order: number; org_id: string | null; job_category_slug: string }[];
+  const templatesForSlug = (slug: string): TemplateOption[] => {
+    const rows = mapRows.filter((r) => r.job_category_slug === slug);
+    if (rows.length === 0) return [];
+    const hasOrgRows = rows.some((r) => r.org_id !== null);
+    const use = hasOrgRows ? rows.filter((r) => r.org_id !== null) : rows;
+    const seen = new Set<string>();
+    const out: TemplateOption[] = [];
+    for (const r of [...use].sort((a, b) => a.sort_order - b.sort_order)) {
+      if (seen.has(r.template_id)) continue;
+      const t = allTemplates.find((x) => x.id === r.template_id);
+      if (t) { seen.add(r.template_id); out.push(t); }
+    }
+    return out;
+  };
   const mappedIds = new Set<string>();
   const mappedTemplates: TemplateOption[] = [];
-  if (mapRows.length > 0) {
-    const hasOrgRows = mapRows.some((r) => r.org_id !== null);
-    const rows = hasOrgRows ? mapRows.filter((r) => r.org_id !== null) : mapRows;
-    for (const r of rows.sort((a, b) => a.sort_order - b.sort_order)) {
-      if (mappedIds.has(r.template_id)) continue;
-      const t = allTemplates.find((x) => x.id === r.template_id);
-      if (t) { mappedIds.add(r.template_id); mappedTemplates.push(t); }
+  for (const slug of slugs) {
+    for (const t of templatesForSlug(slug)) {
+      if (mappedIds.has(t.id)) continue;
+      mappedIds.add(t.id);
+      mappedTemplates.push(t);
     }
   }
+
 
   const plan: AttachPlan = { needsChoice: [], autoSlots: [], noMatches: [] };
 
