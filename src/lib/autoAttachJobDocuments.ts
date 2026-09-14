@@ -350,6 +350,9 @@ export async function insertDraftResponses(input: InsertResponsesInput) {
     const { error: docErr } = await supabase
       .from("job_documents" as any)
       .upsert(docRows as any, { onConflict: "job_id,document_type,label", ignoreDuplicates: true });
-    if (docErr) throw docErr;
+    // Engineers can create their own sheet drafts but may not write job
+    // documents — never let that block the sheet itself.
+    if (docErr) console.warn("blank_job_sheet document row skipped", docErr.message);
+
   }
 }
