@@ -132,7 +132,7 @@ export default function UploadExternalRamsDialog({ open, onOpenChange, jobId, on
 
           <div className="space-y-1.5">
             <Label>Valid until (optional)</Label>
-            <UKDateInput value={validUntil} onChange={setValidUntil} />
+            <UKDateInput value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
           </div>
         </div>
 
