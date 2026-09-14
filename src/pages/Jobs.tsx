@@ -1058,6 +1058,12 @@ export default function Jobs() {
         }))
         .filter((r: any) => r.description.length > 2);
       setExtractedRemedials(remedials);
+      setExtractedContext({
+        riser_location: String(ext2.riser_location || "").trim(),
+        outlet_count: Number.isFinite(Number(ext2.outlet_count)) && Number(ext2.outlet_count) > 0 ? Number(ext2.outlet_count) : null,
+        had_paperwork: true,
+      });
+
       toast({
         title: "Details extracted",
         description: `Combined ${dialogParsedFiles.length} file(s). Review and adjust.${remedials.length ? ` ${remedials.length} remedial item(s) found.` : ""}`,
