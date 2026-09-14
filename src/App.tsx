@@ -27,6 +27,7 @@ const Jobs = lazy(() => import("@/pages/Jobs"));
 const JobDetail = lazy(() => import("@/pages/JobDetail"));
 const Engineers = lazy(() => import("@/pages/Engineers"));
 const Customers = lazy(() => import("@/pages/Customers"));
+const CustomerDuplicates = lazy(() => import("@/pages/CustomerDuplicates"));
 const CustomerDetail = lazy(() => import("@/pages/CustomerDetail"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const BillingPage = lazy(() => import("@/pages/BillingPage"));
@@ -227,6 +228,7 @@ const App = () => (
               <Route path="/planner" element={<AccessRoute pageSlug="planner"><WeeklyPlanner /></AccessRoute>} />
               <Route path="/leave" element={<AccessRoute pageSlug="leave"><LeaveCalendar /></AccessRoute>} />
               <Route path="/customers" element={<AccessRoute pageSlug="customers"><Customers /></AccessRoute>} />
+              <Route path="/customers/duplicates" element={<AdminRoute><Suspense fallback={<PageFallback />}><CustomerDuplicates /></Suspense></AdminRoute>} />
               <Route path="/customers/:id" element={<AccessRoute pageSlug="customers"><CustomerDetail /></AccessRoute>} />
               <Route path="/quotes" element={<AdminRoute><Quotes /></AdminRoute>} />
               <Route path="/invoices" element={<AdminRoute><Invoices /></AdminRoute>} />

@@ -20,6 +20,7 @@ const RULES: SlugRule[] = [
   { test: (p) => p.startsWith("/settings/rams-library"), slug: "rams.auto-attach" },
   { test: (p) => p === "/paper-scans" || p.startsWith("/paper-scans"), slug: "paper-scans" },
   { test: (p) => p === "/customers", slug: "customers" },
+  { test: (p) => p === "/customers/duplicates", slug: "customers" },
   { test: (p) => p.startsWith("/customers/"), slug: "customers.detail" },
   { test: (p) => p === "/sites", slug: "sites" },
   { test: (p) => p === "/site-surveys" || p.startsWith("/site-surveys/"), slug: "site-surveys" },
