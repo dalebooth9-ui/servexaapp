@@ -507,6 +507,18 @@ export default function RamsEditor() {
 
       if (ramsData) {
         const d = ramsData as any;
+        // External RAMS are uploaded files, not editable documents — send the
+        // user to the job and open the file instead of an empty editor.
+        if (d.is_external) {
+          const { data: signed } = await supabase.storage
+            .from("submissions")
+            .createSignedUrl(d.external_file_path || "", 60 * 60);
+          const url = signed?.signedUrl || d.external_file_url;
+          if (url) window.open(url, "_blank", "noopener,noreferrer");
+          navigate(`/jobs/${jobId}`);
+          setLoading(false);
+          return;
+        }
         setDocId(d.id);
         setRamsType((d.rams_type as RamsType) || "dry_riser");
         setCoverFields({

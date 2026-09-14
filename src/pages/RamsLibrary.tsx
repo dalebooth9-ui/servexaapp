@@ -15,6 +15,8 @@ import { Library, Plus, Trash2, Pencil, Archive, ArchiveRestore, ArrowLeft } fro
 import { Link, Navigate } from "react-router-dom";
 import HazardModulesAdmin from "@/components/rams/HazardModulesAdmin";
 import RamsAutoAttachAdmin from "@/components/rams/RamsAutoAttachAdmin";
+import { EXTERNAL_RAMS_ACCEPT, externalRamsUrl, uploadExternalRamsToLibrary } from "@/lib/externalRams";
+import { Upload, Download } from "lucide-react";
 
 const BLOCK_TYPES = [
   { value: "working_at_height", label: "Working at height (ladders / MEWP)" },
@@ -43,8 +45,30 @@ export default function RamsLibrary() {
   const { items, loading, refetch } = useRamsLibrary({ kind: libraryKind, includeArchived: true });
   const [editing, setEditing] = useState<RamsLibraryItem | null>(null);
   const [creating, setCreating] = useState(false);
+  const { user } = useAuth();
+  const [uploading, setUploading] = useState(false);
 
   if (userRole && userRole !== "admin") return <Navigate to="/" replace />;
+
+  // Upload a RAMS written outside Servexa (client / principal contractor /
+  // Word) into the org library so it can be reused across jobs.
+  const handleExternalUpload = async (file: File | null) => {
+    if (!file || !user?.id) return;
+    setUploading(true);
+    try {
+      const { data: prof } = await supabase.from("profiles").select("org_id").eq("id", user.id).maybeSingle();
+      const orgId = (prof as any)?.org_id;
+      if (!orgId) throw new Error("Missing organisation");
+      const res = await uploadExternalRamsToLibrary({ file, userId: user.id, orgId });
+      if (res.ok !== true) throw new Error(res.error);
+      toast({ title: "External RAMS added to the library" });
+      refetch();
+    } catch (e: any) {
+      toast({ title: "Upload failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleArchive = async (item: RamsLibraryItem) => {
     const { error } = await supabase
@@ -83,9 +107,24 @@ export default function RamsLibrary() {
               </div>
             </div>
             {tab !== "hazard" && tab !== "autoattach" && (
-              <Button size="sm" onClick={() => setCreating(true)}>
-                <Plus className="h-4 w-4 mr-1" /> New {tab === "whole" ? "template" : "block"}
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {tab === "whole" && (
+                  <Button size="sm" variant="outline" asChild disabled={uploading}>
+                    <label className="cursor-pointer">
+                      <Upload className="h-4 w-4 mr-1" /> {uploading ? "Uploading…" : "Upload external RAMS"}
+                      <input
+                        type="file"
+                        className="sr-only"
+                        accept={EXTERNAL_RAMS_ACCEPT}
+                        onChange={(e) => { handleExternalUpload(e.target.files?.[0] || null); e.currentTarget.value = ""; }}
+                      />
+                    </label>
+                  </Button>
+                )}
+                <Button size="sm" onClick={() => setCreating(true)}>
+                  <Plus className="h-4 w-4 mr-1" /> New {tab === "whole" ? "template" : "block"}
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>
@@ -122,6 +161,7 @@ export default function RamsLibrary() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-medium">{item.name}</p>
+                          {item.is_external && <Badge variant="outline">External</Badge>}
                           {item.archived && <Badge variant="secondary">Archived</Badge>}
                           {item.block_type && <Badge variant="outline" className="text-[10px]">{item.block_type}</Badge>}
                           {item.work_types?.map((w) => (
@@ -133,6 +173,19 @@ export default function RamsLibrary() {
                         )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
+                        {item.is_external && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              const url = await externalRamsUrl(item.external_file_path, item.external_file_url);
+                              if (url) window.open(url, "_blank", "noopener,noreferrer");
+                              else toast({ title: "File unavailable", variant: "destructive" });
+                            }}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button variant="ghost" size="sm" onClick={() => setEditing(item)}>
                           <Pencil className="h-4 w-4" />
                         </Button>

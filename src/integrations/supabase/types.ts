@@ -7578,8 +7578,15 @@ export type Database = {
           created_at: string
           created_by: string
           description_of_work: string | null
+          external_approval_status: string | null
+          external_file_name: string | null
+          external_file_path: string | null
+          external_file_url: string | null
+          external_mime: string | null
           hazard_modules: Json
           id: string
+          is_external: boolean
+          issued_by: string | null
           job_id: string
           location: string | null
           operatives: Json | null
@@ -7602,6 +7609,8 @@ export type Database = {
           supervisor_signature: string | null
           task_specific_ops: Json | null
           updated_at: string
+          uploaded_by: string | null
+          valid_until: string | null
         }
         Insert: {
           approval_date?: string | null
@@ -7615,8 +7624,15 @@ export type Database = {
           created_at?: string
           created_by: string
           description_of_work?: string | null
+          external_approval_status?: string | null
+          external_file_name?: string | null
+          external_file_path?: string | null
+          external_file_url?: string | null
+          external_mime?: string | null
           hazard_modules?: Json
           id?: string
+          is_external?: boolean
+          issued_by?: string | null
           job_id: string
           location?: string | null
           operatives?: Json | null
@@ -7639,6 +7655,8 @@ export type Database = {
           supervisor_signature?: string | null
           task_specific_ops?: Json | null
           updated_at?: string
+          uploaded_by?: string | null
+          valid_until?: string | null
         }
         Update: {
           approval_date?: string | null
@@ -7652,8 +7670,15 @@ export type Database = {
           created_at?: string
           created_by?: string
           description_of_work?: string | null
+          external_approval_status?: string | null
+          external_file_name?: string | null
+          external_file_path?: string | null
+          external_file_url?: string | null
+          external_mime?: string | null
           hazard_modules?: Json
           id?: string
+          is_external?: boolean
+          issued_by?: string | null
           job_id?: string
           location?: string | null
           operatives?: Json | null
@@ -7676,6 +7701,8 @@ export type Database = {
           supervisor_signature?: string | null
           task_specific_ops?: Json | null
           updated_at?: string
+          uploaded_by?: string | null
+          valid_until?: string | null
         }
         Relationships: [
           {
@@ -7966,7 +7993,12 @@ export type Database = {
           created_at: string
           created_by: string
           description: string | null
+          external_file_name: string | null
+          external_file_path: string | null
+          external_file_url: string | null
           id: string
+          is_external: boolean
+          issued_by: string | null
           kind: string
           name: string
           org_id: string
@@ -7974,6 +8006,7 @@ export type Database = {
           source_rams_id: string | null
           source_rams_kind: string | null
           updated_at: string
+          valid_until: string | null
           work_types: string[]
         }
         Insert: {
@@ -7982,7 +8015,12 @@ export type Database = {
           created_at?: string
           created_by: string
           description?: string | null
+          external_file_name?: string | null
+          external_file_path?: string | null
+          external_file_url?: string | null
           id?: string
+          is_external?: boolean
+          issued_by?: string | null
           kind: string
           name: string
           org_id: string
@@ -7990,6 +8028,7 @@ export type Database = {
           source_rams_id?: string | null
           source_rams_kind?: string | null
           updated_at?: string
+          valid_until?: string | null
           work_types?: string[]
         }
         Update: {
@@ -7998,7 +8037,12 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string | null
+          external_file_name?: string | null
+          external_file_path?: string | null
+          external_file_url?: string | null
           id?: string
+          is_external?: boolean
+          issued_by?: string | null
           kind?: string
           name?: string
           org_id?: string
@@ -8006,6 +8050,7 @@ export type Database = {
           source_rams_id?: string | null
           source_rams_kind?: string | null
           updated_at?: string
+          valid_until?: string | null
           work_types?: string[]
         }
         Relationships: [
