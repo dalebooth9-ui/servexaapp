@@ -629,6 +629,22 @@ export default function JobDetail() {
         </div>
       )}
 
+      {!job.customer_id && (
+        <div className="mb-6 flex items-center gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <ClipboardList className="h-4 w-4 shrink-0" />
+          <span className="flex-1">
+            No customer linked to this job — pick one below so paperwork, invoices and the portal work.
+          </span>
+        </div>
+      )}
+
+      <PossibleDuplicates
+        jobId={job.id}
+        customerPo={(job as any).customer_po}
+        address={job.address}
+        customerId={job.customer_id}
+      />
+
       <JobStageTimeline jobId={job.id} status={job.status} />
 
       {/* Tab navigation — sections are lazy-mounted; only the active tab is in the DOM. */}
