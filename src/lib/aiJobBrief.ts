@@ -18,7 +18,15 @@ interface JobBriefInput {
   visual_qty?: number;
   pressure_test_qty?: number;
   other_service_type?: string;
+  customer_po?: string;
+  riser_location?: string;
+  outlet_count?: number;
+  /** Remedial items read verbatim off the paperwork — the only scope source. */
+  remedial_items?: string[];
+  /** True when paperwork was supplied, so an empty remedial list is meaningful. */
+  paperwork_provided?: boolean;
 }
+
 
 export async function generateAndSaveAiBrief(job: JobBriefInput): Promise<void> {
   try {
