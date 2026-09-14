@@ -160,24 +160,28 @@
   }
 }
 
-/* Servexa orange scrollbars */
+/* Globally visible scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: hsl(var(--muted));
-  border-radius: 4px;
+  background: hsl(var(--muted-foreground) / 0.12);
+  border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(25 95% 53%);
-  border-radius: 4px;
+  background: hsl(var(--muted-foreground) / 0.45);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(25 95% 43%);
+  background: hsl(var(--muted-foreground) / 0.65);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 *,
@@ -185,35 +189,39 @@
 [data-radix-portal],
 [role="dialog"],
 [data-state="open"] {
-  scrollbar-width: thin;
-  scrollbar-color: hsl(25 95% 53%) hsl(var(--muted));
+  scrollbar-width: auto;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.45) hsl(var(--muted-foreground) / 0.12);
 }
 
 [data-radix-portal] ::-webkit-scrollbar,
 [data-radix-popper-content-wrapper] ::-webkit-scrollbar,
 [role="dialog"] ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 [data-radix-portal] ::-webkit-scrollbar-track,
 [data-radix-popper-content-wrapper] ::-webkit-scrollbar-track,
 [role="dialog"] ::-webkit-scrollbar-track {
-  background: hsl(var(--muted));
-  border-radius: 4px;
+  background: hsl(var(--muted-foreground) / 0.12);
+  border-radius: 5px;
 }
 
 [data-radix-portal] ::-webkit-scrollbar-thumb,
 [data-radix-popper-content-wrapper] ::-webkit-scrollbar-thumb,
 [role="dialog"] ::-webkit-scrollbar-thumb {
-  background: hsl(25 95% 53%);
-  border-radius: 4px;
+  background: hsl(var(--muted-foreground) / 0.45);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 [data-radix-portal] ::-webkit-scrollbar-thumb:hover,
 [data-radix-popper-content-wrapper] ::-webkit-scrollbar-thumb:hover,
 [role="dialog"] ::-webkit-scrollbar-thumb:hover {
-  background: hsl(25 95% 43%);
+  background: hsl(var(--muted-foreground) / 0.65);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 /* Respect EXIF rotation on uploaded photos (camera shots). */
