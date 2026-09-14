@@ -5873,6 +5873,7 @@ export type Database = {
           org_id: string | null
           other_qty: number
           other_service_type: string | null
+          paperwork_review_note: string | null
           pressure_test_qty: number
           priority: string
           recurrence_end_date: string | null
@@ -5927,6 +5928,7 @@ export type Database = {
           org_id?: string | null
           other_qty?: number
           other_service_type?: string | null
+          paperwork_review_note?: string | null
           pressure_test_qty?: number
           priority?: string
           recurrence_end_date?: string | null
@@ -5981,6 +5983,7 @@ export type Database = {
           org_id?: string | null
           other_qty?: number
           other_service_type?: string | null
+          paperwork_review_note?: string | null
           pressure_test_qty?: number
           priority?: string
           recurrence_end_date?: string | null
