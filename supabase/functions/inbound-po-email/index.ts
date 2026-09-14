@@ -1036,7 +1036,9 @@ serve(async (req) => {
         intake_message_ids: merged,
         intake_last_email_at: new Date().toISOString(),
         has_unread_email: true,
-        ...(isCompleted ? { email_review_flag: true } : {}),
+        // Completed job, or a repeat of a PO already on a live job — either
+        // way an operator should look at it rather than it landing silently.
+        ...(isCompleted || dedupMatchedBy === "po_number" ? { email_review_flag: true } : {}),
       } as any).eq("id", jobId);
     } catch (e) { console.warn("live-job thread merge failed", e); }
 
