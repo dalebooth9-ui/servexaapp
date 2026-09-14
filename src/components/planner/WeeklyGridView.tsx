@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { X, GripVertical, AlertTriangle, CalendarDays, Palmtree, Users } from "lucide-react";
 import { Link } from "react-router-dom";
+import { JobCardSubtitle } from "@/lib/jobCardLabel";
 import {
   DndContext,
   DragOverlay,
