@@ -290,30 +290,25 @@ function SpanningJobCard({
       )}
       <div className="flex items-start gap-1 min-w-0">
         <div className="flex-1 min-w-0 pr-16">
-          <div className="flex items-center gap-1 flex-wrap mb-0.5">
-            <Link to={`/jobs/${job.id}`} className="font-mono font-semibold text-primary hover:underline shrink-0 text-[11px]">
-              {job.reference_number}
-            </Link>
-            {STATUS_INDICATOR[job.status] && (
-              <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none shrink-0", STATUS_INDICATOR[job.status].class)}>
-                {STATUS_INDICATOR[job.status].label}
-              </span>
-            )}
-            {isOverdue && (
-              <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
-                <AlertTriangle className="h-2 w-2" /> OVR
-              </span>
-            )}
-            {dueToday && !isOverdue && (
-              <span className="inline-flex items-center rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white shrink-0">TODAY</span>
-            )}
-          </div>
-          <div className="truncate text-foreground font-medium">{job.name}</div>
-          {(job.site?.name || job.site?.postcode) && (
-            <div className="truncate text-muted-foreground text-[10px]">
-              📍 {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
+          <div className="flex items-start justify-between gap-1 mb-0.5">
+            <div className="truncate text-foreground font-medium flex-1 min-w-0 pr-1">{job.name}</div>
+            <div className="flex items-center gap-1 flex-wrap shrink-0">
+              {STATUS_INDICATOR[job.status] && (
+                <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none shrink-0", STATUS_INDICATOR[job.status].class)}>
+                  {STATUS_INDICATOR[job.status].label}
+                </span>
+              )}
+              {isOverdue && (
+                <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
+                  <AlertTriangle className="h-2 w-2" /> OVR
+                </span>
+              )}
+              {dueToday && !isOverdue && (
+                <span className="inline-flex items-center rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white shrink-0">TODAY</span>
+              )}
             </div>
-          )}
+          </div>
+          <JobCardSubtitle job={job} className="truncate text-muted-foreground text-[10px]" />
           {entry?.notes && (
             <div
               className="truncate italic text-[10px] font-medium"
