@@ -926,12 +926,31 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
           source: sourceMeta(p.source).label,
           downloadUrl: p.signedUrl,
           downloadName: p.fileName,
+          storagePath: p.storagePath,
         }))}
         currentIndex={lightboxIdx ?? 0}
         open={lightboxIdx !== null}
         onOpenChange={(o) => !o && setLightboxIdx(null)}
         onIndexChange={(i) => setLightboxIdx(i)}
+        jobId={jobId}
+        bucket="submissions"
+        orgId={orgId ?? undefined}
+        onRemedialsAdded={() => load()}
       />
+
+      {autoTranscribeFile && (
+        <TranscriptDialog
+          key={autoTranscribeFile}
+          open
+          autoStart
+          onOpenChange={(o) => !o && setAutoTranscribeFile(null)}
+          filePath={autoTranscribeFile}
+          jobId={jobId}
+          bucket="submissions"
+          orgId={orgId ?? undefined}
+          onRemedialsAdded={() => load()}
+        />
+      )}
 
       <AlertDialog
         open={pendingDelete !== null}
