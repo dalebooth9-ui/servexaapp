@@ -62,6 +62,7 @@ type LoadOpts = {
 
 const IMAGE_NAME_RE = /\.(?:jpg|jpeg|png|webp|gif|heic|heif)$/i;
 const VIDEO_NAME_RE = /\.(?:mp4|mov|webm|avi|mkv|m4v)$/i;
+const AUDIO_NAME_RE = /\.(?:mp3|m4a|wav|ogg|oga|aac|weba)$/i;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isImageName(name?: string | null): boolean {
@@ -72,8 +73,13 @@ function isVideoName(name?: string | null): boolean {
   return !!name && VIDEO_NAME_RE.test(name.split("?")[0] || "");
 }
 
+/** Voice notes — shown in the media grid, never embedded in PDFs. */
+function isAudioName(name?: string | null): boolean {
+  return !!name && AUDIO_NAME_RE.test(name.split("?")[0] || "");
+}
+
 function isMediaName(name?: string | null): boolean {
-  return isImageName(name) || isVideoName(name);
+  return isImageName(name) || isVideoName(name) || isAudioName(name);
 }
 
 function getFileNameFromPath(path?: string | null): string {
@@ -416,7 +422,7 @@ export async function loadJobPhotosForPdf(opts: LoadOpts): Promise<JobPhotoForPd
   const results: JobPhotoForPdf[] = [];
   // Sequential to keep memory pressure sane on jobs with lots of photos.
   for (const m of filtered) {
-    if (isVideoName(m.fileName)) continue;
+    if (isVideoName(m.fileName) || isAudioName(m.fileName)) continue;
     try {
       const signed = await createSubmissionPhotoSignedUrl(
         m.bucket ? `storage://${m.bucket}/${m.storagePath}` : (m.fallbackUrl || m.storagePath),
