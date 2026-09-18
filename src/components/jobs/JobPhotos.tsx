@@ -774,6 +774,14 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
             className="hidden"
             onChange={(e) => { handleFiles(e.target.files); e.currentTarget.value = ""; }}
           />
+          <input
+            ref={voiceRef}
+            type="file"
+            accept="audio/*"
+            capture="user"
+            className="hidden"
+            onChange={(e) => { handleVoiceNote(e.target.files); e.currentTarget.value = ""; }}
+          />
           <Button
             size="sm"
             onClick={() => cameraInputRef.current?.click()}
@@ -789,6 +797,15 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
             disabled={uploading}
           >
             <Video className="mr-1.5 h-4 w-4" /> Record video
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => voiceRef.current?.click()}
+            disabled={uploading || uploadingVoice}
+          >
+            {uploadingVoice ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Mic className="mr-1.5 h-4 w-4" />}
+            Voice note
           </Button>
           <Button
             size="sm"
