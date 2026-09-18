@@ -8,11 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck,
-  FileImage, Upload, GripVertical, Trash2, CheckSquare, X, PlayCircle, Video,
+  FileImage, Upload, GripVertical, Trash2, CheckSquare, X, PlayCircle, Video, Mic,
 } from "lucide-react";
 import PhotoLightbox from "@/components/PhotoLightbox";
+import TranscriptDialog from "@/components/TranscriptDialog";
 import { createSubmissionPhotoSignedUrl, fetchJobPhotoMeta } from "@/lib/jobPhotos";
 import { isVideoFile } from "@/lib/fileUtils";
+import { isAudioFile } from "@/lib/mediaKinds";
+import { isAcceptableVoiceNote, uploadJobVoiceNote } from "@/lib/voiceNotes";
 import {
   DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter,
   useSensor, useSensors, DragEndEvent,
@@ -85,6 +88,7 @@ function SortablePhotoTile({
   const meta = sourceMeta(photo.source);
   const Icon = meta.icon;
   const isVideo = isVideoFile(photo.fileName || "");
+  const isAudio = isAudioFile(photo.fileName || "");
   return (
     <div
       ref={setNodeRef}
@@ -97,9 +101,9 @@ function SortablePhotoTile({
         type="button"
         onClick={selectMode ? onToggleSelect : onOpen}
         className="block w-full aspect-square"
-        aria-label={photo.caption || photo.fileName || (isVideo ? "Video" : "Photo")}
+        aria-label={photo.caption || photo.fileName || (isVideo ? "Video" : isAudio ? "Voice note" : "Photo")}
       >
-        {photo.signedUrl && !isVideo ? (
+        {photo.signedUrl && !isVideo && !isAudio ? (
           <img
             src={photo.signedUrl}
             alt={photo.caption || photo.fileName || "Job photo"}
@@ -110,6 +114,11 @@ function SortablePhotoTile({
           <div className="relative flex h-full w-full items-center justify-center bg-foreground/90 text-background">
             <PlayCircle className="h-12 w-12" aria-hidden="true" />
             <span className="sr-only">Play video</span>
+          </div>
+        ) : isAudio ? (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-primary/10 text-primary">
+            <Mic className="h-10 w-10" aria-hidden="true" />
+            <span className="text-[10px] font-medium">Voice note</span>
           </div>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs">Unavailable</div>
