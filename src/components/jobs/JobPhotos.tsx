@@ -204,6 +204,9 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const voiceRef = useRef<HTMLInputElement | null>(null);
+  const [autoTranscribeFile, setAutoTranscribeFile] = useState<string | null>(null);
+  const [uploadingVoice, setUploadingVoice] = useState(false);
   const { uploading, uploadFilesAsSubmissions } = useFileUpload({ onComplete: () => load() });
 
   const [isDragOver, setIsDragOver] = useState(false);
@@ -240,6 +243,31 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     const uploaded = await uploadFilesAsSubmissions(toUpload, jobId, user.id);
     if (uploaded > 0) {
       toast({ title: `Uploaded ${uploaded} file${uploaded === 1 ? "" : "s"}` });
+    }
+  };
+
+  /** Voice notes: audio isn't handled by the shared uploader, so store it here. */
+  const handleVoiceNote = async (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file || !user) return;
+    if (!isAcceptableVoiceNote(file)) {
+      toast({
+        title: "Unsupported recording",
+        description: "Voice notes must be an audio file under 100MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setUploadingVoice(true);
+    try {
+      const { storagePath } = await uploadJobVoiceNote(file, jobId, user.id);
+      toast({ title: "Voice note added" });
+      await load();
+      setAutoTranscribeFile(storagePath);
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingVoice(false);
     }
   };
 
