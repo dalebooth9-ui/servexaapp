@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck,
-  FileImage, Upload, GripVertical, Trash2, CheckSquare, X,
+  FileImage, Upload, GripVertical, Trash2, CheckSquare, X, PlayCircle, Video,
 } from "lucide-react";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import { createSubmissionPhotoSignedUrl, fetchJobPhotoMeta } from "@/lib/jobPhotos";
+import { isVideoFile } from "@/lib/fileUtils";
 import {
   DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter,
   useSensor, useSensors, DragEndEvent,
@@ -83,6 +84,7 @@ function SortablePhotoTile({
   };
   const meta = sourceMeta(photo.source);
   const Icon = meta.icon;
+  const isVideo = isVideoFile(photo.fileName || "");
   return (
     <div
       ref={setNodeRef}
@@ -95,15 +97,20 @@ function SortablePhotoTile({
         type="button"
         onClick={selectMode ? onToggleSelect : onOpen}
         className="block w-full aspect-square"
-        aria-label={photo.caption || photo.fileName || "Photo"}
+        aria-label={photo.caption || photo.fileName || (isVideo ? "Video" : "Photo")}
       >
-        {photo.signedUrl ? (
+        {photo.signedUrl && !isVideo ? (
           <img
             src={photo.signedUrl}
             alt={photo.caption || photo.fileName || "Job photo"}
             loading="lazy"
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
           />
+        ) : isVideo ? (
+          <div className="relative flex h-full w-full items-center justify-center bg-foreground/90 text-background">
+            <PlayCircle className="h-12 w-12" aria-hidden="true" />
+            <span className="sr-only">Play video</span>
+          </div>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs">Unavailable</div>
         )}
@@ -184,8 +191,9 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
   const [items, setItems] = useState<PhotoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
-  const [sourceFilter, setSourceFilter] = useState<"all" | Source>("all");
+  const [sourceFilter, setSourceFilter] = useState<"all" | Source | "video">("all");
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const { uploading, uploadFilesAsSubmissions } = useFileUpload({ onComplete: () => load() });
 
@@ -213,7 +221,7 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
       if (rejected > 0) {
         toast({
           title: `Skipped ${rejected} non-image file${rejected === 1 ? "" : "s"}`,
-          description: "Only image files can be dropped here.",
+          description: "Only image files are accepted by this input.",
           variant: "destructive",
         });
       }
@@ -222,7 +230,7 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     }
     const uploaded = await uploadFilesAsSubmissions(toUpload, jobId, user.id);
     if (uploaded > 0) {
-      toast({ title: `Uploaded ${uploaded} photo${uploaded === 1 ? "" : "s"}` });
+      toast({ title: `Uploaded ${uploaded} file${uploaded === 1 ? "" : "s"}` });
     }
   };
 
@@ -250,7 +258,7 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     e.preventDefault();
     dragDepth.current = 0;
     setIsDragOver(false);
-    handleFiles(e.dataTransfer?.files ?? null, { imagesOnly: true });
+    handleFiles(e.dataTransfer?.files ?? null);
   };
 
   const engineerName = useCallback((uid?: string) => {
@@ -314,13 +322,20 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
   useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(
-    () => sourceFilter === "all" ? items : items.filter((i) => i.source === sourceFilter),
+    () => sourceFilter === "all"
+      ? items
+      : sourceFilter === "video"
+        ? items.filter((i) => isVideoFile(i.fileName || ""))
+        : items.filter((i) => i.source === sourceFilter),
     [items, sourceFilter]
   );
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: items.length };
-    for (const i of items) c[i.source] = (c[i.source] || 0) + 1;
+    for (const i of items) {
+      c[i.source] = (c[i.source] || 0) + 1;
+      if (isVideoFile(i.fileName || "")) c.video = (c.video || 0) + 1;
+    }
     return c;
   }, [items]);
 
@@ -601,8 +616,8 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     setDeleting(false);
     setPendingDelete(null);
     setSelected(new Set());
-    if (ok > 0) toast({ title: `Deleted ${ok} photo${ok === 1 ? "" : "s"}` });
-    if (fail > 0) toast({ title: `${fail} photo${fail === 1 ? "" : "s"} failed to delete`, variant: "destructive" });
+    if (ok > 0) toast({ title: `Deleted ${ok} media file${ok === 1 ? "" : "s"}` });
+    if (fail > 0) toast({ title: `${fail} media file${fail === 1 ? "" : "s"} failed to delete`, variant: "destructive" });
     // Re-sync from source of truth (also re-signs URLs)
     await load();
   };
@@ -649,10 +664,14 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     checklist: "Checklist",
     document: "Docs",
   };
-  const filters: Array<{ key: "all" | Source; label: string }> = useMemo(() => {
+  const filters: Array<{ key: "all" | Source | "video"; label: string }> = useMemo(() => {
     const present = allowedSources.filter((s) => (counts[s] || 0) > 0);
     if (present.length === 0) return [];
-    return [{ key: "all" as const, label: "All" }, ...present.map((s) => ({ key: s, label: labels[s] }))];
+    return [
+      { key: "all" as const, label: "All" },
+      ...(counts.video ? [{ key: "video" as const, label: "Videos" }] : []),
+      ...present.map((s) => ({ key: s, label: labels[s] })),
+    ];
   }, [counts, simpleFilters]);
 
   // If the active tab's source vanished (last photo deleted), fall back to All.
@@ -681,14 +700,14 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
       {isDragOver && canUpload && (
         <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-primary/10 backdrop-blur-[1px]">
           <Upload className="h-8 w-8 text-primary" />
-          <p className="text-sm font-medium text-primary">Drop photos to add to this job</p>
-          <p className="text-xs text-primary/70">Images only · multi-file supported</p>
+          <p className="text-sm font-medium text-primary">Drop photos or videos to add to this job</p>
+          <p className="text-xs text-primary/70">Photos and videos · multi-file supported</p>
         </div>
       )}
       {uploading && (
         <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Uploading photos…</span>
+          <span>Uploading media…</span>
         </div>
       )}
       {canUpload && (
@@ -696,9 +715,17 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
           <input
             ref={cameraInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,video/*"
             capture="environment"
             multiple
+            className="hidden"
+            onChange={(e) => { handleFiles(e.target.files); e.currentTarget.value = ""; }}
+          />
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept="video/*"
+            capture="environment"
             className="hidden"
             onChange={(e) => { handleFiles(e.target.files); e.currentTarget.value = ""; }}
           />
@@ -721,12 +748,20 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
           <Button
             size="sm"
             variant="outline"
+            onClick={() => videoInputRef.current?.click()}
+            disabled={uploading}
+          >
+            <Video className="mr-1.5 h-4 w-4" /> Record video
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             onClick={() => galleryInputRef.current?.click()}
             disabled={uploading}
           >
             <Upload className="mr-1.5 h-4 w-4" /> Upload from gallery
           </Button>
-          <p className="text-xs text-muted-foreground self-center">Photos are attached to this job as evidence.</p>
+          <p className="text-xs text-muted-foreground self-center">Photos and videos are attached to this job as evidence.</p>
         </div>
       )}
 
@@ -799,9 +834,9 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
         <div className="py-16 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
       ) : filtered.length === 0 ? (
         <div className="py-16 text-center text-sm text-muted-foreground border border-dashed rounded-md">
-          <p>{items.length === 0 ? "No photos on this job yet." : "No photos match this filter."}</p>
+          <p>{items.length === 0 ? "No photos or videos on this job yet." : "No media matches this filter."}</p>
           {canUpload && items.length === 0 && (
-            <p className="mt-1 text-xs text-muted-foreground/80">Drag & drop images here, or use the buttons above.</p>
+            <p className="mt-1 text-xs text-muted-foreground/80">Drag & drop photos or videos here, or use the buttons above.</p>
           )}
         </div>
       ) : (
@@ -830,7 +865,8 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
         photos={filtered.map((p) => ({
           id: p.id,
           url: p.signedUrl || "",
-          fileName: p.caption || p.fileName || sourceMeta(p.source).label,
+          fileName: p.fileName,
+          title: p.caption || p.fileName || sourceMeta(p.source).label,
           date: p.timestamp,
           engineer: p.engineerName,
           source: sourceMeta(p.source).label,
@@ -850,10 +886,10 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {pendingDelete?.length === 1 ? "photo" : `${pendingDelete?.length ?? 0} photos`}?
+               Delete {pendingDelete?.length === 1 ? "media file" : `${pendingDelete?.length ?? 0} media files`}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes {pendingDelete?.length === 1 ? "this photo" : "these photos"} from the job,
+               This permanently removes {pendingDelete?.length === 1 ? "this file" : "these files"} from the job,
               the report editor, and any generated reports. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
