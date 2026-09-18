@@ -230,6 +230,13 @@ export default function JobSiteSurveyPhotos({ surveyId, jobId }: { surveyId: str
                       <PlayCircle className="h-12 w-12" aria-hidden="true" />
                     </div>
                   </button>
+                ) : isAudio ? (
+                  <button type="button" onClick={() => setLightboxIdx(i)} className="block w-full aspect-square">
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-primary/10 text-primary">
+                      <Mic className="h-10 w-10" aria-hidden="true" />
+                      <span className="text-[10px] font-medium">Voice note</span>
+                    </div>
+                  </button>
                 ) : (
                   <button type="button" onClick={() => setLightboxIdx(i)} className="block w-full aspect-square">
                     <img
