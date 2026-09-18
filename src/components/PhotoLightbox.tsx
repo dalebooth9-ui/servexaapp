@@ -87,7 +87,7 @@ export default function PhotoLightbox({ photos, currentIndex, open, onOpenChange
             <button
               onClick={download}
               className="rounded-full bg-black/50 p-2 text-white hover:bg-black/80"
-              aria-label="Download photo"
+              aria-label={currentIsVideo ? "Download video" : "Download photo"}
             >
               <Download className="h-5 w-5" />
             </button>

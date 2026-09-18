@@ -97,7 +97,7 @@ function SortablePhotoTile({
         type="button"
         onClick={selectMode ? onToggleSelect : onOpen}
         className="block w-full aspect-square"
-        aria-label={photo.caption || photo.fileName || "Photo"}
+        aria-label={photo.caption || photo.fileName || (isVideo ? "Video" : "Photo")}
       >
         {photo.signedUrl && !isVideo ? (
           <img
@@ -221,7 +221,7 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
       if (rejected > 0) {
         toast({
           title: `Skipped ${rejected} non-image file${rejected === 1 ? "" : "s"}`,
-          description: "Only image files can be dropped here.",
+          description: "Only image files are accepted by this input.",
           variant: "destructive",
         });
       }
@@ -230,7 +230,7 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     }
     const uploaded = await uploadFilesAsSubmissions(toUpload, jobId, user.id);
     if (uploaded > 0) {
-      toast({ title: `Uploaded ${uploaded} photo${uploaded === 1 ? "" : "s"}` });
+      toast({ title: `Uploaded ${uploaded} file${uploaded === 1 ? "" : "s"}` });
     }
   };
 
@@ -616,8 +616,8 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     setDeleting(false);
     setPendingDelete(null);
     setSelected(new Set());
-    if (ok > 0) toast({ title: `Deleted ${ok} photo${ok === 1 ? "" : "s"}` });
-    if (fail > 0) toast({ title: `${fail} photo${fail === 1 ? "" : "s"} failed to delete`, variant: "destructive" });
+    if (ok > 0) toast({ title: `Deleted ${ok} media file${ok === 1 ? "" : "s"}` });
+    if (fail > 0) toast({ title: `${fail} media file${fail === 1 ? "" : "s"} failed to delete`, variant: "destructive" });
     // Re-sync from source of truth (also re-signs URLs)
     await load();
   };
@@ -886,10 +886,10 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {pendingDelete?.length === 1 ? "photo" : `${pendingDelete?.length ?? 0} photos`}?
+               Delete {pendingDelete?.length === 1 ? "media file" : `${pendingDelete?.length ?? 0} media files`}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes {pendingDelete?.length === 1 ? "this photo" : "these photos"} from the job,
+               This permanently removes {pendingDelete?.length === 1 ? "this file" : "these files"} from the job,
               the report editor, and any generated reports. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
