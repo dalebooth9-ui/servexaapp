@@ -4,10 +4,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useWhat3Words } from "@/hooks/useWhat3Words";
 import { Button } from "@/components/ui/button";
-import { Camera, Upload, Loader2, Trash2, MapPin, ImageOff, RefreshCw, PlayCircle, Video } from "lucide-react";
+import { Camera, Upload, Loader2, Trash2, MapPin, ImageOff, RefreshCw, PlayCircle, Video, Mic } from "lucide-react";
 import PhotoLightbox from "@/components/PhotoLightbox";
+import TranscriptDialog from "@/components/TranscriptDialog";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { isVideoFile } from "@/lib/fileUtils";
+import { isAudioFile } from "@/lib/mediaKinds";
 
 const BUCKET = "site-survey-media";
 
@@ -34,6 +36,8 @@ export default function JobSiteSurveyPhotos({ surveyId, jobId }: { surveyId: str
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
+  const voiceRef = useRef<HTMLInputElement>(null);
+  const [autoTranscribeFile, setAutoTranscribeFile] = useState<string | null>(null);
 
   /**
    * Sign the stored paths. Legacy rows may have been written without the
@@ -190,12 +194,13 @@ export default function JobSiteSurveyPhotos({ surveyId, jobId }: { surveyId: str
         <div className="py-6 flex justify-center"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
       ) : photos.length === 0 ? (
         <p className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-md">
-          No photos or videos yet. Capture site conditions, asset locations or hazards.
+          No photos, videos or voice notes yet. Capture site conditions, asset locations or hazards.
         </p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
           {photos.map((p, i) => {
             const isVideo = isVideoFile(p.file_path);
+            const isAudio = isAudioFile(p.file_path);
             const isBroken = !p.signedUrl || broken[p.id];
             return (
               <div key={p.id} className="relative group rounded-md overflow-hidden border bg-muted">
