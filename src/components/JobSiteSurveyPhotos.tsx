@@ -112,8 +112,10 @@ export default function JobSiteSurveyPhotos({ surveyId, jobId }: { surveyId: str
     setUploading(true);
     const w3w = await getW3W();
     let ok = 0;
+    let lastVoiceNote: string | null = null;
     for (const file of Array.from(files)) {
       const isVideo = file.type.startsWith("video/") || isVideoFile(file.name);
+      const isAudio = file.type.startsWith("audio/") || isAudioFile(file.name);
       const path = `job-survey/${jobId}/${surveyId}/${Date.now()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
       // The object is stored org-prefixed — persist the SAME path we uploaded
       // to, otherwise the record can never resolve to a file.
@@ -127,18 +129,23 @@ export default function JobSiteSurveyPhotos({ surveyId, jobId }: { surveyId: str
         survey_id: surveyId,
         job_id: jobId,
         file_path: storedPath,
-        kind: isVideo ? "video" : "photo",
+        kind: isAudio ? "voice_note" : isVideo ? "video" : "photo",
         what3words: w3w,
         created_by: user.id,
       });
       if (insErr) toast({ title: "Save failed", description: insErr.message, variant: "destructive" });
-      else ok++;
+      else {
+        ok++;
+        if (isAudio) lastVoiceNote = storedPath;
+      }
     }
     setUploading(false);
     if (ok) toast({ title: `${ok} file(s) added`, description: w3w ? `📍 ${w3w}` : undefined });
     if (cameraRef.current) cameraRef.current.value = "";
     if (fileRef.current) fileRef.current.value = "";
     if (videoRef.current) videoRef.current.value = "";
+    if (voiceRef.current) voiceRef.current.value = "";
+    if (lastVoiceNote) setAutoTranscribeFile(lastVoiceNote);
     load();
   };
 
@@ -153,9 +160,11 @@ export default function JobSiteSurveyPhotos({ surveyId, jobId }: { surveyId: str
     <div className="space-y-3">
       <input ref={cameraRef} type="file" accept="image/*,video/*" capture="environment" className="hidden"
         onChange={(e) => handleFiles(e.target.files)} />
-      <input ref={fileRef} type="file" accept="image/*,video/*" multiple className="hidden"
+      <input ref={fileRef} type="file" accept="image/*,video/*,audio/*" multiple className="hidden"
         onChange={(e) => handleFiles(e.target.files)} />
       <input ref={videoRef} type="file" accept="video/*" capture="environment" className="hidden"
+        onChange={(e) => handleFiles(e.target.files)} />
+      <input ref={voiceRef} type="file" accept="audio/*" capture="user" className="hidden"
         onChange={(e) => handleFiles(e.target.files)} />
 
       <div className="flex flex-wrap gap-2">
@@ -166,11 +175,14 @@ export default function JobSiteSurveyPhotos({ surveyId, jobId }: { surveyId: str
         <Button size="sm" type="button" variant="outline" onClick={() => videoRef.current?.click()} disabled={uploading}>
           <Video className="h-3.5 w-3.5 mr-1.5" /> Record video
         </Button>
+        <Button size="sm" type="button" variant="outline" onClick={() => voiceRef.current?.click()} disabled={uploading}>
+          <Mic className="h-3.5 w-3.5 mr-1.5" /> Voice note
+        </Button>
         <Button size="sm" type="button" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>
           <Upload className="h-3.5 w-3.5 mr-1.5" /> Upload
         </Button>
         <span className="text-xs text-muted-foreground self-center">
-          Photos &amp; videos auto-tag the What3Words location.
+          Photos, videos &amp; voice notes auto-tag the What3Words location.
         </span>
       </div>
 
@@ -251,12 +263,29 @@ export default function JobSiteSurveyPhotos({ surveyId, jobId }: { surveyId: str
           fileName: p.file_path.split("/").pop() || undefined,
           title: p.what3words || p.caption || undefined,
           date: p.captured_at,
+          storagePath: p.file_path,
         }))}
         currentIndex={lightboxIdx ?? 0}
         open={lightboxIdx !== null}
         onOpenChange={(o) => !o && setLightboxIdx(null)}
         onIndexChange={(i) => setLightboxIdx(i)}
+        jobId={jobId}
+        surveyId={surveyId}
+        bucket={BUCKET}
       />
+
+      {autoTranscribeFile && (
+        <TranscriptDialog
+          key={autoTranscribeFile}
+          open
+          autoStart
+          onOpenChange={(o) => !o && setAutoTranscribeFile(null)}
+          filePath={autoTranscribeFile}
+          jobId={jobId}
+          surveyId={surveyId}
+          bucket={BUCKET}
+        />
+      )}
     </div>
   );
 }
