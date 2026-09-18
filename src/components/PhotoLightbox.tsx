@@ -2,12 +2,14 @@ import { useEffect, useCallback, useRef, useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, X, Download } from "lucide-react";
+import { isVideoFile } from "@/lib/fileUtils";
 
 interface PhotoLightboxProps {
   photos: {
     id: string;
     url: string;
     fileName?: string;
+    title?: string;
     date?: string;
     engineer?: string;
     source?: string;
@@ -22,6 +24,7 @@ interface PhotoLightboxProps {
 
 export default function PhotoLightbox({ photos, currentIndex, open, onOpenChange, onIndexChange }: PhotoLightboxProps) {
   const photo = photos[currentIndex];
+  const currentIsVideo = isVideoFile(photo?.fileName || "");
   const [zoom, setZoom] = useState(1);
   const touchStartX = useRef<number | null>(null);
 
@@ -115,15 +118,25 @@ export default function PhotoLightbox({ photos, currentIndex, open, onOpenChange
             </Button>
           )}
 
-          <img
-            src={photo.url}
-            alt={photo.fileName || "Photo"}
-            data-uploaded="true"
-            onDoubleClick={() => setZoom((z) => (z === 1 ? 2.5 : 1))}
-            className="max-h-[80vh] max-w-full rounded object-contain cursor-zoom-in transition-transform duration-150 select-none"
-            style={{ transform: `scale(${zoom})`, transformOrigin: "center center", touchAction: "pinch-zoom" }}
-            draggable={false}
-          />
+          {currentIsVideo ? (
+            <video
+              src={photo.url}
+              controls
+              autoPlay
+              playsInline
+              className="max-h-[80vh] max-w-full rounded object-contain"
+            />
+          ) : (
+            <img
+              src={photo.url}
+              alt={photo.fileName || "Photo"}
+              data-uploaded="true"
+              onDoubleClick={() => setZoom((z) => (z === 1 ? 2.5 : 1))}
+              className="max-h-[80vh] max-w-full rounded object-contain cursor-zoom-in transition-transform duration-150 select-none"
+              style={{ transform: `scale(${zoom})`, transformOrigin: "center center", touchAction: "pinch-zoom" }}
+              draggable={false}
+            />
+          )}
 
           {currentIndex < photos.length - 1 && (
             <Button
@@ -144,14 +157,14 @@ export default function PhotoLightbox({ photos, currentIndex, open, onOpenChange
                 {photo.source}
               </span>
             )}
-            <p className="text-sm font-medium truncate max-w-[70vw]">{photo.fileName || "Untitled"}</p>
+            <p className="text-sm font-medium truncate max-w-[70vw]">{photo.title || photo.fileName || "Untitled"}</p>
           </div>
           <p className="text-xs text-white/60">
             {photo.date && new Date(photo.date).toLocaleString("en-GB")}
             {photo.engineer && ` • ${photo.engineer}`}
             {` • ${currentIndex + 1} of ${photos.length}`}
-            <span className="hidden sm:inline"> • double-click to zoom</span>
-            <span className="sm:hidden"> • pinch to zoom</span>
+            {!currentIsVideo && <span className="hidden sm:inline"> • double-click to zoom</span>}
+            {!currentIsVideo && <span className="sm:hidden"> • pinch to zoom</span>}
           </p>
         </div>
       </DialogContent>
