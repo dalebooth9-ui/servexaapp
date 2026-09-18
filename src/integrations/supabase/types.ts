@@ -6052,6 +6052,75 @@ export type Database = {
           },
         ]
       }
+      media_transcripts: {
+        Row: {
+          bucket: string | null
+          created_at: string
+          created_by: string | null
+          duration_seconds: number | null
+          error: string | null
+          file_path: string
+          id: string
+          job_id: string | null
+          org_id: string | null
+          status: string
+          suggested_remedials: Json
+          summary: string | null
+          survey_id: string | null
+          transcript: string | null
+          updated_at: string
+        }
+        Insert: {
+          bucket?: string | null
+          created_at?: string
+          created_by?: string | null
+          duration_seconds?: number | null
+          error?: string | null
+          file_path: string
+          id?: string
+          job_id?: string | null
+          org_id?: string | null
+          status?: string
+          suggested_remedials?: Json
+          summary?: string | null
+          survey_id?: string | null
+          transcript?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bucket?: string | null
+          created_at?: string
+          created_by?: string | null
+          duration_seconds?: number | null
+          error?: string | null
+          file_path?: string
+          id?: string
+          job_id?: string | null
+          org_id?: string | null
+          status?: string
+          suggested_remedials?: Json
+          summary?: string | null
+          survey_id?: string | null
+          transcript?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_transcripts_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_transcripts_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mellor_deleted_references: {
         Row: {
           deleted_at: string
