@@ -8,11 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck,
-  FileImage, Upload, GripVertical, Trash2, CheckSquare, X, PlayCircle, Video,
+  FileImage, Upload, GripVertical, Trash2, CheckSquare, X, PlayCircle, Video, Mic,
 } from "lucide-react";
 import PhotoLightbox from "@/components/PhotoLightbox";
+import TranscriptDialog from "@/components/TranscriptDialog";
 import { createSubmissionPhotoSignedUrl, fetchJobPhotoMeta } from "@/lib/jobPhotos";
 import { isVideoFile } from "@/lib/fileUtils";
+import { isAudioFile } from "@/lib/mediaKinds";
+import { isAcceptableVoiceNote, uploadJobVoiceNote } from "@/lib/voiceNotes";
 import {
   DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter,
   useSensor, useSensors, DragEndEvent,
@@ -85,6 +88,7 @@ function SortablePhotoTile({
   const meta = sourceMeta(photo.source);
   const Icon = meta.icon;
   const isVideo = isVideoFile(photo.fileName || "");
+  const isAudio = isAudioFile(photo.fileName || "");
   return (
     <div
       ref={setNodeRef}
@@ -97,9 +101,9 @@ function SortablePhotoTile({
         type="button"
         onClick={selectMode ? onToggleSelect : onOpen}
         className="block w-full aspect-square"
-        aria-label={photo.caption || photo.fileName || (isVideo ? "Video" : "Photo")}
+        aria-label={photo.caption || photo.fileName || (isVideo ? "Video" : isAudio ? "Voice note" : "Photo")}
       >
-        {photo.signedUrl && !isVideo ? (
+        {photo.signedUrl && !isVideo && !isAudio ? (
           <img
             src={photo.signedUrl}
             alt={photo.caption || photo.fileName || "Job photo"}
@@ -110,6 +114,11 @@ function SortablePhotoTile({
           <div className="relative flex h-full w-full items-center justify-center bg-foreground/90 text-background">
             <PlayCircle className="h-12 w-12" aria-hidden="true" />
             <span className="sr-only">Play video</span>
+          </div>
+        ) : isAudio ? (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-primary/10 text-primary">
+            <Mic className="h-10 w-10" aria-hidden="true" />
+            <span className="text-[10px] font-medium">Voice note</span>
           </div>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs">Unavailable</div>
@@ -195,6 +204,9 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const voiceRef = useRef<HTMLInputElement | null>(null);
+  const [autoTranscribeFile, setAutoTranscribeFile] = useState<string | null>(null);
+  const [uploadingVoice, setUploadingVoice] = useState(false);
   const { uploading, uploadFilesAsSubmissions } = useFileUpload({ onComplete: () => load() });
 
   const [isDragOver, setIsDragOver] = useState(false);
@@ -231,6 +243,31 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
     const uploaded = await uploadFilesAsSubmissions(toUpload, jobId, user.id);
     if (uploaded > 0) {
       toast({ title: `Uploaded ${uploaded} file${uploaded === 1 ? "" : "s"}` });
+    }
+  };
+
+  /** Voice notes: audio isn't handled by the shared uploader, so store it here. */
+  const handleVoiceNote = async (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file || !user) return;
+    if (!isAcceptableVoiceNote(file)) {
+      toast({
+        title: "Unsupported recording",
+        description: "Voice notes must be an audio file under 100MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setUploadingVoice(true);
+    try {
+      const { storagePath } = await uploadJobVoiceNote(file, jobId, user.id);
+      toast({ title: "Voice note added" });
+      await load();
+      setAutoTranscribeFile(storagePath);
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingVoice(false);
     }
   };
 
@@ -737,6 +774,14 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
             className="hidden"
             onChange={(e) => { handleFiles(e.target.files); e.currentTarget.value = ""; }}
           />
+          <input
+            ref={voiceRef}
+            type="file"
+            accept="audio/*"
+            capture="user"
+            className="hidden"
+            onChange={(e) => { handleVoiceNote(e.target.files); e.currentTarget.value = ""; }}
+          />
           <Button
             size="sm"
             onClick={() => cameraInputRef.current?.click()}
@@ -752,6 +797,15 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
             disabled={uploading}
           >
             <Video className="mr-1.5 h-4 w-4" /> Record video
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => voiceRef.current?.click()}
+            disabled={uploading || uploadingVoice}
+          >
+            {uploadingVoice ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Mic className="mr-1.5 h-4 w-4" />}
+            Voice note
           </Button>
           <Button
             size="sm"
@@ -872,12 +926,31 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
           source: sourceMeta(p.source).label,
           downloadUrl: p.signedUrl,
           downloadName: p.fileName,
+          storagePath: p.storagePath,
         }))}
         currentIndex={lightboxIdx ?? 0}
         open={lightboxIdx !== null}
         onOpenChange={(o) => !o && setLightboxIdx(null)}
         onIndexChange={(i) => setLightboxIdx(i)}
+        jobId={jobId}
+        bucket="submissions"
+        orgId={orgId ?? undefined}
+        onRemedialsAdded={() => load()}
       />
+
+      {autoTranscribeFile && (
+        <TranscriptDialog
+          key={autoTranscribeFile}
+          open
+          autoStart
+          onOpenChange={(o) => !o && setAutoTranscribeFile(null)}
+          filePath={autoTranscribeFile}
+          jobId={jobId}
+          bucket="submissions"
+          orgId={orgId ?? undefined}
+          onRemedialsAdded={() => load()}
+        />
+      )}
 
       <AlertDialog
         open={pendingDelete !== null}
