@@ -4,10 +4,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useWhat3Words } from "@/hooks/useWhat3Words";
 import { Button } from "@/components/ui/button";
-import { Camera, Upload, Loader2, Trash2, MapPin, Pencil, ImageOff, RefreshCw, PlayCircle, Video } from "lucide-react";
+import { Camera, Upload, Loader2, Trash2, MapPin, Pencil, ImageOff, RefreshCw, PlayCircle, Video, Mic } from "lucide-react";
 import PhotoLightbox from "@/components/PhotoLightbox";
+import TranscriptDialog from "@/components/TranscriptDialog";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { isVideoFile } from "@/lib/fileUtils";
+import { isAudioFile } from "@/lib/mediaKinds";
 
 const BUCKET = "site-survey-media";
 
@@ -31,9 +33,11 @@ export default function SiteSurveyPhotos({ surveyId }: { surveyId: string }) {
   const [broken, setBroken] = useState<Record<string, boolean>>({});
   const [retrying, setRetrying] = useState<Record<string, boolean>>({});
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const [autoTranscribeFile, setAutoTranscribeFile] = useState<string | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
+  const voiceRef = useRef<HTMLInputElement>(null);
 
   /**
    * Sign the stored paths, falling back to the org-prefixed variant for
@@ -111,8 +115,10 @@ export default function SiteSurveyPhotos({ surveyId }: { surveyId: string }) {
     setUploading(true);
     const w3w = await getW3W();
     let ok = 0;
+    let lastVoiceNote: string | null = null;
     for (const file of Array.from(files)) {
       const isVideo = file.type.startsWith("video/") || isVideoFile(file.name);
+      const isAudio = file.type.startsWith("audio/") || isAudioFile(file.name);
       const path = `${surveyId}/${Date.now()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
       // Persist the SAME (org-prefixed) path we uploaded to.
       const storedPath = await buildOrgPathAsync(path);
@@ -124,18 +130,23 @@ export default function SiteSurveyPhotos({ surveyId }: { surveyId: string }) {
       const { error: insErr } = await supabase.from("site_survey_photos" as any).insert({
         survey_id: surveyId,
         file_path: storedPath,
-        kind: isVideo ? "video" : "photo",
+        kind: isAudio ? "voice_note" : isVideo ? "video" : "photo",
         what3words: w3w,
         created_by: user.id,
       });
       if (insErr) toast({ title: "Save failed", description: insErr.message, variant: "destructive" });
-      else ok++;
+      else {
+        ok++;
+        if (isAudio) lastVoiceNote = storedPath;
+      }
     }
     setUploading(false);
     if (ok) toast({ title: `${ok} file(s) added`, description: w3w ? `📍 ${w3w}` : undefined });
     if (cameraRef.current) cameraRef.current.value = "";
     if (fileRef.current) fileRef.current.value = "";
     if (videoRef.current) videoRef.current.value = "";
+    if (voiceRef.current) voiceRef.current.value = "";
+    if (lastVoiceNote) setAutoTranscribeFile(lastVoiceNote);
     load();
   };
 
@@ -150,9 +161,11 @@ export default function SiteSurveyPhotos({ surveyId }: { surveyId: string }) {
     <div className="space-y-3">
       <input ref={cameraRef} type="file" accept="image/*,video/*" capture="environment" className="hidden"
         onChange={(e) => handleFiles(e.target.files)} />
-      <input ref={fileRef} type="file" accept="image/*,video/*" multiple className="hidden"
+      <input ref={fileRef} type="file" accept="image/*,video/*,audio/*" multiple className="hidden"
         onChange={(e) => handleFiles(e.target.files)} />
       <input ref={videoRef} type="file" accept="video/*" capture="environment" className="hidden"
+        onChange={(e) => handleFiles(e.target.files)} />
+      <input ref={voiceRef} type="file" accept="audio/*" capture="user" className="hidden"
         onChange={(e) => handleFiles(e.target.files)} />
 
       <div className="flex flex-wrap gap-2">
@@ -163,11 +176,14 @@ export default function SiteSurveyPhotos({ surveyId }: { surveyId: string }) {
         <Button size="sm" variant="outline" onClick={() => videoRef.current?.click()} disabled={uploading}>
           <Video className="h-3.5 w-3.5 mr-1.5" /> Record video
         </Button>
+        <Button size="sm" variant="outline" onClick={() => voiceRef.current?.click()} disabled={uploading}>
+          <Mic className="h-3.5 w-3.5 mr-1.5" /> Voice note
+        </Button>
         <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>
           <Upload className="h-3.5 w-3.5 mr-1.5" /> Upload
         </Button>
         <span className="text-xs text-muted-foreground self-center">
-          Photos &amp; videos auto-tag the What3Words location.
+          Photos, videos &amp; voice notes auto-tag the What3Words location.
         </span>
       </div>
 
@@ -175,12 +191,13 @@ export default function SiteSurveyPhotos({ surveyId }: { surveyId: string }) {
         <div className="py-6 flex justify-center"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
       ) : photos.length === 0 ? (
         <p className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-md">
-          No photos or videos yet. Capture site conditions, asset locations, hazards or sketches.
+          No photos, videos or voice notes yet. Capture site conditions, asset locations, hazards or sketches.
         </p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
           {photos.map((p, i) => {
             const isVideo = isVideoFile(p.file_path);
+            const isAudio = isAudioFile(p.file_path);
             const isBroken = !p.signedUrl || broken[p.id];
             return (
               <div key={p.id} className="relative group rounded-md overflow-hidden border bg-muted">
@@ -208,6 +225,13 @@ export default function SiteSurveyPhotos({ surveyId }: { surveyId: string }) {
                   <button onClick={() => setLightboxIdx(i)} className="block w-full aspect-square">
                     <div className="relative flex h-full w-full items-center justify-center bg-foreground/90 text-background">
                       <PlayCircle className="h-12 w-12" aria-hidden="true" />
+                    </div>
+                  </button>
+                ) : isAudio ? (
+                  <button onClick={() => setLightboxIdx(i)} className="block w-full aspect-square">
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-primary/10 text-primary">
+                      <Mic className="h-10 w-10" aria-hidden="true" />
+                      <span className="text-[10px] font-medium">Voice note</span>
                     </div>
                   </button>
                 ) : (
@@ -252,12 +276,27 @@ export default function SiteSurveyPhotos({ surveyId }: { surveyId: string }) {
           fileName: p.file_path.split("/").pop() || undefined,
           title: p.what3words || p.caption || undefined,
           date: p.captured_at,
+          storagePath: p.file_path,
         }))}
         currentIndex={lightboxIdx ?? 0}
         open={lightboxIdx !== null}
         onOpenChange={(o) => !o && setLightboxIdx(null)}
         onIndexChange={(i) => setLightboxIdx(i)}
+        surveyId={surveyId}
+        bucket={BUCKET}
       />
+
+      {autoTranscribeFile && (
+        <TranscriptDialog
+          key={autoTranscribeFile}
+          open
+          autoStart
+          onOpenChange={(o) => !o && setAutoTranscribeFile(null)}
+          filePath={autoTranscribeFile}
+          surveyId={surveyId}
+          bucket={BUCKET}
+        />
+      )}
     </div>
   );
 }
