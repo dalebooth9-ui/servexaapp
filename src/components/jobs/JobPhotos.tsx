@@ -413,18 +413,70 @@ export default function JobPhotos({ jobId, jobRef, siteId = null, engineers = []
       signedUrl: signedUrls[i]?.signedUrl || undefined,
     })));
     setLoading(false);
+
+    // Tags + photo-linked remedials for the submission-backed photos.
+    const subIds = out.map((p) => p.submissionId).filter(Boolean) as string[];
+    const [map, linked] = await Promise.all([
+      fetchSubmissionTagMap(subIds),
+      supabase.from("defects").select("linked_submission_id").eq("job_id", jobId).not("linked_submission_id", "is", null),
+    ]);
+    setTagMap(map);
+    setRemedialSubIds(new Set(((linked.data || []) as any[]).map((r) => r.linked_submission_id)));
   }, [jobId, engineerName]);
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = useMemo(
-    () => sourceFilter === "all"
+  useEffect(() => { void fetchPhotoTags().then(setAllTags); }, []);
+
+  // Tag filtering is resolved server-side (OR across the selected tags).
+  useEffect(() => {
+    let alive = true;
+    if (tagFilter.length === 0) { setTagMatchIds(null); return; }
+    const subIds = items.map((p) => p.submissionId).filter(Boolean) as string[];
+    void fetchSubmissionIdsWithAnyTag(tagFilter, subIds).then((set) => {
+      if (alive) setTagMatchIds(set);
+    });
+    return () => { alive = false; };
+  }, [tagFilter, items]);
+
+  const filtered = useMemo(() => {
+    const bySource = sourceFilter === "all"
       ? items
       : sourceFilter === "video"
         ? items.filter((i) => isVideoFile(i.fileName || ""))
-        : items.filter((i) => i.source === sourceFilter),
-    [items, sourceFilter]
-  );
+        : items.filter((i) => i.source === sourceFilter);
+    if (!tagMatchIds) return bySource;
+    return bySource.filter((i) => !!i.submissionId && tagMatchIds.has(i.submissionId));
+  }, [items, sourceFilter, tagMatchIds]);
+
+  const toggleTagOnPhoto = useCallback(async (photo: PhotoItem, tag: PhotoTag, next: boolean) => {
+    const subId = photo.submissionId;
+    if (!subId) return;
+    const ok = next
+      ? await addSubmissionTag(subId, tag.id, user?.id)
+      : await removeSubmissionTag(subId, tag.id);
+    if (!ok) {
+      toast({ title: "Couldn't update tags", variant: "destructive" });
+      return;
+    }
+    setTagMap((prev) => {
+      const current = prev[subId] || [];
+      const nextTags = next
+        ? [...current.filter((t) => t.id !== tag.id), tag].sort((a, b) => a.name.localeCompare(b.name))
+        : current.filter((t) => t.id !== tag.id);
+      return { ...prev, [subId]: nextTags };
+    });
+    if (tagFilter.length > 0) {
+      setTagMatchIds((prev) => {
+        if (!prev) return prev;
+        const copy = new Set(prev);
+        if (next && tagFilter.includes(tag.id)) copy.add(subId);
+        if (!next && tagFilter.includes(tag.id)) copy.delete(subId);
+        return copy;
+      });
+    }
+  }, [user?.id, toast, tagFilter]);
+
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: items.length };
