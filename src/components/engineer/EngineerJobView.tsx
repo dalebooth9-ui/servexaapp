@@ -156,6 +156,7 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
         <Suspense fallback={<Fallback />}>
           <JobPhotos
             jobId={jobId}
+            jobRef={job?.reference_number || undefined}
             engineers={engineers}
             isAdmin={false}
             simpleFilters

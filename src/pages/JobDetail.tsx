@@ -685,6 +685,7 @@ export default function JobDetail() {
         <Suspense fallback={<LazyFallback />}>
           <JobPhotos
             jobId={id}
+            jobRef={job?.reference_number || undefined}
             engineers={engineers}
             isAdmin={userRole === "admin"}
             canUpload={job?.status !== "cancelled" && (userRole === "admin" || (user ? assignedEngineerIds.includes(user.id) : false))}
@@ -1162,6 +1163,7 @@ export default function JobDetail() {
           <CollapsibleContent className="pt-3">
             <PhotoChecklistCapture
               jobId={id!}
+              jobRef={job.reference_number || undefined}
               jobName={job.name}
               jobCategory={job.category || "general"}
               customerName={job.customers?.name || job.customer || undefined}

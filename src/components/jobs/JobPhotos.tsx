@@ -187,8 +187,9 @@ function SortablePhotoTile({
   );
 }
 
-export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = true, simpleFilters = false }: {
+export default function JobPhotos({ jobId, jobRef, engineers = [], isAdmin, canUpload = true, simpleFilters = false }: {
   jobId: string;
+  jobRef?: string;
   engineers?: { id: string; name: string }[];
   isAdmin?: boolean;
   canUpload?: boolean;
@@ -207,7 +208,7 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin, canUpload = 
   const voiceRef = useRef<HTMLInputElement | null>(null);
   const [autoTranscribeFile, setAutoTranscribeFile] = useState<string | null>(null);
   const [uploadingVoice, setUploadingVoice] = useState(false);
-  const { uploading, uploadFilesAsSubmissions } = useFileUpload({ onComplete: () => load() });
+  const { uploading, uploadFilesAsSubmissions } = useFileUpload({ onComplete: () => load(), jobRef });
 
   const [isDragOver, setIsDragOver] = useState(false);
   const dragDepth = useRef(0);
