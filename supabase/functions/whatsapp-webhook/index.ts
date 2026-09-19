@@ -1268,7 +1268,16 @@ function scoreTokenPair(
       const ct = normaliseWord(capTokens[i]);
       const ft = normaliseWord(fieldTokens[i]);
       if (!ct || !ft) { allMatch = false; break; }
-      if (!ft.startsWith(ct) && !ct.startsWith(ft)) { allMatch = false; break; }
+      if (!ft.startsWith(ct) && !ct.startsWith(ft)) {
+        // Numeric equivalence: "249" should match "00249" (leading zeros in
+        // job references must not block a match), but "249" must never match
+        // an unrelated number like "300".
+        if (/^\d+$/.test(ct) && /^\d+$/.test(ft) &&
+            ct.replace(/^0+/, "") === ft.replace(/^0+/, "")) {
+          continue;
+        }
+        allMatch = false; break;
+      }
     }
     if (allMatch) {
       const s = weight * k + 20;
@@ -1307,9 +1316,12 @@ function matchJobsByCaption(caption: string, jobs: JobCandidate[]): ScoredJob[] 
   const scored: ScoredJob[] = [];
 
   for (const job of jobs) {
-    const fields: Array<{ value: string; weight: number; primary: boolean }> = [];
+    // `noNumSkip` on the reference field: its number IS the differentiator, so
+    // it must never be scored with numbers stripped — otherwise every "VFP-"
+    // job matches the bare word "vfp" identically.
+    const fields: Array<{ value: string; weight: number; primary: boolean; noNumSkip?: boolean }> = [];
     if (job.name) fields.push({ value: job.name, weight: 100, primary: true });
-    if (job.reference_number) fields.push({ value: job.reference_number, weight: 110, primary: false });
+    if (job.reference_number) fields.push({ value: job.reference_number, weight: 110, primary: false, noNumSkip: true });
     if (job.sites?.name) fields.push({ value: job.sites.name, weight: 90, primary: true });
     if (job.address) fields.push({ value: job.address, weight: 80, primary: false });
     if (job.customer) fields.push({ value: job.customer, weight: 50, primary: false });
