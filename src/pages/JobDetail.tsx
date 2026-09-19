@@ -687,6 +687,12 @@ export default function JobDetail() {
         ))}
       </div>
 
+      {activeTab === "timeline" && id && (
+        <Suspense fallback={<LazyFallback />}>
+          <JobTimeline jobId={id} />
+        </Suspense>
+      )}
+
       {activeTab === "photos" && id && (
         <Suspense fallback={<LazyFallback />}>
           {userRole === "admin" && (
