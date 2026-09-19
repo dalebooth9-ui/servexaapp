@@ -23,6 +23,7 @@ import { MapPin } from "lucide-react";
 import EngineerJobHero from "@/components/engineer/EngineerJobHero";
 
 const JobDocuments = lazy(() => import("@/components/JobDocuments"));
+const ScanDocumentButton = lazy(() => import("@/components/documents/ScanDocumentButton"));
 const JobDefects = lazy(() => import("@/components/jobs/JobDefects"));
 const JobPhotos = lazy(() => import("@/components/jobs/JobPhotos"));
 const JobSheet = lazy(() => import("@/components/JobSheet"));
