@@ -8,14 +8,21 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck,
-  FileImage, Upload, GripVertical, Trash2, CheckSquare, X, PlayCircle, Video, Mic,
+  FileImage, Upload, GripVertical, Trash2, CheckSquare, X, PlayCircle, Video, Mic, Wrench,
 } from "lucide-react";
-import PhotoLightbox from "@/components/PhotoLightbox";
+import PhotoLightbox, { type LightboxPhoto } from "@/components/PhotoLightbox";
 import TranscriptDialog from "@/components/TranscriptDialog";
+import PhotoTagPicker from "@/components/photos/PhotoTagPicker";
+import CreateRemedialFromPhotoDialog from "@/components/photos/CreateRemedialFromPhotoDialog";
+import {
+  fetchPhotoTags, fetchSubmissionTagMap, fetchSubmissionIdsWithAnyTag,
+  addSubmissionTag, removeSubmissionTag, type PhotoTag,
+} from "@/lib/photoTags";
 import { createSubmissionPhotoSignedUrl, fetchJobPhotoMeta } from "@/lib/jobPhotos";
 import { isVideoFile } from "@/lib/fileUtils";
 import { isAudioFile } from "@/lib/mediaKinds";
 import { isAcceptableVoiceNote, uploadJobVoiceNote } from "@/lib/voiceNotes";
+
 import {
   DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter,
   useSensor, useSensors, DragEndEvent,
