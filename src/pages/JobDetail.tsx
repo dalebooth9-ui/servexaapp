@@ -687,6 +687,15 @@ export default function JobDetail() {
 
       {activeTab === "photos" && id && (
         <Suspense fallback={<LazyFallback />}>
+          {userRole === "admin" && (
+            <div className="mb-4">
+              <ShareGalleryDialog
+                jobId={id}
+                jobTitle={job?.title || job?.reference_number || null}
+                siteName={(job as any)?.sites?.name || null}
+              />
+            </div>
+          )}
           <JobPhotos
             jobId={id}
             jobRef={job?.reference_number || undefined}
