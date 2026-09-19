@@ -31,7 +31,7 @@ describe("photoStamp", () => {
 
     expect(result.type).toBe("image/jpeg");
     expect(fillText.mock.calls.map(([line]) => line)).toEqual([
-      "19/09/2026 08:05", "VFP-00123", "51.501234, -0.141235",
+      "19/09/2026 08:05", "VFP-00123", "51.501235, -0.141235",
     ]);
   });
 
