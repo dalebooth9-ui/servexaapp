@@ -11,3 +11,5 @@
 - [x] GPS quick capture: auto-file orphan photos to nearest active job (gpsProximity.ts, QuickCapturePhoto FAB, job picker fallback, JobGeocodeSettings batch geocode, jobs.site_latitude/longitude)
 
 - [x] Job timeline activity feed (Timeline tab on job detail: merged feed from activity log, submissions, messages, defects, assignments, documents, checklists, shared galleries; useJobTimeline hook with realtime refresh + Load more)
+
+- [x] On-site document scanner (DocumentScanner with live edge detection, perspective correction, colour/greyscale/B&W, corner adjuster, label + checklist link + tags, saved as document_scan submissions; Scan Document button on job Documents tab and engineer job view)
