@@ -966,6 +966,39 @@ export default function JobPhotos({ jobId, jobRef, siteId = null, engineers = []
         </div>
       </div>
 
+      {allTags.length > 0 && items.length > 0 && (
+        <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1">
+          <button
+            type="button"
+            onClick={() => setTagFilter([])}
+            className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+              tagFilter.length === 0 ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-muted"
+            }`}
+          >
+            All
+          </button>
+          {allTags.map((t) => {
+            const active = tagFilter.includes(t.id);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() =>
+                  setTagFilter((prev) => (prev.includes(t.id) ? prev.filter((x) => x !== t.id) : [...prev, t.id]))
+                }
+                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                  active ? "border-foreground bg-muted" : "bg-background hover:bg-muted"
+                }`}
+              >
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: t.color }} aria-hidden="true" />
+                {t.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+
       {selectMode && (
         <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
           <Button
