@@ -1368,7 +1368,7 @@ function matchJobsByCaption(caption: string, jobs: JobCandidate[]): ScoredJob[] 
       // both the search term and the job/site fields so that leading house
       // numbers, unit numbers, etc. never block a word-based match. The extra
       // 0.98 discount keeps an equally-good numbered match winning the tiebreak.
-      if (capTokensNoNum.length > 0 && fieldTokensNoNum.length > 0) {
+      if (!f.noNumSkip && capTokensNoNum.length > 0 && fieldTokensNoNum.length > 0) {
         for (const c of noNumCandidateSets) {
           const r = scoreTokenPair(c.tokens, fieldTokensNoNum, f.weight);
           const s = Math.floor(r.score * c.discount * 0.98);
