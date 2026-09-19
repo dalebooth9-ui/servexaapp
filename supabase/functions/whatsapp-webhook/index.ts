@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
         // "CEDARTREE COURT" all collapse to the same token.
         const { data: jobPool, error: poolErr } = await supabase
           .from("jobs")
-          .select("id, name, reference_number, address, sites(name, address, postcode)")
+          .select("id, name, reference_number, address, customer, sites(name, address, postcode)")
           .neq("status", "archived")
           .order("updated_at", { ascending: false })
           .limit(1000);
@@ -1220,6 +1220,7 @@ type JobCandidate = {
   name?: string | null;
   reference_number?: string | null;
   address?: string | null;
+  customer?: string | null;
   sites?: { name?: string | null; address?: string | null; postcode?: string | null } | null;
 };
 
