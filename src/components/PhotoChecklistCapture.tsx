@@ -23,7 +23,11 @@ import {
   Type,
   Loader2,
   ArrowLeftRight,
+  Eye,
+  EyeOff,
 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+
 import { format } from "date-fns";
 import jsPDF from "jspdf";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
@@ -81,27 +85,39 @@ function getItemIcon(type: TemplateItem["item_type"]) {
 
 // ── PhotoCapture single button ─────────────────────────────────────────────────
 
+/** Resolve a signed URL for a stored submissions path. */
+function useSignedPhotoUrl(path: string | null | undefined): string | null {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!path) { setUrl(null); return; }
+    let alive = true;
+    supabase.storage.from("submissions").createSignedUrl(path, 3600)
+      .then(({ data }) => { if (alive) setUrl(data?.signedUrl || null); });
+    return () => { alive = false; };
+  }, [path]);
+  return url;
+}
+
 function PhotoCaptureButton({
   label,
   photoUrl,
   onCapture,
   uploading,
   size = "normal",
+  ghostUrl,
+  ghostOpacity = 0.3,
 }: {
   label: string;
   photoUrl: string | null | undefined;
   onCapture: (file: File) => void;
   uploading: boolean;
   size?: "normal" | "large";
+  /** Semi-transparent "before" image drawn over this tile to match framing. */
+  ghostUrl?: string | null;
+  ghostOpacity?: number;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [signedUrl, setSignedUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!photoUrl) { setSignedUrl(null); return; }
-    supabase.storage.from("submissions").createSignedUrl(photoUrl, 3600)
-      .then(({ data }) => setSignedUrl(data?.signedUrl || null));
-  }, [photoUrl]);
+  const signedUrl = useSignedPhotoUrl(photoUrl);
 
   const h = size === "large" ? "h-48 sm:h-56" : "h-36";
 
@@ -152,10 +168,89 @@ function PhotoCaptureButton({
             <span className="text-xs text-muted-foreground/60">Tap to add photo</span>
           </div>
         )}
+
+        {/* Ghost of the before photo, for matching angle / comparing */}
+        {!uploading && ghostUrl && (
+          <div
+            className="pointer-events-none absolute inset-0 rounded-[10px] ring-2 ring-inset ring-blue-500/70 transition-opacity duration-300"
+            style={{ opacity: ghostOpacity }}
+          >
+            <img src={ghostUrl} alt="Before reference overlay" className="h-full w-full object-cover" />
+          </div>
+        )}
       </button>
     </div>
   );
 }
+
+/**
+ * Ghost overlay controls + "match this angle" reference panel for
+ * before/after items that already have a before photo.
+ */
+function GhostOverlayPanel({
+  beforeUrl,
+  hasAfter,
+  enabled,
+  onEnabledChange,
+  opacity,
+  onOpacityChange,
+}: {
+  beforeUrl: string;
+  hasAfter: boolean;
+  enabled: boolean;
+  onEnabledChange: (v: boolean) => void;
+  opacity: number;
+  onOpacityChange: (v: number) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-blue-500/40 bg-blue-500/5 p-3 space-y-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <button
+          type="button"
+          onClick={() => onEnabledChange(!enabled)}
+          aria-pressed={enabled}
+          className="flex min-h-[36px] items-center gap-1.5 rounded-md border border-blue-500/40 bg-background px-2.5 text-xs font-medium"
+        >
+          {enabled ? <Eye className="h-4 w-4 text-blue-600" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+          Ghost overlay
+        </button>
+        <div className="flex min-w-[140px] flex-1 items-center gap-2">
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Opacity</span>
+          <Slider
+            value={[opacity]}
+            min={0.1}
+            max={0.6}
+            step={0.05}
+            disabled={!enabled}
+            onValueChange={([v]) => onOpacityChange(v)}
+            className="flex-1"
+            aria-label="Ghost overlay opacity"
+          />
+          <span className="w-8 text-right text-[10px] tabular-nums text-muted-foreground">
+            {Math.round(opacity * 100)}%
+          </span>
+        </div>
+      </div>
+
+      <div className="flex gap-3">
+        <div className="w-28 shrink-0">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-blue-600">Before reference</p>
+          <img
+            src={beforeUrl}
+            alt="Before reference"
+            className="h-20 w-full rounded-md border-2 border-blue-500/60 object-cover"
+          />
+        </div>
+        <p className="self-center text-xs text-muted-foreground">
+          {hasAfter
+            ? "Compare is on: the before photo fades over your after photo so you can check the framing and retake if needed."
+            : "Match this angle. Line up the same viewpoint, then take the after photo — the before shot is ghosted over the tile to guide you."}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
@@ -185,6 +280,9 @@ export default function PhotoChecklistCapture({
   const [activeIdx, setActiveIdx] = useState(0);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [ghostEnabled, setGhostEnabled] = useState(true);
+  const [ghostOpacity, setGhostOpacity] = useState(0.3);
+
   const [loading, setLoading] = useState(false);
 
   // Load templates filtered to the job's category
@@ -544,6 +642,15 @@ export default function PhotoChecklistCapture({
   const pct = items.length ? Math.round((completedCount / items.length) * 100) : 0;
   const activeItem = items[activeIdx];
 
+  // ── Before/after ghost overlay ──
+  const activeBeforePath =
+    activeItem?.item_type === "before_after" ? responses[activeItem.id]?.before_photo_url || null : null;
+  const activeAfterPath =
+    activeItem?.item_type === "before_after" ? responses[activeItem.id]?.after_photo_url || null : null;
+  const ghostSignedUrl = useSignedPhotoUrl(activeBeforePath);
+  const ghostAvailable = !!ghostSignedUrl;
+
+
   // ── Template selection screen ──
   if (!selectedTemplate) {
     return (
@@ -698,31 +805,51 @@ export default function PhotoChecklistCapture({
 
             {/* Before / After */}
             {activeItem.item_type === "before_after" && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-destructive/60 inline-block" /> BEFORE
-                  </p>
-                  <PhotoCaptureButton
-                    label="Before photo"
-                    photoUrl={responses[activeItem.id]?.before_photo_url}
-                    onCapture={f => uploadPhoto(f, activeItem.id, "before_photo_url")}
-                    uploading={!!uploading[`${activeItem.id}__before_photo_url`]}
+              <div className="space-y-3">
+                {ghostAvailable && (
+                  <GhostOverlayPanel
+                    beforeUrl={ghostSignedUrl!}
+                    hasAfter={!!activeAfterPath}
+                    enabled={ghostEnabled}
+                    onEnabledChange={setGhostEnabled}
+                    opacity={ghostOpacity}
+                    onOpacityChange={setGhostOpacity}
                   />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-primary inline-block" /> AFTER
-                  </p>
-                  <PhotoCaptureButton
-                    label="After photo"
-                    photoUrl={responses[activeItem.id]?.after_photo_url}
-                    onCapture={f => uploadPhoto(f, activeItem.id, "after_photo_url")}
-                    uploading={!!uploading[`${activeItem.id}__after_photo_url`]}
-                  />
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-full bg-destructive/60 inline-block" /> BEFORE
+                    </p>
+                    <PhotoCaptureButton
+                      label="Before photo"
+                      photoUrl={responses[activeItem.id]?.before_photo_url}
+                      onCapture={f => uploadPhoto(f, activeItem.id, "before_photo_url")}
+                      uploading={!!uploading[`${activeItem.id}__before_photo_url`]}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-full bg-primary inline-block" /> AFTER
+                      {ghostAvailable && ghostEnabled && (
+                        <span className="ml-auto text-[9px] font-medium uppercase tracking-wide text-blue-600">
+                          {activeAfterPath ? "Compare on" : "Ghost on"}
+                        </span>
+                      )}
+                    </p>
+                    <PhotoCaptureButton
+                      label="After photo"
+                      photoUrl={responses[activeItem.id]?.after_photo_url}
+                      onCapture={f => uploadPhoto(f, activeItem.id, "after_photo_url")}
+                      uploading={!!uploading[`${activeItem.id}__after_photo_url`]}
+                      ghostUrl={ghostAvailable && ghostEnabled ? ghostSignedUrl : null}
+                      ghostOpacity={ghostOpacity}
+                    />
+                  </div>
                 </div>
               </div>
             )}
+
 
             {/* Checkbox / Pass-Fail */}
             {activeItem.item_type === "checkbox" && (
