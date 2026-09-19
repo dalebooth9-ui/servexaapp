@@ -85,6 +85,7 @@ const Defects = lazy(() => import("@/pages/Defects"));
 const DefectsReview = lazy(() => import("@/pages/DefectsReview"));
 const QuoteApproval = lazy(() => import("@/pages/QuoteApproval"));
 const FireLog = lazy(() => import("@/pages/FireLog"));
+const PublicGallery = lazy(() => import("@/pages/PublicGallery"));
 const SiteSurveys = lazy(() => import("@/pages/SiteSurveys"));
 const SiteSurveyDetail = lazy(() => import("@/pages/SiteSurveyDetail"));
 const ReportDownloads = lazy(() => import("@/pages/ReportDownloads"));
