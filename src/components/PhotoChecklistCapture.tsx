@@ -805,31 +805,51 @@ export default function PhotoChecklistCapture({
 
             {/* Before / After */}
             {activeItem.item_type === "before_after" && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-destructive/60 inline-block" /> BEFORE
-                  </p>
-                  <PhotoCaptureButton
-                    label="Before photo"
-                    photoUrl={responses[activeItem.id]?.before_photo_url}
-                    onCapture={f => uploadPhoto(f, activeItem.id, "before_photo_url")}
-                    uploading={!!uploading[`${activeItem.id}__before_photo_url`]}
+              <div className="space-y-3">
+                {ghostAvailable && (
+                  <GhostOverlayPanel
+                    beforeUrl={ghostSignedUrl!}
+                    hasAfter={!!activeAfterPath}
+                    enabled={ghostEnabled}
+                    onEnabledChange={setGhostEnabled}
+                    opacity={ghostOpacity}
+                    onOpacityChange={setGhostOpacity}
                   />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-primary inline-block" /> AFTER
-                  </p>
-                  <PhotoCaptureButton
-                    label="After photo"
-                    photoUrl={responses[activeItem.id]?.after_photo_url}
-                    onCapture={f => uploadPhoto(f, activeItem.id, "after_photo_url")}
-                    uploading={!!uploading[`${activeItem.id}__after_photo_url`]}
-                  />
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-full bg-destructive/60 inline-block" /> BEFORE
+                    </p>
+                    <PhotoCaptureButton
+                      label="Before photo"
+                      photoUrl={responses[activeItem.id]?.before_photo_url}
+                      onCapture={f => uploadPhoto(f, activeItem.id, "before_photo_url")}
+                      uploading={!!uploading[`${activeItem.id}__before_photo_url`]}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-full bg-primary inline-block" /> AFTER
+                      {ghostAvailable && ghostEnabled && (
+                        <span className="ml-auto text-[9px] font-medium uppercase tracking-wide text-blue-600">
+                          {activeAfterPath ? "Compare on" : "Ghost on"}
+                        </span>
+                      )}
+                    </p>
+                    <PhotoCaptureButton
+                      label="After photo"
+                      photoUrl={responses[activeItem.id]?.after_photo_url}
+                      onCapture={f => uploadPhoto(f, activeItem.id, "after_photo_url")}
+                      uploading={!!uploading[`${activeItem.id}__after_photo_url`]}
+                      ghostUrl={ghostAvailable && ghostEnabled ? ghostSignedUrl : null}
+                      ghostOpacity={ghostOpacity}
+                    />
+                  </div>
                 </div>
               </div>
             )}
+
 
             {/* Checkbox / Pass-Fail */}
             {activeItem.item_type === "checkbox" && (
