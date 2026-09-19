@@ -79,6 +79,7 @@ const JobWordReport = lazy(() => import("@/components/JobWordReport"));
 const SubmissionList = lazy(() => import("@/components/jobs/SubmissionList"));
 const EngineerCertificates = lazy(() => import("@/components/jobs/EngineerCertificates"));
 const JobDocuments = lazy(() => import("@/components/JobDocuments"));
+const ScanDocumentButton = lazy(() => import("@/components/documents/ScanDocumentButton"));
 const InstallationProjects = lazy(() => import("@/components/InstallationProjects"));
 const SiteSurveyCard = lazy(() => import("@/components/SiteSurveyCard"));
 const JobDefects = lazy(() => import("@/components/jobs/JobDefects"));
