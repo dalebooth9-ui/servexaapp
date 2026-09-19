@@ -4,13 +4,15 @@ import { useToast } from "@/hooks/use-toast";
 import { isImageFile, isVideoFile, isAllowedFile, extractStoragePath } from "@/lib/fileUtils";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { buildDurableRef, parseStorageRef } from "@/lib/durableStorageRef";
+import { getGpsPosition, jpegFileName, stampPhoto } from "@/lib/photoStamp";
 
 interface UseFileUploadOptions {
   bucket?: string;
   onComplete?: () => void;
+  jobRef?: string;
 }
 
-export function useFileUpload({ bucket = "submissions", onComplete }: UseFileUploadOptions = {}) {
+export function useFileUpload({ bucket = "submissions", onComplete, jobRef }: UseFileUploadOptions = {}) {
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
@@ -21,15 +23,47 @@ export function useFileUpload({ bucket = "submissions", onComplete }: UseFileUpl
   ): Promise<number> => {
     setUploading(true);
     let uploadedCount = 0;
+    let resolvedJobRef = jobRef?.trim() || "";
+    let gpsPromise: Promise<{ lat: number; lng: number } | null> | null = null;
+    let jobRefPromise: PromiseLike<string> | null = null;
 
-    for (const file of files) {
-      if (!isAllowedFile(file)) {
+    for (const originalFile of files) {
+      if (!isAllowedFile(originalFile)) {
         toast({
           title: "Unsupported file",
-          description: `${file.name} is not a supported format or exceeds the size limit.`,
+          description: `${originalFile.name} is not a supported format or exceeds the size limit.`,
           variant: "destructive",
         });
         continue;
+      }
+
+      let file = originalFile;
+      if (originalFile.type.startsWith("image/")) {
+        gpsPromise ||= getGpsPosition();
+        if (!resolvedJobRef) {
+          jobRefPromise ||= supabase
+            .from("jobs")
+            .select("reference_number")
+            .eq("id", jobId)
+            .maybeSingle()
+            .then(({ data }) => String((data as any)?.reference_number || ""));
+        }
+        try {
+          const [gps, fetchedJobRef] = await Promise.all([
+            gpsPromise,
+            resolvedJobRef ? Promise.resolve(resolvedJobRef) : jobRefPromise,
+          ]);
+          resolvedJobRef = fetchedJobRef || resolvedJobRef;
+          const stamped = await stampPhoto(originalFile, resolvedJobRef || undefined, gps);
+          file = new File([stamped], jpegFileName(originalFile.name), { type: "image/jpeg" });
+        } catch (error) {
+          toast({
+            title: "Photo processing failed",
+            description: error instanceof Error ? error.message : `Failed to prepare ${originalFile.name}.`,
+            variant: "destructive",
+          });
+          continue;
+        }
       }
 
       const filePath = `${jobId}/${Date.now()}-${file.name}`;

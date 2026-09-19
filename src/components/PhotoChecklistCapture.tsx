@@ -28,6 +28,7 @@ import { format } from "date-fns";
 import jsPDF from "jspdf";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { getGpsPosition, stampPhoto } from "@/lib/photoStamp";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -160,12 +161,14 @@ function PhotoCaptureButton({
 
 export default function PhotoChecklistCapture({
   jobId,
+  jobRef,
   jobName,
   jobCategory,
   customerName,
   siteName,
 }: {
   jobId: string;
+  jobRef?: string;
   jobName: string;
   jobCategory: string;
   customerName?: string;
@@ -285,11 +288,16 @@ export default function PhotoChecklistCapture({
     const key = `${itemId}__${field}`;
     setUploading(prev => ({ ...prev, [key]: true }));
     try {
-      const path = `${jobId}/checklist_${itemId}_${field}_${Date.now()}.${file.name.split(".").pop()}`;
-      const { error: upErr } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(path), file);
+      const selectedTemplateId = selectedTemplate?.id;
+      if (!selectedTemplateId) throw new Error("Select a checklist before adding photos.");
+      const stampedBlob = await stampPhoto(file, jobRef, await getGpsPosition());
+      const path = `${jobId}/checklist_${itemId}_${field}_${Date.now()}.jpg`;
+      const { error: upErr } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(path), stampedBlob, {
+        contentType: "image/jpeg",
+      });
       if (upErr) throw upErr;
 
-      const clId = await ensureChecklist(selectedTemplate!.id);
+      const clId = await ensureChecklist(selectedTemplateId);
 
       const existing = responses[itemId];
       const upsertData: any = {

@@ -9,6 +9,7 @@ import { enqueuePhoto } from "@/lib/photoQueue";
 import { isNetworkError } from "@/lib/syncQueue";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { maybeShowMobileDataAdvisory } from "@/lib/mobileDataNotice";
+import { getGpsPosition, stampPhoto } from "@/lib/photoStamp";
 
 
 export type PhotoUploadResult =
@@ -23,12 +24,27 @@ export function useOfflinePhotoUpload() {
     blob: Blob;
     contentType?: string;
     label?: string;
+    jobRef?: string;
   }): Promise<PhotoUploadResult> => {
+    let preparedInput = input;
+    if ((input.contentType || input.blob.type).startsWith("image/")) {
+      try {
+        const stamped = await stampPhoto(input.blob, input.jobRef, await getGpsPosition());
+        preparedInput = {
+          ...input,
+          path: input.path.replace(/\.[^./]+$/, ".jpg"),
+          blob: stamped,
+          contentType: "image/jpeg",
+        };
+      } catch (error) {
+        return { ok: false, queued: false, error };
+      }
+    }
     // Prefix the path with the current org id so per-object RLS can enforce
     // isolation. buildOrgPathAsync is idempotent — callers that already
     // prefixed will not get double-prefixed.
-    const scopedPath = await buildOrgPathAsync(input.path);
-    const scopedInput = { ...input, path: scopedPath };
+    const scopedPath = await buildOrgPathAsync(preparedInput.path);
+    const scopedInput = { ...preparedInput, path: scopedPath };
     // Gentle one-off notice when uploading over cellular so field users
     // aren't caught out by data-plan usage.
     maybeShowMobileDataAdvisory("photo uploads");
