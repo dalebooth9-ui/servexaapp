@@ -7,7 +7,7 @@ Deno.serve(async (req) => {
   const sid = Deno.env.get("TWILIO_ACCOUNT_SID") ?? "";
   const token = Deno.env.get("TWILIO_AUTH_TOKEN") ?? "";
   const num = Deno.env.get("TWILIO_WHATSAPP_NUMBER") ?? "";
-  const secret = Deno.env.get("CRON_SECRET") ?? "";
+  const secret = Deno.env.get("TWILIO_DIAG_SECRET") ?? "";
   if (req.headers.get("x-diag-secret") !== secret) {
     return new Response("forbidden", { status: 403, headers: cors });
   }
