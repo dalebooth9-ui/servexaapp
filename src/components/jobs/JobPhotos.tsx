@@ -1052,6 +1052,10 @@ export default function JobPhotos({ jobId, jobRef, siteId = null, engineers = []
                   selectMode={selectMode}
                   selected={selected.has(p.id)}
                   onToggleSelect={() => canDeletePhoto(p) && toggleSelect(p.id)}
+                  allTags={allTags}
+                  tags={(p.submissionId && tagMap[p.submissionId]) || []}
+                  hasRemedial={!!p.submissionId && remedialSubIds.has(p.submissionId)}
+                  onToggleTag={(tag, next) => toggleTagOnPhoto(p, tag, next)}
                 />
               ))}
             </div>
@@ -1071,6 +1075,7 @@ export default function JobPhotos({ jobId, jobRef, siteId = null, engineers = []
           downloadUrl: p.signedUrl,
           downloadName: p.fileName,
           storagePath: p.storagePath,
+          submissionId: p.submissionId,
         }))}
         currentIndex={lightboxIdx ?? 0}
         open={lightboxIdx !== null}
@@ -1080,7 +1085,23 @@ export default function JobPhotos({ jobId, jobRef, siteId = null, engineers = []
         bucket="submissions"
         orgId={orgId ?? undefined}
         onRemedialsAdded={() => load()}
+        onCreateRemedial={(lp: LightboxPhoto) => {
+          const match = items.find((i) => i.id === lp.id);
+          if (match) setRemedialTarget(match);
+        }}
       />
+
+      <CreateRemedialFromPhotoDialog
+        open={!!remedialTarget}
+        onOpenChange={(o) => !o && setRemedialTarget(null)}
+        jobId={jobId}
+        siteId={siteId}
+        submissionId={remedialTarget?.submissionId || null}
+        photoPath={remedialTarget?.storagePath || remedialTarget?.fallbackUrl || null}
+        previewUrl={remedialTarget?.signedUrl || null}
+        onCreated={() => { setRemedialTarget(null); void load(); }}
+      />
+
 
       {autoTranscribeFile && (
         <TranscriptDialog
