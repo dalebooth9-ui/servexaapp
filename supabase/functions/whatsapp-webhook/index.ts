@@ -91,16 +91,51 @@ Deno.serve(async (req) => {
     // Find engineer by WhatsApp number — try E.164 first, fall back to 0-prefixed UK legacy format.
     const fallbackFrom = from.startsWith("+44") ? "0" + from.slice(3) : null;
     const candidates = fallbackFrom ? [from, fallbackFrom] : [from];
-    const { data: profile, error: profileError } = await supabase
+    const { data: matchingProfiles, error: profileError } = await supabase
       .from("profiles")
       .select("user_id, whatsapp_number")
-      .in("whatsapp_number", candidates)
-      .maybeSingle();
+      .in("whatsapp_number", candidates);
 
-    console.log(`[profile-lookup] normalisedFrom="${from}" fallback="${fallbackFrom ?? ""}" rawFrom="${rawFrom}" found=${!!profile} error=${profileError?.message ?? "none"} engineerId=${profile?.user_id ?? "n/a"}`);
+    let profile = matchingProfiles?.length === 1 ? matchingProfiles[0] : null;
+
+    // A number can temporarily exist on both an engineer and office profile.
+    // Resolve that safely only when one profile is the unique engineer with the
+    // most active job assignments; never guess when the result is tied.
+    if (!profile && matchingProfiles && matchingProfiles.length > 1) {
+      const matchingUserIds = matchingProfiles.map((candidate) => candidate.user_id);
+      const { data: activeAssignments, error: assignmentError } = await supabase
+        .from("job_assignments")
+        .select("engineer_id, jobs!inner(status)")
+        .in("engineer_id", matchingUserIds)
+        .not("jobs.status", "in", '("completed","cancelled")');
+
+      if (!assignmentError) {
+        const assignmentCounts = new Map<string, number>();
+        for (const assignment of activeAssignments || []) {
+          assignmentCounts.set(
+            assignment.engineer_id,
+            (assignmentCounts.get(assignment.engineer_id) || 0) + 1,
+          );
+        }
+        const ranked = matchingProfiles
+          .map((candidate) => ({
+            candidate,
+            count: assignmentCounts.get(candidate.user_id) || 0,
+          }))
+          .sort((a, b) => b.count - a.count);
+        if (ranked[0]?.count > 0 && ranked[0].count > (ranked[1]?.count || 0)) {
+          profile = ranked[0].candidate;
+          console.log(
+            `[profile-lookup] duplicate number resolved to uniquely active assignee engineerId=${profile.user_id} activeAssignments=${ranked[0].count}`,
+          );
+        }
+      }
+    }
+
+    console.log(`[profile-lookup] normalisedFrom="${from}" fallback="${fallbackFrom ?? ""}" rawFrom="${rawFrom}" matches=${matchingProfiles?.length ?? 0} found=${!!profile} error=${profileError?.message ?? "none"} engineerId=${profile?.user_id ?? "n/a"}`);
 
     if (!profile) {
-      console.log(`[profile-lookup] Unknown WhatsApp number: ${from} — no matching profile`);
+      console.log(`[profile-lookup] WhatsApp number ${from} could not be resolved to one active engineer profile`);
       return twimlResponse();
     }
 
