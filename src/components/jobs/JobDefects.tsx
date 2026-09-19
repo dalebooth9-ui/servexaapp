@@ -112,6 +112,8 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
   const [defects, setDefects] = useState<Defect[]>([]);
   const [quoteTotals, setQuoteTotals] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [linkedPhotoUrl, setLinkedPhotoUrl] = useState<string | null>(null);
+
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [quoting, setQuoting] = useState(false);
@@ -391,7 +393,11 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
                 <Card key={d.id}>
                   <CardContent className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
+                      {d.linked_photo_url && (
+                        <LinkedPhotoThumb path={d.linked_photo_url} jobId={jobId} onOpen={setLinkedPhotoUrl} />
+                      )}
                       <div className="flex-1 min-w-0">
+
                         <p className="font-medium text-sm">{d.title}</p>
                         <div className="flex flex-wrap gap-1.5 mt-1">
                           <Badge variant="outline" className={SEVERITY_BADGE[d.severity] || ""}>{d.severity}</Badge>
