@@ -43,6 +43,13 @@
       "when": 1789808904667,
       "tag": "0005_add_job_site_coordinates",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789809206942,
+      "tag": "0006_create_shared_galleries",
+      "breakpoints": true
     }
   ]
 }
