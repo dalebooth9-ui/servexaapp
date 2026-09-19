@@ -565,7 +565,16 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
             </div>
           </DialogContent>
         </Dialog>
+
+        <PhotoLightbox
+          photos={linkedPhotoUrl ? [{ id: "linked", url: linkedPhotoUrl, title: "Linked photo" }] : []}
+          currentIndex={0}
+          open={!!linkedPhotoUrl}
+          onOpenChange={(o) => !o && setLinkedPhotoUrl(null)}
+          onIndexChange={() => {}}
+        />
       </CollapsibleContent>
+
     </Collapsible>
   );
 }
