@@ -170,7 +170,10 @@ export default function JobDetail() {
 
   useUnsavedChanges(editing, "You have unsaved changes to this job. Leave without saving?");
 
-  const { uploading, uploadFilesAsSubmissions } = useFileUpload({ onComplete: () => fetchData() });
+  const { uploading, uploadFilesAsSubmissions } = useFileUpload({
+    onComplete: () => fetchData(),
+    jobRef: job?.reference_number || undefined,
+  });
 
 
   const fetchData = async () => {

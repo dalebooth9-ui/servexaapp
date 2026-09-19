@@ -4,7 +4,7 @@ export async function stampPhoto(
   jobRef?: string,
   gps?: { lat: number; lng: number } | null,
 ): Promise<Blob> {
-  const image = await createImageBitmap(file, { imageOrientation: "from-image" });
+  const image = await decodePhoto(file);
   try {
     const canvas = document.createElement("canvas");
     canvas.width = image.width;
@@ -75,6 +75,27 @@ export async function stampPhoto(
   } finally {
     image.close?.();
   }
+}
+
+type DecodedPhoto = CanvasImageSource & { width: number; height: number; close?: () => void };
+
+async function decodePhoto(file: File | Blob): Promise<DecodedPhoto> {
+  if (typeof createImageBitmap === "function") {
+    return createImageBitmap(file, { imageOrientation: "from-image" });
+  }
+  return await new Promise<DecodedPhoto>((resolve, reject) => {
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image as DecodedPhoto);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Could not read this photo."));
+    };
+    image.src = url;
+  });
 }
 
 /** Get GPS silently; denial, unavailability, or timeout never blocks a photo. */
