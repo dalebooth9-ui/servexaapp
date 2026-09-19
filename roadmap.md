@@ -7,3 +7,5 @@
 - [x] Photo tags: tag table, picker, thumbnail badges, filter chips, admin tag settings.
 - [x] Photo-linked remedials: create from lightbox, thumbnail in remedials list, spanner badge, auto-tag.
 - [x] Before/after ghost overlay on photo checklist items (reference panel, eye toggle, opacity slider, compare view).
+
+- [x] GPS quick capture: auto-file orphan photos to nearest active job (gpsProximity.ts, QuickCapturePhoto FAB, job picker fallback, JobGeocodeSettings batch geocode, jobs.site_latitude/longitude)

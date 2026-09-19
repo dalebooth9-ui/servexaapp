@@ -5900,6 +5900,8 @@ export type Database = {
           rejection_reason: string | null
           result: string | null
           site_id: string | null
+          site_latitude: number | null
+          site_longitude: number | null
           source: string | null
           status: string
           template_mismatch_reason: string | null
@@ -5955,6 +5957,8 @@ export type Database = {
           rejection_reason?: string | null
           result?: string | null
           site_id?: string | null
+          site_latitude?: number | null
+          site_longitude?: number | null
           source?: string | null
           status?: string
           template_mismatch_reason?: string | null
@@ -6010,6 +6014,8 @@ export type Database = {
           rejection_reason?: string | null
           result?: string | null
           site_id?: string | null
+          site_latitude?: number | null
+          site_longitude?: number | null
           source?: string | null
           status?: string
           template_mismatch_reason?: string | null

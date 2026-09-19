@@ -31,6 +31,8 @@ import EmailAutomationSettings from "@/components/EmailAutomationSettings";
 import JobCategorySettings from "@/components/JobCategorySettings";
 import AssetCategorySettings from "@/components/AssetCategorySettings";
 import PhotoTagSettings from "@/components/PhotoTagSettings";
+import JobGeocodeSettings from "@/components/JobGeocodeSettings";
+
 
 import UserRoleSettings from "@/components/UserRoleSettings";
 import JobTemplateSettings from "@/components/JobTemplateSettings";
@@ -320,6 +322,8 @@ export default function SettingsPage() {
           <JobCategorySettings />
           <AssetCategorySettings />
           <PhotoTagSettings />
+          <JobGeocodeSettings />
+
 
           <JobTemplateSettings />
           <CategoryDocumentTemplateSettings />
