@@ -1131,6 +1131,9 @@ export default function JobDetail() {
           <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
+          <div className="mb-3 flex justify-end">
+            <Suspense fallback={null}><ScanDocumentButton jobId={id!} /></Suspense>
+          </div>
           {userRole === "admin" && (
             <div className="mb-3 flex justify-end gap-2">
               <Button
