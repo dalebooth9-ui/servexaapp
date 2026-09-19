@@ -117,6 +117,17 @@ export default function PhotoLightbox({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()} className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none flex flex-col items-center justify-center gap-0">
           <div className="absolute right-4 top-4 z-50 flex gap-2">
+            {onCreateRemedial && !currentIsVideo && !currentIsAudio && (
+              <button
+                onClick={() => onCreateRemedial(photo)}
+                className="rounded-full bg-black/50 p-2 text-white hover:bg-black/80"
+                aria-label="Create remedial from photo"
+                title="Create remedial from photo"
+              >
+                <Wrench className="h-5 w-5" />
+              </button>
+            )}
+
             {canTranscribe && (
               <button
                 onClick={() => setTranscriptOpen(true)}
