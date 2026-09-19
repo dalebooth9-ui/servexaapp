@@ -67,6 +67,7 @@ const SiteHistoryPanel = lazy(() => import("@/components/SiteHistoryPanel"));
 const WhatsAppReply = lazy(() => import("@/components/WhatsAppReply"));
 const AllocatedDaysTracker = lazy(() => import("@/components/AllocatedDaysTracker"));
 const JobMessages = lazy(() => import("@/components/JobMessages"));
+const JobTimeline = lazy(() => import("@/components/jobs/JobTimeline"));
 const FieldReports = lazy(() => import("@/components/FieldReports"));
 const FileDropZone = lazy(() => import("@/components/FileDropZone"));
 const CreateInvoiceDialog = lazy(() => import("@/components/CreateInvoiceDialog"));
