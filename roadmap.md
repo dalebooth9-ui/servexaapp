@@ -9,3 +9,5 @@
 - [x] Before/after ghost overlay on photo checklist items (reference panel, eye toggle, opacity slider, compare view).
 
 - [x] GPS quick capture: auto-file orphan photos to nearest active job (gpsProximity.ts, QuickCapturePhoto FAB, job picker fallback, JobGeocodeSettings batch geocode, jobs.site_latitude/longitude)
+
+- [x] Job timeline activity feed (Timeline tab on job detail: merged feed from activity log, submissions, messages, defects, assignments, documents, checklists, shared galleries; useJobTimeline hook with realtime refresh + Load more)

@@ -67,6 +67,7 @@ const SiteHistoryPanel = lazy(() => import("@/components/SiteHistoryPanel"));
 const WhatsAppReply = lazy(() => import("@/components/WhatsAppReply"));
 const AllocatedDaysTracker = lazy(() => import("@/components/AllocatedDaysTracker"));
 const JobMessages = lazy(() => import("@/components/JobMessages"));
+const JobTimeline = lazy(() => import("@/components/jobs/JobTimeline"));
 const FieldReports = lazy(() => import("@/components/FieldReports"));
 const FileDropZone = lazy(() => import("@/components/FileDropZone"));
 const CreateInvoiceDialog = lazy(() => import("@/components/CreateInvoiceDialog"));
@@ -106,6 +107,7 @@ const JOB_TABS = [
   { value: "survey", label: "Survey & Snags" },
   { value: "signoff", label: "Sign-off" },
   { value: "activity", label: "Activity" },
+  { value: "timeline", label: "Timeline" },
 ] as const;
 
 type JobTab = (typeof JOB_TABS)[number]["value"];
@@ -684,6 +686,12 @@ export default function JobDetail() {
           </button>
         ))}
       </div>
+
+      {activeTab === "timeline" && id && (
+        <Suspense fallback={<LazyFallback />}>
+          <JobTimeline jobId={id} />
+        </Suspense>
+      )}
 
       {activeTab === "photos" && id && (
         <Suspense fallback={<LazyFallback />}>
