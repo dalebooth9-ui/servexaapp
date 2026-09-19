@@ -235,9 +235,10 @@ function SortablePhotoTile({
   );
 }
 
-export default function JobPhotos({ jobId, jobRef, engineers = [], isAdmin, canUpload = true, simpleFilters = false }: {
+export default function JobPhotos({ jobId, jobRef, siteId = null, engineers = [], isAdmin, canUpload = true, simpleFilters = false }: {
   jobId: string;
   jobRef?: string;
+  siteId?: string | null;
   engineers?: { id: string; name: string }[];
   isAdmin?: boolean;
   canUpload?: boolean;
@@ -250,6 +251,15 @@ export default function JobPhotos({ jobId, jobRef, engineers = [], isAdmin, canU
   const [loading, setLoading] = useState(true);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [sourceFilter, setSourceFilter] = useState<"all" | Source | "video">("all");
+
+  // ---- Tagging + photo-linked remedials ----
+  const [allTags, setAllTags] = useState<PhotoTag[]>([]);
+  const [tagMap, setTagMap] = useState<Record<string, PhotoTag[]>>({});
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [tagMatchIds, setTagMatchIds] = useState<Set<string> | null>(null);
+  const [remedialSubIds, setRemedialSubIds] = useState<Set<string>>(new Set());
+  const [remedialTarget, setRemedialTarget] = useState<PhotoItem | null>(null);
+
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
