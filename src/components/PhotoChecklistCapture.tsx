@@ -23,7 +23,11 @@ import {
   Type,
   Loader2,
   ArrowLeftRight,
+  Eye,
+  EyeOff,
 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+
 import { format } from "date-fns";
 import jsPDF from "jspdf";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
