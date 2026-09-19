@@ -30,6 +30,8 @@ import ScanIntakeEmailCard from "@/components/ScanIntakeEmailCard";
 import EmailAutomationSettings from "@/components/EmailAutomationSettings";
 import JobCategorySettings from "@/components/JobCategorySettings";
 import AssetCategorySettings from "@/components/AssetCategorySettings";
+import PhotoTagSettings from "@/components/PhotoTagSettings";
+
 import UserRoleSettings from "@/components/UserRoleSettings";
 import JobTemplateSettings from "@/components/JobTemplateSettings";
 import VehicleCheckSettings from "@/components/VehicleCheckSettings";
