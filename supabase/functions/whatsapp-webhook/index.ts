@@ -337,7 +337,13 @@ Deno.serve(async (req) => {
 
           // Convert image to base64 for OCR
           const arrayBuffer = await fileBlob.arrayBuffer();
-          const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+          const bytes = new Uint8Array(arrayBuffer);
+          const chunkSize = 0x8000;
+          let binary = "";
+          for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+          }
+          const base64 = btoa(binary);
 
           // Call the ocr-job-sheet edge function internally
           const ocrResponse = await fetch(`${SUPABASE_URL}/functions/v1/ocr-job-sheet`, {
