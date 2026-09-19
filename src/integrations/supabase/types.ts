@@ -2213,6 +2213,8 @@ export type Database = {
           description: string | null
           id: string
           job_id: string | null
+          linked_photo_url: string | null
+          linked_submission_id: string | null
           location_on_site: string | null
           org_id: string
           photo_url: string | null
@@ -2240,6 +2242,8 @@ export type Database = {
           description?: string | null
           id?: string
           job_id?: string | null
+          linked_photo_url?: string | null
+          linked_submission_id?: string | null
           location_on_site?: string | null
           org_id?: string
           photo_url?: string | null
@@ -2267,6 +2271,8 @@ export type Database = {
           description?: string | null
           id?: string
           job_id?: string | null
+          linked_photo_url?: string | null
+          linked_submission_id?: string | null
           location_on_site?: string | null
           org_id?: string
           photo_url?: string | null
@@ -2306,6 +2312,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_linked_submission_id_fkey"
+            columns: ["linked_submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
             referencedColumns: ["id"]
           },
           {
@@ -5052,6 +5065,7 @@ export type Database = {
           done_by: string | null
           id: string
           job_id: string
+          linked_photo_url: string | null
           org_id: string | null
           photo_submission_id: string | null
           seq: number
@@ -5068,6 +5082,7 @@ export type Database = {
           done_by?: string | null
           id?: string
           job_id: string
+          linked_photo_url?: string | null
           org_id?: string | null
           photo_submission_id?: string | null
           seq?: number
@@ -5084,6 +5099,7 @@ export type Database = {
           done_by?: string | null
           id?: string
           job_id?: string
+          linked_photo_url?: string | null
           org_id?: string | null
           photo_submission_id?: string | null
           seq?: number
@@ -6908,6 +6924,45 @@ export type Database = {
           },
           {
             foreignKeyName: "photo_checklist_templates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      photo_tags: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          org_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          org_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_tags_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_tags_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organisations_safe"
@@ -9399,6 +9454,45 @@ export type Database = {
             columns: ["submission_id"]
             isOneToOne: false
             referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      submission_tags: {
+        Row: {
+          id: string
+          submission_id: string
+          tag_id: string
+          tagged_at: string
+          tagged_by: string | null
+        }
+        Insert: {
+          id?: string
+          submission_id: string
+          tag_id: string
+          tagged_at?: string
+          tagged_by?: string | null
+        }
+        Update: {
+          id?: string
+          submission_id?: string
+          tag_id?: string
+          tagged_at?: string
+          tagged_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_tags_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submission_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "photo_tags"
             referencedColumns: ["id"]
           },
         ]
