@@ -25,7 +25,7 @@ export function useFileUpload({ bucket = "submissions", onComplete, jobRef }: Us
     let uploadedCount = 0;
     let resolvedJobRef = jobRef?.trim() || "";
     let gpsPromise: Promise<{ lat: number; lng: number } | null> | null = null;
-    let jobRefPromise: Promise<string> | null = null;
+    let jobRefPromise: PromiseLike<string> | null = null;
 
     for (const originalFile of files) {
       if (!isAllowedFile(originalFile)) {
