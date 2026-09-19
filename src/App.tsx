@@ -286,6 +286,7 @@ const App = () => (
               <Route path="/handover/:token" element={<Suspense fallback={<PageFallback />}><HandoverSignOff /></Suspense>} />
               <Route path="/job-handover/:token" element={<Suspense fallback={<PageFallback />}><JobHandover /></Suspense>} />
               <Route path="/fire-log/:token" element={<Suspense fallback={<PageFallback />}><FireLog /></Suspense>} />
+              <Route path="/gallery/:token" element={<Suspense fallback={<PageFallback />}><PublicGallery /></Suspense>} />
               <Route path="*" element={<Suspense fallback={<PageFallback />}><NotFound /></Suspense>} />
             </Routes>
             <OfflineIndicator />
