@@ -1,4 +1,5 @@
 // Temporary diagnostic: inspects Twilio number webhook config and recent inbound messages.
+// Supports ?action=fix to point the number's inbound webhook at whatsapp-webhook.
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" };
 
 Deno.serve(async (req) => {
@@ -13,37 +14,42 @@ Deno.serve(async (req) => {
   }
   const auth = `Basic ${btoa(`${sid}:${token}`)}`;
   const base = `https://api.twilio.com/2010-04-01/Accounts/${sid}`;
+  const webhook = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-webhook`;
+  const action = new URL(req.url).searchParams.get("action");
 
-  const out: Record<string, unknown> = {
-    accountSidPrefix: sid.slice(0, 6),
-    whatsappNumberConfigured: num,
-  };
+  const out: Record<string, unknown> = { whatsappNumberConfigured: num, webhook };
 
-  const numbers = await fetch(`${base}/IncomingPhoneNumbers.json?PageSize=20`, { headers: { Authorization: auth } });
-  const numbersJson = await numbers.json();
-  out.incomingNumbers = (numbersJson.incoming_phone_numbers ?? []).map((n: any) => ({
-    phone: n.phone_number,
-    smsUrl: n.sms_url,
-    smsMethod: n.sms_method,
-    smsFallbackUrl: n.sms_fallback_url,
-    statusCallback: n.status_callback,
-  }));
-  out.numbersStatus = numbers.status;
-
-  const inbound = await fetch(`${base}/Messages.json?PageSize=20`, { headers: { Authorization: auth } });
-  const inboundJson = await inbound.json();
-  out.recentMessages = (inboundJson.messages ?? []).map((m: any) => ({
-    sid: m.sid,
-    direction: m.direction,
-    from: m.from,
-    to: m.to,
-    status: m.status,
-    numMedia: m.num_media,
-    errorCode: m.error_code,
-    dateSent: m.date_sent,
+  const numbersRes = await fetch(`${base}/IncomingPhoneNumbers.json?PageSize=20`, { headers: { Authorization: auth } });
+  const numbersJson = await numbersRes.json();
+  const numbers = numbersJson.incoming_phone_numbers ?? [];
+  out.incomingNumbers = numbers.map((n: any) => ({
+    sid: n.sid, phone: n.phone_number, smsUrl: n.sms_url, smsMethod: n.sms_method,
   }));
 
-  return new Response(JSON.stringify(out, null, 2), {
-    headers: { ...cors, "Content-Type": "application/json" },
-  });
+  const svcRes = await fetch("https://messaging.twilio.com/v1/Services?PageSize=20", { headers: { Authorization: auth } });
+  const svcJson = await svcRes.json();
+  out.messagingServices = (svcJson.services ?? []).map((s: any) => ({
+    sid: s.sid, name: s.friendly_name, inboundRequestUrl: s.inbound_request_url,
+    inboundMethod: s.inbound_method, useInboundWebhookOnNumber: s.use_inbound_webhook_on_number,
+  }));
+
+  const senderRes = await fetch("https://messaging.twilio.com/v2/Channels/Senders?PageSize=20", { headers: { Authorization: auth } });
+  out.sendersStatus = senderRes.status;
+  out.senders = await senderRes.json().catch(() => null);
+
+  if (action === "fix") {
+    const results: unknown[] = [];
+    for (const n of numbers) {
+      if (num && n.phone_number !== num) continue;
+      const r = await fetch(`${base}/IncomingPhoneNumbers/${n.sid}.json`, {
+        method: "POST",
+        headers: { Authorization: auth, "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ SmsUrl: webhook, SmsMethod: "POST" }).toString(),
+      });
+      results.push({ phone: n.phone_number, status: r.status, body: await r.json().then((j) => ({ smsUrl: j.sms_url, message: j.message })).catch(() => null) });
+    }
+    out.fix = results;
+  }
+
+  return new Response(JSON.stringify(out, null, 2), { headers: { ...cors, "Content-Type": "application/json" } });
 });
