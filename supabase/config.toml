@@ -168,3 +168,4 @@ verify_jwt = false
 
 [functions.public-gallery]
 verify_jwt = false
+
