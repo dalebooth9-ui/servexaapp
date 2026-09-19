@@ -280,6 +280,9 @@ export default function PhotoChecklistCapture({
   const [activeIdx, setActiveIdx] = useState(0);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [ghostEnabled, setGhostEnabled] = useState(true);
+  const [ghostOpacity, setGhostOpacity] = useState(0.3);
+
   const [loading, setLoading] = useState(false);
 
   // Load templates filtered to the job's category
@@ -638,6 +641,15 @@ export default function PhotoChecklistCapture({
   const completedRequired = items.filter(i => i.required && isComplete(i, responses[i.id])).length;
   const pct = items.length ? Math.round((completedCount / items.length) * 100) : 0;
   const activeItem = items[activeIdx];
+
+  // ── Before/after ghost overlay ──
+  const activeBeforePath =
+    activeItem?.item_type === "before_after" ? responses[activeItem.id]?.before_photo_url || null : null;
+  const activeAfterPath =
+    activeItem?.item_type === "before_after" ? responses[activeItem.id]?.after_photo_url || null : null;
+  const ghostSignedUrl = useSignedPhotoUrl(activeBeforePath);
+  const ghostAvailable = !!ghostSignedUrl;
+
 
   // ── Template selection screen ──
   if (!selectedTemplate) {
