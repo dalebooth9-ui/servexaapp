@@ -165,3 +165,6 @@ verify_jwt = false
 
 [functions.transcribe-media]
 verify_jwt = false
+
+[functions.public-gallery]
+verify_jwt = false
