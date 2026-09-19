@@ -319,6 +319,8 @@ export default function SettingsPage() {
           </div>
           <JobCategorySettings />
           <AssetCategorySettings />
+          <PhotoTagSettings />
+
           <JobTemplateSettings />
           <CategoryDocumentTemplateSettings />
           <RamsTemplateSettings />
