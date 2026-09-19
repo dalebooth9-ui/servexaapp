@@ -107,6 +107,7 @@ const JOB_TABS = [
   { value: "survey", label: "Survey & Snags" },
   { value: "signoff", label: "Sign-off" },
   { value: "activity", label: "Activity" },
+  { value: "timeline", label: "Timeline" },
 ] as const;
 
 type JobTab = (typeof JOB_TABS)[number]["value"];
