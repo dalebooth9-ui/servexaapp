@@ -124,7 +124,10 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
 
       {/* Site documents — RAMS PDFs, access notes, previous reports */}
       <section className="rounded-2xl border bg-card p-4 md:p-5 shadow-sm">
-        <h2 className="text-base font-semibold mb-3">Site documents</h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-base font-semibold">Site documents</h2>
+          <ScanDocumentButton jobId={jobId} />
+        </div>
         <Suspense fallback={<Fallback />}>
           <JobDocuments jobId={jobId} job={job} engineers={engineers} />
         </Suspense>
