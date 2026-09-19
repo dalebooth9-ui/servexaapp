@@ -8816,6 +8816,86 @@ export type Database = {
           },
         ]
       }
+      shared_galleries: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          expires_at: string | null
+          id: string
+          include_annotations: boolean
+          include_checklist_photos: boolean
+          is_active: boolean
+          job_id: string
+          org_id: string
+          selected_submission_ids: string[]
+          share_token: string
+          title: string | null
+          view_count: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          include_annotations?: boolean
+          include_checklist_photos?: boolean
+          is_active?: boolean
+          job_id: string
+          org_id: string
+          selected_submission_ids?: string[]
+          share_token?: string
+          title?: string | null
+          view_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          include_annotations?: boolean
+          include_checklist_photos?: boolean
+          is_active?: boolean
+          job_id?: string
+          org_id?: string
+          selected_submission_ids?: string[]
+          share_token?: string
+          title?: string | null
+          view_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_galleries_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_galleries_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_galleries_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_galleries_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       signup_intents: {
         Row: {
           code: string | null
