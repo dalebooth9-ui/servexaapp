@@ -74,6 +74,10 @@ function SortablePhotoTile({
   selectMode,
   selected,
   onToggleSelect,
+  allTags,
+  tags,
+  hasRemedial,
+  onToggleTag,
 }: {
   photo: PhotoItem;
   onOpen: () => void;
@@ -83,7 +87,12 @@ function SortablePhotoTile({
   selectMode: boolean;
   selected: boolean;
   onToggleSelect: () => void;
+  allTags: PhotoTag[];
+  tags: PhotoTag[];
+  hasRemedial: boolean;
+  onToggleTag: (tag: PhotoTag, next: boolean) => Promise<void>;
 }) {
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: photo.id, disabled: selectMode });
   const style: React.CSSProperties = {
