@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
         // "CEDARTREE COURT" all collapse to the same token.
         const { data: jobPool, error: poolErr } = await supabase
           .from("jobs")
-          .select("id, name, reference_number, address, sites(name, address, postcode)")
+          .select("id, name, reference_number, address, customer, sites(name, address, postcode)")
           .neq("status", "archived")
           .order("updated_at", { ascending: false })
           .limit(1000);
@@ -1220,6 +1220,7 @@ type JobCandidate = {
   name?: string | null;
   reference_number?: string | null;
   address?: string | null;
+  customer?: string | null;
   sites?: { name?: string | null; address?: string | null; postcode?: string | null } | null;
 };
 
@@ -1267,7 +1268,16 @@ function scoreTokenPair(
       const ct = normaliseWord(capTokens[i]);
       const ft = normaliseWord(fieldTokens[i]);
       if (!ct || !ft) { allMatch = false; break; }
-      if (!ft.startsWith(ct) && !ct.startsWith(ft)) { allMatch = false; break; }
+      if (!ft.startsWith(ct) && !ct.startsWith(ft)) {
+        // Numeric equivalence: "249" should match "00249" (leading zeros in
+        // job references must not block a match), but "249" must never match
+        // an unrelated number like "300".
+        if (/^\d+$/.test(ct) && /^\d+$/.test(ft) &&
+            ct.replace(/^0+/, "") === ft.replace(/^0+/, "")) {
+          continue;
+        }
+        allMatch = false; break;
+      }
     }
     if (allMatch) {
       const s = weight * k + 20;
@@ -1306,38 +1316,64 @@ function matchJobsByCaption(caption: string, jobs: JobCandidate[]): ScoredJob[] 
   const scored: ScoredJob[] = [];
 
   for (const job of jobs) {
-    const fields: Array<{ value: string; weight: number; primary: boolean }> = [];
+    // `noNumSkip` on the reference field: its number IS the differentiator, so
+    // it must never be scored with numbers stripped — otherwise every "VFP-"
+    // job matches the bare word "vfp" identically.
+    const fields: Array<{ value: string; weight: number; primary: boolean; noNumSkip?: boolean }> = [];
     if (job.name) fields.push({ value: job.name, weight: 100, primary: true });
+    if (job.reference_number) fields.push({ value: job.reference_number, weight: 110, primary: false, noNumSkip: true });
     if (job.sites?.name) fields.push({ value: job.sites.name, weight: 90, primary: true });
-    if (job.sites?.address) fields.push({ value: job.sites.address, weight: 40, primary: false });
+    if (job.address) fields.push({ value: job.address, weight: 80, primary: false });
+    if (job.customer) fields.push({ value: job.customer, weight: 50, primary: false });
     if (job.sites?.postcode) fields.push({ value: job.sites.postcode, weight: 60, primary: false });
-    if (job.address) fields.push({ value: job.address, weight: 30, primary: false });
+    if (job.sites?.address) fields.push({ value: job.sites.address, weight: 40, primary: false });
     if (fields.length === 0) continue;
 
     let best = 0;
     let bestTokens = 0;
     let matchedNumericField = false;
 
+    // Candidate caption token sets: the full caption first, then partial
+    // matches dropping tokens from the end (down to a minimum of 2 tokens,
+    // discounted 0.95 so partials never beat genuine full matches). Engineers
+    // often send "BuildingName + DescriptiveTag" — e.g. "Craven House Inlet"
+    // or "Oak Lodge Pump Room" — where the descriptive tag is not part of the
+    // job name, address or customer.
+    const capCandidateSets: Array<{ tokens: string[]; discount: number }> = [];
+    if (capTokens.length > 0) capCandidateSets.push({ tokens: capTokens, discount: 1 });
+    for (let n = capTokens.length - 1; n >= 2; n--) {
+      capCandidateSets.push({ tokens: capTokens.slice(0, n), discount: 0.95 });
+    }
+    const noNumCandidateSets: Array<{ tokens: string[]; discount: number }> = [];
+    if (capTokensNoNum.length > 0) noNumCandidateSets.push({ tokens: capTokensNoNum, discount: 1 });
+    for (let n = capTokensNoNum.length - 1; n >= 2; n--) {
+      noNumCandidateSets.push({ tokens: capTokensNoNum.slice(0, n), discount: 0.95 });
+    }
+
     for (const f of fields) {
       const fieldTokens = tokenise(f.value);
       if (fieldTokens.length === 0) continue;
       const fieldTokensNoNum = stripNumericTokens(fieldTokens);
 
-      // Score with original tokens on both sides.
-      const withNums = scoreTokenPair(capTokens, fieldTokens, f.weight);
-      if (withNums.score > best) { best = withNums.score; bestTokens = withNums.tokens; }
+      // Score every candidate caption set with original tokens on both sides.
+      for (const c of capCandidateSets) {
+        const r = scoreTokenPair(c.tokens, fieldTokens, f.weight);
+        const s = Math.floor(r.score * c.discount);
+        if (s > best) { best = s; bestTokens = r.tokens; }
+      }
 
       // Also score with numeric tokens stripped from BOTH sides — this is the
       // fix that lets "cedartree court" match "1 Cedartree Court" or
       // "HOME GROUP - CEDARTREE COURT". Purely numeric tokens are ignored on
       // both the search term and the job/site fields so that leading house
-      // numbers, unit numbers, etc. never block a word-based match.
-      if (capTokensNoNum.length > 0 && fieldTokensNoNum.length > 0) {
-        const noNums = scoreTokenPair(capTokensNoNum, fieldTokensNoNum, f.weight);
-        // Slight discount so an equally-good numbered match still wins the
-        // tiebreak (see disambiguation bonus below).
-        const adjusted = { score: Math.floor(noNums.score * 0.98), tokens: noNums.tokens };
-        if (adjusted.score > best) { best = adjusted.score; bestTokens = adjusted.tokens; }
+      // numbers, unit numbers, etc. never block a word-based match. The extra
+      // 0.98 discount keeps an equally-good numbered match winning the tiebreak.
+      if (!f.noNumSkip && capTokensNoNum.length > 0 && fieldTokensNoNum.length > 0) {
+        for (const c of noNumCandidateSets) {
+          const r = scoreTokenPair(c.tokens, fieldTokensNoNum, f.weight);
+          const s = Math.floor(r.score * c.discount * 0.98);
+          if (s > best) { best = s; bestTokens = r.tokens; }
+        }
       }
 
       // Track whether any numeric token in the caption is present in this
