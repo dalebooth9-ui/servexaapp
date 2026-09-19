@@ -171,6 +171,9 @@ function SortablePhotoTile({
 
       {!selectMode && (
         <div className="absolute top-1.5 right-1.5 flex gap-1 rounded-md bg-black/55 backdrop-blur-sm p-0.5 shadow-sm group-hover:bg-black/70 transition">
+          {photo.submissionId && (
+            <PhotoTagPicker tags={allTags} selectedIds={tags.map((t) => t.id)} onToggle={onToggleTag} />
+          )}
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onDownload(); }}
@@ -192,13 +195,42 @@ function SortablePhotoTile({
         </div>
       )}
 
+      {hasRemedial && (
+        <span
+          className="absolute right-1.5 top-10 rounded-full bg-orange-500 p-1 text-white shadow-sm"
+          title="Remedial linked to this photo"
+        >
+          <Wrench className="h-3 w-3" />
+          <span className="sr-only">Remedial linked to this photo</span>
+        </span>
+      )}
 
       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-2 text-white">
+        {tags.length > 0 && (
+          <div className="mb-1 flex flex-wrap gap-1">
+            {tags.slice(0, 3).map((t) => (
+              <span
+                key={t.id}
+                className="rounded px-1.5 py-[1px] text-[9px] font-medium leading-tight text-white"
+                style={{ backgroundColor: t.color }}
+                title={t.name}
+              >
+                {t.name}
+              </span>
+            ))}
+            {tags.length > 3 && (
+              <span className="rounded bg-black/60 px-1.5 py-[1px] text-[9px] font-medium leading-tight">
+                +{tags.length - 3}
+              </span>
+            )}
+          </div>
+        )}
         <p className="text-[10px] truncate">
           {photo.engineerName || "Unknown"} · {new Date(photo.timestamp).toLocaleDateString("en-GB")}
         </p>
         {photo.caption && <p className="text-[10px] text-white/70 truncate">{photo.caption}</p>}
       </div>
+
     </div>
   );
 }
