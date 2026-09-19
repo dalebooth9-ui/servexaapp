@@ -36,7 +36,35 @@ type Defect = {
   source_kind: string | null;
   resolved_at: string | null;
   resolution_notes: string | null;
+  linked_photo_url: string | null;
+  linked_submission_id: string | null;
 };
+
+/** Thumbnail for a photo linked to a remedial (stored as a storage path). */
+function LinkedPhotoThumb({ path, jobId, onOpen }: { path: string; jobId: string; onOpen: (url: string) => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void createSubmissionPhotoSignedUrl(path, jobId, 3600).then((res) => {
+      if (alive) setUrl(res?.signedUrl || null);
+    });
+    return () => { alive = false; };
+  }, [path, jobId]);
+  return (
+    <button
+      type="button"
+      onClick={() => url && onOpen(url)}
+      className="relative h-12 w-12 shrink-0 overflow-hidden rounded border bg-muted"
+      title="View the photo this remedial came from"
+      aria-label="View linked photo"
+    >
+      {url
+        ? <img src={url} alt="Linked photo" className="h-full w-full object-cover" />
+        : <Camera className="m-auto h-4 w-4 text-muted-foreground" />}
+    </button>
+  );
+}
+
 
 export const CARRIED_FORWARD = "carried_forward";
 const OUTSTANDING_STATUSES = ["open", "in_progress", "quoted", "approved", "job_created"];
