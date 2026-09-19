@@ -18,7 +18,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { createSubmissionPhotoSignedUrl } from "@/lib/jobPhotos";
+import PhotoLightbox from "@/components/PhotoLightbox";
 import { batchQuoteDefects, attachDefectsToQuote, listOpenQuotes, type OpenQuote } from "@/lib/defectQuoting";
+
 
 type Defect = {
   id: string;
