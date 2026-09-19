@@ -18,7 +18,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { createSubmissionPhotoSignedUrl } from "@/lib/jobPhotos";
+import PhotoLightbox from "@/components/PhotoLightbox";
 import { batchQuoteDefects, attachDefectsToQuote, listOpenQuotes, type OpenQuote } from "@/lib/defectQuoting";
+
 
 type Defect = {
   id: string;
@@ -36,7 +39,35 @@ type Defect = {
   source_kind: string | null;
   resolved_at: string | null;
   resolution_notes: string | null;
+  linked_photo_url: string | null;
+  linked_submission_id: string | null;
 };
+
+/** Thumbnail for a photo linked to a remedial (stored as a storage path). */
+function LinkedPhotoThumb({ path, jobId, onOpen }: { path: string; jobId: string; onOpen: (url: string) => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void createSubmissionPhotoSignedUrl(path, jobId, 3600).then((res) => {
+      if (alive) setUrl(res?.signedUrl || null);
+    });
+    return () => { alive = false; };
+  }, [path, jobId]);
+  return (
+    <button
+      type="button"
+      onClick={() => url && onOpen(url)}
+      className="relative h-12 w-12 shrink-0 overflow-hidden rounded border bg-muted"
+      title="View the photo this remedial came from"
+      aria-label="View linked photo"
+    >
+      {url
+        ? <img src={url} alt="Linked photo" className="h-full w-full object-cover" />
+        : <Camera className="m-auto h-4 w-4 text-muted-foreground" />}
+    </button>
+  );
+}
+
 
 export const CARRIED_FORWARD = "carried_forward";
 const OUTSTANDING_STATUSES = ["open", "in_progress", "quoted", "approved", "job_created"];
@@ -81,6 +112,8 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
   const [defects, setDefects] = useState<Defect[]>([]);
   const [quoteTotals, setQuoteTotals] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [linkedPhotoUrl, setLinkedPhotoUrl] = useState<string | null>(null);
+
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [quoting, setQuoting] = useState(false);
@@ -360,7 +393,11 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
                 <Card key={d.id}>
                   <CardContent className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
+                      {d.linked_photo_url && (
+                        <LinkedPhotoThumb path={d.linked_photo_url} jobId={jobId} onOpen={setLinkedPhotoUrl} />
+                      )}
                       <div className="flex-1 min-w-0">
+
                         <p className="font-medium text-sm">{d.title}</p>
                         <div className="flex flex-wrap gap-1.5 mt-1">
                           <Badge variant="outline" className={SEVERITY_BADGE[d.severity] || ""}>{d.severity}</Badge>
@@ -528,7 +565,16 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
             </div>
           </DialogContent>
         </Dialog>
+
+        <PhotoLightbox
+          photos={linkedPhotoUrl ? [{ id: "linked", url: linkedPhotoUrl, title: "Linked photo" }] : []}
+          currentIndex={0}
+          open={!!linkedPhotoUrl}
+          onOpenChange={(o) => !o && setLinkedPhotoUrl(null)}
+          onIndexChange={() => {}}
+        />
       </CollapsibleContent>
+
     </Collapsible>
   );
 }

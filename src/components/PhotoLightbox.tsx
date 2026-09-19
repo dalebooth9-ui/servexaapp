@@ -1,25 +1,29 @@
 import { useEffect, useCallback, useRef, useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, X, Download, FileText, Mic } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Download, FileText, Mic, Wrench } from "lucide-react";
 import { isVideoFile } from "@/lib/fileUtils";
 import { isAudioFile } from "@/lib/mediaKinds";
 import TranscriptDialog from "@/components/TranscriptDialog";
 
+export type LightboxPhoto = {
+  id: string;
+  url: string;
+  fileName?: string;
+  title?: string;
+  date?: string;
+  engineer?: string;
+  source?: string;
+  downloadUrl?: string;
+  downloadName?: string;
+  /** Full storage path — required for transcription. */
+  storagePath?: string;
+  /** Submission row id, when the photo comes from `submissions`. */
+  submissionId?: string;
+};
+
 interface PhotoLightboxProps {
-  photos: {
-    id: string;
-    url: string;
-    fileName?: string;
-    title?: string;
-    date?: string;
-    engineer?: string;
-    source?: string;
-    downloadUrl?: string;
-    downloadName?: string;
-    /** Full storage path — required for transcription. */
-    storagePath?: string;
-  }[];
+  photos: LightboxPhoto[];
   currentIndex: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -30,6 +34,8 @@ interface PhotoLightboxProps {
   bucket?: string;
   orgId?: string;
   onRemedialsAdded?: () => void;
+  /** Job photos only — enables the "Create remedial from photo" action. */
+  onCreateRemedial?: (photo: LightboxPhoto) => void;
 }
 
 export default function PhotoLightbox({
@@ -43,7 +49,9 @@ export default function PhotoLightbox({
   bucket,
   orgId,
   onRemedialsAdded,
+  onCreateRemedial,
 }: PhotoLightboxProps) {
+
   const photo = photos[currentIndex];
   const currentIsVideo = isVideoFile(photo?.fileName || "");
   const currentIsAudio = isAudioFile(photo?.fileName || "");
@@ -109,6 +117,17 @@ export default function PhotoLightbox({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()} className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none flex flex-col items-center justify-center gap-0">
           <div className="absolute right-4 top-4 z-50 flex gap-2">
+            {onCreateRemedial && !currentIsVideo && !currentIsAudio && (
+              <button
+                onClick={() => onCreateRemedial(photo)}
+                className="rounded-full bg-black/50 p-2 text-white hover:bg-black/80"
+                aria-label="Create remedial from photo"
+                title="Create remedial from photo"
+              >
+                <Wrench className="h-5 w-5" />
+              </button>
+            )}
+
             {canTranscribe && (
               <button
                 onClick={() => setTranscriptOpen(true)}

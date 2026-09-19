@@ -157,6 +157,8 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
           <JobPhotos
             jobId={jobId}
             jobRef={job?.reference_number || undefined}
+            siteId={(job as any)?.site_id || null}
+
             engineers={engineers}
             isAdmin={false}
             simpleFilters

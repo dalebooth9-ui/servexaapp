@@ -689,6 +689,8 @@ export default function JobDetail() {
           <JobPhotos
             jobId={id}
             jobRef={job?.reference_number || undefined}
+            siteId={job?.site_id || null}
+
             engineers={engineers}
             isAdmin={userRole === "admin"}
             canUpload={job?.status !== "cancelled" && (userRole === "admin" || (user ? assignedEngineerIds.includes(user.id) : false))}

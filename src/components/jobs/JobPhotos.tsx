@@ -8,14 +8,21 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck,
-  FileImage, Upload, GripVertical, Trash2, CheckSquare, X, PlayCircle, Video, Mic,
+  FileImage, Upload, GripVertical, Trash2, CheckSquare, X, PlayCircle, Video, Mic, Wrench,
 } from "lucide-react";
-import PhotoLightbox from "@/components/PhotoLightbox";
+import PhotoLightbox, { type LightboxPhoto } from "@/components/PhotoLightbox";
 import TranscriptDialog from "@/components/TranscriptDialog";
+import PhotoTagPicker from "@/components/photos/PhotoTagPicker";
+import CreateRemedialFromPhotoDialog from "@/components/photos/CreateRemedialFromPhotoDialog";
+import {
+  fetchPhotoTags, fetchSubmissionTagMap, fetchSubmissionIdsWithAnyTag,
+  addSubmissionTag, removeSubmissionTag, type PhotoTag,
+} from "@/lib/photoTags";
 import { createSubmissionPhotoSignedUrl, fetchJobPhotoMeta } from "@/lib/jobPhotos";
 import { isVideoFile } from "@/lib/fileUtils";
 import { isAudioFile } from "@/lib/mediaKinds";
 import { isAcceptableVoiceNote, uploadJobVoiceNote } from "@/lib/voiceNotes";
+
 import {
   DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter,
   useSensor, useSensors, DragEndEvent,
@@ -67,6 +74,10 @@ function SortablePhotoTile({
   selectMode,
   selected,
   onToggleSelect,
+  allTags,
+  tags,
+  hasRemedial,
+  onToggleTag,
 }: {
   photo: PhotoItem;
   onOpen: () => void;
@@ -76,7 +87,12 @@ function SortablePhotoTile({
   selectMode: boolean;
   selected: boolean;
   onToggleSelect: () => void;
+  allTags: PhotoTag[];
+  tags: PhotoTag[];
+  hasRemedial: boolean;
+  onToggleTag: (tag: PhotoTag, next: boolean) => Promise<void>;
 }) {
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: photo.id, disabled: selectMode });
   const style: React.CSSProperties = {
@@ -155,6 +171,9 @@ function SortablePhotoTile({
 
       {!selectMode && (
         <div className="absolute top-1.5 right-1.5 flex gap-1 rounded-md bg-black/55 backdrop-blur-sm p-0.5 shadow-sm group-hover:bg-black/70 transition">
+          {photo.submissionId && (
+            <PhotoTagPicker tags={allTags} selectedIds={tags.map((t) => t.id)} onToggle={onToggleTag} />
+          )}
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onDownload(); }}
@@ -176,20 +195,50 @@ function SortablePhotoTile({
         </div>
       )}
 
+      {hasRemedial && (
+        <span
+          className="absolute right-1.5 top-10 rounded-full bg-orange-500 p-1 text-white shadow-sm"
+          title="Remedial linked to this photo"
+        >
+          <Wrench className="h-3 w-3" />
+          <span className="sr-only">Remedial linked to this photo</span>
+        </span>
+      )}
 
       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-2 text-white">
+        {tags.length > 0 && (
+          <div className="mb-1 flex flex-wrap gap-1">
+            {tags.slice(0, 3).map((t) => (
+              <span
+                key={t.id}
+                className="rounded px-1.5 py-[1px] text-[9px] font-medium leading-tight text-white"
+                style={{ backgroundColor: t.color }}
+                title={t.name}
+              >
+                {t.name}
+              </span>
+            ))}
+            {tags.length > 3 && (
+              <span className="rounded bg-black/60 px-1.5 py-[1px] text-[9px] font-medium leading-tight">
+                +{tags.length - 3}
+              </span>
+            )}
+          </div>
+        )}
         <p className="text-[10px] truncate">
           {photo.engineerName || "Unknown"} · {new Date(photo.timestamp).toLocaleDateString("en-GB")}
         </p>
         {photo.caption && <p className="text-[10px] text-white/70 truncate">{photo.caption}</p>}
       </div>
+
     </div>
   );
 }
 
-export default function JobPhotos({ jobId, jobRef, engineers = [], isAdmin, canUpload = true, simpleFilters = false }: {
+export default function JobPhotos({ jobId, jobRef, siteId = null, engineers = [], isAdmin, canUpload = true, simpleFilters = false }: {
   jobId: string;
   jobRef?: string;
+  siteId?: string | null;
   engineers?: { id: string; name: string }[];
   isAdmin?: boolean;
   canUpload?: boolean;
@@ -202,6 +251,15 @@ export default function JobPhotos({ jobId, jobRef, engineers = [], isAdmin, canU
   const [loading, setLoading] = useState(true);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [sourceFilter, setSourceFilter] = useState<"all" | Source | "video">("all");
+
+  // ---- Tagging + photo-linked remedials ----
+  const [allTags, setAllTags] = useState<PhotoTag[]>([]);
+  const [tagMap, setTagMap] = useState<Record<string, PhotoTag[]>>({});
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [tagMatchIds, setTagMatchIds] = useState<Set<string> | null>(null);
+  const [remedialSubIds, setRemedialSubIds] = useState<Set<string>>(new Set());
+  const [remedialTarget, setRemedialTarget] = useState<PhotoItem | null>(null);
+
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
@@ -355,18 +413,70 @@ export default function JobPhotos({ jobId, jobRef, engineers = [], isAdmin, canU
       signedUrl: signedUrls[i]?.signedUrl || undefined,
     })));
     setLoading(false);
+
+    // Tags + photo-linked remedials for the submission-backed photos.
+    const subIds = out.map((p) => p.submissionId).filter(Boolean) as string[];
+    const [map, linked] = await Promise.all([
+      fetchSubmissionTagMap(subIds),
+      supabase.from("defects").select("linked_submission_id").eq("job_id", jobId).not("linked_submission_id", "is", null),
+    ]);
+    setTagMap(map);
+    setRemedialSubIds(new Set(((linked.data || []) as any[]).map((r) => r.linked_submission_id)));
   }, [jobId, engineerName]);
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = useMemo(
-    () => sourceFilter === "all"
+  useEffect(() => { void fetchPhotoTags().then(setAllTags); }, []);
+
+  // Tag filtering is resolved server-side (OR across the selected tags).
+  useEffect(() => {
+    let alive = true;
+    if (tagFilter.length === 0) { setTagMatchIds(null); return; }
+    const subIds = items.map((p) => p.submissionId).filter(Boolean) as string[];
+    void fetchSubmissionIdsWithAnyTag(tagFilter, subIds).then((set) => {
+      if (alive) setTagMatchIds(set);
+    });
+    return () => { alive = false; };
+  }, [tagFilter, items]);
+
+  const filtered = useMemo(() => {
+    const bySource = sourceFilter === "all"
       ? items
       : sourceFilter === "video"
         ? items.filter((i) => isVideoFile(i.fileName || ""))
-        : items.filter((i) => i.source === sourceFilter),
-    [items, sourceFilter]
-  );
+        : items.filter((i) => i.source === sourceFilter);
+    if (!tagMatchIds) return bySource;
+    return bySource.filter((i) => !!i.submissionId && tagMatchIds.has(i.submissionId));
+  }, [items, sourceFilter, tagMatchIds]);
+
+  const toggleTagOnPhoto = useCallback(async (photo: PhotoItem, tag: PhotoTag, next: boolean) => {
+    const subId = photo.submissionId;
+    if (!subId) return;
+    const ok = next
+      ? await addSubmissionTag(subId, tag.id, user?.id)
+      : await removeSubmissionTag(subId, tag.id);
+    if (!ok) {
+      toast({ title: "Couldn't update tags", variant: "destructive" });
+      return;
+    }
+    setTagMap((prev) => {
+      const current = prev[subId] || [];
+      const nextTags = next
+        ? [...current.filter((t) => t.id !== tag.id), tag].sort((a, b) => a.name.localeCompare(b.name))
+        : current.filter((t) => t.id !== tag.id);
+      return { ...prev, [subId]: nextTags };
+    });
+    if (tagFilter.length > 0) {
+      setTagMatchIds((prev) => {
+        if (!prev) return prev;
+        const copy = new Set(prev);
+        if (next && tagFilter.includes(tag.id)) copy.add(subId);
+        if (!next && tagFilter.includes(tag.id)) copy.delete(subId);
+        return copy;
+      });
+    }
+  }, [user?.id, toast, tagFilter]);
+
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: items.length };
@@ -856,6 +966,39 @@ export default function JobPhotos({ jobId, jobRef, engineers = [], isAdmin, canU
         </div>
       </div>
 
+      {allTags.length > 0 && items.length > 0 && (
+        <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1">
+          <button
+            type="button"
+            onClick={() => setTagFilter([])}
+            className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+              tagFilter.length === 0 ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-muted"
+            }`}
+          >
+            All
+          </button>
+          {allTags.map((t) => {
+            const active = tagFilter.includes(t.id);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() =>
+                  setTagFilter((prev) => (prev.includes(t.id) ? prev.filter((x) => x !== t.id) : [...prev, t.id]))
+                }
+                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                  active ? "border-foreground bg-muted" : "bg-background hover:bg-muted"
+                }`}
+              >
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: t.color }} aria-hidden="true" />
+                {t.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+
       {selectMode && (
         <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
           <Button
@@ -909,6 +1052,10 @@ export default function JobPhotos({ jobId, jobRef, engineers = [], isAdmin, canU
                   selectMode={selectMode}
                   selected={selected.has(p.id)}
                   onToggleSelect={() => canDeletePhoto(p) && toggleSelect(p.id)}
+                  allTags={allTags}
+                  tags={(p.submissionId && tagMap[p.submissionId]) || []}
+                  hasRemedial={!!p.submissionId && remedialSubIds.has(p.submissionId)}
+                  onToggleTag={(tag, next) => toggleTagOnPhoto(p, tag, next)}
                 />
               ))}
             </div>
@@ -928,6 +1075,7 @@ export default function JobPhotos({ jobId, jobRef, engineers = [], isAdmin, canU
           downloadUrl: p.signedUrl,
           downloadName: p.fileName,
           storagePath: p.storagePath,
+          submissionId: p.submissionId,
         }))}
         currentIndex={lightboxIdx ?? 0}
         open={lightboxIdx !== null}
@@ -937,7 +1085,23 @@ export default function JobPhotos({ jobId, jobRef, engineers = [], isAdmin, canU
         bucket="submissions"
         orgId={orgId ?? undefined}
         onRemedialsAdded={() => load()}
+        onCreateRemedial={(lp: LightboxPhoto) => {
+          const match = items.find((i) => i.id === lp.id);
+          if (match) setRemedialTarget(match);
+        }}
       />
+
+      <CreateRemedialFromPhotoDialog
+        open={!!remedialTarget}
+        onOpenChange={(o) => !o && setRemedialTarget(null)}
+        jobId={jobId}
+        siteId={siteId}
+        submissionId={remedialTarget?.submissionId || null}
+        photoPath={remedialTarget?.storagePath || remedialTarget?.fallbackUrl || null}
+        previewUrl={remedialTarget?.signedUrl || null}
+        onCreated={() => { setRemedialTarget(null); void load(); }}
+      />
+
 
       {autoTranscribeFile && (
         <TranscriptDialog
