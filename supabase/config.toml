@@ -169,6 +169,3 @@ verify_jwt = false
 [functions.public-gallery]
 verify_jwt = false
 
-[functions.twilio-diag]
-verify_jwt = false
-
