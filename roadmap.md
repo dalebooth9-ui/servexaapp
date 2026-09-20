@@ -13,3 +13,5 @@
 - [x] Job timeline activity feed (Timeline tab on job detail: merged feed from activity log, submissions, messages, defects, assignments, documents, checklists, shared galleries; useJobTimeline hook with realtime refresh + Load more)
 
 - [x] On-site document scanner (DocumentScanner with live edge detection, perspective correction, colour/greyscale/B&W, corner adjuster, label + checklist link + tags, saved as document_scan submissions; Scan Document button on job Documents tab and engineer job view)
+
+- [x] Scan Paper Report from the job page (JobScanReportDialog + jobScanReportSave: capture/upload pages, classify-job-sheet-template with manual fallback, runScanExtraction, ScanReviewPanel correction, saves original pages as submissions AND a submitted job_sheet_responses row; prominent button on engineer job view)
