@@ -131,10 +131,19 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
           <h2 className="text-base font-semibold">Site documents</h2>
           <Suspense fallback={null}><ScanDocumentButton jobId={jobId} /></Suspense>
         </div>
+        <div className="mb-4">
+          <Suspense fallback={null}>
+            <ScanPaperReportButton jobId={jobId} prominent />
+          </Suspense>
+          <p className="mt-1.5 text-xs text-muted-foreground text-center">
+            Photograph a completed paper sheet — it's filed on this job and read into a digital report.
+          </p>
+        </div>
         <Suspense fallback={<Fallback />}>
           <JobDocuments jobId={jobId} job={job} engineers={engineers} />
         </Suspense>
       </section>
+
 
       {/* Materials used — free-typed name + qty, no costs needed */}
       <section className="rounded-2xl border bg-card p-4 md:p-5 shadow-sm">
