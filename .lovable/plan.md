@@ -1,25 +1,40 @@
-# Permanent photo compliance stamps
+# Scan Paper Report from the job page
 
-## Scope
-Add a permanent visible stamp to checklist photos and general job photos only. Videos, PDFs, audio, existing photos, site-survey media, annotations, lightbox playback, and transcription remain unchanged.
+Let engineers photograph a completed paper report while standing on the job, run it through the existing OCR pipeline, and get back both the original scan filed against the job and a digital job sheet they can correct and confirm.
 
-## Implementation
-1. Add `src/lib/photoStamp.ts` with:
-   - EXIF-aware image decoding and Canvas rendering.
-   - A bottom-right, readable date/time, job-reference, and optional GPS stamp.
-   - UK `DD/MM/YYYY HH:MM` formatting and six-decimal coordinates.
-   - Silent GPS fallback after five seconds, plus safe image/blob export errors instead of non-null assertions.
-2. Update `PhotoChecklistCapture` to accept the job reference, stamp each image before storage upload, save it as JPEG, and retain the existing checklist response workflow.
-3. Update the shared job submission uploader to stamp image files only before upload. Resolve or accept the job reference once per upload batch, obtain GPS without blocking beyond the configured timeout, and preserve original handling for videos, documents, and audio.
-4. Pass the loaded job reference into `PhotoChecklistCapture` and `JobPhotos` from both office and engineer job views. Keep the stamped blob as the payload used by any upload/queue fallback so queued images are never unstamped.
-5. Update the existing Jobs help guide to explain that newly added job/checklist photos permanently include capture date, time, job reference, and GPS when location is available. The current job-detail help route already points to this guide.
+## What the engineer will see
 
-## Validation
-- Add focused tests for UK stamp text, optional job reference/GPS lines, image-only conversion, and GPS denial/timeout fallback where practical.
-- Run the relevant tests and inspect the post-change build result.
-- Verify in the preview that image upload controls remain available and non-image media controls are unchanged; authenticated upload completion depends on an available preview session.
+1. On a job's Documents area (office page and the engineer job view) a new **Scan Paper Report** button sits next to the existing Scan Document button. Visible to engineers and office staff alike.
+2. Tapping it opens a dialog: take a photo, or pick images/PDF pages from the device. Multiple pages supported, shown as thumbnails that can be reordered or removed.
+3. **Process** runs two steps with a visible progress state: work out which report type it is, then read the fields off the page.
+4. A review screen shows the scan images beside the fields that were read, with low-confidence values flagged. The engineer corrects anything wrong.
+5. **Confirm** saves two things and closes with a success toast linking to the job's documents:
+   - the original photos, filed on the job as attachments
+   - a completed digital report for the job, listed with the other job sheets
+6. Failures are explicit, never guessed: if no report type can be matched the engineer picks one from a list; if reading fails, the scan images can still be saved on their own with a "fields not read" message.
 
-## Assumptions
-- “All photos” means the two paths explicitly requested: photo checklist capture and general job submission photos.
-- Previously uploaded photos are not rewritten.
-- A missing/denied GPS location silently produces a date/time and job-reference stamp.
+## Technical plan
+
+Everything reuses the existing pipeline; no new edge functions, no schema changes.
+
+**New file `src/components/paper-scan/JobScanReportDialog.tsx`**
+- Props: `jobId`, `jobInfo`, trigger button.
+- Capture: `<input type="file" accept="image/*,application/pdf" capture="environment" multiple>`; PDFs split client-side with the same pdf.js conversion already used in `ScanJobSheet`.
+- Classify: `supabase.functions.invoke("classify-job-sheet-template", …)` with the first page, mirroring the call in `ScanCompletedJobDialog` (line ~608). Result list is offered as a manual picker when confidence is low or empty.
+- Extract: `runScanExtraction` from `src/lib/scanPipeline.ts` with the chosen template's fields (images via `fileToScanBase64`). Date/letterhead/confidence guards come for free.
+- Review: render the existing `ScanReviewPanel` (`imagePreviews`, `extractedFields`, `extractedHeader`, `templateFields`, `templateName`, `jobId`, `templateId`), so the side-by-side original-vs-extracted behaviour matches the admin flow.
+
+**New file `src/lib/jobScanReportSave.ts`** — confirm step, one function `saveJobScanReport({ jobId, templateId, images, responses, header, userId })`:
+- uploads each original image to the `submissions` bucket under the org path (`buildOrgPathAsync`) and inserts a `submissions` row per page (`job_id`, document type, signed URL) — same pattern as `ScanJobSheet` lines ~514-560, so they appear in the job's documents list.
+- inserts one `job_sheet_responses` row for the job with the corrected `responses` plus header, marked as scanned-from-paper in its metadata so the UI can badge it.
+- returns inserted ids; all-or-nothing messaging on partial failure (images saved, fields not).
+
+Note on wording in the request: in this codebase the "digital submission" for a report is a `job_sheet_responses` row (that is what the job sheet list and report PDFs read), while `submissions` holds file attachments. The plan writes to both accordingly.
+
+**Wiring**
+- `src/pages/JobDetail.tsx` (~line 1136) and `src/components/engineer/EngineerJobView.tsx` (~line 130): add the lazy-loaded dialog trigger beside `ScanDocumentButton`. No role gate.
+- Since the job is known, no job matching, no customer/site guessing, no `paper_scan_batches` rows — the queue path is bypassed entirely.
+
+**Also updated**
+- Help Centre: new article plus `is_guide`/category/audience/order, and the route rule in `src/lib/helpArticles.ts` for the jobs detail route.
+- `roadmap.md` entry.
