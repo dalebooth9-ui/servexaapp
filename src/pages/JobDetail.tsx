@@ -80,6 +80,8 @@ const SubmissionList = lazy(() => import("@/components/jobs/SubmissionList"));
 const EngineerCertificates = lazy(() => import("@/components/jobs/EngineerCertificates"));
 const JobDocuments = lazy(() => import("@/components/JobDocuments"));
 const ScanDocumentButton = lazy(() => import("@/components/documents/ScanDocumentButton"));
+const ScanPaperReportButton = lazy(() => import("@/components/paper-scan/ScanPaperReportButton"));
+
 const InstallationProjects = lazy(() => import("@/components/InstallationProjects"));
 const SiteSurveyCard = lazy(() => import("@/components/SiteSurveyCard"));
 const JobDefects = lazy(() => import("@/components/jobs/JobDefects"));
@@ -1132,8 +1134,10 @@ export default function JobDetail() {
           <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
-          <div className="mb-3 flex justify-end">
+          <div className="mb-3 flex flex-wrap justify-end gap-2">
+            <Suspense fallback={null}><ScanPaperReportButton jobId={id!} /></Suspense>
             <Suspense fallback={null}><ScanDocumentButton jobId={id!} /></Suspense>
+
           </div>
           {userRole === "admin" && (
             <div className="mb-3 flex justify-end gap-2">
