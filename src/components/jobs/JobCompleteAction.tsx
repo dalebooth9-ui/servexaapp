@@ -139,9 +139,7 @@ export default function JobCompleteAction({
       drafts,
       photos: photosRes.count || 0,
       remedialOutstanding:
-        remedial.filter(
-          (i: any) => i.status !== "done" && i.status !== "unable" && i.status !== "completed",
-        ).length
+        remedial.filter((i: any) => i.checked === false).length
         + remedialItems.filter((i: any) => i.status === "pending").length,
       loading: false,
     });
