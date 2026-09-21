@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { buildRemedialWorksPrefill } from "@/lib/remedialWorksPrefill";
 import { useAuth } from "@/hooks/useAuth";
 import { useJobCategories } from "@/hooks/useJobCategories";
-import { deriveScopeFromTemplateName, fetchJobPrefillContext } from "@/lib/jobSheetPrefill";
+import { buildJobSheetPrefill, deriveScopeFromTemplateName, fetchJobPrefillContext } from "@/lib/jobSheetPrefill";
 import { buildLastVisitPrefill, findLastVisitReport, type LastVisit } from "@/lib/lastVisitPrefill";
 import { logReportEdits, jobHasSignatures } from "@/lib/logReportEdits";
 import { enqueueReportSubmission, newReportId } from "@/lib/reportSubmissionQueue";
@@ -377,9 +377,26 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   };
 
   const getAutoPopulatedData = (template: Template, override?: JobInfo | null): Record<string, any> => {
-    const prefilled: Record<string, any> = {};
     const info = override ?? jobInfo;
-    if (!info) return prefilled;
+    if (!info) return {};
+
+    // Start with the shared, comprehensive label mapper used when drafts are
+    // attached. This keeps first-open and existing-draft pre-fill consistent.
+    // If assignment profile reads are delayed, the signed-in engineer remains
+    // a safe fallback for engineer/technician fields.
+    const sharedInfo: JobInfo = {
+      ...info,
+      engineers:
+        info.engineers && info.engineers.length > 0
+          ? info.engineers
+          : profile?.full_name
+            ? [profile.full_name]
+            : [],
+    };
+    const prefilled = buildJobSheetPrefill(template.fields, {
+      ...sharedInfo,
+      scheduledDate,
+    }, template.name);
 
     const jobAddress = info.address || info.site?.address || "";
     const siteName = info.site?.name || "";
@@ -388,7 +405,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const siteContact = info.site?.contact_name || "";
     const siteContactPhone = info.site?.contact_phone || "";
     const siteContactEmail = info.site?.contact_email || "";
-    const engineerList = (info.engineers || []).join(", ");
+    const engineerList = (sharedInfo.engineers || []).join(", ");
     // For real engineers, pre-select their own name in dropdowns. In admin
     // preview, we intentionally leave the selection empty per spec.
     const ownEngineerName = userRole === "engineer" ? (profile?.full_name || "") : "";
