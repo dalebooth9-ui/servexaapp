@@ -256,14 +256,32 @@ export default function JobScanReportDialog({
   const loadTemplateById = (id: string): TemplateRow | null =>
     allTemplates.find((t) => t.id === id) || null;
 
+  /** Convert each page once and reuse it for classify + extract — re-encoding
+   *  several phone photos twice is slow and memory-heavy on a handset. */
+  const buildPayloads = async (files: File[]) => {
+    const out: { image_base64: string; mime_type?: string }[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const cached = payloadCache.current.get(file);
+      if (cached) {
+        out.push(cached);
+        continue;
+      }
+      setStatusMsg(`Preparing page ${i + 1} of ${files.length}…`);
+      const payload = await fileToScanPayload(file);
+      const entry = {
+        image_base64: payload.image_base64,
+        mime_type: payload.mime_type,
+      };
+      payloadCache.current.set(file, entry);
+      out.push(entry);
+    }
+    return out;
+  };
+
   const extractWithTemplate = async (tpl: TemplateRow, files: File[]) => {
+    const images = await buildPayloads(files);
     setStatusMsg(`Reading the fields off the sheet (${tpl.name})…`);
-    const images = await Promise.all(
-      files.map(async (f) => ({
-        image_base64: await fileToScanBase64(f),
-        mime_type: "image/jpeg",
-      })),
-    );
     const result = await runScanExtraction({
       images,
       templateName: tpl.name,
@@ -275,36 +293,53 @@ export default function JobScanReportDialog({
     setStep("review");
   };
 
+  /** Turn whatever a failing call gives us into something an engineer can act
+   *  on — network and edge-function errors often carry no useful message. */
+  const describeError = (e: any, fallback: string): string => {
+    const raw = String(e?.message || e?.error || "").trim();
+    if (!raw) return fallback;
+    if (/failed to fetch|network|load failed|timeout|aborted/i.test(raw)) {
+      return "Lost connection while reading the sheet. Check your signal and try again — your photos are still here.";
+    }
+    return raw;
+  };
+
   const handleProcess = async () => {
     if (pages.length === 0) return;
     setStep("processing");
     setErrorMsg(null);
     setNeedsManualTemplate(false);
     try {
+      const payloads = await buildPayloads(pages.map((p) => p.file));
       setStatusMsg("Working out which report this is…");
-      const payloads = await Promise.all(
-        pages.map(async (p) => ({
-          image_base64: await fileToScanBase64(p.file),
-          mime_type: "image/jpeg",
-        })),
-      );
       const { data: cls, error: clsErr } = await supabase.functions.invoke(
         "classify-job-sheet-template",
         { body: { images: payloads } },
       );
       if (clsErr) throw new Error(clsErr.message || "Classification failed");
+      if ((cls as any)?.error) throw new Error((cls as any).error);
 
-      const candidates: Array<{ template_id: string; name?: string }> =
-        cls?.candidates || [];
-      const topId = candidates[0]?.template_id;
-      const tpl = topId ? loadTemplateById(topId) : null;
+      const candidates: Array<{
+        template_id: string;
+        name?: string;
+        confidence?: number;
+      }> = cls?.candidates || [];
+      const top = candidates[0];
+      const confident =
+        typeof top?.confidence === "number"
+          ? top.confidence >= TEMPLATE_CONFIDENCE_MIN
+          : false;
+      const tpl = top?.template_id ? loadTemplateById(top.template_id) : null;
 
-      if (!tpl) {
+      // Never guess: an unsure match goes to the engineer, not into the report.
+      if (!tpl || !confident) {
         setNeedsManualTemplate(true);
         setStep("upload");
         setStatusMsg("");
         setErrorMsg(
-          "Couldn't tell which report this is. Pick the report type below and we'll read it with that.",
+          tpl
+            ? `Not certain this is a "${tpl.name}". Confirm the report type below and we'll read it with that.`
+            : "Couldn't tell which report this is. Pick the report type below and we'll read it with that.",
         );
         return;
       }
@@ -314,10 +349,16 @@ export default function JobScanReportDialog({
       setStep("upload");
       setStatusMsg("");
       setNeedsManualTemplate(true);
-      setErrorMsg(
-        e?.message ||
-          "Couldn't read the sheet. Try a clearer, straight-on photo in good light.",
+      const msg = describeError(
+        e,
+        "Couldn't read the sheet. Try a clearer, straight-on photo in good light.",
       );
+      setErrorMsg(msg);
+      toast({
+        title: "Couldn't read the sheet",
+        description: msg,
+        variant: "destructive",
+      });
     }
   };
 
@@ -329,8 +370,19 @@ export default function JobScanReportDialog({
     try {
       await extractWithTemplate(tpl, pages.map((p) => p.file));
     } catch (e: any) {
+      console.error("[JobScanReportDialog] manual extract failed", e);
       setStep("upload");
-      setErrorMsg(e?.message || "Couldn't read the sheet with that report type.");
+      setNeedsManualTemplate(true);
+      const msg = describeError(
+        e,
+        "Couldn't read the sheet with that report type.",
+      );
+      setErrorMsg(msg);
+      toast({
+        title: "Couldn't read the sheet",
+        description: msg,
+        variant: "destructive",
+      });
     } finally {
       setStatusMsg("");
     }
