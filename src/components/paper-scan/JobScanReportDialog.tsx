@@ -687,7 +687,7 @@ export default function JobScanReportDialog({
                     <SelectValue placeholder="Choose the report type…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {allTemplates.map((t) => (
+                    {(jobTemplates.length > 0 ? jobTemplates : allTemplates).map((t) => (
                       <SelectItem key={t.id} value={t.id}>
                         {t.name}
                       </SelectItem>
