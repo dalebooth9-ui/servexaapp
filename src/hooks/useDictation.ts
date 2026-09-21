@@ -133,6 +133,8 @@ export function useDictation({ onFinal, onInterim, onError }: UseDictationOption
       // Chrome ends the session periodically — restart unless the user stopped it.
       if (!manualStop.current) {
         try {
+          // A restarted session numbers its results from zero again.
+          lastFinalIndex = -1;
           rec.start();
           return;
         } catch {
@@ -141,6 +143,7 @@ export function useDictation({ onFinal, onInterim, onError }: UseDictationOption
       }
       setListening(false);
     };
+
 
     manualStop.current = false;
     try {
