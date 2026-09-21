@@ -46,6 +46,12 @@ import ScanReviewPanel from "@/components/ScanReviewPanel";
 import { fileToScanPayload, runScanExtraction } from "@/lib/scanPipeline";
 import { saveJobScanReport } from "@/lib/jobScanReportSave";
 import { renderPdfToJpegFilesDetailed } from "@/lib/pdfToImages";
+import {
+  buildJobSheetPrefill,
+  fetchJobPrefillContext,
+  formatDateForField,
+  type PrefillJobInfo,
+} from "@/lib/jobSheetPrefill";
 
 const MAX_PAGES = 8;
 
@@ -97,6 +103,44 @@ async function pdfToPageFiles(pdf: File, limit: number): Promise<File[]> {
   return report.pages.slice(0, limit);
 }
 
+/** Header strip values the review panel shows, taken from the job itself so the
+ *  engineer never retypes what we already know. OCR values win when present. */
+function buildHeaderPrefill(info: PrefillJobInfo | null): Record<string, string> {
+  if (!info) return {};
+  const site = info.site;
+  const address = site?.address || info.address || "";
+  const postcode = site?.postcode || "";
+  const fullAddress = postcode && !address.toLowerCase().includes(postcode.toLowerCase())
+    ? [address, postcode].filter(Boolean).join(", ")
+    : address;
+  const siteName = site?.name || info.name || "";
+  const out: Record<string, string> = {
+    customer: info.customers?.name || info.customer || "",
+    site: [siteName, fullAddress].filter(Boolean).join(", "),
+    engineer: (info.engineers || []).join(", "),
+    date: info.scheduledDate || new Date().toLocaleDateString("en-GB"),
+    po_ref: info.reference_number || "",
+    riser_location: site?.riser_location || "",
+  };
+  Object.keys(out).forEach((k) => {
+    if (!out[k]) delete out[k];
+  });
+  return out;
+}
+
+/** Merge: anything the scan actually read wins; job data only fills blanks. */
+function mergeBlanks(
+  scanned: Record<string, any>,
+  prefill: Record<string, any>,
+): Record<string, any> {
+  const out = { ...prefill, ...{} };
+  Object.entries(scanned).forEach(([k, v]) => {
+    const empty = v === undefined || v === null || (typeof v === "string" && v.trim() === "");
+    if (!empty) out[k] = v;
+  });
+  return out;
+}
+
 
 
 export default function JobScanReportDialog({
@@ -125,6 +169,8 @@ export default function JobScanReportDialog({
   const [extracted, setExtracted] = useState<Record<string, any>>({});
   const [header, setHeader] = useState<Record<string, any>>({});
   const [savedCount, setSavedCount] = useState(0);
+  const [jobTemplates, setJobTemplates] = useState<TemplateRow[]>([]);
+  const [jobInfo, setJobInfo] = useState<PrefillJobInfo | null>(null);
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -153,8 +199,44 @@ export default function JobScanReportDialog({
             : t.fields || []) as TemplateField[],
         }));
       setAllTemplates(rows);
+
+      // Templates already assigned to THIS job (attached sheets + per-job
+      // locks). When the job knows its report type we use it instead of
+      // asking the classifier to guess.
+      const [respRes, lockRes] = await Promise.all([
+        supabase
+          .from("job_sheet_responses")
+          .select("template_id")
+          .eq("job_id", jobId),
+        supabase
+          .from("job_template_locks")
+          .select("template_id")
+          .eq("job_id", jobId),
+      ]);
+      const ids = Array.from(
+        new Set(
+          [
+            ...(((respRes.data as any[]) || []).map((r) => r.template_id)),
+            ...(((lockRes.data as any[]) || []).map((r) => r.template_id)),
+          ].filter(Boolean) as string[],
+        ),
+      );
+      setJobTemplates(ids.map((id) => rows.find((r) => r.id === id)).filter(Boolean) as TemplateRow[]);
     })();
-  }, [open]);
+  }, [open, jobId]);
+
+  // Job context used to pre-fill the header and any blank template fields.
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      try {
+        const ctx = await fetchJobPrefillContext(supabase, jobId);
+        setJobInfo(ctx);
+      } catch (e) {
+        console.warn("[JobScanReportDialog] job context fetch failed", e);
+      }
+    })();
+  }, [open, jobId]);
 
   const reset = useCallback(() => {
     setPages((prev) => {
@@ -301,8 +383,22 @@ export default function JobScanReportDialog({
       templateName: tpl.name,
       fields: tpl.fields as any,
     });
-    setExtracted(result.extracted || {});
-    setHeader(result.header || {});
+    // Fill anything the sheet didn't give us from the job itself — the
+    // engineer shouldn't retype the customer, site, date or reference.
+    const fieldPrefill = buildJobSheetPrefill(
+      (tpl.fields || []) as any,
+      jobInfo as any,
+      tpl.name,
+    );
+    const datedPrefill: Record<string, any> = {};
+    (tpl.fields || []).forEach((f) => {
+      const v = fieldPrefill[f.id];
+      if (v === undefined) return;
+      datedPrefill[f.id] =
+        typeof v === "string" ? formatDateForField(f.type, v) || v : v;
+    });
+    setExtracted(mergeBlanks(result.extracted || {}, datedPrefill));
+    setHeader(mergeBlanks(result.header || {}, buildHeaderPrefill(jobInfo)));
     setTemplate(tpl);
     setStep("review");
   };
@@ -324,6 +420,22 @@ export default function JobScanReportDialog({
     setErrorMsg(null);
     setNeedsManualTemplate(false);
     try {
+      // The job already knows its report type — use it rather than asking the
+      // classifier to work it out from the photo.
+      if (jobTemplates.length === 1) {
+        await extractWithTemplate(jobTemplates[0], pages.map((p) => p.file));
+        return;
+      }
+      if (jobTemplates.length > 1) {
+        setNeedsManualTemplate(true);
+        setStep("upload");
+        setStatusMsg("");
+        setErrorMsg(
+          "This job has more than one report. Choose which sheet you've scanned.",
+        );
+        return;
+      }
+
       const payloads = await buildPayloads(pages.map((p) => p.file));
       setStatusMsg("Working out which report this is…");
       const { data: cls, error: clsErr } = await supabase.functions.invoke(
@@ -575,7 +687,7 @@ export default function JobScanReportDialog({
                     <SelectValue placeholder="Choose the report type…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {allTemplates.map((t) => (
+                    {(jobTemplates.length > 0 ? jobTemplates : allTemplates).map((t) => (
                       <SelectItem key={t.id} value={t.id}>
                         {t.name}
                       </SelectItem>
