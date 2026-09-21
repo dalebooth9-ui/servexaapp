@@ -94,6 +94,18 @@ export default defineConfig(({ mode }) => ({
               expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
+          // Stored photos — signed links carry a token + expiry in the query
+          // string, so a re-signed link must still match the cached copy.
+          {
+            urlPattern: ({ url }) => /supabase\.co\/storage\/v1\/object\//.test(url.href),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "servexa-storage-images",
+              matchOptions: { ignoreSearch: true },
+              expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           // Images — CacheFirst with size cap
           {
             urlPattern: ({ request }) => request.destination === "image",
@@ -103,6 +115,7 @@ export default defineConfig(({ mode }) => ({
               expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
+
           // Supabase REST reads — NetworkFirst so stale data is shown only when offline
           {
             urlPattern: ({ url, request }) =>
