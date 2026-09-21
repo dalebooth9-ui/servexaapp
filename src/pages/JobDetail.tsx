@@ -174,6 +174,9 @@ export default function JobDetail() {
     if (id) sessionStorage.setItem(`job-detail-tab-${id}`, activeTab);
   }, [activeTab, id]);
 
+  // Bumped after a paper scan saves so the documents list picks it up.
+  const [scanDocsKey, setScanDocsKey] = useState(0);
+
   useUnsavedChanges(editing, "You have unsaved changes to this job. Leave without saving?");
 
   const { uploading, uploadFilesAsSubmissions } = useFileUpload({
