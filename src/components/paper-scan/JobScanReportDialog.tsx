@@ -197,8 +197,44 @@ export default function JobScanReportDialog({
             : t.fields || []) as TemplateField[],
         }));
       setAllTemplates(rows);
+
+      // Templates already assigned to THIS job (attached sheets + per-job
+      // locks). When the job knows its report type we use it instead of
+      // asking the classifier to guess.
+      const [respRes, lockRes] = await Promise.all([
+        supabase
+          .from("job_sheet_responses")
+          .select("template_id")
+          .eq("job_id", jobId),
+        supabase
+          .from("job_template_locks")
+          .select("template_id")
+          .eq("job_id", jobId),
+      ]);
+      const ids = Array.from(
+        new Set(
+          [
+            ...(((respRes.data as any[]) || []).map((r) => r.template_id)),
+            ...(((lockRes.data as any[]) || []).map((r) => r.template_id)),
+          ].filter(Boolean) as string[],
+        ),
+      );
+      setJobTemplates(ids.map((id) => rows.find((r) => r.id === id)).filter(Boolean) as TemplateRow[]);
     })();
-  }, [open]);
+  }, [open, jobId]);
+
+  // Job context used to pre-fill the header and any blank template fields.
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      try {
+        const ctx = await fetchJobPrefillContext(supabase, jobId);
+        setJobInfo(ctx);
+      } catch (e) {
+        console.warn("[JobScanReportDialog] job context fetch failed", e);
+      }
+    })();
+  }, [open, jobId]);
 
   const reset = useCallback(() => {
     setPages((prev) => {
