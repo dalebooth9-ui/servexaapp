@@ -43,10 +43,14 @@ import {
   X,
 } from "lucide-react";
 import ScanReviewPanel from "@/components/ScanReviewPanel";
-import { fileToScanBase64, runScanExtraction } from "@/lib/scanPipeline";
+import { fileToScanPayload, runScanExtraction } from "@/lib/scanPipeline";
 import { saveJobScanReport } from "@/lib/jobScanReportSave";
+import { renderPdfToJpegFilesDetailed } from "@/lib/pdfToImages";
 
 const MAX_PAGES = 8;
+
+/** Below this the classifier is guessing — ask the engineer instead. */
+const TEMPLATE_CONFIDENCE_MIN = 0.55;
 
 type TemplateField = {
   id: string;
@@ -57,71 +61,6 @@ type TemplateField = {
   options?: string[];
   allow_notes?: boolean;
 };
-
-type TemplateRow = {
-  id: string;
-  name: string;
-  fields: TemplateField[];
-  job_category?: string | null;
-  category?: string | null;
-};
-
-type Page = { file: File; preview: string };
-
-type Step = "upload" | "processing" | "review" | "saving" | "done";
-
-interface Props {
-  jobId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSaved?: () => void;
-}
-
-async function pdfToPageFiles(
-  pdf: File,
-  limit: number,
-): Promise<File[]> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let pdfjsLib: any = (window as any).pdfjsLib;
-  if (!pdfjsLib) {
-    await new Promise<void>((res, rej) => {
-      const script = document.createElement("script");
-      script.src =
-        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-      script.onload = () => res();
-      script.onerror = () => rej(new Error("Failed to load PDF reader"));
-      document.head.appendChild(script);
-    });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    pdfjsLib = (window as any).pdfjsLib;
-  }
-  if (!pdfjsLib) throw new Error("PDF reader unavailable");
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-
-  const buf = await pdf.arrayBuffer();
-  const doc = await pdfjsLib.getDocument({ data: buf }).promise;
-  const out: File[] = [];
-  const count = Math.min(doc.numPages, limit);
-  for (let p = 1; p <= count; p++) {
-    const page = await doc.getPage(p);
-    const viewport = page.getViewport({ scale: 2 });
-    const canvas = document.createElement("canvas");
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext("2d")!;
-    await page.render({ canvasContext: ctx, viewport }).promise;
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.92),
-    );
-    if (blob) {
-      out.push(
-        new File([blob], `${pdf.name}-page${p}.jpg`, { type: "image/jpeg" }),
-      );
-    }
-  }
-  return out;
-}
 
 export default function JobScanReportDialog({
   jobId,
