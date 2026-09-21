@@ -999,6 +999,14 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         }
       }
 
+      // Older drafts stored UK dd/mm/yyyy in date-typed fields, which renders
+      // as an empty date input. Normalise on open so the date shows again.
+      template.fields.forEach((f) => {
+        if ((f.type || "").toLowerCase() !== "date") return;
+        const v = merged[f.id];
+        if (typeof v === "string" && v.includes("/")) merged[f.id] = formatDateForField(f.type, v);
+      });
+
       if (!Array.isArray(merged._site_photo_urls) || merged._site_photo_urls.length === 0) {
         try {
           const backfilled = await fetchBackfilledSitePhotos(existingResponse);
