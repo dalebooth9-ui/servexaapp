@@ -393,15 +393,28 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             ? [profile.full_name]
             : [],
     };
+    // The planner date can arrive with the on-demand job context (engineer taps
+    // "Fill in" before fetchData finishes), so prefer whichever we actually have.
+    const effectiveScheduledDate =
+      (info as any).scheduledDate || scheduledDate || "";
+
     const prefilled = buildJobSheetPrefill(template.fields, {
       ...sharedInfo,
-      scheduledDate,
+      scheduledDate: effectiveScheduledDate,
     }, template.name);
 
-    const jobAddress = info.address || info.site?.address || "";
-    const siteName = info.site?.name || "";
-    const customerName = info.customer || "";
+    const jobAddress = info.site?.address || info.address || "";
+    // No linked site record → the job name is almost always the premises name.
+    const siteName = info.site?.name || (!info.site ? (info.name || "") : "");
+    const customerName = info.customers?.name || info.customer || "";
     const sitePostcode = info.site?.postcode || "";
+    const fullAddress = (() => {
+      const base = (jobAddress || "").trim();
+      const pc = (sitePostcode || "").trim();
+      if (!base) return pc;
+      if (!pc) return base;
+      return base.toLowerCase().includes(pc.toLowerCase()) ? base : `${base}, ${pc}`;
+    })();
     const siteContact = info.site?.contact_name || "";
     const siteContactPhone = info.site?.contact_phone || "";
     const siteContactEmail = info.site?.contact_email || "";
@@ -409,6 +422,16 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     // For real engineers, pre-select their own name in dropdowns. In admin
     // preview, we intentionally leave the selection empty per spec.
     const ownEngineerName = userRole === "engineer" ? (profile?.full_name || "") : "";
+
+    // This narrower local mapper runs AFTER the shared one, so it must never
+    // overwrite a good shared value with a blank — that's what left header
+    // fields (site, address, customer) empty on the engineer's phone.
+    const set = (id: string, v: any) => {
+      if (v === undefined || v === null) return;
+      if (typeof v === "string" && v.trim() === "") return;
+      prefilled[id] = v;
+    };
+
 
     template.fields.forEach((f) => {
       const lbl = f.label.toLowerCase();
