@@ -954,14 +954,29 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     })();
 
     // If the async fetchData hasn't populated jobInfo yet (e.g. engineer taps
-    // "Fill in" the instant the tab mounts), fetch the job context on demand
-    // so pre-fill never runs against a null jobInfo and hands back a blank form.
+    // "Fill in" the instant the tab mounts), or it came back thin because a
+    // related read was still in flight, fetch the job context on demand so
+    // pre-fill never runs against a blank context and hands back an empty form.
     let contextInfo: JobInfo | null = jobInfo;
-    if (!contextInfo) {
+    const thin =
+      !contextInfo ||
+      (!contextInfo.customers?.name && !contextInfo.customer) ||
+      (!contextInfo.site && !contextInfo.address) ||
+      !(contextInfo.engineers || []).length;
+    if (thin) {
       try {
         const ctx = await fetchJobPrefillContext(supabase, jobId);
         if (ctx) {
-          contextInfo = ctx as JobInfo;
+          // Keep whatever we already had; only fill the gaps.
+          contextInfo = {
+            ...(ctx as JobInfo),
+            ...Object.fromEntries(
+              Object.entries(contextInfo || {}).filter(
+                ([, v]) => v !== null && v !== undefined && v !== "" &&
+                  !(Array.isArray(v) && v.length === 0),
+              ),
+            ),
+          } as JobInfo;
           setJobInfo(contextInfo);
         }
       } catch (e) {
