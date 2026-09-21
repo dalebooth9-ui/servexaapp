@@ -10527,6 +10527,10 @@ export type Database = {
         Args: { _customer_id: string; _user_id: string }
         Returns: boolean
       }
+      engineer_can_access_site: {
+        Args: { _site_id: string; _user_id: string }
+        Returns: boolean
+      }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
@@ -10710,6 +10714,10 @@ export type Database = {
       }
       set_email_automation_active: {
         Args: { _active: boolean; _jobname: string }
+        Returns: boolean
+      }
+      shares_job_assignment: {
+        Args: { _target: string; _viewer: string }
         Returns: boolean
       }
       show_limit: { Args: never; Returns: number }

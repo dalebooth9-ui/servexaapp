@@ -193,8 +193,23 @@ export default function JobScanReportDialog({
   const addFiles = async (files: File[]) => {
     setErrorMsg(null);
     const room = () => MAX_PAGES - pages.length;
-    const images = files.filter((f) => f.type.startsWith("image/"));
-    const pdfs = files.filter((f) => f.type === "application/pdf");
+    // Phone cameras don't always report a MIME type (and iOS may hand over
+    // HEIC), so fall back to the file extension instead of silently dropping
+    // the page — that looked like "nothing happened" on site.
+    const isPdf = (f: File) =>
+      f.type === "application/pdf" || /\.pdf$/i.test(f.name);
+    const looksLikeImage = (f: File) =>
+      f.type.startsWith("image/") ||
+      /\.(jpe?g|png|heic|heif|webp|gif|bmp|tiff?)$/i.test(f.name) ||
+      !f.type;
+    const images = files.filter((f) => !isPdf(f) && looksLikeImage(f));
+    const pdfs = files.filter(isPdf);
+    const ignored = files.filter((f) => !isPdf(f) && !looksLikeImage(f));
+    if (ignored.length > 0) {
+      setErrorMsg(
+        `Couldn't use ${ignored.length} file(s) — add photos of the sheet or a PDF.`,
+      );
+    }
 
     const next: Page[] = images
       .slice(0, room())

@@ -50,6 +50,13 @@
       "when": 1789809206942,
       "tag": "0006_create_shared_galleries",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790012969291,
+      "tag": "0007_engineer_read_access_customers_sites_profiles",
+      "breakpoints": true
     }
   ]
 }
