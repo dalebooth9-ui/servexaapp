@@ -38,6 +38,8 @@ export type SaveJobScanReportResult = {
   failedPages: number;
   /** Set when the pages saved but the digital report insert failed. */
   responseError: string | null;
+  /** Real reasons individual pages failed, so the engineer sees the cause. */
+  pageErrors: string[];
 };
 
 function safeSlug(s: string): string {
@@ -67,6 +69,17 @@ export async function saveJobScanReport(
   let uploadedPages = 0;
   let failedPages = 0;
   const storedPaths: string[] = [];
+  const pageErrors: string[] = [];
+
+  // Resolve the organisation BEFORE uploading. Falling back to the "no-org"
+  // sentinel on a flaky mobile connection files the scan somewhere the job
+  // can't read it back from, which looks like a silent loss.
+  const orgId = await getCurrentOrgId();
+  if (!orgId) {
+    throw new Error(
+      "Couldn't confirm your account while saving — check your signal and try again.",
+    );
+  }
 
   // ── A) original scan pages → submissions ───────────────────────────────
   for (let i = 0; i < images.length; i++) {
@@ -75,7 +88,7 @@ export async function saveJobScanReport(
     const fileName = `paper-report-${slug}-p${i + 1}-${stamp}.${ext}`;
     const relPath = `${jobId}/${fileName}`;
     try {
-      const storagePath = await buildOrgPathAsync(relPath);
+      const storagePath = buildOrgPath(orgId, relPath);
       const { error: upErr } = await supabase.storage
         .from("submissions")
         .upload(storagePath, file, {
@@ -95,9 +108,11 @@ export async function saveJobScanReport(
 
       storedPaths.push(storagePath);
       uploadedPages++;
-    } catch (err) {
+    } catch (err: any) {
       console.error("[jobScanReportSave] page upload failed", err);
       failedPages++;
+      const reason = err?.message || String(err);
+      if (!pageErrors.includes(reason)) pageErrors.push(reason);
     }
   }
 
@@ -136,5 +151,5 @@ export async function saveJobScanReport(
     responseError = err?.message || "Could not save the digital report.";
   }
 
-  return { responseId, uploadedPages, failedPages, responseError };
+  return { responseId, uploadedPages, failedPages, responseError, pageErrors };
 }
