@@ -145,9 +145,11 @@ export function useSyncQueueDrainer() {
 
     return () => {
       window.removeEventListener("online", onOnline);
+      unsubscribeConnectivity();
       if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
         navigator.serviceWorker.removeEventListener("message", onMessage);
       }
     };
+
   }, []);
 }
