@@ -22,6 +22,8 @@ import { createSubmissionPhotoSignedUrl, fetchJobPhotoMeta } from "@/lib/jobPhot
 import { isVideoFile } from "@/lib/fileUtils";
 import { isAudioFile } from "@/lib/mediaKinds";
 import { isAcceptableVoiceNote, uploadJobVoiceNote } from "@/lib/voiceNotes";
+import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
+
 
 import {
   DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter,

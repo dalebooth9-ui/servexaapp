@@ -18,6 +18,8 @@ import { processReportQueue, listReportQueue } from "@/lib/reportSubmissionQueue
 
 import { pushConflict } from "@/lib/conflictBus";
 import { recordSync } from "@/lib/syncHistory";
+import { getConnectivity, subscribeConnectivity } from "@/lib/connectivity";
+
 
 let installed = false;
 
