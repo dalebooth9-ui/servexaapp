@@ -79,6 +79,9 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved?: () => void;
+  /** Fired once the code-split dialog has mounted, so the launcher can drop
+   *  its "Opening scanner…" state. */
+  onReady?: () => void;
 }
 
 /** Turn an uploaded PDF into page images using the locally bundled reader —

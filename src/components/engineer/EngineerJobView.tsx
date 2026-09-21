@@ -16,7 +16,7 @@
  * mount JobSheet — which renders JobSheetTemplates — hidden alongside the
  * hero so the event has a listener without exposing the admin sheet list.
  */
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { MapPin } from "lucide-react";
@@ -56,6 +56,8 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
   const poRef = (job as any)?.customer_po
     ? `PO ${(job as any).customer_po}`
     : job?.reference_number;
+  // Bumped after a paper scan saves so the documents list picks it up.
+  const [docsKey, setDocsKey] = useState(0);
 
   return (
     <div className="space-y-5">
@@ -133,14 +135,18 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
         </div>
         <div className="mb-4">
           <Suspense fallback={null}>
-            <ScanPaperReportButton jobId={jobId} prominent />
+            <ScanPaperReportButton
+              jobId={jobId}
+              prominent
+              onSaved={() => setDocsKey((k) => k + 1)}
+            />
           </Suspense>
           <p className="mt-1.5 text-xs text-muted-foreground text-center">
             Photograph a completed paper sheet — it's filed on this job and read into a digital report.
           </p>
         </div>
         <Suspense fallback={<Fallback />}>
-          <JobDocuments jobId={jobId} job={job} engineers={engineers} />
+          <JobDocuments key={docsKey} jobId={jobId} job={job} engineers={engineers} />
         </Suspense>
       </section>
 
