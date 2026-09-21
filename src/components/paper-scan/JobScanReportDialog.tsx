@@ -383,8 +383,22 @@ export default function JobScanReportDialog({
       templateName: tpl.name,
       fields: tpl.fields as any,
     });
-    setExtracted(result.extracted || {});
-    setHeader(result.header || {});
+    // Fill anything the sheet didn't give us from the job itself — the
+    // engineer shouldn't retype the customer, site, date or reference.
+    const fieldPrefill = buildJobSheetPrefill(
+      (tpl.fields || []) as any,
+      jobInfo as any,
+      tpl.name,
+    );
+    const datedPrefill: Record<string, any> = {};
+    (tpl.fields || []).forEach((f) => {
+      const v = fieldPrefill[f.id];
+      if (v === undefined) return;
+      datedPrefill[f.id] =
+        typeof v === "string" ? formatDateForField(f.type, v) || v : v;
+    });
+    setExtracted(mergeBlanks(result.extracted || {}, datedPrefill));
+    setHeader(mergeBlanks(result.header || {}, buildHeaderPrefill(jobInfo)));
     setTemplate(tpl);
     setStep("review");
   };
