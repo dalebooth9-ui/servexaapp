@@ -14,7 +14,7 @@
 // is exactly what gets stored.
 
 import { supabase } from "@/integrations/supabase/client";
-import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { buildOrgPath, getCurrentOrgId } from "@/lib/orgStoragePath";
 import { buildDurableRef } from "@/lib/durableStorageRef";
 
 export type SaveJobScanReportInput = {
