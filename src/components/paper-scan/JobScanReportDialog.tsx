@@ -420,6 +420,22 @@ export default function JobScanReportDialog({
     setErrorMsg(null);
     setNeedsManualTemplate(false);
     try {
+      // The job already knows its report type — use it rather than asking the
+      // classifier to work it out from the photo.
+      if (jobTemplates.length === 1) {
+        await extractWithTemplate(jobTemplates[0], pages.map((p) => p.file));
+        return;
+      }
+      if (jobTemplates.length > 1) {
+        setNeedsManualTemplate(true);
+        setStep("upload");
+        setStatusMsg("");
+        setErrorMsg(
+          "This job has more than one report. Choose which sheet you've scanned.",
+        );
+        return;
+      }
+
       const payloads = await buildPayloads(pages.map((p) => p.file));
       setStatusMsg("Working out which report this is…");
       const { data: cls, error: clsErr } = await supabase.functions.invoke(
