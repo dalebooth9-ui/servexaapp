@@ -428,24 +428,58 @@ export async function runScanExtraction(
 
 // Convenience: convert File objects to canonical base64 payloads (no data-url
 // prefix) the way ocr-job-sheet expects. Downscales to keep the request small.
+/** Chunked base64 — `String.fromCharCode(...bytes)` blows the call stack on
+ *  multi-megabyte phone photos, which is how mobile scans used to fail. */
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
+/** Decode via <img> when createImageBitmap can't (older iOS Safari, HEIC). */
+function decodeViaImgElement(blob: Blob): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
+    img.src = url;
+  });
+}
+
 export async function fileToScanBase64(
   file: File,
   maxDim = 1800,
 ): Promise<string> {
   const buf = await file.arrayBuffer();
-  const blob = new Blob([buf], { type: file.type });
-  const bmp = await createImageBitmap(blob).catch(() => null);
-  if (!bmp) {
-    return btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const blob = new Blob([buf], { type: file.type || "image/jpeg" });
+  let source: ImageBitmap | HTMLImageElement | null = await createImageBitmap(
+    blob,
+  ).catch(() => null);
+  if (!source) source = await decodeViaImgElement(blob);
+  if (!source) {
+    // Last resort: send the original bytes as-is rather than failing the scan.
+    return bytesToBase64(new Uint8Array(buf));
   }
-  const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
-  const w = Math.max(1, Math.round(bmp.width * scale));
-  const h = Math.max(1, Math.round(bmp.height * scale));
+  const srcW = (source as any).width as number;
+  const srcH = (source as any).height as number;
+  const scale = Math.min(1, maxDim / Math.max(srcW, srcH));
+  const w = Math.max(1, Math.round(srcW * scale));
+  const h = Math.max(1, Math.round(srcH * scale));
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d")!;
-  ctx.drawImage(bmp, 0, 0, w, h);
+  ctx.drawImage(source as CanvasImageSource, 0, 0, w, h);
   const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
   return dataUrl.split(",")[1];
 }
