@@ -169,6 +169,8 @@ export default function JobScanReportDialog({
   const [extracted, setExtracted] = useState<Record<string, any>>({});
   const [header, setHeader] = useState<Record<string, any>>({});
   const [savedCount, setSavedCount] = useState(0);
+  const [jobTemplates, setJobTemplates] = useState<TemplateRow[]>([]);
+  const [jobInfo, setJobInfo] = useState<PrefillJobInfo | null>(null);
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
