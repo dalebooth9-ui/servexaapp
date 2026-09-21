@@ -46,6 +46,12 @@ import ScanReviewPanel from "@/components/ScanReviewPanel";
 import { fileToScanPayload, runScanExtraction } from "@/lib/scanPipeline";
 import { saveJobScanReport } from "@/lib/jobScanReportSave";
 import { renderPdfToJpegFilesDetailed } from "@/lib/pdfToImages";
+import {
+  buildJobSheetPrefill,
+  fetchJobPrefillContext,
+  formatDateForField,
+  type PrefillJobInfo,
+} from "@/lib/jobSheetPrefill";
 
 const MAX_PAGES = 8;
 
