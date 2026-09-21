@@ -98,10 +98,11 @@ export default function JobCompleteAction({
         .select("id", { count: "exact", head: true })
         .eq("job_id", jobId)
         .eq("type", "photo"),
-      // Legacy pre_completion_checklist_items — swallow errors if table absent.
+      // Legacy pre_completion_checklist_items — tracked by `checked`, not
+      // `status`. Swallow errors if the table is absent.
       supabase
         .from("pre_completion_checklist_items" as any)
-        .select("status")
+        .select("checked")
         .eq("job_id", jobId)
         .then((r) => r, () => ({ data: [] as any[] })),
       // New job_remedial_items — the primary works checklist for remedial jobs.
