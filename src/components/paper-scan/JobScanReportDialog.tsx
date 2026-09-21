@@ -62,6 +62,40 @@ type TemplateField = {
   allow_notes?: boolean;
 };
 
+type TemplateRow = {
+  id: string;
+  name: string;
+  fields: TemplateField[];
+  job_category?: string | null;
+  category?: string | null;
+};
+
+type Page = { file: File; preview: string };
+
+type Step = "upload" | "processing" | "review" | "saving" | "done";
+
+interface Props {
+  jobId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved?: () => void;
+}
+
+/** Turn an uploaded PDF into page images using the locally bundled reader —
+ *  no CDN fetch, so it still works on a weak site connection. */
+async function pdfToPageFiles(pdf: File, limit: number): Promise<File[]> {
+  const report = await renderPdfToJpegFilesDetailed(pdf, { maxPages: limit });
+  if (report.fatal) throw new Error(report.fatal);
+  if (report.pages.length === 0) {
+    throw new Error(
+      report.errors[0] || "No readable pages were found in that PDF.",
+    );
+  }
+  return report.pages.slice(0, limit);
+}
+
+
+
 export default function JobScanReportDialog({
   jobId,
   open,
