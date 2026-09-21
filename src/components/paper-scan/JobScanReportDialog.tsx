@@ -104,9 +104,16 @@ export default function JobScanReportDialog({
   open,
   onOpenChange,
   onSaved,
+  onReady,
 }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    onReady?.();
+    // Only on mount — the launcher just needs to know the dialog is up.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [pages, setPages] = useState<Page[]>([]);
   const [step, setStep] = useState<Step>("upload");
