@@ -22,6 +22,8 @@ import { createSubmissionPhotoSignedUrl, fetchJobPhotoMeta } from "@/lib/jobPhot
 import { isVideoFile } from "@/lib/fileUtils";
 import { isAudioFile } from "@/lib/mediaKinds";
 import { isAcceptableVoiceNote, uploadJobVoiceNote } from "@/lib/voiceNotes";
+import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
+
 
 import {
   DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter,
@@ -425,6 +427,11 @@ export default function JobPhotos({ jobId, jobRef, siteId = null, engineers = []
   }, [jobId, engineerName]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Photos requested with no signal never get their signed links — reload once
+  // the connection is genuinely usable again.
+  useReconnectRefresh(() => { void load(); });
+
 
   useEffect(() => { void fetchPhotoTags().then(setAllTags); }, []);
 

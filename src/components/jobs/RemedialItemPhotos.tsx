@@ -18,6 +18,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Camera, ImageIcon, Loader2 } from "lucide-react";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { compressImageForUpload } from "@/lib/imageCompress";
+import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
+
 
 type Props = {
   jobId: string;
@@ -52,20 +54,32 @@ export default function RemedialItemPhotos({ jobId, jobOrgId, itemId, canEdit }:
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const next: { before: string | null; after: string | null } = { before: null, after: null };
-      for (const slot of ["before", "after"] as Slot[]) {
-        const p = paths[slot];
-        if (!p) continue;
-        const { data } = await supabase.storage.from("submissions").createSignedUrl(p, 3600);
-        next[slot] = data?.signedUrl || null;
-      }
-      if (!cancelled) setUrls(next);
-    })();
-    return () => { cancelled = true; };
-  }, [paths.before, paths.after]);
+  // Older rows stored the path without the org prefix while the object was
+  // uploaded with it — try both so historic photos still resolve.
+  const signPath = useCallback(async (p: string): Promise<string | null> => {
+    const { data } = await supabase.storage.from("submissions").createSignedUrl(p, 3600);
+    if (data?.signedUrl) return data.signedUrl;
+    const scoped = await buildOrgPathAsync(p);
+    if (scoped === p) return null;
+    const retry = await supabase.storage.from("submissions").createSignedUrl(scoped, 3600);
+    return retry.data?.signedUrl || null;
+  }, []);
+
+  const refreshUrls = useCallback(async () => {
+    const next: { before: string | null; after: string | null } = { before: null, after: null };
+    for (const slot of ["before", "after"] as Slot[]) {
+      const p = paths[slot];
+      if (!p) continue;
+      next[slot] = await signPath(p);
+    }
+    setUrls(next);
+  }, [paths.before, paths.after, signPath]);
+
+  useEffect(() => { void refreshUrls(); }, [refreshUrls]);
+
+  // Signed URLs minted with no signal never arrive — retry once the engineer
+  // is back on a usable connection.
+  useReconnectRefresh(() => { void load(); void refreshUrls(); });
 
   const resolveOrgId = async (): Promise<string | null> => {
     if (jobOrgId) return jobOrgId;
@@ -81,11 +95,14 @@ export default function RemedialItemPhotos({ jobId, jobOrgId, itemId, canEdit }:
       const compressed = await compressImageForUpload(file);
       const body = compressed || file;
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-      const path = `${jobId}/remedial-photos/${itemId}-${slot}-${Date.now()}.${ext}`;
+      // Store the SAME path we upload to (org-prefixed) — otherwise the photo
+      // can never be found again.
+      const path = await buildOrgPathAsync(`${jobId}/remedial-photos/${itemId}-${slot}-${Date.now()}.${ext}`);
       const { error: upErr } = await supabase.storage
         .from("submissions")
-        .upload(await buildOrgPathAsync(path), body, { upsert: true, contentType: compressed ? "image/jpeg" : file.type });
+        .upload(path, body, { upsert: true, contentType: compressed ? "image/jpeg" : file.type });
       if (upErr) throw upErr;
+
 
       const column = slot === "before" ? "before_photo_url" : "after_photo_url";
       const { data: existing } = await supabase

@@ -18,6 +18,8 @@ import { processReportQueue, listReportQueue } from "@/lib/reportSubmissionQueue
 
 import { pushConflict } from "@/lib/conflictBus";
 import { recordSync } from "@/lib/syncHistory";
+import { getConnectivity, subscribeConnectivity } from "@/lib/connectivity";
+
 
 let installed = false;
 
@@ -115,6 +117,15 @@ export function useSyncQueueDrainer() {
     const onOnline = () => { void drain(); };
     window.addEventListener("online", onOnline);
 
+    // navigator.onLine flips true on a signal-less cell link, so also drain
+    // when the reachability probe confirms the internet is actually back.
+    let wasReachable = getConnectivity().isOnline;
+    const unsubscribeConnectivity = subscribeConnectivity((s) => {
+      if (s.isOnline && !wasReachable) { wasReachable = true; void drain(); }
+      else if (!s.isOnline) wasReachable = false;
+    });
+
+
     const onMessage = (e: MessageEvent) => {
       if ((e.data as any)?.type === "servexa-bg-sync") void drain();
     };
@@ -134,9 +145,11 @@ export function useSyncQueueDrainer() {
 
     return () => {
       window.removeEventListener("online", onOnline);
+      unsubscribeConnectivity();
       if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
         navigator.serviceWorker.removeEventListener("message", onMessage);
       }
     };
+
   }, []);
 }

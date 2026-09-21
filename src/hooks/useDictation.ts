@@ -92,17 +92,29 @@ export function useDictation({ onFinal, onInterim, onError }: UseDictationOption
     rec.continuous = true;
     rec.interimResults = true;
 
+    // Some engines (notably Chrome on Android) replay earlier results with
+    // `resultIndex` reset to 0. Track the highest final index we've already
+    // emitted so a finalised phrase is never inserted twice.
+    let lastFinalIndex = -1;
+
     rec.onresult = (event: any) => {
       let live = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const res = event.results[i];
         const text = res[0]?.transcript ?? "";
-        if (res.isFinal) cb.current.onFinal(text);
-        else live += text;
+        if (res.isFinal) {
+          if (i > lastFinalIndex) {
+            lastFinalIndex = i;
+            cb.current.onFinal(text);
+          }
+        } else {
+          live += text;
+        }
       }
       setInterim(live);
       cb.current.onInterim?.(live);
     };
+
 
     rec.onerror = (e: any) => {
       if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {
@@ -121,6 +133,8 @@ export function useDictation({ onFinal, onInterim, onError }: UseDictationOption
       // Chrome ends the session periodically — restart unless the user stopped it.
       if (!manualStop.current) {
         try {
+          // A restarted session numbers its results from zero again.
+          lastFinalIndex = -1;
           rec.start();
           return;
         } catch {
@@ -129,6 +143,7 @@ export function useDictation({ onFinal, onInterim, onError }: UseDictationOption
       }
       setListening(false);
     };
+
 
     manualStop.current = false;
     try {
