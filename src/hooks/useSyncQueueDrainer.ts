@@ -115,6 +115,15 @@ export function useSyncQueueDrainer() {
     const onOnline = () => { void drain(); };
     window.addEventListener("online", onOnline);
 
+    // navigator.onLine flips true on a signal-less cell link, so also drain
+    // when the reachability probe confirms the internet is actually back.
+    let wasReachable = getConnectivity().isOnline;
+    const unsubscribeConnectivity = subscribeConnectivity((s) => {
+      if (s.isOnline && !wasReachable) { wasReachable = true; void drain(); }
+      else if (!s.isOnline) wasReachable = false;
+    });
+
+
     const onMessage = (e: MessageEvent) => {
       if ((e.data as any)?.type === "servexa-bg-sync") void drain();
     };

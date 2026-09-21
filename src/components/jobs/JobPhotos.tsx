@@ -426,6 +426,11 @@ export default function JobPhotos({ jobId, jobRef, siteId = null, engineers = []
 
   useEffect(() => { load(); }, [load]);
 
+  // Photos requested with no signal never get their signed links — reload once
+  // the connection is genuinely usable again.
+  useReconnectRefresh(() => { void load(); });
+
+
   useEffect(() => { void fetchPhotoTags().then(setAllTags); }, []);
 
   // Tag filtering is resolved server-side (OR across the selected tags).
