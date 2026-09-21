@@ -118,6 +118,9 @@ export default function JobScanReportDialog({
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const payloadCache = useRef<
+    Map<File, { image_base64: string; mime_type?: string }>
+  >(new Map());
 
   // Template list for the manual fallback / switcher.
   useEffect(() => {
