@@ -18,6 +18,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Camera, ImageIcon, Loader2 } from "lucide-react";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { compressImageForUpload } from "@/lib/imageCompress";
+import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
+
 
 type Props = {
   jobId: string;

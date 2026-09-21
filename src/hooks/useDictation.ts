@@ -92,17 +92,29 @@ export function useDictation({ onFinal, onInterim, onError }: UseDictationOption
     rec.continuous = true;
     rec.interimResults = true;
 
+    // Some engines (notably Chrome on Android) replay earlier results with
+    // `resultIndex` reset to 0. Track the highest final index we've already
+    // emitted so a finalised phrase is never inserted twice.
+    let lastFinalIndex = -1;
+
     rec.onresult = (event: any) => {
       let live = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const res = event.results[i];
         const text = res[0]?.transcript ?? "";
-        if (res.isFinal) cb.current.onFinal(text);
-        else live += text;
+        if (res.isFinal) {
+          if (i > lastFinalIndex) {
+            lastFinalIndex = i;
+            cb.current.onFinal(text);
+          }
+        } else {
+          live += text;
+        }
       }
       setInterim(live);
       cb.current.onInterim?.(live);
     };
+
 
     rec.onerror = (e: any) => {
       if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {
