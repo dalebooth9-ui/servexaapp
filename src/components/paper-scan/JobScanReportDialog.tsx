@@ -165,7 +165,7 @@ export default function JobScanReportDialog({
 
   const addFiles = async (files: File[]) => {
     setErrorMsg(null);
-    const room = () => MAX_PAGES - pages.length;
+    if (files.length === 0) return;
     // Phone cameras don't always report a MIME type (and iOS may hand over
     // HEIC), so fall back to the file extension instead of silently dropping
     // the page — that looked like "nothing happened" on site.
@@ -178,31 +178,63 @@ export default function JobScanReportDialog({
     const images = files.filter((f) => !isPdf(f) && looksLikeImage(f));
     const pdfs = files.filter(isPdf);
     const ignored = files.filter((f) => !isPdf(f) && !looksLikeImage(f));
+    const empties = images.filter((f) => f.size === 0);
     if (ignored.length > 0) {
       setErrorMsg(
         `Couldn't use ${ignored.length} file(s) — add photos of the sheet or a PDF.`,
       );
+      toast({
+        title: "Some files couldn't be used",
+        description: "Add photos of the sheet (JPG/PNG) or a PDF.",
+        variant: "destructive",
+      });
+    }
+    if (empties.length > 0) {
+      toast({
+        title: "A photo came through empty",
+        description: "Please retake it — the camera didn't save an image.",
+        variant: "destructive",
+      });
     }
 
-    const next: Page[] = images
-      .slice(0, room())
-      .map((file) => ({ file, preview: URL.createObjectURL(file) }));
-    setPages((prev) => [...prev, ...next].slice(0, MAX_PAGES));
+    // Count against the live page list, not the value captured at click time:
+    // rapid taps on a slow phone used to slip past the page limit.
+    const usable = images.filter((f) => f.size > 0);
+    if (usable.length > 0) {
+      setPages((prev) => {
+        const room = Math.max(0, MAX_PAGES - prev.length);
+        if (room === 0) {
+          toast({
+            title: `Maximum ${MAX_PAGES} pages`,
+            description: "Remove a page before adding another.",
+          });
+          return prev;
+        }
+        const next = usable
+          .slice(0, room)
+          .map((file) => ({ file, preview: URL.createObjectURL(file) }));
+        return [...prev, ...next];
+      });
+    }
 
     for (const pdf of pdfs) {
       try {
         setStatusMsg("Reading PDF pages…");
         const pageFiles = await pdfToPageFiles(pdf, MAX_PAGES);
-        setPages((prev) =>
-          [
+        setPages((prev) => {
+          const room = Math.max(0, MAX_PAGES - prev.length);
+          return [
             ...prev,
-            ...pageFiles.map((file) => ({
+            ...pageFiles.slice(0, room).map((file) => ({
               file,
               preview: URL.createObjectURL(file),
             })),
-          ].slice(0, MAX_PAGES),
-        );
-      } catch {
+          ];
+        });
+      } catch (err: any) {
+        console.error("[JobScanReportDialog] pdf read failed", err);
+        const reason = err?.message ? ` (${err.message})` : "";
+        setErrorMsg(`Couldn't read that PDF${reason}.`);
         toast({
           title: "Could not read that PDF",
           description: "Photograph the sheet or upload a JPG/PNG instead.",
