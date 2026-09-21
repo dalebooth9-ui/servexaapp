@@ -103,6 +103,44 @@ async function pdfToPageFiles(pdf: File, limit: number): Promise<File[]> {
   return report.pages.slice(0, limit);
 }
 
+/** Header strip values the review panel shows, taken from the job itself so the
+ *  engineer never retypes what we already know. OCR values win when present. */
+function buildHeaderPrefill(info: PrefillJobInfo | null): Record<string, string> {
+  if (!info) return {};
+  const site = info.site;
+  const address = site?.address || info.address || "";
+  const postcode = site?.postcode || "";
+  const fullAddress = postcode && !address.toLowerCase().includes(postcode.toLowerCase())
+    ? [address, postcode].filter(Boolean).join(", ")
+    : address;
+  const siteName = site?.name || info.name || "";
+  const out: Record<string, string> = {
+    customer: info.customers?.name || info.customer || "",
+    site: [siteName, fullAddress].filter(Boolean).join(", "),
+    engineer: (info.engineers || []).join(", "),
+    date: info.scheduledDate || new Date().toLocaleDateString("en-GB"),
+    po_ref: info.reference_number || "",
+    riser_location: site?.riser_location || "",
+  };
+  Object.keys(out).forEach((k) => {
+    if (!out[k]) delete out[k];
+  });
+  return out;
+}
+
+/** Merge: anything the scan actually read wins; job data only fills blanks. */
+function mergeBlanks(
+  scanned: Record<string, any>,
+  prefill: Record<string, any>,
+): Record<string, any> {
+  const out = { ...prefill, ...{} };
+  Object.entries(scanned).forEach(([k, v]) => {
+    const empty = v === undefined || v === null || (typeof v === "string" && v.trim() === "");
+    if (!empty) out[k] = v;
+  });
+  return out;
+}
+
 
 
 export default function JobScanReportDialog({
