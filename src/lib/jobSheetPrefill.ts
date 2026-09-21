@@ -62,6 +62,28 @@ export function deriveScopeFromTemplateName(templateName?: string | null): strin
   return null;
 }
 
+/**
+ * Date inputs (`<input type="date">`) only accept ISO yyyy-mm-dd — handing them
+ * a UK dd/mm/yyyy string silently renders an EMPTY field, which is why job
+ * sheets looked blank. Text fields keep UK formatting.
+ */
+export function formatDateForField(fieldType: string | undefined, value: string): string {
+  const v = (value || "").trim();
+  if (!v) return "";
+  const uk = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const iso = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const wantIso = (fieldType || "").toLowerCase() === "date";
+  if (uk) {
+    const [, d, m, y] = uk;
+    return wantIso ? `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}` : `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
+  }
+  if (iso) {
+    const [, y, m, d] = iso;
+    return wantIso ? `${y}-${m}-${d}` : `${d}/${m}/${y}`;
+  }
+  return v;
+}
+
 export function buildJobSheetPrefill(
   fields: PrefillField[],
   jobInfo: PrefillJobInfo | null | undefined,
@@ -202,9 +224,9 @@ export function buildJobSheetPrefill(
         "commissioning date", "installation date", "completion date", "test date", "date of test") ||
       has(label, "date", "works") || has(label, "date", "visit") || has(label, "date", "attendance")
     ) {
-      set(scheduledDate || new Date().toISOString().split("T")[0]);
+      set(formatDateForField(f.type, scheduledDate) || formatDateForField(f.type, new Date().toISOString().split("T")[0]));
     } else if (label.includes("attendance date") || label === "rams_attendance_date" || label === "attendance") {
-      set(scheduledDate || new Date().toLocaleDateString("en-GB"));
+      set(formatDateForField(f.type, scheduledDate) || formatDateForField(f.type, new Date().toISOString().split("T")[0]));
 
     // --- Scope / people ---
     } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category") || label.includes("service type")) {
