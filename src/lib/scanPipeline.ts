@@ -456,32 +456,93 @@ function decodeViaImgElement(blob: Blob): Promise<HTMLImageElement | null> {
   });
 }
 
-export async function fileToScanBase64(
+/** Guess a sane mime type for bytes we could not decode in the browser. */
+function guessMimeFromFile(file: File): string {
+  if (file.type && file.type.startsWith("image/")) return file.type;
+  const name = (file.name || "").toLowerCase();
+  if (/\.png$/.test(name)) return "image/png";
+  if (/\.webp$/.test(name)) return "image/webp";
+  if (/\.heic$/.test(name)) return "image/heic";
+  if (/\.heif$/.test(name)) return "image/heif";
+  if (/\.(tiff?|bmp|gif)$/.test(name)) return `image/${name.split(".").pop()}`;
+  return "image/jpeg";
+}
+
+/**
+ * Convert a captured page into the payload ocr-job-sheet expects.
+ *
+ * Phone captures are the awkward case: iOS hands over HEIC, some Android
+ * browsers report no mime type at all, and older Safari cannot always decode
+ * via createImageBitmap. We try the bitmap decoder, then an <img> decode, and
+ * only then fall back to the raw bytes — reporting the ACTUAL encoding rather
+ * than claiming everything is a JPEG, so the reader never gets mislabelled
+ * bytes and silently produces nonsense.
+ */
+export async function fileToScanPayload(
   file: File,
   maxDim = 1800,
-): Promise<string> {
+): Promise<ScanImagePayload & { reencoded: boolean }> {
   const buf = await file.arrayBuffer();
+  if (buf.byteLength === 0) {
+    throw new Error(
+      `"${file.name || "photo"}" came through empty — please retake it.`,
+    );
+  }
   const blob = new Blob([buf], { type: file.type || "image/jpeg" });
   let source: ImageBitmap | HTMLImageElement | null = await createImageBitmap(
     blob,
   ).catch(() => null);
   if (!source) source = await decodeViaImgElement(blob);
   if (!source) {
-    // Last resort: send the original bytes as-is rather than failing the scan.
-    return bytesToBase64(new Uint8Array(buf));
+    const mime = guessMimeFromFile(file);
+    if (/heic|heif/.test(mime)) {
+      // The reader cannot handle HEIC, and pretending it is a JPEG produces
+      // garbage rather than an error. Tell the engineer what to do instead.
+      throw new Error(
+        `This phone saved the photo in HEIC format, which can't be read. In Settings > Camera choose "Most Compatible", or retake the photo.`,
+      );
+    }
+    return {
+      image_base64: bytesToBase64(new Uint8Array(buf)),
+      mime_type: mime,
+      reencoded: false,
+    };
   }
   const srcW = (source as any).width as number;
   const srcH = (source as any).height as number;
+  if (!srcW || !srcH) {
+    throw new Error(
+      `"${file.name || "photo"}" could not be processed — please retake it.`,
+    );
+  }
   const scale = Math.min(1, maxDim / Math.max(srcW, srcH));
   const w = Math.max(1, Math.round(srcW * scale));
   const h = Math.max(1, Math.round(srcH * scale));
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("This browser could not prepare the photo.");
   ctx.drawImage(source as CanvasImageSource, 0, 0, w, h);
   const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-  return dataUrl.split(",")[1];
+  const b64 = dataUrl.split(",")[1] || "";
+  if (!b64) {
+    throw new Error(
+      `"${file.name || "photo"}" could not be processed — please retake it.`,
+    );
+  }
+  if (typeof (source as ImageBitmap).close === "function") {
+    (source as ImageBitmap).close();
+  }
+  return { image_base64: b64, mime_type: "image/jpeg", reencoded: true };
+}
+
+export async function fileToScanBase64(
+  file: File,
+  maxDim = 1800,
+): Promise<string> {
+  const payload = await fileToScanPayload(file, maxDim);
+  return payload.image_base64;
 }
 
 // Category identification pass — used by admin QuickScan/BatchScan to pick a
