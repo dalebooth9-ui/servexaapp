@@ -111,6 +111,8 @@ type JobInfo = {
   customer_phone?: string | null;
   engineers?: string[];
   site?: { name: string; address: string | null; postcode: string | null; contact_name: string | null; contact_phone: string | null; contact_email: string | null; riser_location?: string | null } | null;
+  /** dd/mm/yyyy — only present when the context came from fetchJobPrefillContext */
+  scheduledDate?: string | null;
 };
 
 export default function JobSheetTemplates({ jobId }: { jobId: string }) {
@@ -393,15 +395,28 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             ? [profile.full_name]
             : [],
     };
+    // The planner date can arrive with the on-demand job context (engineer taps
+    // "Fill in" before fetchData finishes), so prefer whichever we actually have.
+    const effectiveScheduledDate =
+      (info as any).scheduledDate || scheduledDate || "";
+
     const prefilled = buildJobSheetPrefill(template.fields, {
       ...sharedInfo,
-      scheduledDate,
+      scheduledDate: effectiveScheduledDate,
     }, template.name);
 
-    const jobAddress = info.address || info.site?.address || "";
-    const siteName = info.site?.name || "";
-    const customerName = info.customer || "";
+    const jobAddress = info.site?.address || info.address || "";
+    // No linked site record → the job name is almost always the premises name.
+    const siteName = info.site?.name || (!info.site ? (info.name || "") : "");
+    const customerName = info.customers?.name || info.customer || "";
     const sitePostcode = info.site?.postcode || "";
+    const fullAddress = (() => {
+      const base = (jobAddress || "").trim();
+      const pc = (sitePostcode || "").trim();
+      if (!base) return pc;
+      if (!pc) return base;
+      return base.toLowerCase().includes(pc.toLowerCase()) ? base : `${base}, ${pc}`;
+    })();
     const siteContact = info.site?.contact_name || "";
     const siteContactPhone = info.site?.contact_phone || "";
     const siteContactEmail = info.site?.contact_email || "";
@@ -409,6 +424,16 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     // For real engineers, pre-select their own name in dropdowns. In admin
     // preview, we intentionally leave the selection empty per spec.
     const ownEngineerName = userRole === "engineer" ? (profile?.full_name || "") : "";
+
+    // This narrower local mapper runs AFTER the shared one, so it must never
+    // overwrite a good shared value with a blank — that's what left header
+    // fields (site, address, customer) empty on the engineer's phone.
+    const set = (id: string, v: any) => {
+      if (v === undefined || v === null) return;
+      if (typeof v === "string" && v.trim() === "") return;
+      prefilled[id] = v;
+    };
+
 
     template.fields.forEach((f) => {
       const lbl = f.label.toLowerCase();
@@ -450,49 +475,49 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         (label.includes("site") && label.includes("detail")) ||
         (label.includes("site") && label.includes("info"))
       ) {
-        prefilled[f.id] = [siteName, jobAddress, sitePostcode].filter(Boolean).join("\n");
+        set(f.id, [siteName, jobAddress, sitePostcode].filter(Boolean).join("\n"));
       // Site name
       } else if (label === "site name" || label === "site") {
-        prefilled[f.id] = siteName;
+        set(f.id, siteName);
       // Site address
       } else if (label === "site address" || label === "address") {
-        prefilled[f.id] = [jobAddress, sitePostcode].filter(Boolean).join(", ");
+        set(f.id, fullAddress);
       // Postcode
       } else if (label.includes("postcode") || label.includes("post code") || label.includes("zip")) {
-        prefilled[f.id] = sitePostcode;
+        set(f.id, sitePostcode);
       // Site contact name
       } else if (label.includes("site") && label.includes("contact") && label.includes("name")) {
-        prefilled[f.id] = siteContact;
+        set(f.id, siteContact);
       } else if (label === "contact name" || label === "contact person") {
-        prefilled[f.id] = siteContact;
+        set(f.id, siteContact);
       // Site contact phone
       } else if ((label.includes("site") && label.includes("contact") && label.includes("phone")) || (label.includes("site") && label.includes("tel"))) {
-        prefilled[f.id] = siteContactPhone;
+        set(f.id, siteContactPhone);
       } else if (label === "contact phone" || label === "contact tel" || label === "contact number") {
-        prefilled[f.id] = siteContactPhone;
+        set(f.id, siteContactPhone);
       // Site contact email
       } else if (label.includes("site") && label.includes("email")) {
-        prefilled[f.id] = siteContactEmail;
+        set(f.id, siteContactEmail);
       // Customer details (composite)
       } else if (
         (label.includes("customer") && label.includes("detail")) ||
         (label.includes("client") && label.includes("detail"))
       ) {
-        prefilled[f.id] = [customerName, info.customer_email, info.customer_phone].filter(Boolean).join("\n");
+        set(f.id, [customerName, info.customer_email, info.customer_phone].filter(Boolean).join("\n"));
       // Customer / client name
       } else if (label === "customer name" || label === "client name" || label === "customer" || label === "client") {
-        prefilled[f.id] = customerName;
+        set(f.id, customerName);
       } else if (label.includes("customer") && !label.includes("sign") && !label.includes("email") && !label.includes("phone")) {
-        prefilled[f.id] = customerName;
+        set(f.id, customerName);
       // Customer email
       } else if ((label.includes("customer") || label.includes("client")) && label.includes("email")) {
-        prefilled[f.id] = info.customer_email || "";
+        set(f.id, info.customer_email || "");
       // Customer phone
       } else if ((label.includes("customer") || label.includes("client")) && (label.includes("phone") || label.includes("tel"))) {
-        prefilled[f.id] = info.customer_phone || "";
+        set(f.id, info.customer_phone || "");
       // Reference / PO number
       } else if (label.includes("po number") || label.includes("reference") || label.includes("ref no") || label.includes("job ref") || label.includes("job number") || label.includes("order number")) {
-        prefilled[f.id] = info.reference_number || "";
+        set(f.id, info.reference_number || "");
       // Job name / description — extended for commissioning certs
       } else if (
         label === "job name" || label === "job title" || label === "job description" ||
@@ -500,32 +525,32 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         label === "project name" || label === "project title" || label === "contract" ||
         label.includes("project description") || label === "works"
       ) {
-        prefilled[f.id] = info.name || "";
+        set(f.id, info.name || "");
       // Address / location — extended for commissioning certs
       } else if (
         label === "site address" || label === "address" || label === "location" ||
         label === "site location" || label === "property address" || label === "premises address" ||
         label === "installation address" || label === "premises"
       ) {
-        prefilled[f.id] = [info.address || info.site?.address, info.site?.postcode].filter(Boolean).join(", ");
+        set(f.id, fullAddress);
       // Number of systems (commissioning cert specific)
       } else if (
         label.includes("number of") && (label.includes("system") || label.includes("riser")) ||
         label.includes("no. of") || label.includes("no of") && (label.includes("system") || label.includes("riser")) ||
         label === "qty" || label === "quantity of systems" || label === "number of risers"
       ) {
-        prefilled[f.id] = String(info.other_qty || 1);
+        set(f.id, String(info.other_qty || 1));
       // Date fields — use scheduled planner date if available, else today
       } else if (label === "date" || label === "inspection date" || label === "service date" || label === "visit date" || label === "work date" || label === "commissioning date" || label === "installation date" || label === "completion date") {
-        prefilled[f.id] = formatDateForField(f.type, scheduledDate) || formatDateForField(f.type, new Date().toISOString().split("T")[0]);
+        set(f.id, formatDateForField(f.type, effectiveScheduledDate) || formatDateForField(f.type, new Date().toISOString().split("T")[0]));
       // Attendance date — always use the planner-booked date
       } else if (label.includes("attendance date") || label === "rams_attendance_date" || label === "attendance") {
-        prefilled[f.id] = formatDateForField(f.type, scheduledDate) || formatDateForField(f.type, new Date().toISOString().split("T")[0]);
+        set(f.id, formatDateForField(f.type, effectiveScheduledDate) || formatDateForField(f.type, new Date().toISOString().split("T")[0]));
       // Category / scope / type of work — match template title first, fall back to PT/Visual qty, then category
       } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category") || label.includes("service type")) {
         const fromTitle = deriveScopeFromTemplateName(template.name);
         if (fromTitle) {
-          prefilled[f.id] = fromTitle;
+          set(f.id, fromTitle);
         } else {
           const scopeParts: string[] = [];
           if ((info.pressure_test_qty ?? 0) > 0) scopeParts.push(`Pressure Test ×${info.pressure_test_qty}`);
@@ -533,21 +558,21 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           if ((info.other_qty ?? 0) > 0 && info.other_service_type) scopeParts.push(`${info.other_service_type} ×${info.other_qty}`);
           const categoryName = jobCategories.find(c => c.slug === info.category)?.name
             || (info.category ? info.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
-          prefilled[f.id] = scopeParts.length > 0 ? scopeParts.join(", ") : categoryName;
+          set(f.id, scopeParts.length > 0 ? scopeParts.join(", ") : categoryName);
         }
       // Priority
       } else if (label === "priority" || label === "job priority") {
-        prefilled[f.id] = info.priority || "";
+        set(f.id, info.priority || "");
       // Engineer / technician
       } else if (label.includes("engineer") || label.includes("technician") || label.includes("operative") || label.includes("carried out by") || label.includes("completed by") || label.includes("attended by")) {
-        prefilled[f.id] = engineerList || ownEngineerName;
+        set(f.id, engineerList || ownEngineerName);
       // PT / Visual quantities
       } else if (label.includes("pressure test") && (label.includes("qty") || label.includes("quantity") || label.includes("number"))) {
-        prefilled[f.id] = String(info.pressure_test_qty ?? 0);
+        set(f.id, String(info.pressure_test_qty ?? 0));
       } else if (label.includes("visual") && (label.includes("qty") || label.includes("quantity") || label.includes("number"))) {
-        prefilled[f.id] = String(info.visual_qty ?? 0);
+        set(f.id, String(info.visual_qty ?? 0));
       } else if (label.includes("riser location") || label.includes("riser loc")) {
-        prefilled[f.id] = info.site?.riser_location || "";
+        set(f.id, info.site?.riser_location || "");
       }
     });
     return prefilled;
@@ -929,14 +954,29 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     })();
 
     // If the async fetchData hasn't populated jobInfo yet (e.g. engineer taps
-    // "Fill in" the instant the tab mounts), fetch the job context on demand
-    // so pre-fill never runs against a null jobInfo and hands back a blank form.
+    // "Fill in" the instant the tab mounts), or it came back thin because a
+    // related read was still in flight, fetch the job context on demand so
+    // pre-fill never runs against a blank context and hands back an empty form.
     let contextInfo: JobInfo | null = jobInfo;
-    if (!contextInfo) {
+    const thin =
+      !contextInfo ||
+      (!contextInfo.customers?.name && !contextInfo.customer) ||
+      (!contextInfo.site && !contextInfo.address) ||
+      !(contextInfo.engineers || []).length;
+    if (thin) {
       try {
         const ctx = await fetchJobPrefillContext(supabase, jobId);
         if (ctx) {
-          contextInfo = ctx as JobInfo;
+          // Keep whatever we already had; only fill the gaps.
+          contextInfo = {
+            ...(ctx as JobInfo),
+            ...Object.fromEntries(
+              Object.entries(contextInfo || {}).filter(
+                ([, v]) => v !== null && v !== undefined && v !== "" &&
+                  !(Array.isArray(v) && v.length === 0),
+              ),
+            ),
+          } as JobInfo;
           setJobInfo(contextInfo);
         }
       } catch (e) {
