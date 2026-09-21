@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { buildRemedialWorksPrefill } from "@/lib/remedialWorksPrefill";
 import { useAuth } from "@/hooks/useAuth";
 import { useJobCategories } from "@/hooks/useJobCategories";
-import { buildJobSheetPrefill, deriveScopeFromTemplateName, fetchJobPrefillContext } from "@/lib/jobSheetPrefill";
+import { buildJobSheetPrefill, deriveScopeFromTemplateName, fetchJobPrefillContext, formatDateForField } from "@/lib/jobSheetPrefill";
 import { buildLastVisitPrefill, findLastVisitReport, type LastVisit } from "@/lib/lastVisitPrefill";
 import { logReportEdits, jobHasSignatures } from "@/lib/logReportEdits";
 import { enqueueReportSubmission, newReportId } from "@/lib/reportSubmissionQueue";
@@ -437,8 +437,9 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           }
           return;
         }
-        if (ownEngineerName && (label.includes("engineer") || label.includes("technician") || label.includes("operative") || label.includes("carried out by") || label.includes("completed by") || label.includes("attended by"))) {
-          const match = f.options.find((o) => o.toLowerCase() === ownEngineerName.toLowerCase());
+        const engineerPick = ownEngineerName || (sharedInfo.engineers || [])[0] || "";
+        if (engineerPick && (label.includes("engineer") || label.includes("technician") || label.includes("operative") || label.includes("carried out by") || label.includes("completed by") || label.includes("attended by"))) {
+          const match = f.options.find((o) => o.toLowerCase() === engineerPick.toLowerCase());
           if (match) prefilled[f.id] = match;
         }
         return;
@@ -516,10 +517,10 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         prefilled[f.id] = String(info.other_qty || 1);
       // Date fields — use scheduled planner date if available, else today
       } else if (label === "date" || label === "inspection date" || label === "service date" || label === "visit date" || label === "work date" || label === "commissioning date" || label === "installation date" || label === "completion date") {
-        prefilled[f.id] = scheduledDate || new Date().toISOString().split("T")[0];
+        prefilled[f.id] = formatDateForField(f.type, scheduledDate) || formatDateForField(f.type, new Date().toISOString().split("T")[0]);
       // Attendance date — always use the planner-booked date
       } else if (label.includes("attendance date") || label === "rams_attendance_date" || label === "attendance") {
-        prefilled[f.id] = scheduledDate || new Date().toLocaleDateString("en-GB");
+        prefilled[f.id] = formatDateForField(f.type, scheduledDate) || formatDateForField(f.type, new Date().toISOString().split("T")[0]);
       // Category / scope / type of work — match template title first, fall back to PT/Visual qty, then category
       } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category") || label.includes("service type")) {
         const fromTitle = deriveScopeFromTemplateName(template.name);
@@ -539,7 +540,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         prefilled[f.id] = info.priority || "";
       // Engineer / technician
       } else if (label.includes("engineer") || label.includes("technician") || label.includes("operative") || label.includes("carried out by") || label.includes("completed by") || label.includes("attended by")) {
-        prefilled[f.id] = engineerList;
+        prefilled[f.id] = engineerList || ownEngineerName;
       // PT / Visual quantities
       } else if (label.includes("pressure test") && (label.includes("qty") || label.includes("quantity") || label.includes("number"))) {
         prefilled[f.id] = String(info.pressure_test_qty ?? 0);

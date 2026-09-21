@@ -224,9 +224,9 @@ export function buildJobSheetPrefill(
         "commissioning date", "installation date", "completion date", "test date", "date of test") ||
       has(label, "date", "works") || has(label, "date", "visit") || has(label, "date", "attendance")
     ) {
-      set(scheduledDate || new Date().toISOString().split("T")[0]);
+      set(formatDateForField(f.type, scheduledDate) || formatDateForField(f.type, new Date().toISOString().split("T")[0]));
     } else if (label.includes("attendance date") || label === "rams_attendance_date" || label === "attendance") {
-      set(scheduledDate || new Date().toLocaleDateString("en-GB"));
+      set(formatDateForField(f.type, scheduledDate) || formatDateForField(f.type, new Date().toISOString().split("T")[0]));
 
     // --- Scope / people ---
     } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category") || label.includes("service type")) {
