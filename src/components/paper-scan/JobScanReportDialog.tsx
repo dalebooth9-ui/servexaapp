@@ -151,6 +151,7 @@ export default function JobScanReportDialog({
       prev.forEach((p) => URL.revokeObjectURL(p.preview));
       return [];
     });
+    payloadCache.current = new Map();
     setStep("upload");
     setStatusMsg("");
     setErrorMsg(null);
@@ -425,7 +426,9 @@ export default function JobScanReportDialog({
       if (result.failedPages > 0) {
         toast({
           title: "Report saved, some pages failed",
-          description: `${result.failedPages} page(s) didn't upload. Try adding them again from Documents.`,
+          description: `${result.failedPages} page(s) didn't upload${
+            result.pageErrors[0] ? ` — ${result.pageErrors[0]}` : ""
+          }. Try adding them again from Documents.`,
           variant: "destructive",
         });
       }
@@ -438,7 +441,7 @@ export default function JobScanReportDialog({
       setStatusMsg("");
       toast({
         title: "Couldn't save",
-        description: e?.message || "Please try again.",
+        description: describeError(e, "Please try again."),
         variant: "destructive",
       });
     }
@@ -446,7 +449,7 @@ export default function JobScanReportDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-1.5rem)] sm:w-full max-w-4xl max-h-[92dvh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ScanLine className="h-5 w-5" />
