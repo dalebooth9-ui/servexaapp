@@ -43,10 +43,14 @@ import {
   X,
 } from "lucide-react";
 import ScanReviewPanel from "@/components/ScanReviewPanel";
-import { fileToScanBase64, runScanExtraction } from "@/lib/scanPipeline";
+import { fileToScanPayload, runScanExtraction } from "@/lib/scanPipeline";
 import { saveJobScanReport } from "@/lib/jobScanReportSave";
+import { renderPdfToJpegFilesDetailed } from "@/lib/pdfToImages";
 
 const MAX_PAGES = 8;
+
+/** Below this the classifier is guessing — ask the engineer instead. */
+const TEMPLATE_CONFIDENCE_MIN = 0.55;
 
 type TemplateField = {
   id: string;
@@ -75,62 +79,41 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved?: () => void;
+  /** Fired once the code-split dialog has mounted, so the launcher can drop
+   *  its "Opening scanner…" state. */
+  onReady?: () => void;
 }
 
-async function pdfToPageFiles(
-  pdf: File,
-  limit: number,
-): Promise<File[]> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let pdfjsLib: any = (window as any).pdfjsLib;
-  if (!pdfjsLib) {
-    await new Promise<void>((res, rej) => {
-      const script = document.createElement("script");
-      script.src =
-        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-      script.onload = () => res();
-      script.onerror = () => rej(new Error("Failed to load PDF reader"));
-      document.head.appendChild(script);
-    });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    pdfjsLib = (window as any).pdfjsLib;
-  }
-  if (!pdfjsLib) throw new Error("PDF reader unavailable");
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-
-  const buf = await pdf.arrayBuffer();
-  const doc = await pdfjsLib.getDocument({ data: buf }).promise;
-  const out: File[] = [];
-  const count = Math.min(doc.numPages, limit);
-  for (let p = 1; p <= count; p++) {
-    const page = await doc.getPage(p);
-    const viewport = page.getViewport({ scale: 2 });
-    const canvas = document.createElement("canvas");
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext("2d")!;
-    await page.render({ canvasContext: ctx, viewport }).promise;
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.92),
+/** Turn an uploaded PDF into page images using the locally bundled reader —
+ *  no CDN fetch, so it still works on a weak site connection. */
+async function pdfToPageFiles(pdf: File, limit: number): Promise<File[]> {
+  const report = await renderPdfToJpegFilesDetailed(pdf, { maxPages: limit });
+  if (report.fatal) throw new Error(report.fatal);
+  if (report.pages.length === 0) {
+    throw new Error(
+      report.errors[0] || "No readable pages were found in that PDF.",
     );
-    if (blob) {
-      out.push(
-        new File([blob], `${pdf.name}-page${p}.jpg`, { type: "image/jpeg" }),
-      );
-    }
   }
-  return out;
+  return report.pages.slice(0, limit);
 }
+
+
 
 export default function JobScanReportDialog({
   jobId,
   open,
   onOpenChange,
   onSaved,
+  onReady,
 }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    onReady?.();
+    // Only on mount — the launcher just needs to know the dialog is up.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [pages, setPages] = useState<Page[]>([]);
   const [step, setStep] = useState<Step>("upload");
@@ -145,6 +128,9 @@ export default function JobScanReportDialog({
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const payloadCache = useRef<
+    Map<File, { image_base64: string; mime_type?: string }>
+  >(new Map());
 
   // Template list for the manual fallback / switcher.
   useEffect(() => {
@@ -175,6 +161,7 @@ export default function JobScanReportDialog({
       prev.forEach((p) => URL.revokeObjectURL(p.preview));
       return [];
     });
+    payloadCache.current = new Map();
     setStep("upload");
     setStatusMsg("");
     setErrorMsg(null);
@@ -192,7 +179,7 @@ export default function JobScanReportDialog({
 
   const addFiles = async (files: File[]) => {
     setErrorMsg(null);
-    const room = () => MAX_PAGES - pages.length;
+    if (files.length === 0) return;
     // Phone cameras don't always report a MIME type (and iOS may hand over
     // HEIC), so fall back to the file extension instead of silently dropping
     // the page — that looked like "nothing happened" on site.
@@ -205,31 +192,63 @@ export default function JobScanReportDialog({
     const images = files.filter((f) => !isPdf(f) && looksLikeImage(f));
     const pdfs = files.filter(isPdf);
     const ignored = files.filter((f) => !isPdf(f) && !looksLikeImage(f));
+    const empties = images.filter((f) => f.size === 0);
     if (ignored.length > 0) {
       setErrorMsg(
         `Couldn't use ${ignored.length} file(s) — add photos of the sheet or a PDF.`,
       );
+      toast({
+        title: "Some files couldn't be used",
+        description: "Add photos of the sheet (JPG/PNG) or a PDF.",
+        variant: "destructive",
+      });
+    }
+    if (empties.length > 0) {
+      toast({
+        title: "A photo came through empty",
+        description: "Please retake it — the camera didn't save an image.",
+        variant: "destructive",
+      });
     }
 
-    const next: Page[] = images
-      .slice(0, room())
-      .map((file) => ({ file, preview: URL.createObjectURL(file) }));
-    setPages((prev) => [...prev, ...next].slice(0, MAX_PAGES));
+    // Count against the live page list, not the value captured at click time:
+    // rapid taps on a slow phone used to slip past the page limit.
+    const usable = images.filter((f) => f.size > 0);
+    if (usable.length > 0) {
+      setPages((prev) => {
+        const room = Math.max(0, MAX_PAGES - prev.length);
+        if (room === 0) {
+          toast({
+            title: `Maximum ${MAX_PAGES} pages`,
+            description: "Remove a page before adding another.",
+          });
+          return prev;
+        }
+        const next = usable
+          .slice(0, room)
+          .map((file) => ({ file, preview: URL.createObjectURL(file) }));
+        return [...prev, ...next];
+      });
+    }
 
     for (const pdf of pdfs) {
       try {
         setStatusMsg("Reading PDF pages…");
         const pageFiles = await pdfToPageFiles(pdf, MAX_PAGES);
-        setPages((prev) =>
-          [
+        setPages((prev) => {
+          const room = Math.max(0, MAX_PAGES - prev.length);
+          return [
             ...prev,
-            ...pageFiles.map((file) => ({
+            ...pageFiles.slice(0, room).map((file) => ({
               file,
               preview: URL.createObjectURL(file),
             })),
-          ].slice(0, MAX_PAGES),
-        );
-      } catch {
+          ];
+        });
+      } catch (err: any) {
+        console.error("[JobScanReportDialog] pdf read failed", err);
+        const reason = err?.message ? ` (${err.message})` : "";
+        setErrorMsg(`Couldn't read that PDF${reason}.`);
         toast({
           title: "Could not read that PDF",
           description: "Photograph the sheet or upload a JPG/PNG instead.",
@@ -251,14 +270,32 @@ export default function JobScanReportDialog({
   const loadTemplateById = (id: string): TemplateRow | null =>
     allTemplates.find((t) => t.id === id) || null;
 
+  /** Convert each page once and reuse it for classify + extract — re-encoding
+   *  several phone photos twice is slow and memory-heavy on a handset. */
+  const buildPayloads = async (files: File[]) => {
+    const out: { image_base64: string; mime_type?: string }[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const cached = payloadCache.current.get(file);
+      if (cached) {
+        out.push(cached);
+        continue;
+      }
+      setStatusMsg(`Preparing page ${i + 1} of ${files.length}…`);
+      const payload = await fileToScanPayload(file);
+      const entry = {
+        image_base64: payload.image_base64,
+        mime_type: payload.mime_type,
+      };
+      payloadCache.current.set(file, entry);
+      out.push(entry);
+    }
+    return out;
+  };
+
   const extractWithTemplate = async (tpl: TemplateRow, files: File[]) => {
+    const images = await buildPayloads(files);
     setStatusMsg(`Reading the fields off the sheet (${tpl.name})…`);
-    const images = await Promise.all(
-      files.map(async (f) => ({
-        image_base64: await fileToScanBase64(f),
-        mime_type: "image/jpeg",
-      })),
-    );
     const result = await runScanExtraction({
       images,
       templateName: tpl.name,
@@ -270,36 +307,53 @@ export default function JobScanReportDialog({
     setStep("review");
   };
 
+  /** Turn whatever a failing call gives us into something an engineer can act
+   *  on — network and edge-function errors often carry no useful message. */
+  const describeError = (e: any, fallback: string): string => {
+    const raw = String(e?.message || e?.error || "").trim();
+    if (!raw) return fallback;
+    if (/failed to fetch|network|load failed|timeout|aborted/i.test(raw)) {
+      return "Lost connection while reading the sheet. Check your signal and try again — your photos are still here.";
+    }
+    return raw;
+  };
+
   const handleProcess = async () => {
     if (pages.length === 0) return;
     setStep("processing");
     setErrorMsg(null);
     setNeedsManualTemplate(false);
     try {
+      const payloads = await buildPayloads(pages.map((p) => p.file));
       setStatusMsg("Working out which report this is…");
-      const payloads = await Promise.all(
-        pages.map(async (p) => ({
-          image_base64: await fileToScanBase64(p.file),
-          mime_type: "image/jpeg",
-        })),
-      );
       const { data: cls, error: clsErr } = await supabase.functions.invoke(
         "classify-job-sheet-template",
         { body: { images: payloads } },
       );
       if (clsErr) throw new Error(clsErr.message || "Classification failed");
+      if ((cls as any)?.error) throw new Error((cls as any).error);
 
-      const candidates: Array<{ template_id: string; name?: string }> =
-        cls?.candidates || [];
-      const topId = candidates[0]?.template_id;
-      const tpl = topId ? loadTemplateById(topId) : null;
+      const candidates: Array<{
+        template_id: string;
+        name?: string;
+        confidence?: number;
+      }> = cls?.candidates || [];
+      const top = candidates[0];
+      const confident =
+        typeof top?.confidence === "number"
+          ? top.confidence >= TEMPLATE_CONFIDENCE_MIN
+          : false;
+      const tpl = top?.template_id ? loadTemplateById(top.template_id) : null;
 
-      if (!tpl) {
+      // Never guess: an unsure match goes to the engineer, not into the report.
+      if (!tpl || !confident) {
         setNeedsManualTemplate(true);
         setStep("upload");
         setStatusMsg("");
         setErrorMsg(
-          "Couldn't tell which report this is. Pick the report type below and we'll read it with that.",
+          tpl
+            ? `Not certain this is a "${tpl.name}". Confirm the report type below and we'll read it with that.`
+            : "Couldn't tell which report this is. Pick the report type below and we'll read it with that.",
         );
         return;
       }
@@ -309,10 +363,16 @@ export default function JobScanReportDialog({
       setStep("upload");
       setStatusMsg("");
       setNeedsManualTemplate(true);
-      setErrorMsg(
-        e?.message ||
-          "Couldn't read the sheet. Try a clearer, straight-on photo in good light.",
+      const msg = describeError(
+        e,
+        "Couldn't read the sheet. Try a clearer, straight-on photo in good light.",
       );
+      setErrorMsg(msg);
+      toast({
+        title: "Couldn't read the sheet",
+        description: msg,
+        variant: "destructive",
+      });
     }
   };
 
@@ -324,8 +384,19 @@ export default function JobScanReportDialog({
     try {
       await extractWithTemplate(tpl, pages.map((p) => p.file));
     } catch (e: any) {
+      console.error("[JobScanReportDialog] manual extract failed", e);
       setStep("upload");
-      setErrorMsg(e?.message || "Couldn't read the sheet with that report type.");
+      setNeedsManualTemplate(true);
+      const msg = describeError(
+        e,
+        "Couldn't read the sheet with that report type.",
+      );
+      setErrorMsg(msg);
+      toast({
+        title: "Couldn't read the sheet",
+        description: msg,
+        variant: "destructive",
+      });
     } finally {
       setStatusMsg("");
     }
@@ -365,7 +436,9 @@ export default function JobScanReportDialog({
       if (result.failedPages > 0) {
         toast({
           title: "Report saved, some pages failed",
-          description: `${result.failedPages} page(s) didn't upload. Try adding them again from Documents.`,
+          description: `${result.failedPages} page(s) didn't upload${
+            result.pageErrors[0] ? ` — ${result.pageErrors[0]}` : ""
+          }. Try adding them again from Documents.`,
           variant: "destructive",
         });
       }
@@ -378,7 +451,7 @@ export default function JobScanReportDialog({
       setStatusMsg("");
       toast({
         title: "Couldn't save",
-        description: e?.message || "Please try again.",
+        description: describeError(e, "Please try again."),
         variant: "destructive",
       });
     }
@@ -386,7 +459,7 @@ export default function JobScanReportDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-1.5rem)] sm:w-full max-w-4xl max-h-[92dvh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ScanLine className="h-5 w-5" />

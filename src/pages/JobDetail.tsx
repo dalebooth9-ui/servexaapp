@@ -174,6 +174,9 @@ export default function JobDetail() {
     if (id) sessionStorage.setItem(`job-detail-tab-${id}`, activeTab);
   }, [activeTab, id]);
 
+  // Bumped after a paper scan saves so the documents list picks it up.
+  const [scanDocsKey, setScanDocsKey] = useState(0);
+
   useUnsavedChanges(editing, "You have unsaved changes to this job. Leave without saving?");
 
   const { uploading, uploadFilesAsSubmissions } = useFileUpload({
@@ -1135,7 +1138,9 @@ export default function JobDetail() {
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
           <div className="mb-3 flex flex-wrap justify-end gap-2">
-            <Suspense fallback={null}><ScanPaperReportButton jobId={id!} /></Suspense>
+            <Suspense fallback={null}>
+              <ScanPaperReportButton jobId={id!} onSaved={() => setScanDocsKey((k) => k + 1)} />
+            </Suspense>
             <Suspense fallback={null}><ScanDocumentButton jobId={id!} /></Suspense>
 
           </div>
@@ -1155,7 +1160,7 @@ export default function JobDetail() {
               </Button>
             </div>
           )}
-          <JobDocuments jobId={id!} job={job} engineers={engineers} />
+          <JobDocuments key={scanDocsKey} jobId={id!} job={job} engineers={engineers} />
         </CollapsibleContent>
       </Collapsible>
 
