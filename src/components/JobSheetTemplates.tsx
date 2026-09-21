@@ -111,6 +111,8 @@ type JobInfo = {
   customer_phone?: string | null;
   engineers?: string[];
   site?: { name: string; address: string | null; postcode: string | null; contact_name: string | null; contact_phone: string | null; contact_email: string | null; riser_location?: string | null } | null;
+  /** dd/mm/yyyy — only present when the context came from fetchJobPrefillContext */
+  scheduledDate?: string | null;
 };
 
 export default function JobSheetTemplates({ jobId }: { jobId: string }) {
