@@ -55,6 +55,7 @@ export default function EngineerNextStepBar({
   const [ramsSignedByMe, setRamsSignedByMe] = useState<boolean>(true);
   const [sheetSubmitted, setSheetSubmitted] = useState<boolean>(false);
   const [vcOpen, setVcOpen] = useState(false);
+  const [signOpen, setSignOpen] = useState(false);
   const [acting, setActing] = useState(false);
 
   const todayStr = format(new Date(), "yyyy-MM-dd");
