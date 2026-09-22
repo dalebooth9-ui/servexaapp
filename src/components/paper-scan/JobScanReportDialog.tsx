@@ -238,8 +238,6 @@ export default function JobScanReportDialog({
     })();
   }, [open, jobId]);
 
-  const [autoRun, setAutoRun] = useState(false);
-
   const reset = useCallback(() => {
     setPages((prev) => {
       prev.forEach((p) => URL.revokeObjectURL(p.preview));
@@ -416,8 +414,12 @@ export default function JobScanReportDialog({
     return raw;
   };
 
-  const handleProcess = async () => {
-    if (pages.length === 0) {
+  const handleProcess = async (filesToProcess?: File[]) => {
+    // The camera flow passes the picked files explicitly so this can never
+    // read a stale `pages` array mid-render. The manual "Read the sheet"
+    // button omits the argument and uses whatever is currently listed.
+    const files = filesToProcess ?? pages.map((p) => p.file);
+    if (files.length === 0) {
       toast({ title: "Add a photo first", description: "Take a photo of the sheet, then try again.", variant: "destructive" });
       return;
     }
@@ -429,7 +431,7 @@ export default function JobScanReportDialog({
       // The job already knows its report type — use it rather than asking the
       // classifier to work it out from the photo.
       if (jobTemplates.length === 1) {
-        await extractWithTemplate(jobTemplates[0], pages.map((p) => p.file));
+        await extractWithTemplate(jobTemplates[0], files);
         return;
       }
       if (jobTemplates.length > 1) {
@@ -442,7 +444,7 @@ export default function JobScanReportDialog({
         return;
       }
 
-      const payloads = await buildPayloads(pages.map((p) => p.file));
+      const payloads = await buildPayloads(files);
       setStatusMsg("Working out which report this is…");
       const { data: cls, error: clsErr } = await supabase.functions.invoke(
         "classify-job-sheet-template",
@@ -475,7 +477,7 @@ export default function JobScanReportDialog({
         );
         return;
       }
-      await extractWithTemplate(tpl, pages.map((p) => p.file));
+      await extractWithTemplate(tpl, files);
     } catch (e: any) {
       console.error("[JobScanReportDialog] process failed", e);
       setStep("upload");
@@ -493,13 +495,6 @@ export default function JobScanReportDialog({
       });
     }
   };
-
-  useEffect(() => {
-    if (!autoRun) return;
-    setAutoRun(false);
-    if (pages.length > 0 && step === "upload" && !needsManualTemplate) void handleProcess();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRun, pages.length]);
 
   const handleManualTemplate = async (id: string) => {
     const tpl = loadTemplateById(id);
@@ -623,13 +618,20 @@ export default function JobScanReportDialog({
                     setStatusMsg("");
                     // Start reading straight away — engineers expected the
                     // scan to run after taking the photo, not wait for a tap.
-                    setAutoRun(true);
+                    // The picked files go in explicitly, so there is no
+                    // effect/state race that could see an empty page list.
+                    return handleProcess(picked);
                   })
                   .catch((err) => {
+                    console.error("[JobScanReportDialog] auto-process failed", err);
+                    setStep("upload");
                     setStatusMsg("");
-                    const msg = describeError(err, "Couldn't use that photo. Please retake it.");
+                    const msg = describeError(
+                      err,
+                      "Please tap 'Read the sheet' to try again.",
+                    );
                     setErrorMsg(msg);
-                    toast({ title: "Photo problem", description: msg, variant: "destructive" });
+                    toast({ title: "Couldn't process", description: msg, variant: "destructive" });
                   });
               }}
             />
