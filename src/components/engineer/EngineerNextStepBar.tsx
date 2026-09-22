@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useJobRamsStatus } from "@/hooks/useJobRamsStatus";
 import { useJobPhotoCount } from "@/hooks/useJobPhotoCount";
 import VehicleCheckSheet from "@/components/VehicleCheckSheet";
+import SignatureCapture from "@/components/SignatureCapture";
+import JobCompleteAction from "@/components/jobs/JobCompleteAction";
 
 type Props = {
   jobId: string;
@@ -165,10 +167,19 @@ export default function EngineerNextStepBar({
       case "photos":
         onNavigateTab?.("photos");
         return;
-      case "complete":
+      case "complete": {
         onNavigateTab?.("signoff");
-        setTimeout(() => scrollToId("sign-off-signatures-section"), 100);
+        // The office page has a sign-off section to scroll to; the engineer
+        // view doesn't, which used to make this button do nothing. Open the
+        // sign & complete sheet instead.
+        const el = document.getElementById("sign-off-signatures-section");
+        if (el) {
+          setTimeout(() => scrollToId("sign-off-signatures-section"), 100);
+        } else {
+          setSignOpen(true);
+        }
         return;
+      }
       case "done":
         return;
     }
@@ -196,6 +207,28 @@ export default function EngineerNextStepBar({
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Daily vehicle check</DialogTitle></DialogHeader>
           <VehicleCheckSheet onAccepted={() => { setVcOpen(false); refreshSignals(); }} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={signOpen} onOpenChange={setSignOpen}>
+        <DialogContent className="w-[calc(100vw-1.5rem)] sm:w-full max-w-lg max-h-[92dvh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader><DialogTitle>Sign & complete job</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <SignatureCapture jobId={jobId} signerRole="engineer" heading="Engineer sign-off" filterByRole />
+            <div className="border-t pt-3">
+              <SignatureCapture jobId={jobId} signerRole="customer" heading="Customer sign-off (in person)" filterByRole />
+            </div>
+            <div className="border-t pt-3">
+              <JobCompleteAction
+                jobId={jobId}
+                jobStatus={jobStatus}
+                isAssignedEngineer={isAssignedEngineer}
+                variant="inline"
+                className="w-full min-h-12"
+                onCompleted={() => { setSignOpen(false); onStatusChanged?.("completed"); }}
+              />
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </>
