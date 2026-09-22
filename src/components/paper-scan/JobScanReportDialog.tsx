@@ -738,7 +738,7 @@ export default function JobScanReportDialog({
               size="lg"
               className="w-full h-14 text-base gap-2"
               disabled={pages.length === 0}
-              onClick={handleProcess}
+              onClick={() => handleProcess()}
             >
               <ScanLine className="h-5 w-5" />
               Read the sheet
