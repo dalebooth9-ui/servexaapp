@@ -18,7 +18,7 @@ import { CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-type Variant = "sticky" | "inline" | "banner";
+type Variant = "sticky" | "inline" | "banner" | "dialog";
 
 type Props = {
   jobId: string;
@@ -28,6 +28,8 @@ type Props = {
   variant?: Variant;
   onCompleted?: () => void;
   className?: string;
+  /** Increment to open the completion dialog from elsewhere (e.g. the engineer next-step bar). */
+  openSignal?: number;
 };
 
 type DraftBlocker = {
@@ -66,6 +68,7 @@ export default function JobCompleteAction({
   variant = "inline",
   onCompleted,
   className,
+  openSignal,
 }: Props) {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
@@ -81,6 +84,10 @@ export default function JobCompleteAction({
     remedialOutstanding: 0,
     loading: true,
   });
+
+  useEffect(() => {
+    if (openSignal) setOpen(true);
+  }, [openSignal]);
 
   const canSee = userRole === "admin" || isAssignedEngineer;
   const isTerminal = TERMINAL.has(jobStatus);
@@ -214,7 +221,10 @@ export default function JobCompleteAction({
   };
 
   const handleComplete = async () => {
-    if (!user) return;
+    if (!user) {
+      toast({ title: "Couldn't complete job", description: "You're signed out — sign in again and retry.", variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
     try {
       // Auto-clear any untouched drafts that have a submitted sibling.
@@ -317,6 +327,8 @@ export default function JobCompleteAction({
       </>
     );
   }
+
+  if (variant === "dialog") return <>{renderDialog()}</>;
 
   // ── Inline button (overview) ──
   return (

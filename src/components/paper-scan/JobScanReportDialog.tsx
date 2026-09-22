@@ -238,6 +238,8 @@ export default function JobScanReportDialog({
     })();
   }, [open, jobId]);
 
+  const [autoRun, setAutoRun] = useState(false);
+
   const reset = useCallback(() => {
     setPages((prev) => {
       prev.forEach((p) => URL.revokeObjectURL(p.preview));
@@ -377,7 +379,7 @@ export default function JobScanReportDialog({
 
   const extractWithTemplate = async (tpl: TemplateRow, files: File[]) => {
     const images = await buildPayloads(files);
-    setStatusMsg(`Reading the fields off the sheet (${tpl.name})…`);
+    setStatusMsg(`Running OCR — reading the fields off the sheet (${tpl.name})…`);
     const result = await runScanExtraction({
       images,
       templateName: tpl.name,
@@ -415,7 +417,11 @@ export default function JobScanReportDialog({
   };
 
   const handleProcess = async () => {
-    if (pages.length === 0) return;
+    if (pages.length === 0) {
+      toast({ title: "Add a photo first", description: "Take a photo of the sheet, then try again.", variant: "destructive" });
+      return;
+    }
+    setStatusMsg("Processing image…");
     setStep("processing");
     setErrorMsg(null);
     setNeedsManualTemplate(false);
@@ -487,6 +493,13 @@ export default function JobScanReportDialog({
       });
     }
   };
+
+  useEffect(() => {
+    if (!autoRun) return;
+    setAutoRun(false);
+    if (pages.length > 0 && step === "upload" && !needsManualTemplate) void handleProcess();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRun, pages.length]);
 
   const handleManualTemplate = async (id: string) => {
     const tpl = loadTemplateById(id);
@@ -594,8 +607,30 @@ export default function JobScanReportDialog({
               multiple
               className="hidden"
               onChange={(e) => {
-                addFiles(Array.from(e.target.files || []));
+                const picked = Array.from(e.target.files || []);
                 e.target.value = "";
+                if (picked.length === 0) {
+                  toast({
+                    title: "No photo received",
+                    description: "The camera didn't return a picture. Please try again.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                setStatusMsg("Processing image…");
+                void addFiles(picked)
+                  .then(() => {
+                    setStatusMsg("");
+                    // Start reading straight away — engineers expected the
+                    // scan to run after taking the photo, not wait for a tap.
+                    setAutoRun(true);
+                  })
+                  .catch((err) => {
+                    setStatusMsg("");
+                    const msg = describeError(err, "Couldn't use that photo. Please retake it.");
+                    setErrorMsg(msg);
+                    toast({ title: "Photo problem", description: msg, variant: "destructive" });
+                  });
               }}
             />
             <input
