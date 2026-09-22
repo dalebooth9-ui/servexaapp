@@ -255,6 +255,9 @@ export default function JobScanReportDialog({
   }, []);
 
   const handleClose = (next: boolean) => {
+    // Never dismiss mid-process/mid-save — a stray outside tap must not
+    // interrupt an in-flight scan.
+    if (!next && (step === "processing" || step === "saving")) return;
     if (!next) reset();
     onOpenChange(next);
   };
@@ -579,7 +582,14 @@ export default function JobScanReportDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="w-[calc(100vw-1.5rem)] sm:w-full max-w-4xl max-h-[92dvh] overflow-y-auto p-4 sm:p-6">
+      <DialogContent
+        className="w-[calc(100vw-1.5rem)] sm:w-full max-w-4xl max-h-[92dvh] overflow-y-auto p-4 sm:p-6"
+        // On mobile the native camera app backgrounds the browser; when it
+        // resumes, Radix's outside-interaction listeners can fire and dismiss
+        // the dialog before the camera input's onChange runs. Block auto-dismiss.
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ScanLine className="h-5 w-5" />
