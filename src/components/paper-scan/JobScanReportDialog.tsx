@@ -475,7 +475,7 @@ export default function JobScanReportDialog({
   const describeError = (e: any, fallback: string): string => {
     const raw = String(e?.message || e?.error || "").trim();
     if (!raw) return fallback;
-    if (/failed to fetch|network|load failed|timeout|aborted/i.test(raw)) {
+    if (/failed to (fetch|send)|network|load failed|timeout|aborted|edge function/i.test(raw)) {
       return "Lost connection while reading the sheet. Check your signal and try again — your photos are still here.";
     }
     return raw;
@@ -513,10 +513,20 @@ export default function JobScanReportDialog({
 
       const payloads = await buildPayloads(files);
       setStatusMsg("Working out which report this is…");
-      const { data: cls, error: clsErr } = await supabase.functions.invoke(
+      let cls: any;
+      let clsErr: any;
+      ({ data: cls, error: clsErr } = await supabase.functions.invoke(
         "classify-job-sheet-template",
         { body: { images: payloads } },
-      );
+      ));
+      // Retry once on fetch-level failures (common on flaky mobile connections)
+      if (clsErr && /failed to (fetch|send)|edge function|load failed/i.test(String(clsErr?.message || ""))) {
+        await new Promise((r) => setTimeout(r, 1500));
+        ({ data: cls, error: clsErr } = await supabase.functions.invoke(
+          "classify-job-sheet-template",
+          { body: { images: payloads } },
+        ));
+      }
       if (clsErr) throw new Error(clsErr.message || "Classification failed");
       if ((cls as any)?.error) throw new Error((cls as any).error);
 

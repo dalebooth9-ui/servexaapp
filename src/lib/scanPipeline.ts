@@ -276,13 +276,24 @@ function toOcrFieldPayload(fields: ScanTemplateField[]) {
 export async function runScanExtraction(
   input: RunScanExtractionInput,
 ): Promise<ScanExtractionResult> {
-  const { data, error } = await supabase.functions.invoke("ocr-job-sheet", {
-    body: {
-      images: input.images,
-      template_name: input.templateName,
-      fields: toOcrFieldPayload(input.fields),
-    },
-  });
+  const invokeBody = {
+    images: input.images,
+    template_name: input.templateName,
+    fields: toOcrFieldPayload(input.fields),
+  };
+
+  let data: any;
+  let error: any;
+
+  // First attempt
+  ({ data, error } = await supabase.functions.invoke("ocr-job-sheet", { body: invokeBody }));
+
+  // Retry once on fetch-level failures (common on flaky mobile connections)
+  if (error && /failed to (fetch|send)|edge function|load failed/i.test(String(error?.message || ""))) {
+    await new Promise((r) => setTimeout(r, 1500));
+    ({ data, error } = await supabase.functions.invoke("ocr-job-sheet", { body: invokeBody }));
+  }
+
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
 
