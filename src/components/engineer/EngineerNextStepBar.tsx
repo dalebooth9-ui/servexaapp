@@ -103,6 +103,25 @@ export default function EngineerNextStepBar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, jobId, ramsStatus.documents.length, ramsStatus.required]);
 
+  // Re-evaluate the next step when reports/documents are saved (e.g. a paper
+  // scan inserting submissions + job_sheet_responses).
+  const refreshRef = { current: refreshSignals };
+  refreshRef.current = refreshSignals;
+  useEffect(() => {
+    const onSaved = () => refreshRef.current();
+    window.addEventListener("scan-saved", onSaved);
+    const channel = supabase
+      .channel(`next-step-${jobId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_sheet_responses", filter: `job_id=eq.${jobId}` }, onSaved)
+      .on("postgres_changes", { event: "*", schema: "public", table: "submissions", filter: `job_id=eq.${jobId}` }, onSaved)
+      .subscribe();
+    return () => {
+      window.removeEventListener("scan-saved", onSaved);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId, user?.id]);
+
   const step: Step = useMemo(() => {
     if (jobStatus === "completed" || jobStatus === "archived" || jobStatus === "cancelled") {
       return { key: "done", label: "Job complete", icon: <CheckCircle2 className="h-5 w-5" /> };
