@@ -1106,11 +1106,19 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
   useEffect(() => {
     const handleFillOnline = (event: Event) => {
-      const detail = (event as CustomEvent<{ jobId?: string; templateId?: string; responseId?: string; mode?: "view" | "continue" | "fill" }>).detail;
+      const detail = (event as CustomEvent<{ jobId?: string; templateId?: string; responseId?: string; mode?: "view" | "continue" | "fill"; nonce?: string; handled?: boolean }>).detail;
       if (detail?.jobId !== jobId || !detail?.templateId) return;
+      // Idempotent: callers may re-dispatch the same request while the lazy
+      // chunk loads. Only act on each nonce once.
+      if (detail.nonce && handledFillNonces.has(detail.nonce)) {
+        detail.handled = true;
+        return;
+      }
 
       const template = allTemplates.find((tpl) => tpl.id === detail.templateId);
       if (!template) return;
+      if (detail.nonce) handledFillNonces.add(detail.nonce);
+      detail.handled = true;
 
       // Prefer the explicit responseId when the caller knows which record to open
       const targeted = detail.responseId ? responses.find((r) => r.id === detail.responseId) : undefined;
