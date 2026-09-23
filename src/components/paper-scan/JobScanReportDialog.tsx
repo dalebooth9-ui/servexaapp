@@ -157,6 +157,10 @@ export default function JobScanReportDialog({
 }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
+  // Flip true once each mount-time fetch settles — the initial auto-process
+  // waits for both so it never runs against an empty job context.
+  const [templatesLoaded, setTemplatesLoaded] = useState(false);
+  const [contextLoaded, setContextLoaded] = useState(false);
 
   useEffect(() => {
     onReady?.();
@@ -208,10 +212,6 @@ export default function JobScanReportDialog({
   const [savedCount, setSavedCount] = useState(0);
   const [jobTemplates, setJobTemplates] = useState<TemplateRow[]>([]);
   const [jobInfo, setJobInfo] = useState<PrefillJobInfo | null>(null);
-  // Flip true once each mount-time fetch settles — the initial auto-process
-  // waits for both so it never runs against an empty job context.
-  const [templatesLoaded, setTemplatesLoaded] = useState(false);
-  const [contextLoaded, setContextLoaded] = useState(false);
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
