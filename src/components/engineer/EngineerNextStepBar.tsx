@@ -126,10 +126,11 @@ export default function EngineerNextStepBar({
     if (jobStatus === "completed" || jobStatus === "archived" || jobStatus === "cancelled") {
       return { key: "done", label: "Job complete", icon: <CheckCircle2 className="h-5 w-5" /> };
     }
-    if (vehicleOk === false) {
-      return { key: "vehicle", label: "Do vehicle check first", icon: <Truck className="h-5 w-5" /> };
-    }
     if (jobStatus !== "active" && jobStatus !== "in_progress") {
+      // Vehicle check gates starting a new job, not completing one already underway.
+      if (vehicleOk === false) {
+        return { key: "vehicle", label: "Do vehicle check first", icon: <Truck className="h-5 w-5" /> };
+      }
       return { key: "start", label: "Start job", icon: <Play className="h-5 w-5" /> };
     }
     if (ramsStatus.required && !ramsSignedByMe) {

@@ -6,6 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
  * photo-checklist responses, job_documents that are images). Used for the
  * badge on the Photos tab. Fast: parallel `count: 'exact', head: true`
  * requests — no rows returned.
+ *
+ * Subscribes to realtime changes on the tables that contribute to the count
+ * so the badge and the engineer next-step bar stay current without a reload.
  */
 export function useJobPhotoCount(jobId?: string) {
   const [count, setCount] = useState<number>(0);
@@ -14,7 +17,7 @@ export function useJobPhotoCount(jobId?: string) {
     if (!jobId) return;
     let cancelled = false;
 
-    (async () => {
+    const runCount = async () => {
       const [subs, defects, checklist, docs] = await Promise.all([
         supabase
           .from("submissions")
@@ -52,9 +55,33 @@ export function useJobPhotoCount(jobId?: string) {
         if (/\.(jpe?g|png|webp|gif|heic)$/.test(name)) total++;
       }
       setCount(total);
-    })();
+    };
 
-    return () => { cancelled = true; };
+    runCount();
+
+    const channel = supabase
+      .channel(`photo-count-${jobId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "submissions", filter: `job_id=eq.${jobId}` },
+        () => { runCount(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "defects", filter: `job_id=eq.${jobId}` },
+        () => { runCount(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "job_photo_checklist_responses", filter: `job_id=eq.${jobId}` },
+        () => { runCount(); },
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
   }, [jobId]);
 
   return count;
