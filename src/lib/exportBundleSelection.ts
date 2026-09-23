@@ -11,7 +11,7 @@ import type { JobPhoto } from "@/lib/jobPhotos";
 
 export type PhotoKind = "evidence" | "scanned_sheet" | "email_leftover" | "other";
 
-const SCAN_PATH_RE = /(?:paper[-_]?scans?|batch[-_]?scans?|scan[-_]?batch|ocr[-_]?source|scan_page_)/i;
+const SCAN_PATH_RE = /(?:paper[-_]?scans?|paper[-_]?report|batch[-_]?scans?|scan[-_]?batch|ocr[-_]?source|scan_page_)/i;
 const REVIEW_SUFFIX_RE = / — email attachment, review$/i;
 
 /**
@@ -117,8 +117,10 @@ export function resolvePhotoSelection(
 ): Set<string> {
   if (prefs.photoMode === "custom") {
     const set = new Set(prefs.photoIds);
-    // Drop ids that no longer exist on the job.
-    return new Set(photos.filter((p) => set.has(p.id)).map((p) => p.id));
+    // Scanned paper-report pages are never sent to the customer, even in custom mode.
+    return new Set(
+      photos.filter((p) => set.has(p.id) && classifyJobPhoto(p) !== "scanned_sheet").map((p) => p.id),
+    );
   }
   // Auto mode: recompute defaults every time.
   return new Set(
