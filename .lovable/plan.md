@@ -1,14 +1,17 @@
-# Fix mobile Scan Paper Report
+# Mobile Scan Paper Report overlay fix
 
-## What will change
-- Make the scanner dialog reliably open and fit phone screens from both job views, with a visible loading state while its code loads.
-- Harden camera and file selection for iPhone and Android images, including browsers without modern image-decoding support.
-- Trace classification and OCR through the existing scan pipeline, preserving manual report-type selection when detection is uncertain.
-- Show clear error notifications for selection, conversion, classification, OCR, and saving failures; prevent partial success from being presented as complete.
-- Verify original-page storage and digital-report saving, then exercise the full phone-sized flow.
-- Update the existing Job Detail help guide with the corrected mobile scanning and error behaviour.
+## Scope
+- Change only `src/components/paper-scan/JobScanReportDialog.tsx`.
+- Keep all scan, upload, OCR, review, save, and desktop behaviour unchanged.
 
-## Technical details
-- Keep the existing `classify-job-sheet-template` and `ocr-job-sheet` functions; no new backend function.
-- Keep scans pre-linked to the current job and retain the existing submissions plus job-sheet-response outputs.
-- Add focused tests for mobile image conversion and failure reporting where practical.
+## Implementation
+1. Extract the existing dialog header and step content into one shared content variable without altering its contents.
+2. When pre-captured `initialFiles` exist, render that content in a solid full-screen fixed overlay with no Radix Dialog primitives.
+3. Add a plain close control to the mobile overlay, hidden while processing or saving.
+4. Intercept Escape while the mobile overlay is open; prevent default behaviour and only close outside processing or saving.
+5. Keep the current Radix Dialog wrapper, sizing, and outside-interaction prevention exactly as-is for the desktop/office path.
+
+## Verification
+- Run the focused TypeScript check.
+- Confirm the mobile branch contains no Dialog primitives and the desktop branch remains unchanged.
+- Check the latest preview build result before reporting completion.
