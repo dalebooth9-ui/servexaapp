@@ -350,6 +350,15 @@ export default function JobScanReportDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobileOverlay, open, step]);
 
+  // After a successful save, briefly show the success screen then return the
+  // engineer to the (already refreshed) job page.
+  useEffect(() => {
+    if (step !== "done" || !open) return;
+    const timer = setTimeout(() => handleClose(false), 2500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, open]);
+
   const addFiles = async (files: File[]) => {
     setErrorMsg(null);
     if (files.length === 0) return;
@@ -671,6 +680,7 @@ export default function JobScanReportDialog({
       setStep("done");
       setStatusMsg("");
       onSaved?.();
+      window.dispatchEvent(new Event("scan-saved"));
     } catch (e: any) {
       console.error("[JobScanReportDialog] save failed", e);
       setStep("review");
