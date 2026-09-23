@@ -644,18 +644,35 @@ export default function JobScanReportDialog({
     }
   };
 
+  // Radix's DialogTitle/DialogDescription crash outside a <Dialog> context,
+  // so the mobile overlay gets plain equivalents with the same look.
+  const header = isMobileOverlay ? (
+    <div className="mb-2 space-y-1.5">
+      <h2 className="text-lg font-semibold flex items-center gap-2">
+        <ScanLine className="h-5 w-5" />
+        Scan Paper Report
+      </h2>
+      <p className="text-sm text-muted-foreground">
+        Photograph the completed paper sheet. It's filed on this job as a
+        document and turned into a digital report you can check first.
+      </p>
+    </div>
+  ) : (
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <ScanLine className="h-5 w-5" />
+        Scan Paper Report
+      </DialogTitle>
+      <DialogDescription>
+        Photograph the completed paper sheet. It's filed on this job as a
+        document and turned into a digital report you can check first.
+      </DialogDescription>
+    </DialogHeader>
+  );
+
   const content = (
     <>
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2">
-          <ScanLine className="h-5 w-5" />
-          Scan Paper Report
-        </DialogTitle>
-        <DialogDescription>
-          Photograph the completed paper sheet. It's filed on this job as a
-          document and turned into a digital report you can check first.
-        </DialogDescription>
-      </DialogHeader>
+      {header}
 
       {/* ── Upload ─────────────────────────────────────────────── */}
       {step === "upload" && (
