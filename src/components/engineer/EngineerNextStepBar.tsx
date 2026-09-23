@@ -26,14 +26,14 @@ type Step =
   | { key: "rams"; label: string; icon: JSX.Element }
   | { key: "remedial"; label: string; icon: JSX.Element }
   | { key: "sheet"; label: string; icon: JSX.Element }
-  | { key: "photos"; label: string; icon: JSX.Element }
+  | { key: "sheet"; label: string; icon: JSX.Element }
   | { key: "complete"; label: string; icon: JSX.Element }
   | { key: "done"; label: string; icon: JSX.Element };
 
 /**
  * Sticky "one obvious next step" bar shown to engineers on the job page.
  * Derives the primary action from job state:
- *   vehicle check → start → RAMS → remedial → job sheet → photos → complete
+ *   vehicle check → start → RAMS → remedial → job sheet → complete
  * Admin/office users don't see this bar.
  */
 export default function EngineerNextStepBar({
