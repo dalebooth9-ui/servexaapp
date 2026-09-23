@@ -646,7 +646,7 @@ export default function JobScanReportDialog({
 
   // Radix's DialogTitle/DialogDescription crash outside a <Dialog> context,
   // so the mobile overlay gets plain equivalents with the same look.
-  const header = isMobileOverlay ? (
+  const dialogHeader = isMobileOverlay ? (
     <div className="mb-2 space-y-1.5">
       <h2 className="text-lg font-semibold flex items-center gap-2">
         <ScanLine className="h-5 w-5" />
@@ -672,7 +672,7 @@ export default function JobScanReportDialog({
 
   const content = (
     <>
-      {header}
+      {dialogHeader}
 
       {/* ── Upload ─────────────────────────────────────────────── */}
       {step === "upload" && (
