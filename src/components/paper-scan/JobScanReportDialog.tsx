@@ -88,6 +88,10 @@ interface Props {
   /** Fired once the code-split dialog has mounted, so the launcher can drop
    *  its "Opening scanner…" state. */
   onReady?: () => void;
+  /** Files captured before the dialog opened (from the button's camera input).
+   *  When provided, the dialog skips the upload step and processes them
+   *  immediately on mount. */
+  initialFiles?: File[];
 }
 
 /** Turn an uploaded PDF into page images using the locally bundled reader —
@@ -149,6 +153,7 @@ export default function JobScanReportDialog({
   onOpenChange,
   onSaved,
   onReady,
+  initialFiles,
 }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -158,6 +163,38 @@ export default function JobScanReportDialog({
     // Only on mount — the launcher just needs to know the dialog is up.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // When the dialog opens with files captured BEFORE it mounted (the mobile
+  // button's camera input lives on the job page, outside any dialog), load
+  // them and start reading straight away. The files arrive as a prop, so
+  // there is no state/effect race — but we wait for the job context and the
+  // job's report types to load first, so the header pre-fill and the
+  // "use the job's own template, never guess" logic apply to this first pass.
+  const initialProcessed = useRef(false);
+  useEffect(() => {
+    if (!initialFiles?.length || initialProcessed.current) return;
+    if (!templatesLoaded || !contextLoaded) return;
+    initialProcessed.current = true;
+    const pageEntries = initialFiles
+      .slice(0, MAX_PAGES)
+      .map((file) => ({ file, preview: URL.createObjectURL(file) }));
+    setPages(pageEntries);
+    setStatusMsg("Processing image…");
+    void Promise.resolve()
+      .then(() => handleProcess(pageEntries.map((p) => p.file)))
+      .catch((err) => {
+        console.error("[JobScanReportDialog] initial auto-process failed", err);
+        setStep("upload");
+        setStatusMsg("");
+        const msg = describeError(
+          err,
+          "Please tap 'Read the sheet' to try again.",
+        );
+        setErrorMsg(msg);
+        toast({ title: "Couldn't process", description: msg, variant: "destructive" });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFiles, templatesLoaded, contextLoaded]);
 
   const [pages, setPages] = useState<Page[]>([]);
   const [step, setStep] = useState<Step>("upload");
@@ -171,6 +208,10 @@ export default function JobScanReportDialog({
   const [savedCount, setSavedCount] = useState(0);
   const [jobTemplates, setJobTemplates] = useState<TemplateRow[]>([]);
   const [jobInfo, setJobInfo] = useState<PrefillJobInfo | null>(null);
+  // Flip true once each mount-time fetch settles — the initial auto-process
+  // waits for both so it never runs against an empty job context.
+  const [templatesLoaded, setTemplatesLoaded] = useState(false);
+  const [contextLoaded, setContextLoaded] = useState(false);
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -222,7 +263,11 @@ export default function JobScanReportDialog({
         ),
       );
       setJobTemplates(ids.map((id) => rows.find((r) => r.id === id)).filter(Boolean) as TemplateRow[]);
-    })();
+    })()
+      .catch((e) => {
+        console.warn("[JobScanReportDialog] template list fetch failed", e);
+      })
+      .finally(() => setTemplatesLoaded(true));
   }, [open, jobId]);
 
   // Job context used to pre-fill the header and any blank template fields.
@@ -235,7 +280,7 @@ export default function JobScanReportDialog({
       } catch (e) {
         console.warn("[JobScanReportDialog] job context fetch failed", e);
       }
-    })();
+    })().finally(() => setContextLoaded(true));
   }, [open, jobId]);
 
   const reset = useCallback(() => {
