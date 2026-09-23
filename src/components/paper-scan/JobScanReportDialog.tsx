@@ -307,6 +307,25 @@ export default function JobScanReportDialog({
     onOpenChange(next);
   };
 
+  // Mobile (pre-captured files) overlay: the phone's back gesture reaches us
+  // as Escape. Swallow it so the overlay survives, and only close on the
+  // engineer's explicit close — never mid-scan.
+  const isMobileOverlay = Boolean(initialFiles?.length);
+  useEffect(() => {
+    if (!isMobileOverlay || !open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (step !== "processing" && step !== "saving") {
+        handleClose(false);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobileOverlay, open, step]);
+
   const addFiles = async (files: File[]) => {
     setErrorMsg(null);
     if (files.length === 0) return;
