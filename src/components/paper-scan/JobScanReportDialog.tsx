@@ -161,12 +161,31 @@ export default function JobScanReportDialog({
   // waits for both so it never runs against an empty job context.
   const [templatesLoaded, setTemplatesLoaded] = useState(false);
   const [contextLoaded, setContextLoaded] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
   useEffect(() => {
     onReady?.();
     // Only on mount — the launcher just needs to know the dialog is up.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Debug: test edge function reachability on mount. Keep the result visible
+  // in the upload screen so an engineer can report it without device logs.
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      try {
+        const { error: fnErr } = await supabase.functions.invoke("ocr-job-sheet", {
+          body: { images: [], template_name: "connectivity-test", fields: [] },
+        });
+        // Any response, including an expected validation error, proves the
+        // function was deployed and reached from this device.
+        setDebugInfo(fnErr ? `fn-reachable: err=${fnErr.message}` : "fn-reachable: ok");
+      } catch (e: any) {
+        setDebugInfo(`fn-unreachable: ${e?.name || "Error"} ${e?.message || "Unknown error"}`);
+      }
+    })();
+  }, [open]);
 
   // When the dialog opens with files captured BEFORE it mounted (the mobile
   // button's camera input lives on the job page, outside any dialog), load
@@ -195,7 +214,12 @@ export default function JobScanReportDialog({
           "Please tap 'Read the sheet' to try again.",
         );
         setErrorMsg(msg);
-        toast({ title: "Couldn't process", description: msg, variant: "destructive" });
+        toast({
+          title: "Couldn't process",
+          description: msg,
+          variant: "destructive",
+          duration: 15000,
+        });
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialFiles, templatesLoaded, contextLoaded]);
@@ -474,11 +498,15 @@ export default function JobScanReportDialog({
    *  on — network and edge-function errors often carry no useful message. */
   const describeError = (e: any, fallback: string): string => {
     const raw = String(e?.message || e?.error || "").trim();
-    if (!raw) return fallback;
+    const name = String(e?.name || "").trim();
+    const status = e?.status || e?.statusCode || "";
+    const debugInfo = [name, status, raw].filter(Boolean).join(" / ");
+
+    if (!raw) return `${fallback}${debugInfo ? ` [debug: ${debugInfo}]` : ""}`;
     if (/failed to (fetch|send)|network|load failed|timeout|aborted|edge function/i.test(raw)) {
-      return "Lost connection while reading the sheet. Check your signal and try again — your photos are still here.";
+      return `Lost connection while reading the sheet. Check your signal and try again — your photos are still here. [debug: ${debugInfo}]`;
     }
-    return raw;
+    return `${raw} [debug: ${debugInfo}]`;
   };
 
   const handleProcess = async (filesToProcess?: File[]) => {
@@ -569,6 +597,7 @@ export default function JobScanReportDialog({
         title: "Couldn't read the sheet",
         description: msg,
         variant: "destructive",
+        duration: 15000,
       });
     }
   };
@@ -807,6 +836,12 @@ export default function JobScanReportDialog({
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>{errorMsg}</span>
               </div>
+            )}
+
+            {debugInfo && (
+              <p className="text-[10px] text-muted-foreground/50 font-mono break-all">
+                {debugInfo}
+              </p>
             )}
 
             {needsManualTemplate && pages.length > 0 && (
