@@ -35,7 +35,7 @@ export default function InlineCamera({ onCapture, onCancel, maxPages = 8 }: Prop
         return;
       }
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing, width: { ideal: 2048 }, height: { ideal: 1536 } },
+        video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 960 } },
         audio: false,
       });
       streamRef.current = stream;
@@ -67,11 +67,19 @@ export default function InlineCamera({ onCapture, onCancel, maxPages = 8 }: Prop
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || !video.videoWidth) return;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+
+    // Limit capture resolution — phones can report 4K+ which creates
+    // payloads too large for mobile edge-function calls.
+    const maxDim = 1600;
+    const srcW = video.videoWidth;
+    const srcH = video.videoHeight;
+    const scale = Math.min(1, maxDim / Math.max(srcW, srcH));
+    canvas.width = Math.round(srcW * scale);
+    canvas.height = Math.round(srcH * scale);
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.drawImage(video, 0, 0);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     canvas.toBlob(
       (blob) => {
         if (!blob) return;
@@ -83,7 +91,7 @@ export default function InlineCamera({ onCapture, onCancel, maxPages = 8 }: Prop
         });
       },
       "image/jpeg",
-      0.85,
+      0.80,
     );
   };
 
