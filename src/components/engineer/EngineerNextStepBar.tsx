@@ -3,12 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Play, ShieldCheck, ClipboardList, Camera, PenLine, Truck, Loader2, CheckCircle2 } from "lucide-react";
+import { Play, ShieldCheck, ClipboardList, PenLine, Truck, Loader2, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useJobRamsStatus } from "@/hooks/useJobRamsStatus";
-import { useJobPhotoCount } from "@/hooks/useJobPhotoCount";
 import VehicleCheckSheet from "@/components/VehicleCheckSheet";
 import SignatureCapture from "@/components/SignatureCapture";
 import JobCompleteAction from "@/components/jobs/JobCompleteAction";
@@ -27,14 +26,14 @@ type Step =
   | { key: "rams"; label: string; icon: JSX.Element }
   | { key: "remedial"; label: string; icon: JSX.Element }
   | { key: "sheet"; label: string; icon: JSX.Element }
-  | { key: "photos"; label: string; icon: JSX.Element }
+  | { key: "sheet"; label: string; icon: JSX.Element }
   | { key: "complete"; label: string; icon: JSX.Element }
   | { key: "done"; label: string; icon: JSX.Element };
 
 /**
  * Sticky "one obvious next step" bar shown to engineers on the job page.
  * Derives the primary action from job state:
- *   vehicle check → start → RAMS → remedial → job sheet → photos → complete
+ *   vehicle check → start → RAMS → remedial → job sheet → complete
  * Admin/office users don't see this bar.
  */
 export default function EngineerNextStepBar({
@@ -48,7 +47,7 @@ export default function EngineerNextStepBar({
   const { toast } = useToast();
   const navigate = useNavigate();
   const ramsStatus = useJobRamsStatus(jobId);
-  const photoCount = useJobPhotoCount(jobId);
+
 
   const [vehicleOk, setVehicleOk] = useState<boolean | null>(null);
   const [remedialOutstanding, setRemedialOutstanding] = useState(0);
@@ -146,11 +145,8 @@ export default function EngineerNextStepBar({
     if (!sheetSubmitted) {
       return { key: "sheet", label: "Fill job sheet", icon: <ClipboardList className="h-5 w-5" /> };
     }
-    if (photoCount === 0) {
-      return { key: "photos", label: "Add photos", icon: <Camera className="h-5 w-5" /> };
-    }
     return { key: "complete", label: "Complete & sign", icon: <PenLine className="h-5 w-5" /> };
-  }, [jobStatus, vehicleOk, ramsStatus.required, ramsSignedByMe, remedialOutstanding, sheetSubmitted, photoCount]);
+  }, [jobStatus, vehicleOk, ramsStatus.required, ramsSignedByMe, remedialOutstanding, sheetSubmitted]);
 
   const scrollToId = (id: string) => {
     const el = document.getElementById(id);
@@ -184,9 +180,6 @@ export default function EngineerNextStepBar({
       case "sheet":
         onNavigateTab?.("overview");
         setTimeout(() => scrollToId("engineer-job-hero"), 100);
-        return;
-      case "photos":
-        onNavigateTab?.("photos");
         return;
       case "complete": {
         onNavigateTab?.("signoff");
