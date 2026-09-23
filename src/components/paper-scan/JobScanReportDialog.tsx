@@ -644,29 +644,21 @@ export default function JobScanReportDialog({
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent
-        className="w-[calc(100vw-1.5rem)] sm:w-full max-w-4xl max-h-[92dvh] overflow-y-auto p-4 sm:p-6"
-        // On mobile the native camera app backgrounds the browser; when it
-        // resumes, Radix's outside-interaction listeners can fire and dismiss
-        // the dialog before the camera input's onChange runs. Block auto-dismiss.
-        onInteractOutside={(e) => e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
-      >
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ScanLine className="h-5 w-5" />
-            Scan Paper Report
-          </DialogTitle>
-          <DialogDescription>
-            Photograph the completed paper sheet. It's filed on this job as a
-            document and turned into a digital report you can check first.
-          </DialogDescription>
-        </DialogHeader>
+  const content = (
+    <>
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <ScanLine className="h-5 w-5" />
+          Scan Paper Report
+        </DialogTitle>
+        <DialogDescription>
+          Photograph the completed paper sheet. It's filed on this job as a
+          document and turned into a digital report you can check first.
+        </DialogDescription>
+      </DialogHeader>
 
-        {/* ── Upload ─────────────────────────────────────────────── */}
-        {step === "upload" && (
+      {/* ── Upload ─────────────────────────────────────────────── */}
+      {step === "upload" && (
           <div className="space-y-4">
             <input
               ref={cameraRef}
