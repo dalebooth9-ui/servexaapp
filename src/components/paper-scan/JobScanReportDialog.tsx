@@ -879,6 +879,46 @@ export default function JobScanReportDialog({
             </div>
           </div>
         )}
+    </>
+  );
+
+  // Mobile flow (photo captured before this mounted): a plain full-screen
+  // overlay with NO Radix Dialog — no overlay dismiss listeners, no built-in
+  // close button and no Escape handling to fight the phone's camera app.
+  if (isMobileOverlay) {
+    if (!open) return null;
+    return (
+      <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
+        <div className="relative w-full min-h-full p-4 sm:p-6 max-w-4xl mx-auto">
+          {step !== "processing" && step !== "saving" && (
+            <button
+              type="button"
+              onClick={() => handleClose(false)}
+              className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 z-10"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+              <span className="sr-only">Close</span>
+            </button>
+          )}
+          {content}
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop/office flow: the normal dialog, unchanged.
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent
+        className="w-[calc(100vw-1.5rem)] sm:w-full max-w-4xl max-h-[92dvh] overflow-y-auto p-4 sm:p-6"
+        // On mobile the native camera app backgrounds the browser; when it
+        // resumes, Radix's outside-interaction listeners can fire and dismiss
+        // the dialog before the camera input's onChange runs. Block auto-dismiss.
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
+        {content}
       </DialogContent>
     </Dialog>
   );
