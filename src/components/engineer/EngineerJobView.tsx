@@ -16,10 +16,12 @@
  * mount JobSheet — which renders JobSheetTemplates — hidden alongside the
  * hero so the event has a listener without exposing the admin sheet list.
  */
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { MapPin } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MapPin, CheckCircle2, Eye } from "lucide-react";
 import EngineerJobHero from "@/components/engineer/EngineerJobHero";
 
 const JobDocuments = lazy(() => import("@/components/JobDocuments"));
@@ -36,6 +38,118 @@ const JobRamsPanel = lazy(() => import("@/components/rams/JobRamsPanel"));
 const Fallback = () => (
   <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />
 );
+
+/**
+ * ScanReportCards — "Digital report saved" cards shown in the Site documents
+ * section. After a paper scan saves, the scanned page photos land in the
+ * documents list, but the converted digital report only appears in the hero
+ * at the top of the page. These cards surface the digital report right next
+ * to the photos the engineer is looking at.
+ *
+ * Only scan-originated responses are shown (responses->_scan_source =
+ * 'paper_scan_job_page'), with a realtime subscription so a card appears the
+ * moment the scan dialog saves.
+ */
+function ScanReportCards({ jobId }: { jobId: string }) {
+  const [reports, setReports] = useState<Array<{ id: string; templateId: string; templateName: string }>>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      const { data } = await supabase
+        .from("job_sheet_responses")
+        .select("id, template_id, responses, submitted_at")
+        .eq("job_id", jobId)
+        .eq("status", "submitted");
+
+      if (cancelled) return;
+      const rows = (data as any[]) || [];
+      const scanRows = rows.filter((r) => r.responses?._scan_source === "paper_scan_job_page");
+      if (!scanRows.length) {
+        setReports([]);
+        return;
+      }
+      // Newest first
+      scanRows.sort((a, b) => String(b.submitted_at || "").localeCompare(String(a.submitted_at || "")));
+      const tplIds = Array.from(new Set(scanRows.map((r) => r.template_id).filter(Boolean)));
+      let names = new Map<string, string>();
+      if (tplIds.length) {
+        const { data: tpls } = await supabase
+          .from("job_sheet_templates")
+          .select("id, name")
+          .in("id", tplIds as string[]);
+        names = new Map(((tpls as any[]) || []).map((t) => [t.id, t.name as string]));
+      }
+      if (cancelled) return;
+      setReports(
+        scanRows.map((r) => ({
+          id: r.id,
+          templateId: r.template_id,
+          templateName: names.get(r.template_id) || "Report",
+        })),
+      );
+    };
+
+    load();
+    const channel = supabase
+      .channel(`scan-reports-${jobId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "job_sheet_responses", filter: `job_id=eq.${jobId}` },
+        () => load(),
+      )
+      .subscribe();
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [jobId]);
+
+  if (reports.length === 0) return null;
+
+  const openReport = (r: { id: string; templateId: string }) => {
+    // Same re-dispatch pattern as EngineerJobHero: the JobSheet chunk is lazy
+    // and may not have mounted its listener yet on slow mobile. The nonce
+    // makes the listener act only once.
+    const nonce = `view-${r.id}-${Date.now()}-${Math.random()}`;
+    let attempts = 0;
+    const tryDispatch = () => {
+      attempts++;
+      const detail: Record<string, unknown> = {
+        jobId,
+        templateId: r.templateId,
+        responseId: r.id,
+        mode: "view",
+        nonce,
+      };
+      window.dispatchEvent(new CustomEvent("job-sheet:fill-online", { detail }));
+      if (!detail.handled && attempts < 16) setTimeout(tryDispatch, 250);
+    };
+    setTimeout(tryDispatch, 50);
+  };
+
+  return (
+    <div className="space-y-2 mb-3">
+      {reports.map((r) => (
+        <div
+          key={r.id}
+          className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 p-3"
+        >
+          <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">Digital report saved</p>
+            <p className="text-xs text-muted-foreground truncate">{r.templateName}</p>
+          </div>
+          <Button size="sm" variant="outline" className="shrink-0 gap-1.5" onClick={() => openReport(r)}>
+            <Eye className="h-4 w-4" />
+            View report
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 type Props = {
   jobId: string;
@@ -138,13 +252,22 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
             <ScanPaperReportButton
               jobId={jobId}
               prominent
-              onSaved={() => setDocsKey((k) => k + 1)}
+              onSaved={() => {
+                setDocsKey((k) => k + 1);
+                // Scroll to the hero so the engineer sees the newly saved
+                // digital report card there.
+                setTimeout(() => {
+                  const hero = document.getElementById("engineer-job-hero");
+                  if (hero) hero.scrollIntoView({ behavior: "smooth", block: "start" });
+                }, 300);
+              }}
             />
           </Suspense>
           <p className="mt-1.5 text-xs text-muted-foreground text-center">
             Photograph a completed paper sheet — it's filed on this job and read into a digital report.
           </p>
         </div>
+        <ScanReportCards jobId={jobId} />
         <Suspense fallback={<Fallback />}>
           <JobDocuments key={docsKey} jobId={jobId} job={job} engineers={engineers} />
         </Suspense>
