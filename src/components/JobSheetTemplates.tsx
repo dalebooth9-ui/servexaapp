@@ -115,6 +115,8 @@ type JobInfo = {
   scheduledDate?: string | null;
 };
 
+const handledFillNonces = new Set<string>();
+
 export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const { user, userRole, profile } = useAuth();
   const { toast } = useToast();

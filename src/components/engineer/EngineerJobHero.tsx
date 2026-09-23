@@ -93,18 +93,20 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
 
   const openSheet = (templateId: string, response: Response) => {
     onNavigateTab?.("documents");
-    // JobSheetTemplates is mounted on the documents tab; give it a tick to mount
-    // its listener before dispatching. Bumped slightly higher than the previous
-    // 100ms to survive slow lazy-load on mobile.
     const mode: "view" | "continue" | "fill" =
       response.status === "submitted" ? "view" : response.status === "draft" ? "continue" : "fill";
-    setTimeout(() => {
-      window.dispatchEvent(
-        new CustomEvent("job-sheet:fill-online", {
-          detail: { jobId, templateId, responseId: response.id, mode },
-        }),
-      );
-    }, 250);
+    // The JobSheet chunk is lazy and may not have mounted its listener yet on
+    // slow mobile. Re-dispatch until a listener marks it handled (max ~4s).
+    // The nonce makes the listener act only once.
+    const nonce = `${templateId}-${Date.now()}-${Math.random()}`;
+    let attempts = 0;
+    const tryDispatch = () => {
+      attempts++;
+      const detail: Record<string, unknown> = { jobId, templateId, responseId: response.id, mode, nonce };
+      window.dispatchEvent(new CustomEvent("job-sheet:fill-online", { detail }));
+      if (!detail.handled && attempts < 16) setTimeout(tryDispatch, 250);
+    };
+    setTimeout(tryDispatch, 50);
   };
 
   return (
