@@ -188,7 +188,7 @@ export default function JobCompleteAction({
 
   const missingRequired: string[] = [];
   if (!readiness.engineerSig) missingRequired.push("Engineer signature");
-  if (!readiness.customerSig) missingRequired.push("Customer signature");
+  // Customer signature is informational only — the customer isn't always on site.
   if (blockingDrafts.length > 0)
     missingRequired.push(
       `${blockingDrafts.length} job form${blockingDrafts.length === 1 ? "" : "s"} still in draft`,
@@ -364,7 +364,7 @@ export default function JobCompleteAction({
                   <p className="font-medium text-foreground">Captured on this job:</p>
                   <ul className="space-y-1">
                     <ReadinessLine ok={readiness.engineerSig} label="Engineer signature" />
-                    <ReadinessLine ok={readiness.customerSig} label="Customer signature" />
+                    <ReadinessLine ok={readiness.customerSig} label="Customer signature (optional)" />
                     <ReadinessLine
                       ok={readiness.formsSubmitted > 0 && blockingDrafts.length === 0}
                       label={`Job forms — ${readiness.formsSubmitted} submitted${
