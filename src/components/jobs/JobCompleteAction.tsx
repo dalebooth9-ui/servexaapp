@@ -188,7 +188,7 @@ export default function JobCompleteAction({
 
   const missingRequired: string[] = [];
   if (!readiness.engineerSig) missingRequired.push("Engineer signature");
-  if (!readiness.customerSig) missingRequired.push("Customer signature");
+  // Customer signature is informational only — the customer isn't always on site.
   if (blockingDrafts.length > 0)
     missingRequired.push(
       `${blockingDrafts.length} job form${blockingDrafts.length === 1 ? "" : "s"} still in draft`,
