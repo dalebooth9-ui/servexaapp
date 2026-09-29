@@ -182,16 +182,7 @@ export default function EngineerNextStepBar({
         setTimeout(() => scrollToId("engineer-job-hero"), 100);
         return;
       case "complete": {
-        onNavigateTab?.("signoff");
-        // The office page has a sign-off section to scroll to; the engineer
-        // view doesn't, which used to make this button do nothing. Open the
-        // sign & complete sheet instead.
-        const el = document.getElementById("sign-off-signatures-section");
-        if (el) {
-          setTimeout(() => scrollToId("sign-off-signatures-section"), 100);
-        } else {
-          setSignOpen(true);
-        }
+        setSignOpen(true);
         return;
       }
       case "done":
