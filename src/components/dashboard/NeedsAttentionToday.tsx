@@ -134,7 +134,10 @@ export default function NeedsAttentionToday() {
       const scheduledToday = new Set((scheduledTodayRes.data || []).map((s: any) => s.job_id)).size;
 
       if (!mounted) return;
+      const { count: toCheckCount } = await supabase.from("jobs").select("id", { count: "exact", head: true }).eq("status", "submitted_for_review");
+      if (!mounted) return;
       setTiles([
+        { key: "to-check", label: "Reports to check", value: toCheckCount || 0, to: "/reports-to-check", icon: ClipboardCheck, tone: "warn" },
         { key: "overdue", label: "Overdue jobs", value: overdueRes.count || 0, to: "/jobs?view=overdue", icon: AlertTriangle, tone: "urgent" },
         { key: "review", label: "Reports awaiting review", value: awaitingReviewRes.count || 0, to: "/jobs?view=awaiting-report", icon: ClipboardCheck, tone: "warn" },
         { key: "defects", label: "Defects awaiting quote", value: defectsRes.count || 0, to: "/defects", icon: ShieldAlert, tone: "warn" },

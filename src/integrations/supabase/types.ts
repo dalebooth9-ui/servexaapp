@@ -5261,8 +5261,12 @@ export type Database = {
           job_id: string
           last_amended_at: string | null
           last_amended_by: string | null
+          locked_at: string | null
+          locked_by: string | null
           org_id: string
           responses: Json
+          returned_at: string | null
+          returned_reason: string | null
           status: string
           submitted_at: string | null
           submitted_by: string
@@ -5275,8 +5279,12 @@ export type Database = {
           job_id: string
           last_amended_at?: string | null
           last_amended_by?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
           org_id?: string
           responses?: Json
+          returned_at?: string | null
+          returned_reason?: string | null
           status?: string
           submitted_at?: string | null
           submitted_by: string
@@ -5289,8 +5297,12 @@ export type Database = {
           job_id?: string
           last_amended_at?: string | null
           last_amended_by?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
           org_id?: string
           responses?: Json
+          returned_at?: string | null
+          returned_reason?: string | null
           status?: string
           submitted_at?: string | null
           submitted_by?: string
@@ -6486,6 +6498,7 @@ export type Database = {
           ms_send_mailbox: string | null
           ms_send_mode: string
           name: string
+          office_email: string | null
           plan: string
           plan_status: string
           portal_enabled: boolean
@@ -6517,6 +6530,7 @@ export type Database = {
           ms_send_mailbox?: string | null
           ms_send_mode?: string
           name: string
+          office_email?: string | null
           plan?: string
           plan_status?: string
           portal_enabled?: boolean
@@ -6548,6 +6562,7 @@ export type Database = {
           ms_send_mailbox?: string | null
           ms_send_mode?: string
           name?: string
+          office_email?: string | null
           plan?: string
           plan_status?: string
           portal_enabled?: boolean
@@ -8426,6 +8441,71 @@ export type Database = {
             columns: ["schedule_id"]
             isOneToOne: false
             referencedRelation: "site_service_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_review_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          client_request_id: string | null
+          created_at: string
+          details: string | null
+          id: string
+          job_id: string
+          org_id: string
+          pdf_path: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          client_request_id?: string | null
+          created_at?: string
+          details?: string | null
+          id?: string
+          job_id: string
+          org_id: string
+          pdf_path?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          client_request_id?: string | null
+          created_at?: string
+          details?: string | null
+          id?: string
+          job_id?: string
+          org_id?: string
+          pdf_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_review_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_review_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_review_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_review_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
             referencedColumns: ["id"]
           },
         ]

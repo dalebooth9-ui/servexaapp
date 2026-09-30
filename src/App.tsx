@@ -40,6 +40,7 @@ const Audits = lazy(() => import("@/pages/Audits"));
 const Invoices = lazy(() => import("@/pages/Invoices"));
 const InvoiceDetail = lazy(() => import("@/pages/InvoiceDetail"));
 const Quotes = lazy(() => import("@/pages/Quotes"));
+const ReportsToCheck = lazy(() => import("@/pages/ReportsToCheck"));
 const ServiceContracts = lazy(() => import("@/pages/ServiceContracts"));
 const ContractAgreements = lazy(() => import("@/pages/ContractAgreements"));
 const ContractAgreementDetail = lazy(() => import("@/pages/ContractAgreementDetail"));
@@ -232,6 +233,7 @@ const App = () => (
               <Route path="/customers/duplicates" element={<AdminRoute><Suspense fallback={<PageFallback />}><CustomerDuplicates /></Suspense></AdminRoute>} />
               <Route path="/customers/:id" element={<AccessRoute pageSlug="customers"><CustomerDetail /></AccessRoute>} />
               <Route path="/quotes" element={<AdminRoute><Quotes /></AdminRoute>} />
+              <Route path="/reports-to-check" element={<AdminRoute><Suspense fallback={<PageFallback />}><ReportsToCheck /></Suspense></AdminRoute>} />
               <Route path="/invoices" element={<AdminRoute><Invoices /></AdminRoute>} />
               <Route path="/invoices/:id" element={<AdminRoute><InvoiceDetail /></AdminRoute>} />
               <Route path="/contracts" element={<AdminRoute><Suspense fallback={<PageFallback />}><ServiceContracts /></Suspense></AdminRoute>} />
