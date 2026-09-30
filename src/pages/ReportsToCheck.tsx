@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ClipboardCheck, Loader2, Mail, Pencil, Undo2, ExternalLink } from "lucide-react";
-import { officeReturnToEngineer, officeSendToCustomer, officeUnlockForEdit } from "@/lib/reportReview";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { officeReturnToEngineer, officeSendToCustomer, officeUnlockForEdit, type CustomerChannel } from "@/lib/reportReview";
 
 type Row = { jobId: string; ref: string; site: string; name: string; engineer: string; submittedAt: string; pdfPath: string | null };
 
@@ -20,6 +21,8 @@ export default function ReportsToCheck() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [returnOpen, setReturnOpen] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [channel, setChannel] = useState<CustomerChannel>("email");
   const [reason, setReason] = useState("");
 
   const load = async () => {
@@ -112,7 +115,7 @@ export default function ReportsToCheck() {
             <Button variant="outline" disabled={!!busy} onClick={() => open && run("edit", () => officeUnlockForEdit(open.jobId), "Report unlocked for editing")}>
               {busy === "edit" ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Pencil className="h-4 w-4 mr-1" />}Edit
             </Button>
-            <Button disabled={!!busy || !open?.pdfPath} onClick={() => open?.pdfPath && run("send", () => officeSendToCustomer(open.jobId, open.pdfPath!), "Sent to customer ✓")}>
+            <Button disabled={!!busy || !open?.pdfPath} onClick={() => setSendOpen(true)}>
               {busy === "send" ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Mail className="h-4 w-4 mr-1" />}Send to customer
             </Button>
           </div>
@@ -126,6 +129,33 @@ export default function ReportsToCheck() {
           <DialogFooter>
             <Button disabled={!reason.trim() || !!busy} onClick={() => open && run("return", () => officeReturnToEngineer(open.jobId, reason.trim()), "Returned to engineer")}>
               {busy === "return" && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}Return
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={sendOpen} onOpenChange={(o) => !busy && setSendOpen(o)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Send report to customer</DialogTitle></DialogHeader>
+          <RadioGroup value={channel} onValueChange={(v) => setChannel(v as CustomerChannel)} className="gap-3">
+            {([["email", "Email", "Sends the PDF to the site or customer contact email."],
+               ["whatsapp", "WhatsApp", "Sends the PDF to the site or customer contact phone number."],
+               ["both", "Email and WhatsApp", "Sends it both ways."]] as const).map(([v, label, hint]) => (
+              <label key={v} htmlFor={`ch-${v}`} className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer">
+                <RadioGroupItem value={v} id={`ch-${v}`} className="mt-0.5" />
+                <span><span className="font-medium block">{label}</span><span className="text-xs text-muted-foreground">{hint}</span></span>
+              </label>
+            ))}
+          </RadioGroup>
+          <DialogFooter>
+            <Button
+              disabled={!!busy || !open?.pdfPath}
+              onClick={() => open?.pdfPath && run("send", async () => {
+                await officeSendToCustomer(open.jobId, open.pdfPath!, channel);
+                setSendOpen(false);
+              }, "Sent to customer ✓")}
+            >
+              {busy === "send" ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Mail className="h-4 w-4 mr-1" />}Send
             </Button>
           </DialogFooter>
         </DialogContent>
