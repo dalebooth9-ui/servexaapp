@@ -6499,6 +6499,7 @@ export type Database = {
           ms_send_mode: string
           name: string
           office_email: string | null
+          office_whatsapp_number: string | null
           plan: string
           plan_status: string
           portal_enabled: boolean
@@ -6519,6 +6520,8 @@ export type Database = {
           trial_ends_at: string | null
           updated_at: string
           user_band: string | null
+          whatsapp_alerts_enabled: boolean
+          whatsapp_template_sid: string | null
         }
         Insert: {
           created_at?: string
@@ -6531,6 +6534,7 @@ export type Database = {
           ms_send_mode?: string
           name: string
           office_email?: string | null
+          office_whatsapp_number?: string | null
           plan?: string
           plan_status?: string
           portal_enabled?: boolean
@@ -6551,6 +6555,8 @@ export type Database = {
           trial_ends_at?: string | null
           updated_at?: string
           user_band?: string | null
+          whatsapp_alerts_enabled?: boolean
+          whatsapp_template_sid?: string | null
         }
         Update: {
           created_at?: string
@@ -6563,6 +6569,7 @@ export type Database = {
           ms_send_mode?: string
           name?: string
           office_email?: string | null
+          office_whatsapp_number?: string | null
           plan?: string
           plan_status?: string
           portal_enabled?: boolean
@@ -6583,6 +6590,8 @@ export type Database = {
           trial_ends_at?: string | null
           updated_at?: string
           user_band?: string | null
+          whatsapp_alerts_enabled?: boolean
+          whatsapp_template_sid?: string | null
         }
         Relationships: []
       }

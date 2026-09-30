@@ -71,6 +71,13 @@
       "when": 1790797499810,
       "tag": "0009_fix_locked_guard_platform_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790797803899,
+      "tag": "0010_org_whatsapp_alerts",
+      "breakpoints": true
     }
   ]
 }
