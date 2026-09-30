@@ -33,6 +33,7 @@ const JobPhotos = lazy(() => import("@/components/jobs/JobPhotos"));
 const JobSheet = lazy(() => import("@/components/JobSheet"));
 const QuickPartsList = lazy(() => import("@/components/jobs/QuickPartsList"));
 const JobRamsPanel = lazy(() => import("@/components/rams/JobRamsPanel"));
+const SubmitToOfficeBar = lazy(() => import("@/components/engineer/SubmitToOfficeBar"));
 
 
 const Fallback = () => (
@@ -235,6 +236,11 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
           <JobSheet jobId={jobId} job={job} />
         </Suspense>
       </div>
+
+      {/* Report actions — submit to office / message office */}
+      <Suspense fallback={<Fallback />}>
+        <SubmitToOfficeBar jobId={jobId} jobStatus={job?.status} canAct={isAssignedEngineer && job?.status !== "cancelled"} />
+      </Suspense>
 
       {/* RAMS — a job can carry several (one per work type); read & sign each */}
       <Suspense fallback={<Fallback />}>

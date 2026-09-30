@@ -1,3 +1,4 @@
+import OfficeEmailSettings from "@/components/settings/OfficeEmailSettings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -304,6 +305,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="email" className="space-y-6 mt-0">
+          <OfficeEmailSettings />
           <PoIntakeEmailCard />
           <EmailBrandingSettings />
           <EmailFromSettings />

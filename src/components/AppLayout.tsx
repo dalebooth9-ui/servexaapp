@@ -85,6 +85,7 @@ const NAV_GROUPS: NavGroupDef[] = [
     id: "compliance",
     label: "Compliance",
     items: [
+      { to: "/reports-to-check", label: "Reports to check", icon: ClipboardCheck, adminOnly: true },
       { to: "/defects", label: "Defects", icon: ShieldAlert, adminOnly: true },
       { to: "/defects/review", label: "Defects Review", icon: ShieldAlert, adminOnly: true },
       { to: "/rams/start", label: "RAMS", icon: Shield, adminOnly: true },
