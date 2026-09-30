@@ -112,7 +112,7 @@ export default function ReportsToCheck() {
             <Button variant="outline" disabled={!!busy} onClick={() => open && run("edit", () => officeUnlockForEdit(open.jobId), "Report unlocked for editing")}>
               {busy === "edit" ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Pencil className="h-4 w-4 mr-1" />}Edit
             </Button>
-            <Button disabled={!!busy || !open?.pdfPath} onClick={() => open?.pdfPath && run("send", () => officeSendToCustomer(open.jobId, open.pdfPath!), "Sent to customer ✓")}>
+            <Button disabled={!!busy || !open?.pdfPath} onClick={() => setSendOpen(true)}>
               {busy === "send" ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Mail className="h-4 w-4 mr-1" />}Send to customer
             </Button>
           </div>
