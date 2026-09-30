@@ -173,7 +173,13 @@ Deno.serve(async (req) => {
         emailed = r.ok;
         if (r.ok) await recordEmail([officeEmail], subject, text, html, 1);
       }
-      return json({ ok: true, emailed, officeEmailConfigured: !!officeEmail });
+      const whatsapped = await alertOffice(
+        `${ref} – ${siteName}: report submitted by ${actorName}. ${jobLink}`,
+        input.pdfPath,
+        [`${ref} – ${siteName}`, actorName, jobLink],
+      );
+      if (whatsapped) await log("report_submitted_whatsapp", `Office alerted on WhatsApp (${officeWhatsApp})`);
+      return json({ ok: true, emailed, whatsapped, officeEmailConfigured: !!officeEmail });
     }
 
     if (input.action === "message") {
