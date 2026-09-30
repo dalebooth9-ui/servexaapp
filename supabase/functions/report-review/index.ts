@@ -197,7 +197,13 @@ Deno.serve(async (req) => {
       }
       await recordEmail(officeEmail ? [officeEmail] : [], subject, input.text, html, attachments.length);
       await log("office_message", `Message to office from ${actorName}: ${input.text.slice(0, 300)}`);
-      return json({ ok: true, emailed, officeEmailConfigured: !!officeEmail });
+      const firstPhoto = input.photoPaths.find((p) => pathInOrg(p)) || null;
+      const whatsapped = await alertOffice(
+        `${ref} – ${siteName}: message from ${actorName} – ${input.text.slice(0, 500)} ${jobLink}`,
+        firstPhoto,
+        [`${ref} – ${siteName}`, actorName, input.text.slice(0, 500)],
+      );
+      return json({ ok: true, emailed, whatsapped, officeEmailConfigured: !!officeEmail });
     }
 
     if (input.action === "send_customer") {
