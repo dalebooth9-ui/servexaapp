@@ -139,6 +139,8 @@ export async function messageOffice(jobId: string, text: string, photos: File[])
   return invoke({ action: "message", jobId, text, photoPaths });
 }
 
-export const officeSendToCustomer = (jobId: string, pdfPath: string) => invoke({ action: "send_customer", jobId, pdfPath });
+export type CustomerChannel = "email" | "whatsapp" | "both";
+export const officeSendToCustomer = (jobId: string, pdfPath: string, channel: CustomerChannel = "email") =>
+  invoke({ action: "send_customer", jobId, pdfPath, channel });
 export const officeUnlockForEdit = (jobId: string) => invoke({ action: "edit", jobId });
 export const officeReturnToEngineer = (jobId: string, reason: string) => invoke({ action: "return", jobId, reason });

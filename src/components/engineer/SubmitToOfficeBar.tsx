@@ -93,7 +93,7 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
       ) : state === "queued" ? (
         <div className="flex items-center gap-3 rounded-lg border bg-muted/40 p-3">
           <Clock className="h-6 w-6 text-muted-foreground shrink-0" />
-          <div><p className="font-semibold">Queued – will send when back online</p><p className="text-xs text-muted-foreground">You can carry on; it sends by itself once you have signal.</p></div>
+          <div><p className="font-semibold">Waiting for signal</p><p className="text-xs text-muted-foreground">You can carry on; it sends by itself once you have signal.</p></div>
         </div>
       ) : (
         <Button size="lg" className="w-full min-h-14 text-base font-semibold gap-2" disabled={!canAct || state === "busy"} onClick={submit}>
