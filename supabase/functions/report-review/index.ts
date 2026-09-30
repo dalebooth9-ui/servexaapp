@@ -11,7 +11,14 @@ const APP_URL = "https://servexaapp.lovable.app";
 const Body = z.discriminatedUnion("action", [
   z.object({ action: z.literal("submit"), jobId: z.string().uuid(), pdfPath: z.string().min(1).max(500), clientRequestId: z.string().min(4).max(120) }),
   z.object({ action: z.literal("message"), jobId: z.string().uuid(), text: z.string().trim().min(1).max(5000), photoPaths: z.array(z.string().max(500)).max(6).default([]) }),
-  z.object({ action: z.literal("send_customer"), jobId: z.string().uuid(), pdfPath: z.string().min(1).max(500), toEmail: z.string().email().optional() }),
+  z.object({
+    action: z.literal("send_customer"),
+    jobId: z.string().uuid(),
+    pdfPath: z.string().min(1).max(500),
+    toEmail: z.string().email().optional(),
+    toPhone: z.string().max(32).optional(),
+    channel: z.enum(["email", "whatsapp", "both"]).default("email"),
+  }),
   z.object({ action: z.literal("edit"), jobId: z.string().uuid() }),
   z.object({ action: z.literal("return"), jobId: z.string().uuid(), reason: z.string().trim().min(1).max(2000) }),
 ]);
