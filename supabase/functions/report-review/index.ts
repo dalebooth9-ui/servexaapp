@@ -65,8 +65,13 @@ Deno.serve(async (req) => {
 
     const { data: prof } = await admin.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle();
     const actorName = (prof as any)?.full_name || user.email || "Engineer";
-    const { data: org } = await admin.from("organisations").select("office_email").eq("id", job.org_id).maybeSingle();
+    const { data: org } = await admin.from("organisations")
+      .select("office_email, office_whatsapp_number, whatsapp_alerts_enabled, whatsapp_template_sid")
+      .eq("id", job.org_id).maybeSingle();
     const officeEmail = ((org as any)?.office_email || "").trim() || null;
+    const officeWhatsApp = ((org as any)?.office_whatsapp_number || "").trim() || null;
+    const whatsappOn = (org as any)?.whatsapp_alerts_enabled === true;
+    const templateSid = ((org as any)?.whatsapp_template_sid || "").trim() || Deno.env.get("TWILIO_OFFICE_CONTENT_SID") || null;
     const site = (job as any).sites; const cust = (job as any).customers;
     const siteName = site?.name || job.address || "Site";
     const ref = job.customer_po ? `PO ${job.customer_po}` : (job.reference_number || "Job");
