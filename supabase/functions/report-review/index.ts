@@ -207,19 +207,44 @@ Deno.serve(async (req) => {
     }
 
     if (input.action === "send_customer") {
-      const to = input.toEmail || site?.contact_email || cust?.email;
-      if (!to) return json({ error: "No customer or site contact email on this job" }, 400);
       if (!pathInOrg(input.pdfPath)) return json({ error: "Invalid file path" }, 400);
+      const wantsEmail = input.channel === "email" || input.channel === "both";
+      const wantsWhatsApp = input.channel === "whatsapp" || input.channel === "both";
+      const to = input.toEmail || site?.contact_email || cust?.email || null;
+      const phone = (input.toPhone || site?.contact_phone || cust?.phone || "").trim() || null;
+      if (wantsEmail && !to) return json({ error: "No customer or site contact email on this job" }, 400);
+      if (wantsWhatsApp && !phone) return json({ error: "No customer or site contact phone number on this job" }, 400);
+
+      // PO-first reference rule: `ref` is the PO when present, otherwise the job reference.
       const subject = `${ref} – ${siteName} – Service report`;
       const greeting = site?.contact_name || cust?.name || "";
-      const html = wrapCustomerEmail(branding, { previewText: subject, senderName: actorName, bodyHtml: `<p>${greeting ? `Dear ${esc(greeting)},` : "Hello,"}</p><p>Please find attached the service report for ${esc(siteName)} (${esc(ref)}).</p>` });
-      const pdf = await download(input.pdfPath);
-      const r = await sendViaResend({ from: identity.from, reply_to: identity.reply_to, to: [to], subject, html, attachments: [{ filename: `${ref.replace(/[^\w-]+/g, "_")}-report.pdf`, content: toB64(pdf) }] });
-      if (!r.ok) return json({ error: "Email failed to send", detail: r.body }, 502);
-      await recordEmail([to], subject, `Service report sent to ${to}`, html, 1);
+      let sentEmail = false;
+      let sentWhatsApp = false;
+
+      if (wantsEmail && to) {
+        const html = wrapCustomerEmail(branding, { previewText: subject, senderName: actorName, bodyHtml: `<p>${greeting ? `Dear ${esc(greeting)},` : "Hello,"}</p><p>Please find attached the service report for ${esc(siteName)} (${esc(ref)}).</p>` });
+        const pdf = await download(input.pdfPath);
+        const r = await sendViaResend({ from: identity.from, reply_to: identity.reply_to, to: [to], subject, html, attachments: [{ filename: `${ref.replace(/[^\w-]+/g, "_")}-report.pdf`, content: toB64(pdf) }] });
+        if (!r.ok) return json({ error: "Email failed to send", detail: r.body }, 502);
+        sentEmail = true;
+        await recordEmail([to], subject, `Service report sent to ${to}`, html, 1);
+      }
+
+      if (wantsWhatsApp && phone) {
+        const media = await signedUrl(input.pdfPath);
+        const w = await sendWhatsApp(
+          phone,
+          `${greeting ? `Dear ${greeting}, ` : ""}please find the service report for ${siteName} (${ref}).`,
+          { mediaUrl: media, useTemplate: true, vars: [`${ref} – ${siteName}`, greeting || "there", siteName] },
+        );
+        if (!w.ok && !sentEmail) return json({ error: "WhatsApp failed to send", detail: w.detail }, 502);
+        sentWhatsApp = w.ok;
+      }
+
       await admin.from("jobs").update({ status: "completed" }).eq("id", job.id);
-      await log("report_sent_to_customer", `Report sent to customer (${to}) by ${actorName}`, { pdf_path: input.pdfPath });
-      return json({ ok: true, to });
+      const via = [sentEmail ? `email (${to})` : null, sentWhatsApp ? `WhatsApp (${phone})` : null].filter(Boolean).join(" and ");
+      await log("report_sent_to_customer", `Report sent to customer via ${via || "no channel"} by ${actorName}`, { pdf_path: input.pdfPath });
+      return json({ ok: true, to, phone, sentEmail, sentWhatsApp });
     }
 
     if (input.action === "edit") {
