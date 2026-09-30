@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     const input = parsed.data;
 
     const { data: job } = await admin.from("jobs")
-      .select("id, org_id, name, reference_number, customer_po, customer, address, site_id, customer_id, status, sites(name, contact_email, contact_name), customers(name, email)")
+      .select("id, org_id, name, reference_number, customer_po, customer, address, site_id, customer_id, status, sites(name, contact_email, contact_name, contact_phone), customers(name, email, phone)")
       .eq("id", input.jobId).maybeSingle();
     if (!job) return json({ error: "Job not found" }, 404);
 
