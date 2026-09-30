@@ -97,6 +97,60 @@ Deno.serve(async (req) => {
     };
     const pathInOrg = (p: string) => p.replace(/^submissions\//, "").startsWith(`${job.org_id}/`);
 
+    /** Signed https link Twilio can fetch the PDF from (7 days). */
+    const signedUrl = async (path: string) => {
+      const clean = path.replace(/^submissions\//, "");
+      const { data } = await admin.storage.from("submissions").createSignedUrl(clean, 60 * 60 * 24 * 7);
+      return data?.signedUrl || null;
+    };
+
+    /**
+     * Send a WhatsApp message via Twilio. When a Content template SID is
+     * configured we use it so the message is delivered outside Twilio's
+     * 24-hour customer-service window; otherwise we fall back to a plain body.
+     */
+    const sendWhatsApp = async (
+      to: string,
+      body: string,
+      opts: { mediaUrl?: string | null; useTemplate?: boolean; vars?: string[] } = {},
+    ): Promise<{ ok: boolean; detail?: string }> => {
+      const sid = Deno.env.get("TWILIO_ACCOUNT_SID");
+      const token = Deno.env.get("TWILIO_AUTH_TOKEN");
+      const rawFrom = Deno.env.get("TWILIO_WHATSAPP_NUMBER");
+      if (!sid || !token || !rawFrom) return { ok: false, detail: "Twilio is not configured" };
+      const params = new URLSearchParams();
+      params.set("From", rawFrom.startsWith("whatsapp:") ? rawFrom : `whatsapp:${rawFrom}`);
+      params.set("To", to.startsWith("whatsapp:") ? to : `whatsapp:${to.trim()}`);
+      if (opts.useTemplate && templateSid) {
+        params.set("ContentSid", templateSid);
+        const vars = opts.vars ?? [];
+        if (vars.length) {
+          params.set("ContentVariables", JSON.stringify(Object.fromEntries(vars.map((v, i) => [String(i + 1), v]))));
+        }
+      } else {
+        params.set("Body", body);
+      }
+      if (opts.mediaUrl) params.append("MediaUrl", opts.mediaUrl);
+      const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+        method: "POST",
+        headers: { Authorization: `Basic ${btoa(`${sid}:${token}`)}`, "Content-Type": "application/x-www-form-urlencoded" },
+        body: params.toString(),
+      });
+      if (!res.ok) {
+        const detail = await res.text();
+        console.error(`[report-review] Twilio send failed [${res.status}]: ${detail}`);
+        return { ok: false, detail };
+      }
+      return { ok: true };
+    };
+
+    const alertOffice = async (body: string, pdfPath?: string | null, vars?: string[]) => {
+      if (!whatsappOn || !officeWhatsApp) return false;
+      const media = pdfPath ? await signedUrl(pdfPath) : null;
+      const r = await sendWhatsApp(officeWhatsApp, body, { mediaUrl: media, useTemplate: true, vars });
+      return r.ok;
+    };
+
     if (input.action === "submit") {
       const { data: dup } = await admin.from("report_review_events").select("id").eq("client_request_id", input.clientRequestId).maybeSingle();
       if (dup) return json({ ok: true, duplicate: true, emailed: true });
