@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ClipboardCheck, Loader2, Mail, Pencil, Undo2, ExternalLink } from "lucide-react";
-import { officeReturnToEngineer, officeSendToCustomer, officeUnlockForEdit } from "@/lib/reportReview";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { officeReturnToEngineer, officeSendToCustomer, officeUnlockForEdit, type CustomerChannel } from "@/lib/reportReview";
 
 type Row = { jobId: string; ref: string; site: string; name: string; engineer: string; submittedAt: string; pdfPath: string | null };
 
@@ -20,6 +21,8 @@ export default function ReportsToCheck() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [returnOpen, setReturnOpen] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [channel, setChannel] = useState<CustomerChannel>("email");
   const [reason, setReason] = useState("");
 
   const load = async () => {
