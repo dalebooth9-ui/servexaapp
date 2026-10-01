@@ -26,7 +26,7 @@ export type MissingField = { responseId: string; templateId: string; templateNam
 async function loadActive(jobId: string) {
   const { data, error } = await supabase
     .from("job_sheet_responses")
-    .select("id, template_id, responses, submitted_at, status, skipped_at, job_sheet_templates(id, name, fields, branding)")
+    .select("id, template_id, responses, submitted_at, status, skipped_at, created_at, updated_at, job_sheet_templates(id, name, fields, branding)")
     .eq("job_id", jobId)
     .is("skipped_at", null)
     .in("status", ["submitted", "draft"])
@@ -36,10 +36,16 @@ async function loadActive(jobId: string) {
   const submittedTpl = new Set(rows.filter((r) => r.status === "submitted").map((r) => r.template_id));
   return rows.filter((r) =>
     r.status === "submitted" ||
-    (!submittedTpl.has(r.template_id) && isResponseStarted(r.responses, r.job_sheet_templates?.fields || [])),
+    (!submittedTpl.has(r.template_id) && wasEdited(r) && isResponseStarted(r.responses, r.job_sheet_templates?.fields || [])),
   );
 }
 const loadSubmitted = loadActive;
+// Drafts are pre-filled with job details when created, so "has answers" alone
+// isn't enough — the engineer must have saved it after creation.
+function wasEdited(r: any) {
+  if (!r.updated_at || !r.created_at) return true;
+  return new Date(r.updated_at).getTime() - new Date(r.created_at).getTime() > 5000;
+}
 
 /** Required fields left blank on forms the engineer has started. */
 export async function findMissingRequired(jobId: string): Promise<{ hasReports: boolean; missing: MissingField[] }> {
