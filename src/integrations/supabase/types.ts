@@ -5267,6 +5267,10 @@ export type Database = {
           responses: Json
           returned_at: string | null
           returned_reason: string | null
+          skip_note: string | null
+          skip_reason: string | null
+          skipped_at: string | null
+          skipped_by: string | null
           status: string
           submitted_at: string | null
           submitted_by: string
@@ -5285,6 +5289,10 @@ export type Database = {
           responses?: Json
           returned_at?: string | null
           returned_reason?: string | null
+          skip_note?: string | null
+          skip_reason?: string | null
+          skipped_at?: string | null
+          skipped_by?: string | null
           status?: string
           submitted_at?: string | null
           submitted_by: string
@@ -5303,6 +5311,10 @@ export type Database = {
           responses?: Json
           returned_at?: string | null
           returned_reason?: string | null
+          skip_note?: string | null
+          skip_reason?: string | null
+          skipped_at?: string | null
+          skipped_by?: string | null
           status?: string
           submitted_at?: string | null
           submitted_by?: string
