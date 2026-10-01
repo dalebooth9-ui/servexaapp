@@ -228,6 +228,14 @@ export async function generateJobSheetPdf(
 
   // Pre-fetch job-specific signatures (skip if jobId is not a valid UUID)
   const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
+  // Live (on-screen) report = not a scanned paper sheet. Scanned-sheet
+  // signature rules (blank when the paper row was unsigned) never apply here.
+  const isLiveReport =
+    !preloadedSignatures && !Object.keys(formData || {}).some((k) => k.startsWith("_scan_"));
+  if (isValidUuid && isLiveReport) {
+    // Never render while an on-screen signature is still uploading.
+    await waitForSignatureSaves(jobId);
+  }
   let sigData: any[] | null = null;
   if (isValidUuid) {
     const { data } = await supabase
@@ -290,18 +298,33 @@ export async function generateJobSheetPdf(
         sigImages[sig.id] = img;
         return;
       }
-      const { data } = await supabase.storage.from("signatures").createSignedUrl(sig.file_path, 3600);
-      if (!data?.signedUrl) return;
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject();
-        img.src = data.signedUrl;
-      });
-      sigImages[sig.id] = img;
+      if (!sig.file_path) return;
+      const img = await loadSignatureImage(sig.file_path);
+      if (img) sigImages[sig.id] = img;
     } catch { /* skip */ }
   }));
+
+  // Live reports must carry the signature captured on screen. If a saved
+  // signature can't be loaded, flag it to the office and stop rather than
+  // silently producing an unsigned PDF.
+  if (isValidUuid && isLiveReport) {
+    const missing = signatures.filter(
+      (s: any) => s.file_path && !s._profileSigData && !sigImages[s.id],
+    );
+    if (missing.length > 0) {
+      const who = missing.map((s: any) => `${s.signer_role}${s.signer_name ? ` (${s.signer_name})` : ""}`).join(", ");
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from("job_activity_log").insert({
+          job_id: jobId,
+          user_id: user?.id ?? null,
+          action: "signature_missing_on_pdf",
+          details: `Report PDF stopped: saved ${who} signature could not be loaded.`,
+        } as any);
+      } catch { /* best effort */ }
+      throw new Error(`The ${who} signature couldn't be loaded, so the PDF wasn't made. The office has been flagged — please try again.`);
+    }
+  }
   
 
   const doc = new jsPDF();

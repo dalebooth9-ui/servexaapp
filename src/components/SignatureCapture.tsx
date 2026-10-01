@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { PenLine, Trash2, RotateCcw, Check, ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { beginSignatureSave, endSignatureSave } from "@/lib/signatureSaveTracker";
 import {
   loadEngineerSignatureLibrary,
   findEngineerSignatureByName,
