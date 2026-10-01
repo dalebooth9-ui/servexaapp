@@ -49,7 +49,7 @@ export async function findMissingRequired(jobId: string): Promise<{ hasReports: 
     const tpl = r.job_sheet_templates;
     const fields: any[] = tpl?.fields || [];
     const data = (r.responses || {}) as Record<string, any>;
-    const omitted: string[] = Array.isArray(data._omitted_sections) ? data._omitted_sections : [];
+    const omitted: string[] = Array.isArray(data.__omitted_sections__) ? data.__omitted_sections__ : [];
     for (const f of fields) {
       if (!isFieldRequired(f)) continue;
       if (omitted.includes(f.section || "General")) continue;
