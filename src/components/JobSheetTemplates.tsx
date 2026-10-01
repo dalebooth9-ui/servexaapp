@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { isFieldRequired } from "@/lib/reportFieldRules";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -1140,7 +1141,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       // Prefer the explicit responseId when the caller knows which record to open
       const targeted = detail.responseId ? responses.find((r) => r.id === detail.responseId) : undefined;
 
-      if (targeted && targeted.status !== "submitted" && detail.mode === "continue") {
+      if (targeted && detail.focusFieldId) {
         handleStartForm(template, targeted);
         return;
       }
