@@ -1359,17 +1359,17 @@ export async function generateJobSheetPdf(
   const safeSite = siteDisplay.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
   const filenameRef = (jobInfo as any)?.customer_po || jobInfo?.reference_number || "job-sheet";
   const fileName = [filenameRef, safeSite || null, template.name.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
-  warnIfUnexpectedPdfPageSpill({ getNumberOfPages: () => mainSheetPages } as unknown as jsPDF, template.name, fileName, { jobId, photoPages: doc.getNumberOfPages() - mainSheetPages });
-  const pageCount = doc.getNumberOfPages();
-  void (() => warnIfUnexpectedPdfPageSpill)(doc, template.name, fileName, {
+  // Only the main sheet counts towards the single-page check; photo pages are expected extras.
+  warnIfUnexpectedPdfPageSpill({ getNumberOfPages: () => mainSheetPages } as unknown as jsPDF, template.name, fileName, {
     jobId,
-    bodyEndY: y,
+    photoPages: doc.getNumberOfPages() - mainSheetPages,
     signatureY: footerFlow.sigY,
     footerY: declarationH ? footerFlow.declarationFooterY : null,
     footerStackEndY: footerFlow.stackEndY,
     accreditationsRendered: accredLogosForRender.length,
     accreditationsSuppressedForSpace: accredLogos.length > 0 && accredLogosForRender.length === 0,
   });
+  const pageCount = doc.getNumberOfPages();
   const base64 = doc.output("datauristring").split(",")[1];
 
   return { base64, fileName, pageCount };
