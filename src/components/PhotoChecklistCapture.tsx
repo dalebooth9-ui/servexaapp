@@ -33,6 +33,9 @@ import jsPDF from "jspdf";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { getGpsPosition, stampPhoto } from "@/lib/photoStamp";
+import { buildDurableRef } from "@/lib/durableStorageRef";
+import { createSubmissionPhotoSignedUrl, type JobPhoto } from "@/lib/jobPhotos";
+import JobPhotoSlot from "@/components/jobs/JobPhotoSlot";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -389,38 +392,68 @@ export default function PhotoChecklistCapture({
       const selectedTemplateId = selectedTemplate?.id;
       if (!selectedTemplateId) throw new Error("Select a checklist before adding photos.");
       const stampedBlob = await stampPhoto(file, jobRef, await getGpsPosition());
-      const path = `${jobId}/checklist_${itemId}_${field}_${Date.now()}.jpg`;
-      const { error: upErr } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(path), stampedBlob, {
+      const path = await buildOrgPathAsync(`${jobId}/checklist_${itemId}_${field}_${Date.now()}.jpg`);
+      const { error: upErr } = await supabase.storage.from("submissions").upload(path, stampedBlob, {
         contentType: "image/jpeg",
       });
       if (upErr) throw upErr;
+      await savePhotoRef(itemId, field, buildDurableRef("submissions", path), selectedTemplateId);
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(prev => ({ ...prev, [key]: false }));
+    }
+  };
 
-      const clId = await ensureChecklist(selectedTemplateId);
-
-      const existing = responses[itemId];
-      const upsertData: any = {
+  const savePhotoRef = async (itemId: string, field: string, value: string | null, templateId?: string) => {
+    const selectedTemplateId = templateId || selectedTemplate?.id;
+    if (!selectedTemplateId) throw new Error("Select a checklist before adding photos.");
+    const clId = await ensureChecklist(selectedTemplateId);
+    const existing = responses[itemId];
+    if (existing?.id) {
+      const { error } = await supabase.from("job_photo_checklist_responses" as any)
+        .update({ [field]: value, captured_by: user?.id })
+        .eq("id", existing.id);
+      if (error) throw error;
+      setResponses(prev => ({ ...prev, [itemId]: { ...prev[itemId], [field]: value } }));
+      return;
+    }
+    if (!value) return;
+    const { data: newResp, error } = await supabase.from("job_photo_checklist_responses" as any)
+      .insert({
         checklist_id: clId,
         item_id: itemId,
         job_id: jobId,
         response_type: field === "photo_url" ? "photo" : "before_after",
         captured_by: user?.id,
-        ...(existing || {}),
-        [field]: path,
-      };
-      delete upsertData.id;
+        [field]: value,
+      }).select().single();
+    if (error) throw error;
+    setResponses(prev => ({ ...prev, [itemId]: { ...(newResp as unknown as Response), [field]: value } }));
+  };
 
-      if (existing?.id) {
-        await supabase.from("job_photo_checklist_responses" as any)
-          .update({ [field]: path })
-          .eq("id", existing.id);
-        setResponses(prev => ({ ...prev, [itemId]: { ...prev[itemId], [field]: path } }));
-      } else {
-        const { data: newResp } = await supabase.from("job_photo_checklist_responses" as any)
-          .insert(upsertData).select().single();
-        setResponses(prev => ({ ...prev, [itemId]: { ...(newResp as unknown as Response), [field]: path } }));
-      }
+  const linkJobPhoto = async (photo: JobPhoto, itemId: string, field: string) => {
+    const key = `${itemId}__${field}`;
+    setUploading(prev => ({ ...prev, [key]: true }));
+    try {
+      await savePhotoRef(itemId, field, buildDurableRef(photo.bucket || "submissions", photo.storagePath));
+      toast({ title: "Job photo linked" });
     } catch (err: any) {
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+      toast({ title: "Photo link failed", description: err.message, variant: "destructive" });
+      throw err;
+    } finally {
+      setUploading(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const removePhoto = async (itemId: string, field: string) => {
+    const key = `${itemId}__${field}`;
+    setUploading(prev => ({ ...prev, [key]: true }));
+    try {
+      await savePhotoRef(itemId, field, null);
+      toast({ title: "Photo removed", description: "The original job photo was not deleted." });
+    } catch (err: any) {
+      toast({ title: "Couldn't remove photo", description: err.message, variant: "destructive" });
     } finally {
       setUploading(prev => ({ ...prev, [key]: false }));
     }
@@ -448,10 +481,8 @@ export default function PhotoChecklistCapture({
     }
   };
 
-  const getSignedUrl = async (path: string): Promise<string | null> => {
-    const { data } = await supabase.storage.from("submissions").createSignedUrl(path, 3600);
-    return data?.signedUrl || null;
-  };
+  const getSignedUrl = async (path: string): Promise<string | null> =>
+    (await createSubmissionPhotoSignedUrl(path, jobId, 3600))?.signedUrl || null;
 
   const imageToBase64 = (url: string): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -821,11 +852,14 @@ export default function PhotoChecklistCapture({
                     <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
                       <span className="h-2 w-2 rounded-full bg-destructive/60 inline-block" /> BEFORE
                     </p>
-                    <PhotoCaptureButton
+                    <JobPhotoSlot
+                      jobId={jobId}
                       label="Before photo"
-                      photoUrl={responses[activeItem.id]?.before_photo_url}
-                      onCapture={f => uploadPhoto(f, activeItem.id, "before_photo_url")}
-                      uploading={!!uploading[`${activeItem.id}__before_photo_url`]}
+                      photoRef={responses[activeItem.id]?.before_photo_url}
+                      onFile={f => uploadPhoto(f, activeItem.id, "before_photo_url")}
+                      onJobPhoto={photo => linkJobPhoto(photo, activeItem.id, "before_photo_url")}
+                      onRemove={() => removePhoto(activeItem.id, "before_photo_url")}
+                      busy={!!uploading[`${activeItem.id}__before_photo_url`]}
                     />
                   </div>
                   <div>
@@ -837,11 +871,14 @@ export default function PhotoChecklistCapture({
                         </span>
                       )}
                     </p>
-                    <PhotoCaptureButton
+                    <JobPhotoSlot
+                      jobId={jobId}
                       label="After photo"
-                      photoUrl={responses[activeItem.id]?.after_photo_url}
-                      onCapture={f => uploadPhoto(f, activeItem.id, "after_photo_url")}
-                      uploading={!!uploading[`${activeItem.id}__after_photo_url`]}
+                      photoRef={responses[activeItem.id]?.after_photo_url}
+                      onFile={f => uploadPhoto(f, activeItem.id, "after_photo_url")}
+                      onJobPhoto={photo => linkJobPhoto(photo, activeItem.id, "after_photo_url")}
+                      onRemove={() => removePhoto(activeItem.id, "after_photo_url")}
+                      busy={!!uploading[`${activeItem.id}__after_photo_url`]}
                       ghostUrl={ghostAvailable && ghostEnabled ? ghostSignedUrl : null}
                       ghostOpacity={ghostOpacity}
                     />
