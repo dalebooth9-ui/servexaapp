@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,20 +6,40 @@ import { Input } from "@/components/ui/input";
 import { CheckCircle2, Clock, Loader2, MessageSquare, Send, AlertTriangle, Undo2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { drainSubmitQueue, findMissingRequired, isQueued, messageOffice, queueSubmit, submitToOffice } from "@/lib/reportReview";
+import { drainSubmitQueue, findMissingRequired, isQueued, messageOffice, queueSubmit, submitToOffice, type MissingField } from "@/lib/reportReview";
+import { useAuth } from "@/hooks/useAuth";
+import SignatureCapture from "@/components/SignatureCapture";
+import { ChevronRight, PenLine } from "lucide-react";
+
+type Group = { key: string; title: string; items: { id: string; label: string; onTap: () => void }[] };
+
+function openField(jobId: string, m: MissingField) {
+  const nonce = `focus-${m.responseId}-${m.fieldId}-${Date.now()}`;
+  let attempts = 0;
+  const tryDispatch = () => {
+    attempts++;
+    const detail: Record<string, unknown> = { jobId, templateId: m.templateId, responseId: m.responseId, mode: "continue", focusFieldId: m.fieldId, nonce };
+    window.dispatchEvent(new CustomEvent("job-sheet:fill-online", { detail }));
+    if (!detail.handled && attempts < 16) setTimeout(tryDispatch, 250);
+  };
+  setTimeout(tryDispatch, 50);
+}
 
 type Props = { jobId: string; jobStatus?: string; canAct: boolean; onStatusChanged?: (s: string) => void };
 
 export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusChanged }: Props) {
   const { toast } = useToast();
   const [state, setState] = useState<"idle" | "busy" | "sent" | "queued">(() => (isQueued(jobId) ? "queued" : "idle"));
-  const [missing, setMissing] = useState<string[]>([]);
+  const [missing, setMissing] = useState<Group[]>([]);
+  const [signOpen, setSignOpen] = useState(false);
+  const { user } = useAuth();
   const [returned, setReturned] = useState<string | null>(null);
   const [msgOpen, setMsgOpen] = useState(false);
   const [msg, setMsg] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
 
+  const submitRef = useRef<() => void>(() => {});
   const alreadySubmitted = jobStatus === "submitted_for_review";
 
   useEffect(() => {
@@ -32,7 +52,9 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
     window.addEventListener("online", onOnline);
     window.addEventListener("report-review:submitted", onDone);
     drainSubmitQueue();
-    return () => { window.removeEventListener("online", onOnline); window.removeEventListener("report-review:submitted", onDone); };
+    const onRun = () => { document.getElementById("submit-to-office")?.scrollIntoView({ behavior: "smooth", block: "center" }); submitRef.current(); };
+    window.addEventListener("submit-to-office:run", onRun);
+    return () => { window.removeEventListener("online", onOnline); window.removeEventListener("report-review:submitted", onDone); window.removeEventListener("submit-to-office:run", onRun); };
   }, [jobId, onStatusChanged]);
 
   const submit = async () => {
@@ -44,10 +66,30 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
     }
     setState("busy");
     try {
-      const check = await findMissingRequired(jobId);
-      if (!check.hasReports) { setMissing(["Fill in and submit the job report first."]); setState("idle"); return; }
-      if (check.missing.length) { setMissing(check.missing); setState("idle"); return; }
+      const [check, sigs, remed] = await Promise.all([
+        findMissingRequired(jobId),
+        supabase.from("job_signatures").select("signer_role").eq("job_id", jobId),
+        supabase.from("job_remedial_items" as any).select("id", { count: "exact", head: true }).eq("job_id", jobId).eq("status", "pending"),
+      ]);
+      const groups: Group[] = [];
+      if (!check.hasReports) groups.push({ key: "none", title: "Job report", items: [{ id: "none", label: "Fill in at least one form, or mark forms as not done on this visit", onTap: () => document.getElementById("engineer-job-hero")?.scrollIntoView({ behavior: "smooth", block: "start" }) }] });
+      const byForm = new Map<string, Group>();
+      for (const m of check.missing) {
+        const g = byForm.get(m.responseId) || { key: m.responseId, title: m.templateName, items: [] };
+        g.items.push({ id: m.fieldId, label: m.label, onTap: () => openField(jobId, m) });
+        byForm.set(m.responseId, g);
+      }
+      groups.push(...byForm.values());
+      const other: Group = { key: "other", title: "Sign-off", items: [] };
+      if (!((sigs.data as any[]) || []).some((x) => x.signer_role === "engineer")) other.items.push({ id: "sig", label: "Engineer signature", onTap: () => setSignOpen(true) });
+      if ((remed as any).count > 0) other.items.push({ id: "remed", label: `${(remed as any).count} remedial item(s) outstanding`, onTap: () => document.getElementById("engineer-remedial-hero")?.scrollIntoView({ behavior: "smooth", block: "start" }) });
+      if (other.items.length) groups.push(other);
+      if (groups.length) { setMissing(groups); setState("idle"); return; }
       setMissing([]);
+      if (user) {
+        await supabase.from("jobs").update({ completed_at: new Date().toISOString(), completed_by: user.id } as any).eq("id", jobId);
+        await supabase.from("job_visits").update({ status: "completed" }).eq("job_id", jobId).in("status", ["upcoming", "unscheduled", "overdue"]);
+      }
       const res = await submitToOffice(jobId, requestId);
       setState("sent");
       setReturned(null);
@@ -64,6 +106,8 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
     }
   };
 
+  submitRef.current = submit;
+
   const sendMessage = async () => {
     setSending(true);
     try {
@@ -78,7 +122,7 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
   const showSent = state === "sent" || (alreadySubmitted && state !== "queued");
 
   return (
-    <section className="rounded-2xl border bg-card p-4 md:p-5 shadow-sm space-y-3">
+    <section id="submit-to-office" className="rounded-2xl border bg-card p-4 md:p-5 shadow-sm space-y-3">
       {returned && !showSent && (
         <div className="flex gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
           <Undo2 className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
@@ -98,18 +142,40 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
       ) : (
         <Button size="lg" className="w-full min-h-14 text-base font-semibold gap-2" disabled={!canAct || state === "busy"} onClick={submit}>
           {state === "busy" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-          {state === "busy" ? "Sending to office…" : "Submit to office"}
+          {state === "busy" ? "Completing & sending…" : "Complete & submit to office"}
         </Button>
       )}
       {missing.length > 0 && (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm space-y-3">
           <p className="flex items-center gap-1.5 font-medium"><AlertTriangle className="h-4 w-4 text-destructive" /> Fill these in first:</p>
-          <ul className="mt-1 list-disc pl-5 text-muted-foreground">{missing.slice(0, 12).map((m) => <li key={m}>{m}</li>)}</ul>
+          {missing.map((g) => (
+            <div key={g.key}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{g.title}</p>
+              <ul className="space-y-1">
+                {g.items.slice(0, 20).map((it) => (
+                  <li key={it.id}>
+                    <button type="button" onClick={it.onTap} className="flex w-full items-center justify-between gap-2 rounded-md border bg-background px-3 py-2 min-h-11 text-left hover:bg-muted">
+                      <span>{it.label}</span><ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       )}
       <Button variant="outline" size="lg" className="w-full min-h-12 gap-2" disabled={!canAct} onClick={() => setMsgOpen(true)}>
         <MessageSquare className="h-5 w-5" /> Message office
       </Button>
+
+      <Dialog open={signOpen} onOpenChange={setSignOpen}>
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-lg max-h-[92dvh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><PenLine className="h-5 w-5" /> Sign off</DialogTitle></DialogHeader>
+          <SignatureCapture jobId={jobId} signerRole="engineer" heading="Engineer sign-off" filterByRole />
+          <div className="border-t pt-3"><SignatureCapture jobId={jobId} signerRole="customer" heading="Customer sign-off (optional)" filterByRole /></div>
+          <DialogFooter><Button className="w-full min-h-12" onClick={() => setSignOpen(false)}>Done</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={msgOpen} onOpenChange={(o) => !sending && setMsgOpen(o)}>
         <DialogContent className="w-[calc(100vw-1.5rem)] max-w-lg">
