@@ -20,7 +20,14 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardCheck, Play, Eye, FileText } from "lucide-react";
+import { ClipboardCheck, Play, Eye, FileText, Ban, Undo2, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { SKIP_REASONS, skipReasonLabel } from "@/lib/reportFieldRules";
 import JobRemedialChecklist from "@/components/jobs/JobRemedialChecklist";
 
 type Response = {
@@ -29,6 +36,9 @@ type Response = {
   status: string;
   submitted_at: string | null;
   submitted_by: string | null;
+  skipped_at?: string | null;
+  skip_reason?: string | null;
+  skip_note?: string | null;
 };
 
 type Template = { id: string; name: string; status?: string | null };
@@ -43,11 +53,42 @@ type Props = {
 export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigateTab }: Props) {
   const [rows, setRows] = useState<Array<{ response: Response; template: Template }>>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [skipFor, setSkipFor] = useState<{ response: Response; template: Template } | null>(null);
+  const [reason, setReason] = useState<string>("not_required");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const logActivity = async (action: string, details: string) => {
+    await supabase.from("job_activity_log").insert({ job_id: jobId, user_id: user?.id, action, details, org_id: jobOrgId ?? undefined } as any);
+  };
+
+  const confirmSkip = async () => {
+    if (!skipFor) return;
+    if (reason === "other" && !note.trim()) { toast({ title: "Add a short reason", variant: "destructive" }); return; }
+    setBusy(true);
+    const { error } = await supabase.from("job_sheet_responses").update({
+      skipped_at: new Date().toISOString(), skipped_by: user?.id, skip_reason: reason, skip_note: note.trim() || null,
+    } as any).eq("id", skipFor.response.id);
+    setBusy(false);
+    if (error) { toast({ title: "Couldn't mark as not done", description: error.message, variant: "destructive" }); return; }
+    await logActivity("form_skipped", `${skipFor.template.name} not done on this visit — ${skipReasonLabel(reason)}${note.trim() ? `: ${note.trim()}` : ""}`);
+    setSkipFor(null); setNote(""); setReason("not_required");
+    load();
+  };
+
+  const undoSkip = async (response: Response, template: Template) => {
+    const { error } = await supabase.from("job_sheet_responses").update({ skipped_at: null, skipped_by: null, skip_reason: null, skip_note: null } as any).eq("id", response.id);
+    if (error) { toast({ title: "Couldn't undo", description: error.message, variant: "destructive" }); return; }
+    await logActivity("form_unskipped", `${template.name} put back on this visit`);
+    load();
+  };
 
   const load = async () => {
     const { data: resps } = await supabase
       .from("job_sheet_responses")
-      .select("id, template_id, status, submitted_at, submitted_by")
+      .select("id, template_id, status, submitted_at, submitted_by, skipped_at, skip_reason, skip_note")
       .eq("job_id", jobId)
       .order("created_at", { ascending: true });
     const responses = (resps as Response[]) || [];
@@ -132,6 +173,20 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
             {rows.map(({ response, template }) => {
               const submitted = response.status === "submitted";
               const isDraft = response.status === "draft";
+              const skipped = !!response.skipped_at;
+              if (skipped) {
+                return (
+                  <div key={template.id} className="rounded-lg border border-dashed bg-muted/40 p-3 md:p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm break-words text-muted-foreground line-through">{template.name}</p>
+                      <div className="mt-1"><Badge variant="outline">Not done — {skipReasonLabel(response.skip_reason)}{response.skip_note ? `: ${response.skip_note}` : ""}</Badge></div>
+                    </div>
+                    <Button variant="ghost" className="min-h-11 gap-2" onClick={() => undoSkip(response, template)}>
+                      <Undo2 className="h-4 w-4" /> Undo
+                    </Button>
+                  </div>
+                );
+              }
               const label = submitted ? "View" : isDraft ? "Continue" : "Fill out";
               const chip = submitted ? (
                 <Badge className="bg-green-600 hover:bg-green-600">Submitted</Badge>
@@ -143,21 +198,28 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
               return (
                 <div
                   key={template.id}
-                  className="rounded-lg border bg-card p-3 md:p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+                  className="rounded-lg border bg-card p-3 md:p-4 space-y-2"
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm break-words">{template.name}</p>
-                    <div className="mt-1">{chip}</div>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm break-words">{template.name}</p>
+                      <div className="mt-1">{chip}</div>
+                    </div>
+                    <Button
+                      size="lg"
+                      variant={submitted ? "outline" : "default"}
+                      className="min-h-12 text-base font-semibold gap-2 w-full sm:w-auto"
+                      onClick={() => openSheet(template.id, response)}
+                    >
+                      {submitted ? <Eye className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+                      {label}
+                    </Button>
                   </div>
-                  <Button
-                    size="lg"
-                    variant={submitted ? "outline" : "default"}
-                    className="min-h-12 text-base font-semibold gap-2 w-full sm:w-auto"
-                    onClick={() => openSheet(template.id, response)}
-                  >
-                    {submitted ? <Eye className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-                    {label}
-                  </Button>
+                  {!submitted && (
+                    <button type="button" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground min-h-8" onClick={() => setSkipFor({ response, template })}>
+                      <Ban className="h-3.5 w-3.5" /> Not done on this visit
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -165,6 +227,26 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
         )}
       </div>
 
+
+      <Dialog open={!!skipFor} onOpenChange={(o) => !busy && !o && setSkipFor(null)}>
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md">
+          <DialogHeader><DialogTitle>Not done on this visit</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">{skipFor?.template.name} will be left out of the checks and the report. The office will see why.</p>
+          <RadioGroup value={reason} onValueChange={setReason} className="space-y-1">
+            {SKIP_REASONS.map((r) => (
+              <Label key={r.value} className="flex items-center gap-3 rounded-md border p-3 min-h-12 cursor-pointer font-normal">
+                <RadioGroupItem value={r.value} /> {r.label}
+              </Label>
+            ))}
+          </RadioGroup>
+          {reason === "other" && <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Short reason" maxLength={200} />}
+          <DialogFooter>
+            <Button className="w-full min-h-12" onClick={confirmSkip} disabled={busy}>
+              {busy && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Mark as not done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div id="engineer-remedial-hero">
         <JobRemedialChecklist
