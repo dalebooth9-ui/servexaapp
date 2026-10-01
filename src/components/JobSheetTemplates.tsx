@@ -54,6 +54,8 @@ import { buildDurableRef } from "@/lib/durableStorageRef";
 import { createSubmissionPhotoSignedUrl } from "@/lib/jobPhotos";
 import SortablePhotoGrid from "./SortablePhotoGrid";
 import { UKDateInput } from "@/components/ui/uk-date-input";
+import ReportModeSwitchDialog from "@/components/jobs/ReportModeSwitchDialog";
+import { carryAnswers, findPair, getSwitchState, logSwitch, normName, switchReasonText, type ModeSwitchState } from "@/lib/reportModeSwitch";
 
 type TemplateField = {
   id: string;
@@ -138,6 +140,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [sitePhotos, setSitePhotos] = useState<{ file: File; preview: string; caption: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [viewingResponse, setViewingResponse] = useState<Response | null>(null);
+  const [switchOpen, setSwitchOpen] = useState(false);
+  const [switchBusy, setSwitchBusy] = useState(false);
   const [aiRamsData, setAiRamsData] = useState<Record<string, any> | null>(null);
   const [jobInfo, setJobInfo] = useState<JobInfo | null>(null);
   const [scheduledDate, setScheduledDate] = useState<string>("");
@@ -1528,6 +1532,65 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
   const closeForm = () => { setActiveTemplate(null); setActiveResponse(null); setFormData({}); setViewingResponse(null); sitePhotos.forEach(p => URL.revokeObjectURL(p.preview)); setSitePhotos([]); };
 
+  // ---- Wet ↔ visual mode switch (see src/lib/reportModeSwitch.ts) ----
+  const modePair = activeTemplate && !viewingResponse ? findPair(activeTemplate.name) : null;
+  const switchState = getSwitchState(formData);
+  const findPartnerTemplate = (name: string) => {
+    const pool = allTemplates.filter((t) => normName(t.name) === name && !/retired/i.test(t.name));
+    const sameOrg = pool.filter((t: any) => t.org_id === (activeTemplate as any)?.org_id);
+    const list = sameOrg.length ? sameOrg : pool;
+    return list.find((t: any) => t.status === "published") || list[0] || null;
+  };
+  const handleModeSwitch = async (reason: string, note: string) => {
+    if (!activeTemplate || !modePair) return;
+    const toVisual = modePair.side === "full";
+    const target = findPartnerTemplate(toVisual ? modePair.pair.visualName : modePair.pair.fullName);
+    if (!target) {
+      toast({ title: "Can't switch", description: `No "${toVisual ? modePair.pair.visualLabel : modePair.pair.fullLabel}" form is set up for your organisation.`, variant: "destructive" });
+      return;
+    }
+    setSwitchBusy(true);
+    try {
+      const prev = getSwitchState(formData);
+      const state: ModeSwitchState = toVisual
+        ? { pair: modePair.pair.key, active: true, full_template_id: activeTemplate.id, visual_template_id: target.id, reason, note: note || null, switched_at: new Date().toISOString(), switched_by: user?.id || null }
+        : { ...(prev as ModeSwitchState), active: false, switched_at: new Date().toISOString(), switched_by: user?.id || null };
+      const base = await withPreservedSitePhotos(formData);
+      const payload = { ...carryAnswers(base, modePair.pair, toVisual), _mode_switch: state };
+      let resp = activeResponse;
+      if (resp) {
+        const { data, error } = await supabase.from("job_sheet_responses")
+          .update({ template_id: target.id, responses: payload as any } as any).eq("id", resp.id).select().single();
+        if (error) throw error;
+        resp = data as Response;
+      } else {
+        const { data, error } = await supabase.from("job_sheet_responses").insert({
+          job_id: jobId, template_id: target.id, responses: payload as any, submitted_by: user?.id, status: "draft",
+        } as any).select().single();
+        if (error) throw error;
+        resp = data as Response;
+      }
+      await logSwitch(
+        jobId, user?.id,
+        toVisual
+          ? `${modePair.pair.fullLabel} switched to ${modePair.pair.visualLabel.toLowerCase()}. Reason: ${switchReasonText(state)}`
+          : `Switched back from ${modePair.pair.visualLabel.toLowerCase()} to ${modePair.pair.fullLabel.toLowerCase()}`,
+        toVisual ? "report_switched_to_visual" : "report_switched_to_full",
+      );
+      clearTemplateFormDraft();
+      setActiveTemplate(target);
+      setActiveResponse(resp);
+      setFormData(payload);
+      setSwitchOpen(false);
+      toast({ title: toVisual ? `Switched to ${modePair.pair.visualLabel.toLowerCase()}` : `Switched back to ${modePair.pair.fullLabel.toLowerCase()}`, description: "All your answers, photos and defects are kept." });
+      fetchData();
+    } catch (e: any) {
+      toast({ title: "Switch failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setSwitchBusy(false);
+    }
+  };
+
   // Find the most recent RAMS response (any status) for prominent export
   const ramsTemplates = templates.filter((t) => (t as any).category === "rams");
   const ramsResponses = responses
@@ -2098,6 +2161,19 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             </div>
           </DialogHeader>
           <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
+            {modePair && (
+              <div className={`flex flex-wrap items-center gap-2 border-b px-4 py-2 text-xs ${switchState?.active ? "border-amber-300 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200" : "border-border bg-muted/40"}`}>
+                <span className="flex-1 min-w-[12rem]">
+                  {switchState?.active
+                    ? <>Visual inspection only – {modePair.pair.fullLabel.toLowerCase()} not carried out. Reason: <strong>{switchReasonText(switchState)}</strong></>
+                    : `${modePair.pair.fullLabel} can't be done? Switch this report to a ${modePair.pair.visualLabel.toLowerCase()} – nothing you've filled in is lost.`}
+                </span>
+                <Button type="button" size="sm" variant="outline" className="min-h-10 gap-1" onClick={() => setSwitchOpen(true)} disabled={switchBusy}>
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  {switchState?.active ? `Switch back to ${modePair.pair.fullLabel.toLowerCase()}` : `Switch to ${modePair.pair.visualLabel.toLowerCase()}`}
+                </Button>
+              </div>
+            )}
             {activeResponse?.status === "submitted" && userRole === "admin" && (
               <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-[11px] text-amber-900 flex items-start gap-2">
                 <Pencil className="h-3.5 w-3.5 mt-0.5 shrink-0" />
@@ -2410,6 +2486,17 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {modePair && (
+        <ReportModeSwitchDialog
+          open={switchOpen}
+          onOpenChange={setSwitchOpen}
+          toVisual={modePair.side === "full"}
+          fullLabel={modePair.pair.fullLabel}
+          busy={switchBusy}
+          onConfirm={handleModeSwitch}
+        />
+      )}
 
       {/* View response dialog */}
       <Dialog open={!!(viewingResponse && activeTemplate)} onOpenChange={(open) => { if (!open) closeForm(); }}>

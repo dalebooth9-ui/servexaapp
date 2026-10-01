@@ -7,11 +7,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { Badge } from "@/components/ui/badge";
+import VisualOnlyReportNotice from "@/components/jobs/VisualOnlyReportNotice";
+import { fetchVisualOnlyByJob } from "@/lib/reportModeSwitch";
 import { ClipboardCheck, Loader2, Mail, Pencil, Undo2, ExternalLink } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { officeReturnToEngineer, officeSendToCustomer, officeUnlockForEdit, type CustomerChannel } from "@/lib/reportReview";
 
-type Row = { jobId: string; ref: string; site: string; name: string; engineer: string; submittedAt: string; pdfPath: string | null };
+type Row = { jobId: string; ref: string; site: string; name: string; engineer: string; submittedAt: string; pdfPath: string | null; visualOnly: boolean };
 
 export default function ReportsToCheck() {
   const { toast } = useToast();
@@ -41,6 +44,7 @@ export default function ReportsToCheck() {
     const { data: profs } = actorIds.length
       ? await supabase.from("profiles").select("user_id, full_name").in("user_id", actorIds)
       : { data: [] as any[] };
+    const switched = await fetchVisualOnlyByJob(ids);
     const names = new Map((profs || []).map((p: any) => [p.user_id, p.full_name]));
     const out: Row[] = (jobs || []).map((j: any) => {
       const e = latest.get(j.id);
@@ -52,6 +56,7 @@ export default function ReportsToCheck() {
         engineer: (e && names.get(e.actor_id)) || "Engineer",
         submittedAt: e?.created_at || "",
         pdfPath: e?.pdf_path || null,
+        visualOnly: switched.has(j.id),
       };
     });
     out.sort((a, b) => a.submittedAt.localeCompare(b.submittedAt)); // oldest first
@@ -93,7 +98,8 @@ export default function ReportsToCheck() {
           {rows.map((r) => (
             <Card key={r.jobId} className="p-3 flex flex-wrap items-center gap-3 cursor-pointer hover:border-primary/60" onClick={() => openRow(r)}>
               <div className="flex-1 min-w-0">
-                <p className="font-medium truncate"><span className="font-mono">{r.ref}</span> — {r.site}</p>
+                <p className="font-medium truncate"><span className="font-mono">{r.ref}</span> — {r.site}
+                  {r.visualOnly && <Badge variant="outline" className="ml-2 border-amber-400 text-amber-800 dark:text-amber-300">Pressure test outstanding</Badge>}</p>
                 <p className="text-xs text-muted-foreground truncate">{r.name} · {r.engineer}{r.submittedAt && ` · ${format(new Date(r.submittedAt), "dd/MM/yyyy HH:mm")}`}</p>
               </div>
               <Button size="sm" variant="outline">Open</Button>
@@ -105,6 +111,7 @@ export default function ReportsToCheck() {
       <Dialog open={!!open} onOpenChange={(o) => !o && !busy && setOpen(null)}>
         <DialogContent className="max-w-5xl w-[calc(100vw-1.5rem)] h-[92dvh] flex flex-col">
           <DialogHeader><DialogTitle>{open?.ref} — {open?.site}</DialogTitle></DialogHeader>
+          {open?.visualOnly && <VisualOnlyReportNotice jobId={open.jobId} />}
           <div className="flex-1 min-h-0 rounded border bg-muted/30">
             {pdfUrl ? <iframe src={pdfUrl} title="Report PDF" className="w-full h-full rounded" />
               : <div className="h-full flex items-center justify-center text-sm text-muted-foreground">{open?.pdfPath ? "Loading PDF…" : "No PDF on file"}</div>}

@@ -25,3 +25,6 @@
 - [x] Per-photo "Include on report" selection (default on); excluded stay on job for office
 - [x] Auto-fill empty before/after slots (first/latest of visit) with "Auto" tag; never overwrite manual
 - [x] PDF: 2-per-row grid with time taken; single-sheet reports keep photos on a separate page
+
+## Dry riser pressure → visual switch
+- [x] Switch button + reason, data kept both ways, PDF notice, office tag/return visit/invoice warning, timeline log

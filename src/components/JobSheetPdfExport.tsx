@@ -11,6 +11,7 @@ import { loadWatermarkImage } from "@/lib/pdfWatermark";
 import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { renderPdfHeader } from "@/lib/pdfHeader";
+import { pdfSwitchLine } from "@/lib/reportModeSwitch";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
 import { computePdfFooterFlow, renderPdfSignatures, renderPdfFooter, getDefaultFooterText, resolveAccreditationLogoHeight } from "@/lib/pdfFooter";
@@ -538,6 +539,24 @@ export async function generateJobSheetPdf(
         }
       : undefined,
   });
+
+  // --- Visual-only switch notice (src/lib/reportModeSwitch.ts) ----------
+  const switchLine = pdfSwitchLine(formData);
+  if (switchLine) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    const lines = doc.splitTextToSize(switchLine, maxWidth - 6) as string[];
+    const boxH = 3 + lines.length * 3.8;
+    doc.setFillColor(255, 243, 205);
+    doc.setDrawColor(200, 140, 0);
+    doc.setLineWidth(0.3);
+    doc.rect(margin, y, maxWidth, boxH, "FD");
+    doc.setTextColor(120, 70, 0);
+    lines.forEach((ln, i) => doc.text(ln, margin + 3, y + 4.2 + i * 3.8));
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "normal");
+    y += boxH + 2;
+  }
 
   // --- Customer summary block (AI-drafted, office-editable) --------------
   // Rendered only when a summary has been saved onto the report answers under
