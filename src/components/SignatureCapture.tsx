@@ -269,6 +269,7 @@ export default function SignatureCapture({
       return;
     }
     setSaving(true);
+    beginSignatureSave(jobId);
 
     try {
       let resolvedName = customerName.trim();
@@ -326,6 +327,7 @@ export default function SignatureCapture({
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
+      endSignatureSave(jobId);
       setSaving(false);
     }
   };
@@ -359,6 +361,7 @@ export default function SignatureCapture({
   const handleUseSaved = async () => {
     if (!user || !savedSig) return;
     setSaving(true);
+    beginSignatureSave(jobId);
     try {
       const signed = await signedUrlForEngineerSignature(savedSig.file_path);
       if (!signed) throw new Error("Could not access saved signature");
@@ -399,6 +402,7 @@ export default function SignatureCapture({
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
+      endSignatureSave(jobId);
       setSaving(false);
     }
   };
