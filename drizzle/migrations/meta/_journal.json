@@ -85,6 +85,13 @@
       "when": 1790860711483,
       "tag": "0011_job_sheet_response_skip",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790864875410,
+      "tag": "0012_photo_slot_auto_fill",
+      "breakpoints": true
     }
   ]
 }

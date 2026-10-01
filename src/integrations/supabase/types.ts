@@ -4885,6 +4885,8 @@ export type Database = {
       job_photo_checklist_responses: {
         Row: {
           after_photo_url: string | null
+          auto_fill_dismissed: string[]
+          auto_filled_fields: string[]
           before_photo_url: string | null
           captured_at: string
           captured_by: string | null
@@ -4902,6 +4904,8 @@ export type Database = {
         }
         Insert: {
           after_photo_url?: string | null
+          auto_fill_dismissed?: string[]
+          auto_filled_fields?: string[]
           before_photo_url?: string | null
           captured_at?: string
           captured_by?: string | null
@@ -4919,6 +4923,8 @@ export type Database = {
         }
         Update: {
           after_photo_url?: string | null
+          auto_fill_dismissed?: string[]
+          auto_filled_fields?: string[]
           before_photo_url?: string | null
           captured_at?: string
           captured_by?: string | null
