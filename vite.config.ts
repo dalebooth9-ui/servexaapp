@@ -100,10 +100,13 @@ export default defineConfig(({ mode }) => ({
             urlPattern: ({ url }) => /supabase\.co\/storage\/v1\/object\//.test(url.href),
             handler: "CacheFirst",
             options: {
-              cacheName: "servexa-storage-images",
+              // v2: old cache held opaque copies that broke PDF signature loads.
+              cacheName: "servexa-storage-images-v2",
               matchOptions: { ignoreSearch: true },
               expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 },
-              cacheableResponse: { statuses: [0, 200] },
+              // Never cache opaque (status 0) responses — they can't be read
+              // by later CORS requests (PDF generators), which then fail.
+              cacheableResponse: { statuses: [200] },
             },
           },
           // Images — CacheFirst with size cap
