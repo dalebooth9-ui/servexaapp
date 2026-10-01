@@ -2182,6 +2182,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               );
             })}
 
+            {/* Auto site photos from the job — per-photo include toggle */}
+            <div className="px-3 py-3 border-t border-border">
+              <ReportSitePhotos
+                jobId={jobId}
+                excluded={Array.isArray(formData._site_photo_excluded) ? formData._site_photo_excluded : []}
+                onChange={(next) => setFormData((prev) => ({ ...prev, _site_photo_excluded: next }))}
+              />
+            </div>
+
             {/* Site Photos Drop Zone */}
             <div className="px-3 py-3 border-t border-border">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
