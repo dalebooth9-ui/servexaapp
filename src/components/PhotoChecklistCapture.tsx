@@ -847,7 +847,7 @@ export default function PhotoChecklistCapture({
                     onOpacityChange={setGhostOpacity}
                   />
                 )}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3">
                   <div>
                     <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
                       <span className="h-2 w-2 rounded-full bg-destructive/60 inline-block" /> BEFORE
