@@ -52,6 +52,7 @@ import { useJobPhotoCount } from "@/hooks/useJobPhotoCount";
 import JobCompleteAction from "@/components/jobs/JobCompleteAction";
 import JobRemedialChecklist from "@/components/jobs/JobRemedialChecklist";
 import JobTemplateMismatchBanner from "@/components/jobs/JobTemplateMismatchBanner";
+import VisualOnlyReportNotice from "@/components/jobs/VisualOnlyReportNotice";
 import { Switch } from "@/components/ui/switch";
 import { Wrench, ClipboardPlus } from "lucide-react";
 
@@ -1230,6 +1231,7 @@ export default function JobDetail() {
               onDrafted={fetchData}
             />
           )}
+          <VisualOnlyReportNotice jobId={id!} />
           <RamsRequiredBanner jobId={id!} status={ramsStatus} />
           <JobRamsPanel
             jobId={id!}
