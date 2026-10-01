@@ -88,10 +88,11 @@ export default function JobPhotoSlot({
 
       {photoRef ? (
         <>
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => signedUrl && setPreviewOpen(true)}
-            className="relative h-36 w-full overflow-hidden rounded-md border bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="relative h-36 w-full overflow-hidden rounded-md border bg-muted p-0"
             aria-label={`View ${label.toLowerCase()} full size`}
           >
             {busy ? (
@@ -106,7 +107,7 @@ export default function JobPhotoSlot({
                 <img src={ghostUrl} alt="Before reference overlay" className="h-full w-full object-cover" />
               </span>
             )}
-          </button>
+          </Button>
           {canEdit && (
             <div className="grid grid-cols-2 gap-2">
               <Button type="button" variant="outline" className="min-h-12 gap-2" disabled={busy} onClick={() => setReplaceOpen(true)}>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, Image as ImageIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fetchJobPhotoMeta, createSubmissionPhotoSignedUrl, type JobPhoto } from "@/lib/jobPhotos";
 
@@ -12,7 +13,7 @@ type Props = {
   onSelect: (photo: JobPhoto) => void | Promise<void>;
 };
 
-const IMAGE_NAME_RE = /\.(?:jpe?g|png|webp|gif|heic|heif)(?:\?|$)/i;
+const NON_IMAGE_NAME_RE = /\.(?:mp4|mov|webm|avi|mkv|m4v|mp3|m4a|wav|ogg|oga|aac|weba|pdf|docx?)(?:\?|$)/i;
 
 export default function JobPhotoPickerDialog({ jobId, open, onOpenChange, onSelect }: Props) {
   const [photos, setPhotos] = useState<PickerPhoto[]>([]);
@@ -23,7 +24,7 @@ export default function JobPhotoPickerDialog({ jobId, open, onOpenChange, onSele
     setLoading(true);
     try {
       const meta = (await fetchJobPhotoMeta(jobId))
-        .filter((photo) => IMAGE_NAME_RE.test(photo.fileName || photo.storagePath))
+        .filter((photo) => !NON_IMAGE_NAME_RE.test(photo.fileName || photo.storagePath))
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       const resolved = await Promise.all(
         meta.map(async (photo) => ({
@@ -73,12 +74,13 @@ export default function JobPhotoPickerDialog({ jobId, open, onOpenChange, onSele
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {photos.map((photo) => (
-              <button
+              <Button
                 key={photo.id}
                 type="button"
+                variant="ghost"
                 disabled={!!selectingId || !photo.signedUrl}
                 onClick={() => void choose(photo)}
-                className="relative aspect-square min-h-28 overflow-hidden rounded-md border bg-muted text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                className="relative aspect-square h-auto min-h-28 overflow-hidden rounded-md border bg-muted p-0 text-left"
                 aria-label={`Use ${photo.caption || photo.fileName}`}
               >
                 {photo.signedUrl ? (
@@ -89,7 +91,7 @@ export default function JobPhotoPickerDialog({ jobId, open, onOpenChange, onSele
                 <span className="absolute inset-x-0 bottom-0 bg-foreground/80 px-2 py-1.5 text-xs text-background line-clamp-2">
                   {selectingId === photo.id ? "Using photo…" : photo.caption || photo.fileName}
                 </span>
-              </button>
+              </Button>
             ))}
           </div>
         )}

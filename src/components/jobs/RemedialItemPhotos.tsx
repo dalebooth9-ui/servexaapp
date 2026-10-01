@@ -15,7 +15,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { compressImageForUpload } from "@/lib/imageCompress";
-import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
 import { buildDurableRef } from "@/lib/durableStorageRef";
 import type { JobPhoto } from "@/lib/jobPhotos";
 import JobPhotoSlot from "@/components/jobs/JobPhotoSlot";
@@ -34,7 +33,6 @@ export default function RemedialItemPhotos({ jobId, jobOrgId, itemId, canEdit }:
   const { user } = useAuth();
   const { toast } = useToast();
   const [paths, setPaths] = useState<{ before: string | null; after: string | null }>({ before: null, after: null });
-  const [urls, setUrls] = useState<{ before: string | null; after: string | null }>({ before: null, after: null });
   const [uploading, setUploading] = useState<Slot | null>(null);
 
   const load = useCallback(async () => {
@@ -48,33 +46,6 @@ export default function RemedialItemPhotos({ jobId, jobOrgId, itemId, canEdit }:
   }, [itemId]);
 
   useEffect(() => { load(); }, [load]);
-
-  // Older rows stored the path without the org prefix while the object was
-  // uploaded with it — try both so historic photos still resolve.
-  const signPath = useCallback(async (p: string): Promise<string | null> => {
-    const { data } = await supabase.storage.from("submissions").createSignedUrl(p, 3600);
-    if (data?.signedUrl) return data.signedUrl;
-    const scoped = await buildOrgPathAsync(p);
-    if (scoped === p) return null;
-    const retry = await supabase.storage.from("submissions").createSignedUrl(scoped, 3600);
-    return retry.data?.signedUrl || null;
-  }, []);
-
-  const refreshUrls = useCallback(async () => {
-    const next: { before: string | null; after: string | null } = { before: null, after: null };
-    for (const slot of ["before", "after"] as Slot[]) {
-      const p = paths[slot];
-      if (!p) continue;
-      next[slot] = await signPath(p);
-    }
-    setUrls(next);
-  }, [paths.before, paths.after, signPath]);
-
-  useEffect(() => { void refreshUrls(); }, [refreshUrls]);
-
-  // Signed URLs minted with no signal never arrive — retry once the engineer
-  // is back on a usable connection.
-  useReconnectRefresh(() => { void load(); void refreshUrls(); });
 
   const resolveOrgId = async (): Promise<string | null> => {
     if (jobOrgId) return jobOrgId;
