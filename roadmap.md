@@ -19,3 +19,9 @@
 - [x] Add view, replace and confirmed remove actions to report and remedial before/after slots.
 - [x] Ensure linked/replaced slot photos refresh report data immediately and update Help & guides.
 - [x] Verify the engineer flow at phone/tablet sizes and confirm the preview build.
+
+## Auto site photos on online report
+- [ ] "Site photos" section on online report + PDF, all job photos in order taken, live updates
+- [ ] Per-photo "Include on report" selection (default on); excluded stay on job for office
+- [ ] Auto-fill empty before/after slots (first/latest of visit) with "Auto" tag; never overwrite manual
+- [ ] PDF: 2-per-row grid with time taken; single-sheet reports keep photos on a separate page
