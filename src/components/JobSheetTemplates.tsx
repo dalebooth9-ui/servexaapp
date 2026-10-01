@@ -2487,6 +2487,17 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         </DialogContent>
       </Dialog>
 
+      {modePair && (
+        <ReportModeSwitchDialog
+          open={switchOpen}
+          onOpenChange={setSwitchOpen}
+          toVisual={modePair.side === "full"}
+          fullLabel={modePair.pair.fullLabel}
+          busy={switchBusy}
+          onConfirm={handleModeSwitch}
+        />
+      )}
+
       {/* View response dialog */}
       <Dialog open={!!(viewingResponse && activeTemplate)} onOpenChange={(open) => { if (!open) closeForm(); }}>
         <DialogContent
