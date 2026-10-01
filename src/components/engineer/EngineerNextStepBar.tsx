@@ -10,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useJobRamsStatus } from "@/hooks/useJobRamsStatus";
 import VehicleCheckSheet from "@/components/VehicleCheckSheet";
 import SignatureCapture from "@/components/SignatureCapture";
-import JobCompleteAction from "@/components/jobs/JobCompleteAction";
 
 type Props = {
   jobId: string;
@@ -122,6 +121,9 @@ export default function EngineerNextStepBar({
   }, [jobId, user?.id]);
 
   const step: Step = useMemo(() => {
+    if (jobStatus === "submitted_for_review") {
+      return { key: "done", label: "Sent to office", icon: <CheckCircle2 className="h-5 w-5" /> };
+    }
     if (jobStatus === "completed" || jobStatus === "archived" || jobStatus === "cancelled") {
       return { key: "done", label: "Job complete", icon: <CheckCircle2 className="h-5 w-5" /> };
     }
@@ -217,21 +219,20 @@ export default function EngineerNextStepBar({
 
       <Dialog open={signOpen} onOpenChange={setSignOpen}>
         <DialogContent className="w-[calc(100vw-1.5rem)] sm:w-full max-w-lg max-h-[92dvh] overflow-y-auto p-4 sm:p-6">
-          <DialogHeader><DialogTitle>Sign & complete job</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Sign &amp; submit to office</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <SignatureCapture jobId={jobId} signerRole="engineer" heading="Engineer sign-off" filterByRole />
             <div className="border-t pt-3">
               <SignatureCapture jobId={jobId} signerRole="customer" heading="Customer sign-off (in person)" filterByRole />
             </div>
             <div className="border-t pt-3">
-              <JobCompleteAction
-                jobId={jobId}
-                jobStatus={jobStatus}
-                isAssignedEngineer={isAssignedEngineer}
-                variant="inline"
-                className="w-full min-h-12"
-                onCompleted={() => { setSignOpen(false); onStatusChanged?.("completed"); }}
-              />
+              <Button
+                size="lg"
+                className="w-full min-h-12 gap-2"
+                onClick={() => { setSignOpen(false); setTimeout(() => window.dispatchEvent(new CustomEvent("submit-to-office:run")), 150); }}
+              >
+                <CheckCircle2 className="h-5 w-5" /> Complete &amp; submit to office
+              </Button>
             </div>
           </div>
         </DialogContent>

@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { isFieldRequired } from "@/lib/reportFieldRules";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -1108,7 +1109,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
   useEffect(() => {
     const handleFillOnline = (event: Event) => {
-      const detail = (event as CustomEvent<{ jobId?: string; templateId?: string; responseId?: string; mode?: "view" | "continue" | "fill"; nonce?: string; handled?: boolean }>).detail;
+      const detail = (event as CustomEvent<{ jobId?: string; templateId?: string; responseId?: string; mode?: "view" | "continue" | "fill"; nonce?: string; handled?: boolean; focusFieldId?: string }>).detail;
       if (detail?.jobId !== jobId || !detail?.templateId) return;
       // Idempotent: callers may re-dispatch the same request while the lazy
       // chunk loads. Only act on each nonce once.
@@ -1122,9 +1123,28 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       if (detail.nonce) handledFillNonces.add(detail.nonce);
       detail.handled = true;
 
+      if (detail.focusFieldId) {
+        const fid = detail.focusFieldId;
+        let tries = 0;
+        const focus = () => {
+          const el = document.querySelector(`[data-field-id="${CSS.escape(fid)}"]`) as HTMLElement | null;
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.classList.add("ring-2", "ring-destructive", "ring-inset");
+            setTimeout(() => el.classList.remove("ring-2", "ring-destructive", "ring-inset"), 4000);
+            (el.querySelector("input, textarea, button[role='combobox'], button") as HTMLElement | null)?.focus?.({ preventScroll: true });
+          } else if (tries++ < 20) setTimeout(focus, 200);
+        };
+        setTimeout(focus, 300);
+      }
+
       // Prefer the explicit responseId when the caller knows which record to open
       const targeted = detail.responseId ? responses.find((r) => r.id === detail.responseId) : undefined;
 
+      if (targeted && detail.focusFieldId) {
+        handleStartForm(template, targeted);
+        return;
+      }
       if (targeted && (targeted.status === "submitted" || detail.mode === "view")) {
         handleViewResponse(targeted);
         return;
@@ -2121,13 +2141,14 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                   .map((field) => (
                     <div
                       key={field.id}
-                      className={`border-b border-border last:border-b-0 ${lastVisitFieldIds.has(field.id) ? "bg-amber-50" : ""}`}
+                      data-field-id={field.id}
+                      className={`border-b border-border last:border-b-0 scroll-mt-24 ${lastVisitFieldIds.has(field.id) ? "bg-amber-50" : ""}`}
                     >
                       <div className="grid grid-cols-[1fr,1fr]">
                         <div className="px-3 py-2 border-r border-border flex items-start">
                           <Label className="text-xs leading-tight">
                             {field.label}
-                            {field.required && <span className="text-destructive ml-0.5">*</span>}
+                            {isFieldRequired(field) && <span className="text-destructive ml-0.5">*</span>}
                             {lastVisitFieldIds.has(field.id) && (
                               <span className="ml-1 rounded bg-amber-200 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-900">
                                 from last visit

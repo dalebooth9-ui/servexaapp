@@ -5,6 +5,7 @@
 import { PDFDocument } from "pdf-lib";
 import { supabase } from "@/integrations/supabase/client";
 import { generateJobSheetPdf } from "@/components/JobSheetPdfExport";
+import { isEmptyValue, isFieldRequired, isResponseStarted } from "@/lib/reportFieldRules";
 
 const QUEUE_KEY = "reportReview:submitQueue:v1";
 
@@ -17,34 +18,60 @@ function b64ToBytes(b64: string): Uint8Array {
   return out;
 }
 
-async function loadSubmitted(jobId: string) {
+export type MissingField = { responseId: string; templateId: string; templateName: string; fieldId: string; label: string };
+
+/** Forms the engineer actually used: not skipped, and either submitted or a
+ *  draft with at least one answer. Drafts are dropped when the same form has
+ *  already been submitted. */
+async function loadActive(jobId: string) {
   const { data, error } = await supabase
     .from("job_sheet_responses")
-    .select("id, responses, submitted_at, status, job_sheet_templates(id, name, fields, branding)")
+    .select("id, template_id, responses, submitted_at, status, skipped_at, created_at, updated_at, job_sheet_templates(id, name, fields, branding)")
     .eq("job_id", jobId)
-    .eq("status", "submitted")
-    .order("submitted_at", { ascending: true });
+    .is("skipped_at", null)
+    .in("status", ["submitted", "draft"])
+    .order("created_at", { ascending: true });
   if (error) throw error;
-  return (data || []) as any[];
+  const rows = (data || []) as any[];
+  const submittedTpl = new Set(rows.filter((r) => r.status === "submitted").map((r) => r.template_id));
+  return rows.filter((r) =>
+    r.status === "submitted" ||
+    (!submittedTpl.has(r.template_id) && wasEdited(r) && isResponseStarted(r.responses, r.job_sheet_templates?.fields || [])),
+  );
+}
+const loadSubmitted = loadActive;
+// Drafts are pre-filled with job details when created, so "has answers" alone
+// isn't enough — the engineer must have saved it after creation.
+function wasEdited(r: any) {
+  if (!r.updated_at || !r.created_at) return true;
+  return new Date(r.updated_at).getTime() - new Date(r.created_at).getTime() > 5000;
 }
 
-/** Required template fields left blank across submitted reports. */
-export async function findMissingRequired(jobId: string): Promise<{ hasReports: boolean; missing: string[] }> {
-  const rows = await loadSubmitted(jobId);
-  const missing: string[] = [];
+/** Required fields left blank on forms the engineer has started. */
+export async function findMissingRequired(jobId: string): Promise<{ hasReports: boolean; missing: MissingField[] }> {
+  const rows = await loadActive(jobId);
+  const missing: MissingField[] = [];
   for (const r of rows) {
     const tpl = r.job_sheet_templates;
     const fields: any[] = tpl?.fields || [];
     const data = (r.responses || {}) as Record<string, any>;
+    const omitted: string[] = Array.isArray(data.__omitted_sections__) ? data.__omitted_sections__ : [];
     for (const f of fields) {
-      if (!f?.required) continue;
-      if (["section", "heading", "info", "signature"].includes(f.type)) continue;
-      const v = data[f.id];
-      const empty = v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0);
-      if (empty) missing.push(`${tpl?.name || "Report"}: ${f.label}`);
+      if (!isFieldRequired(f)) continue;
+      if (omitted.includes(f.section || "General")) continue;
+      if (isEmptyValue(data[f.id])) missing.push({ responseId: r.id, templateId: r.template_id, templateName: tpl?.name || "Report", fieldId: f.id, label: f.label });
     }
   }
   return { hasReports: rows.length > 0, missing };
+}
+
+/** Promote started drafts to submitted so the office gets them. */
+async function submitStartedDrafts(rows: any[]) {
+  const drafts = rows.filter((r) => r.status === "draft");
+  if (!drafts.length) return;
+  const now = new Date().toISOString();
+  await supabase.from("job_sheet_responses").update({ status: "submitted", submitted_at: now }).in("id", drafts.map((d) => d.id));
+  drafts.forEach((d) => { d.status = "submitted"; d.submitted_at = now; });
 }
 
 /** Generate a single merged PDF of every submitted report and upload it. */
@@ -53,6 +80,7 @@ export async function buildAndUploadReportPdf(jobId: string): Promise<string> {
     supabase.from("jobs").select("id, org_id, address, customer, reference_number, customers(name), sites(name, address)").eq("id", jobId).single(),
     loadSubmitted(jobId),
   ]);
+  await submitStartedDrafts(rows);
   if (!job) throw new Error("Job not found");
   if (!rows.length) throw new Error("No submitted report on this job yet");
 
