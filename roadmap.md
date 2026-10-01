@@ -15,3 +15,7 @@
 - [x] On-site document scanner (DocumentScanner with live edge detection, perspective correction, colour/greyscale/B&W, corner adjuster, label + checklist link + tags, saved as document_scan submissions; Scan Document button on job Documents tab and engineer job view)
 
 - [x] Scan Paper Report from the job page (JobScanReportDialog + jobScanReportSave: capture/upload pages, classify-job-sheet-template with manual fallback, runScanExtraction, ScanReviewPanel correction, saves original pages as submissions AND a submitted job_sheet_responses row; prominent button on engineer job view)
+- [x] Add a reusable newest-first picker for existing job photos, including WhatsApp images.
+- [x] Add view, replace and confirmed remove actions to report and remedial before/after slots.
+- [x] Ensure linked/replaced slot photos refresh report data immediately and update Help & guides.
+- [x] Verify the engineer flow at phone/tablet sizes and confirm the preview build.
