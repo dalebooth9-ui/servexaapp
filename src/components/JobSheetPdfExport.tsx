@@ -17,7 +17,9 @@ import { computePdfFooterFlow, renderPdfSignatures, renderPdfFooter, getDefaultF
 import { logError } from "@/lib/errorLogger";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
-import { collectEmbeddedPhotoPaths, createSubmissionPhotoSignedUrl, normalisePhotoPathForDedupe } from "@/lib/jobPhotos";
+import { collectEmbeddedPhotoPaths, createSubmissionPhotoSignedUrl, normalisePhotoPathForDedupe, fetchJobPhotoMeta } from "@/lib/jobPhotos";
+import { classifyJobPhoto } from "@/lib/exportBundleSelection";
+import { readExcluded, formatTaken } from "@/lib/reportSitePhotos";
 import {
   PdfTemplateField,
   buildSkipIds,
@@ -795,6 +797,23 @@ export async function generateJobSheetPdf(
     (f as any).columns.some((c: any) => c?.type === "photo_gallery")
   );
   const renderedJobPhotoPaths = new Set<string>();
+  // Site photos are drawn on their own page(s) after the sign-off so the main
+  // sheet keeps its single-page layout. Excluded keys come from the report's
+  // "Include on report" toggles.
+  type DeferredPhoto = { dataUrl: string; format: "JPEG" | "PNG"; w: number; h: number; caption: string; takenAt: string | null };
+  const deferredSitePhotos: DeferredPhoto[] = [];
+  const siteExcluded = readExcluded(formData);
+  const photoTimeByKey = new Map<string, string>();
+  if (isValidUuid) {
+    try {
+      const meta = await fetchJobPhotoMeta(jobId);
+      meta.forEach((m) => {
+        const k = normalisePhotoPathForDedupe(m.storagePath, jobId);
+        if (k) photoTimeByKey.set(k, m.createdAt);
+        if (k && classifyJobPhoto(m) === "scanned_sheet") siteExcluded.add(k);
+      });
+    } catch { /* times are best-effort */ }
+  }
 
   const NAVY: [number, number, number] = [26, 46, 74];        // #1a2e4a
   const GREEN_TXT: [number, number, number] = [6, 95, 70];    // #065f46
@@ -1143,85 +1162,22 @@ export async function generateJobSheetPdf(
     });
 
     if (sitePhotoUrls.length > 0) {
-      [...sitePhotoPaths, ...sitePhotoUrls].forEach((p) => {
-        const key = normalisePhotoPathForDedupe(p, jobId);
-        if (key) renderedJobPhotoPaths.add(key);
-      });
-      if (y + headerH + 5 > pageHeight - footerSpace) { doc.addPage(); y = margin; }
-      doc.setFillColor(...NAVY);
-      doc.rect(margin, y, maxWidth, headerH, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.text("PHOTOGRAPHIC EVIDENCE", margin + 3, y + 5.4);
-      doc.setTextColor(0, 0, 0);
-      y += headerH + 1;
-
-      const cols = 4;
-      const gap = 2;
-      const photoW = (maxWidth - gap * (cols - 1)) / cols;
-      const photoH = 42;
-      const captionBlock = 10;
-      const cellH = photoH + captionBlock + 1;
-
-      // Reduced reserve: exclude signature space (checked separately later).
-      const PHOTO_FOOTER_RESERVE = 32;
-      const contentBottom = pageHeight - PHOTO_FOOTER_RESERVE;
+      // Collected for the separate SITE PHOTOS page(s) after the sign-off.
       for (let i = 0; i < sitePhotoUrls.length; i++) {
-        const col = i % cols;
-        if (col === 0 && i > 0) y += cellH;
-        if (col === 0 && y + cellH > contentBottom) {
-          doc.addPage();
-          y = margin;
-        }
-        const x = margin + col * (photoW + gap);
-
-        doc.setFillColor(235, 238, 242);
-        doc.rect(x, y, photoW, photoH, "F");
-
-        const oriented = orientedSitePhotos[i];
-        let rendered = false;
-        if (oriented && oriented.dataUrl) {
-          try {
-            const ow = oriented.width || photoW;
-            const oh = oriented.height || photoH;
-            const scale = Math.min(photoW / ow, photoH / oh);
-            const dw = Math.max(8, ow * scale);
-            const dh = Math.max(8, oh * scale);
-            const dx = x + (photoW - dw) / 2;
-            const dy = y + (photoH - dh) / 2;
-            doc.addImage(
-              oriented.dataUrl,
-              oriented.mimeType === "image/png" ? "PNG" : "JPEG",
-              dx, dy, dw, dh, undefined, "FAST",
-            );
-            rendered = true;
-          } catch (err) {
-            console.warn("[JobSheetPdfExport] site photo addImage failed", err);
-          }
-        }
-        if (!rendered) {
-          doc.setFont("helvetica", "italic");
-          doc.setFontSize(8);
-          doc.setTextColor(...MUTED);
-          doc.text("Image unavailable", x + photoW / 2, y + photoH / 2 + 1, { align: "center" });
-          doc.setTextColor(0, 0, 0);
-        }
-        doc.setDrawColor(...BORDER);
-        doc.setLineWidth(0.2);
-        doc.rect(x, y, photoW, photoH);
-
-        const caption = (sitePhotoCaptions[i] || "").trim();
-        if (caption) {
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(6);
-          doc.setTextColor(50, 55, 65);
-          const capLines = doc.splitTextToSize(caption, photoW).slice(0, 2);
-          doc.text(capLines, x, y + photoH + 2.5);
-          doc.setTextColor(0, 0, 0);
-        }
+        const key = normalisePhotoPathForDedupe(sitePhotoPaths[i] || sitePhotoUrls[i], jobId);
+        if (key) renderedJobPhotoPaths.add(key);
+        normalisePhotoPathForDedupe(sitePhotoUrls[i], jobId) && renderedJobPhotoPaths.add(normalisePhotoPathForDedupe(sitePhotoUrls[i], jobId));
+        if (key && siteExcluded.has(key)) continue;
+        const o = orientedSitePhotos[i];
+        if (!o?.dataUrl) continue;
+        deferredSitePhotos.push({
+          dataUrl: o.dataUrl,
+          format: o.mimeType === "image/png" ? "PNG" : "JPEG",
+          w: o.width || 4, h: o.height || 3,
+          caption: (sitePhotoCaptions[i] || "").trim(),
+          takenAt: (key && photoTimeByKey.get(key)) || submittedAt || null,
+        });
       }
-      y += cellH + 1;
     }
   }
 
@@ -1235,76 +1191,15 @@ export async function generateJobSheetPdf(
       const excludePaths = collectEmbeddedPhotoPaths([{ responses: resolvedFormData }], jobId);
       renderedJobPhotoPaths.forEach((p) => excludePaths.add(p));
       const jobPhotos = await loadJobPhotosForPdf({ jobId, excludePaths });
-      if (jobPhotos.length > 0) {
-        const headerH = 8;
-        const NAVY: [number, number, number] = [26, 46, 74];
-        const BORDER: [number, number, number] = [210, 214, 220];
-
-        if (y + headerH + 5 > pageHeight - footerSpace) { doc.addPage(); y = margin; }
-        doc.setFillColor(...NAVY);
-        doc.rect(margin, y, maxWidth, headerH, "F");
-        doc.setTextColor(255, 255, 255);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.text(`PHOTOS / EVIDENCE (${jobPhotos.length})`, margin + 3, y + 5.4);
-        doc.setTextColor(0, 0, 0);
-        y += headerH + 2;
-
-        // Density-first grid: auto-pick cols so small photo sets stay on one page.
-        // Reserve only the accreditation strip + footer band here (~30mm) —
-        // signatures flow after and check their own remaining space (42mm).
-        const PHOTO_FOOTER_RESERVE = 32;
-        const contentBottom = pageHeight - PHOTO_FOOTER_RESERVE;
-        const N = jobPhotos.length;
-
-        // Choose columns by count: ≤6 → 3-per-row; 7-12 → 3-per-row; >12 → 2.
-        const cols = N <= 12 ? 3 : 2;
-        const gap = cols === 3 ? 3 : 4;
-        const photoW = (maxWidth - gap * (cols - 1)) / cols;
-        // Smaller cells for 3-col so 6 photos + table + sigs fit one page.
-        const photoH = cols === 3 ? 46 : 60;
-        const captionBlock = 10;
-        const cellH = photoH + captionBlock + 2;
-
-        const rowsTotal = Math.ceil(N / cols);
-        const gridH = rowsTotal * cellH;
-        // If the entire grid fits on the current page, don't break at all.
-        const gridFits = y + gridH <= contentBottom;
-
-        for (let i = 0; i < N; i++) {
-          const col = i % cols;
-          if (col === 0 && i > 0) y += cellH;
-          if (!gridFits && col === 0 && y + cellH > contentBottom) {
-            doc.addPage();
-            y = margin;
-          }
-          const x = margin + col * (photoW + gap);
-          const p = jobPhotos[i];
-
-          doc.setFillColor(235, 238, 242);
-          doc.rect(x, y, photoW, photoH, "F");
-          try {
-            const scale = Math.min(photoW / p.natW, photoH / p.natH);
-            const dw = Math.max(8, p.natW * scale);
-            const dh = Math.max(8, p.natH * scale);
-            const dx = x + (photoW - dw) / 2;
-            const dy = y + (photoH - dh) / 2;
-            doc.addImage(p.dataUrl, "JPEG", dx, dy, dw, dh, undefined, "FAST");
-          } catch { /* skip broken image */ }
-          doc.setDrawColor(...BORDER);
-          doc.setLineWidth(0.2);
-          doc.rect(x, y, photoW, photoH);
-
-          const caption = (p.caption || "").trim();
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(cols === 3 ? 7 : 7.5);
-          doc.setTextColor(50, 55, 65);
-          const bits = [caption, p.engineerName, new Date(p.createdAt).toLocaleDateString("en-GB")].filter(Boolean);
-          const capLines = doc.splitTextToSize(bits.join(" · "), photoW).slice(0, cols === 3 ? 2 : 3);
-          doc.text(capLines, x, y + photoH + 3);
-          doc.setTextColor(0, 0, 0);
-        }
-        y += cellH + 2;
+      for (const p of jobPhotos) {
+        const key = normalisePhotoPathForDedupe(p.storagePath, jobId);
+        if (key && siteExcluded.has(key)) continue;
+        if (classifyJobPhoto(p) === "scanned_sheet") continue;
+        deferredSitePhotos.push({
+          dataUrl: p.dataUrl, format: "JPEG", w: p.natW, h: p.natH,
+          caption: [(p.caption || "").trim(), p.engineerName].filter(Boolean).join(" · "),
+          takenAt: p.createdAt,
+        });
       }
     } catch (err) {
       console.warn("[JobSheetPdfExport] job photos section failed", err);
@@ -1393,6 +1288,57 @@ export async function generateJobSheetPdf(
     renderPdfFooter(doc, footerFlow.declarationFooterY, footerText);
   }
 
+  const mainSheetPages = doc.getNumberOfPages();
+  if (deferredSitePhotos.length > 0) {
+    const NAVY: [number, number, number] = [26, 46, 74];
+    const BORDER: [number, number, number] = [210, 214, 220];
+    const cols = 2;
+    const gap = 6;
+    const photoW = (maxWidth - gap) / cols;
+    const photoH = 68;
+    const cellH = photoH + 11;
+    const bottom = pageHeight - 32;
+    const startPage = (cont: boolean) => {
+      doc.addPage();
+      y = margin;
+      doc.setFillColor(...NAVY);
+      doc.rect(margin, y, maxWidth, 8, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(`SITE PHOTOS (${deferredSitePhotos.length})${cont ? " — continued" : ""}`, margin + 3, y + 5.4);
+      doc.setTextColor(0, 0, 0);
+      y += 11;
+    };
+    startPage(false);
+    deferredSitePhotos.forEach((p, i) => {
+      const col = i % cols;
+      if (col === 0 && i > 0) y += cellH;
+      if (col === 0 && y + cellH > bottom) startPage(true);
+      const x = margin + col * (photoW + gap);
+      doc.setFillColor(235, 238, 242);
+      doc.rect(x, y, photoW, photoH, "F");
+      try {
+        const scale = Math.min(photoW / p.w, photoH / p.h);
+        const dw = p.w * scale, dh = p.h * scale;
+        doc.addImage(p.dataUrl, p.format, x + (photoW - dw) / 2, y + (photoH - dh) / 2, dw, dh, undefined, "FAST");
+      } catch { /* skip broken image */ }
+      doc.setDrawColor(...BORDER);
+      doc.setLineWidth(0.2);
+      doc.rect(x, y, photoW, photoH);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(50, 55, 65);
+      const taken = p.takenAt ? formatTaken(p.takenAt) : "";
+      if (taken) doc.text(taken, x, y + photoH + 3.5);
+      if (p.caption) {
+        doc.setFont("helvetica", "normal");
+        doc.text(doc.splitTextToSize(p.caption, photoW).slice(0, 1), x, y + photoH + 7.5);
+      }
+      doc.setTextColor(0, 0, 0);
+    });
+  }
+
   const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
   const [watermark, accredLogos] = await Promise.all([
     loadWatermarkImage(),
@@ -1413,7 +1359,9 @@ export async function generateJobSheetPdf(
   const safeSite = siteDisplay.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
   const filenameRef = (jobInfo as any)?.customer_po || jobInfo?.reference_number || "job-sheet";
   const fileName = [filenameRef, safeSite || null, template.name.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
-  const pageCount = warnIfUnexpectedPdfPageSpill(doc, template.name, fileName, {
+  warnIfUnexpectedPdfPageSpill({ getNumberOfPages: () => mainSheetPages } as unknown as jsPDF, template.name, fileName, { jobId, photoPages: doc.getNumberOfPages() - mainSheetPages });
+  const pageCount = doc.getNumberOfPages();
+  void (() => warnIfUnexpectedPdfPageSpill)(doc, template.name, fileName, {
     jobId,
     bodyEndY: y,
     signatureY: footerFlow.sigY,
