@@ -26,6 +26,8 @@ type Props = {
   onRemove: () => void | Promise<void>;
   ghostUrl?: string | null;
   ghostOpacity?: number;
+  /** Shows a small "Auto" tag when the slot was filled from job photos automatically. */
+  autoTag?: boolean;
 };
 
 export default function JobPhotoSlot({
@@ -39,6 +41,7 @@ export default function JobPhotoSlot({
   onRemove,
   ghostUrl,
   ghostOpacity = 0.3,
+  autoTag = false,
 }: Props) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const deviceRef = useRef<HTMLInputElement>(null);
@@ -101,6 +104,9 @@ export default function JobPhotoSlot({
               <img src={signedUrl} alt={label} className="h-full w-full object-cover" />
             ) : (
               <span className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading photo…</span>
+            )}
+            {!busy && autoTag && (
+              <span className="absolute left-2 top-2 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">Auto</span>
             )}
             {!busy && ghostUrl && (
               <span className="pointer-events-none absolute inset-0 ring-2 ring-inset ring-primary/70" style={{ opacity: ghostOpacity }}>

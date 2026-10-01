@@ -36,6 +36,8 @@ import { getGpsPosition, stampPhoto } from "@/lib/photoStamp";
 import { buildDurableRef } from "@/lib/durableStorageRef";
 import { createSubmissionPhotoSignedUrl, type JobPhoto } from "@/lib/jobPhotos";
 import JobPhotoSlot from "@/components/jobs/JobPhotoSlot";
+import { useLiveJobPhotos } from "@/hooks/useLiveJobPhotos";
+import { pickAutoBeforeAfter } from "@/lib/reportSitePhotos";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -66,6 +68,8 @@ type Response = {
   text_value?: string | null;
   is_pass?: boolean | null;
   notes?: string | null;
+  auto_filled_fields?: string[] | null;
+  auto_fill_dismissed?: string[] | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -287,6 +291,9 @@ export default function PhotoChecklistCapture({
   const [ghostOpacity, setGhostOpacity] = useState(0.3);
 
   const [loading, setLoading] = useState(false);
+  const responsesRef = useRef(responses);
+  responsesRef.current = responses;
+  const { photos: livePhotos } = useLiveJobPhotos(jobId);
 
   // Load templates filtered to the job's category
   useEffect(() => {
@@ -405,17 +412,25 @@ export default function PhotoChecklistCapture({
     }
   };
 
-  const savePhotoRef = async (itemId: string, field: string, value: string | null, templateId?: string) => {
+  const savePhotoRef = async (itemId: string, field: string, value: string | null, templateId?: string, opts: { auto?: boolean } = {}) => {
     const selectedTemplateId = templateId || selectedTemplate?.id;
     if (!selectedTemplateId) throw new Error("Select a checklist before adding photos.");
     const clId = await ensureChecklist(selectedTemplateId);
-    const existing = responses[itemId];
+    const existing = responsesRef.current[itemId];
+    const prevAuto = existing?.auto_filled_fields || [];
+    const prevDismissed = existing?.auto_fill_dismissed || [];
+    const autoFields = opts.auto && value
+      ? Array.from(new Set([...prevAuto, field]))
+      : prevAuto.filter(f => f !== field);
+    // Engineer cleared the slot → never auto-fill it again.
+    const dismissed = !value && !opts.auto ? Array.from(new Set([...prevDismissed, field])) : prevDismissed;
+    const extra = { auto_filled_fields: autoFields, auto_fill_dismissed: dismissed };
     if (existing?.id) {
       const { error } = await supabase.from("job_photo_checklist_responses" as any)
-        .update({ [field]: value, captured_by: user?.id })
+        .update({ [field]: value, ...(opts.auto ? {} : { captured_by: user?.id }), ...extra })
         .eq("id", existing.id);
       if (error) throw error;
-      setResponses(prev => ({ ...prev, [itemId]: { ...prev[itemId], [field]: value } }));
+      setResponses(prev => ({ ...prev, [itemId]: { ...prev[itemId], [field]: value, ...extra } }));
       return;
     }
     if (!value) return;
@@ -427,6 +442,7 @@ export default function PhotoChecklistCapture({
         response_type: field === "photo_url" ? "photo" : "before_after",
         captured_by: user?.id,
         [field]: value,
+        ...extra,
       }).select().single();
     if (error) throw error;
     setResponses(prev => ({ ...prev, [itemId]: { ...(newResp as unknown as Response), [field]: value } }));
@@ -445,6 +461,34 @@ export default function PhotoChecklistCapture({
       setUploading(prev => ({ ...prev, [key]: false }));
     }
   };
+
+  // Auto-fill empty before/after slots from the visit's job photos.
+  // Never touches a filled slot or one the engineer removed.
+  const autoAttempted = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!selectedTemplate || items.length === 0 || livePhotos.length === 0) return;
+    const { before, after } = pickAutoBeforeAfter(livePhotos);
+    const run = async () => {
+      for (const item of items) {
+        if (item.item_type !== "before_after") continue;
+        for (const [field, photo] of [["before_photo_url", before], ["after_photo_url", after]] as const) {
+          if (!photo) continue;
+          const resp = responsesRef.current[item.id];
+          if (resp?.[field] || resp?.auto_fill_dismissed?.includes(field)) continue;
+          const key = `${item.id}__${field}__${photo.id}`;
+          if (autoAttempted.current.has(key)) continue;
+          autoAttempted.current.add(key);
+          try {
+            await savePhotoRef(item.id, field, buildDurableRef(photo.bucket || "submissions", photo.storagePath), selectedTemplate.id, { auto: true });
+          } catch (err) {
+            console.warn("[PhotoChecklistCapture] auto-fill failed", err);
+          }
+        }
+      }
+    };
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTemplate, items, livePhotos]);
 
   const removePhoto = async (itemId: string, field: string) => {
     const key = `${itemId}__${field}`;
@@ -856,6 +900,7 @@ export default function PhotoChecklistCapture({
                       jobId={jobId}
                       label="Before photo"
                       photoRef={responses[activeItem.id]?.before_photo_url}
+                      autoTag={!!responses[activeItem.id]?.auto_filled_fields?.includes("before_photo_url")}
                       onFile={f => uploadPhoto(f, activeItem.id, "before_photo_url")}
                       onJobPhoto={photo => linkJobPhoto(photo, activeItem.id, "before_photo_url")}
                       onRemove={() => removePhoto(activeItem.id, "before_photo_url")}
@@ -875,6 +920,7 @@ export default function PhotoChecklistCapture({
                       jobId={jobId}
                       label="After photo"
                       photoRef={responses[activeItem.id]?.after_photo_url}
+                      autoTag={!!responses[activeItem.id]?.auto_filled_fields?.includes("after_photo_url")}
                       onFile={f => uploadPhoto(f, activeItem.id, "after_photo_url")}
                       onJobPhoto={photo => linkJobPhoto(photo, activeItem.id, "after_photo_url")}
                       onRemove={() => removePhoto(activeItem.id, "after_photo_url")}
