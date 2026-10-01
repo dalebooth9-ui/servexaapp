@@ -31,6 +31,39 @@ import {
 } from "@/lib/pdfBody";
 import { fetchOrientedImage } from "@/lib/exifOrient";
 import { ukDateifyRecord } from "@/lib/dateFormat";
+import { waitForSignatureSaves } from "@/lib/signatureSaveTracker";
+
+/**
+ * Load a stored signature as an in-memory image. Downloads the bytes through
+ * the authenticated storage API (not a cross-origin <img> on a signed link),
+ * so an offline-cache copy of the on-screen thumbnail can't block it.
+ * Retries a few times for flaky mobile signal.
+ */
+async function loadSignatureImage(path: string): Promise<HTMLImageElement | null> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const { data: blob, error } = await supabase.storage.from("signatures").download(path);
+      if (error || !blob) throw error || new Error("empty");
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onloadend = () => resolve(r.result as string);
+        r.onerror = () => reject(r.error);
+        r.readAsDataURL(blob);
+      });
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("decode"));
+        img.src = dataUrl;
+      });
+      return img;
+    } catch {
+      await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+    }
+  }
+  return null;
+}
+
 
 function extractSubmissionPath(value: any): string | null {
   if (typeof value !== "string") return null;
