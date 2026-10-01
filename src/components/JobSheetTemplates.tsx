@@ -1,3 +1,4 @@
+import ReportSitePhotos from "@/components/jobs/ReportSitePhotos";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { saveFormDraft, clearFormDraft, loadFormDraftSync } from "@/lib/offlineFormStorage";
