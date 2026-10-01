@@ -1,3 +1,4 @@
+import ReportSitePhotos from "@/components/jobs/ReportSitePhotos";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { saveFormDraft, clearFormDraft, loadFormDraftSync } from "@/lib/offlineFormStorage";
@@ -2181,6 +2182,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               </div>
               );
             })}
+
+            {/* Auto site photos from the job — per-photo include toggle */}
+            <div className="px-3 py-3 border-t border-border">
+              <ReportSitePhotos
+                jobId={jobId}
+                excluded={Array.isArray(formData._site_photo_excluded) ? formData._site_photo_excluded : []}
+                onChange={(next) => setFormData((prev) => ({ ...prev, _site_photo_excluded: next }))}
+              />
+            </div>
 
             {/* Site Photos Drop Zone */}
             <div className="px-3 py-3 border-t border-border">
