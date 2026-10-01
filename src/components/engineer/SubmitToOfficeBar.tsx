@@ -40,7 +40,7 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
   const [sending, setSending] = useState(false);
 
   const submitRef = useRef<() => void>(() => {});
-  const alreadySubmitted = jobStatus === "submitted_for_review";
+  const alreadySubmitted = jobStatus === "submitted_for_review" || jobStatus === "completed";
 
   useEffect(() => {
     supabase.from("job_sheet_responses").select("returned_reason").eq("job_id", jobId).not("returned_reason", "is", null).limit(1)
