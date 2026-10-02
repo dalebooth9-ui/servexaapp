@@ -362,6 +362,20 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   const [templateCategory, setTemplateCategory] = useState<string>("");
   const [jobCategory, setJobCategory] = useState<string>("");
   const [jobCategories, setJobCategories] = useState<{ slug: string; name: string }[]>([]);
+  const [visualTemplateId, setVisualTemplateId] = useState<string>("");
+  const [visualOptions, setVisualOptions] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    if (!open || !template) return;
+    let cancelled = false;
+    (async () => {
+      let q = supabase.from("job_sheet_templates").select("id, name, org_id").neq("id", template.id).order("name");
+      const orgId = (template as any).org_id;
+      if (orgId) q = q.eq("org_id", orgId);
+      const { data } = await q;
+      if (!cancelled) setVisualOptions(((data || []) as any[]).filter((t) => !/retired/i.test(t.name)));
+    })();
+    return () => { cancelled = true; };
+  }, [open, template?.id]);
   const [fields, setFields] = useState<TemplateField[]>([]);
   const [companyName, setCompanyName] = useState("");
   const [companySubtitle, setCompanySubtitle] = useState("");
@@ -541,6 +555,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setTemplateDesc(template.description || "");
     setTemplateCategory(template.category || "");
     setJobCategory((template as any).job_category || "");
+    setVisualTemplateId((template as any).visual_template_id || "");
     setFields(template.fields.map((f) => ({ ...f })));
     const b = template.branding || {};
     setCompanyName(b.company_name || "");
@@ -621,6 +636,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setTemplateDesc(template.description || "");
     setTemplateCategory(template.category || "");
     setJobCategory((template as any).job_category || "");
+    setVisualTemplateId((template as any).visual_template_id || "");
     setFields(template.fields.map((f) => ({ ...f })));
     const b = template.branding || {};
     setCompanyName(b.company_name || "");
@@ -683,6 +699,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
         description: templateDesc.trim() || null,
         category: templateCategory || null,
         job_category: jobCategory || null,
+        visual_template_id: visualTemplateId || null,
         fields: fields as any,
         branding: branding as any,
         footer_text: footerText.trim() || null,
@@ -881,6 +898,21 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
                               <SelectItem key={c.slug} value={c.slug}>
                                 {c.name}
                               </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">
+                          Visual alternative{" "}
+                          <span className="text-muted-foreground font-normal">(form used when the pressure test can't be done)</span>
+                        </Label>
+                        <Select value={visualTemplateId || "none"} onValueChange={(v) => setVisualTemplateId(v === "none" ? "" : v)}>
+                          <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                          <SelectContent className="max-h-[320px]">
+                            <SelectItem value="none">None – use visual-only mode on this form</SelectItem>
+                            {visualOptions.map((t) => (
+                              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>

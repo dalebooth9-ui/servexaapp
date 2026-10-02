@@ -20,6 +20,8 @@ export type ModeSwitchPair = {
   visualLabel: string;
   /** Optional field id remapping full → visual when ids differ. */
   fieldMap?: Record<string, string>;
+  /** Labels of wet-test fields hidden in "visual only" fallback mode. */
+  wetFieldPattern?: RegExp;
 };
 
 export const MODE_SWITCH_PAIRS: ModeSwitchPair[] = [
@@ -29,6 +31,7 @@ export const MODE_SWITCH_PAIRS: ModeSwitchPair[] = [
     visualName: "dry riser visual inspection",
     fullLabel: "Pressure test",
     visualLabel: "Visual inspection",
+    wetFieldPattern: /test pressure|hold time|leaks? detected|pressure test result/i,
   },
 ];
 
@@ -51,7 +54,53 @@ export type ModeSwitchState = {
   switched_by?: string | null;
   return_job_id?: string | null;
   return_dismissed?: boolean;
+  /** true = no linked visual form; same template, wet fields hidden. */
+  fallback?: boolean;
+  /** Field ids hidden while in fallback mode (answers kept in JSON). */
+  hidden_fields?: string[];
+  /** Office-only note, never on the customer report. */
+  internal_note?: string | null;
+  /** Office-approved wording for a free-text "Other" reason. */
+  approved_reason?: string | null;
 };
+
+/** Generic pair used when a template is linked but its name isn't in MODE_SWITCH_PAIRS. */
+export const GENERIC_PAIR: ModeSwitchPair = {
+  key: "linked",
+  fullName: "",
+  visualName: "",
+  fullLabel: "Pressure test",
+  visualLabel: "Visual inspection",
+  wetFieldPattern: /test pressure|hold time|leaks? detected|pressure test result/i,
+};
+
+/** Wet-test field ids on a template for the given pair. */
+export function wetFieldIds(fields: any[], pair: ModeSwitchPair): string[] {
+  const re = pair.wetFieldPattern || GENERIC_PAIR.wetFieldPattern!;
+  return (fields || []).filter((f: any) => re.test(String(f?.label || ""))).map((f: any) => String(f.id));
+}
+
+/** Field ids to hide right now (fallback visual-only mode). */
+export function hiddenFieldIds(responses: any): string[] {
+  const s = getSwitchState(responses);
+  return s?.active && s.fallback && Array.isArray(s.hidden_fields) ? s.hidden_fields : [];
+}
+
+export function withoutHiddenFields<T extends { fields: any[] }>(tpl: T, responses: any): T {
+  const hidden = hiddenFieldIds(responses);
+  if (!hidden.length) return tpl;
+  return { ...tpl, fields: tpl.fields.filter((f: any) => !hidden.includes(String(f.id))) };
+}
+
+/** Reason text safe for the customer: free-text "Other" only once the office approves it. */
+export function customerReasonText(s: ModeSwitchState) {
+  if (s.reason === "Other") return s.approved_reason?.trim() || "Other";
+  return s.reason;
+}
+
+export function needsReasonReview(s: ModeSwitchState | null) {
+  return !!s?.active && s.reason === "Other" && !s.approved_reason;
+}
 
 export const normName = (n?: string | null) =>
   (n || "").toLowerCase().replace(/retired.*$/, "").replace(/[^a-z0-9]+/g, " ").trim();
@@ -83,7 +132,7 @@ export function pdfSwitchLine(responses: any): string | null {
   if (!s?.active) return null;
   const pair = MODE_SWITCH_PAIRS.find((p) => p.key === s.pair);
   const what = pair?.fullLabel.toLowerCase() || "pressure test";
-  return `Visual inspection only – ${what} not carried out. Reason: ${switchReasonText(s)}`;
+  return `Visual inspection only – ${what} not carried out. Reason: ${customerReasonText(s)}`;
 }
 
 /** Copy answers across to the target template (keeps every existing key). */

@@ -5388,6 +5388,7 @@ export type Database = {
           org_id: string | null
           status: string
           updated_at: string
+          visual_template_id: string | null
         }
         Insert: {
           branding?: Json | null
@@ -5404,6 +5405,7 @@ export type Database = {
           org_id?: string | null
           status?: string
           updated_at?: string
+          visual_template_id?: string | null
         }
         Update: {
           branding?: Json | null
@@ -5420,6 +5422,7 @@ export type Database = {
           org_id?: string | null
           status?: string
           updated_at?: string
+          visual_template_id?: string | null
         }
         Relationships: [
           {
@@ -5435,6 +5438,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organisations_safe"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_sheet_templates_visual_template_id_fkey"
+            columns: ["visual_template_id"]
+            isOneToOne: false
+            referencedRelation: "job_sheet_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_sheet_templates_visual_template_id_fkey"
+            columns: ["visual_template_id"]
+            isOneToOne: false
+            referencedRelation: "v_job_type_template_map"
+            referencedColumns: ["template_id"]
           },
         ]
       }
@@ -10748,6 +10765,10 @@ export type Database = {
       }
       nextval_ppm_seq: { Args: never; Returns: number }
       normalise_template_name: { Args: { _name: string }; Returns: string }
+      notify_admins_visual_fallback: {
+        Args: { _job_id: string; _template_name: string }
+        Returns: undefined
+      }
       platform_list_organisations: {
         Args: never
         Returns: {

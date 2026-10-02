@@ -21,6 +21,7 @@
  *   • Engineer signature falls back to the stored engineer_signatures
  *     library (same as the PDF).
  */
+import { hiddenFieldIds } from "@/lib/reportModeSwitch";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FileText, Loader2 } from "lucide-react";
@@ -394,6 +395,7 @@ export default function JobWordReport({ jobId, job }: Props) {
         if (!tpl || !Array.isArray(tpl.fields) || tpl.fields.length === 0) continue;
         const responses = (sheet.responses || {}) as Record<string, any>;
         const skipIds = buildSkipIds(tpl.fields);
+        hiddenFieldIds(responses).forEach((id) => skipIds.add(id));
         const omittedSections: string[] = Array.isArray((responses as any).__omitted_sections__)
           ? ((responses as any).__omitted_sections__ as string[])
           : [];

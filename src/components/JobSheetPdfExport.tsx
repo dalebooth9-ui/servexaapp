@@ -11,7 +11,7 @@ import { loadWatermarkImage } from "@/lib/pdfWatermark";
 import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { renderPdfHeader } from "@/lib/pdfHeader";
-import { pdfSwitchLine } from "@/lib/reportModeSwitch";
+import { pdfSwitchLine, hiddenFieldIds } from "@/lib/reportModeSwitch";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
 import { computePdfFooterFlow, renderPdfSignatures, renderPdfFooter, getDefaultFooterText, resolveAccreditationLogoHeight } from "@/lib/pdfFooter";
@@ -604,6 +604,7 @@ export async function generateJobSheetPdf(
   const footerSpace = isDryRiser ? 50 : 58;
   const availableH = pageHeight - y - footerSpace;
   const skipIds = buildSkipIds(template.fields);
+  hiddenFieldIds(resolvedFormData).forEach((id) => skipIds.add(id));
   // Sections/fields the user marked as "omit from report" during form fill.
   const omittedSections: string[] = Array.isArray((resolvedFormData as any).__omitted_sections__)
     ? ((resolvedFormData as any).__omitted_sections__ as string[])
