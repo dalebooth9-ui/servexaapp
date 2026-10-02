@@ -30,12 +30,15 @@ const EDITABLE = [
   "po_reference", "client_name", "site_name", "site_address", "visit_date", "attended_by",
   "site_contact_name", "site_contact_title", "work_instructed", "outcome", "outcome_reason",
   "return_visit_required", "parts_required", "title", "raw_notes", "event_log",
+  "summary", "system_description", "reason_for_visit", "findings", "conclusion", "possible_causes",
+  "recommendations", "closing_note", "gaps_to_confirm", "gaps_resolved",
 ] as const;
+const ARRAY_KEYS = new Set(["event_log", "findings", "possible_causes", "recommendations", "gaps_to_confirm", "gaps_resolved"]);
 const localKey = (id: string) => `autosave_svr_${id}`;
 
 function pick(r: Record<string, any>) {
   const o: Record<string, any> = {};
-  for (const k of EDITABLE) o[k] = r[k] ?? (k === "event_log" ? [] : k === "return_visit_required" ? false : null);
+  for (const k of EDITABLE) o[k] = r[k] ?? (ARRAY_KEYS.has(k) ? [] : k === "return_visit_required" ? false : null);
   return o;
 }
 
@@ -50,6 +53,11 @@ export default function SiteVisitReportEditor() {
   const [saveState, setSaveState] = useState<"saved" | "saving" | "offline" | "idle">("idle");
   const [error, setError] = useState<string | null>(null);
   const [drafting, setDrafting] = useState(false);
+  const [view, setView] = useState<"notes" | "review">("notes");
+  const [redraftOpen, setRedraftOpen] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(false);
+  const { userRole } = useAuth();
+  const isOffice = userRole === "admin" || userRole === "platform_admin";
   const dirty = useRef(false);
   const timer = useRef<number>();
   const creating = useRef(false);
@@ -85,7 +93,10 @@ export default function SiteVisitReportEditor() {
         dirty.current = true;
         scheduleSave(0);
       }
-      setReport({ ...server, event_log: Array.isArray(server.event_log) ? server.event_log : [] });
+      const norm: any = { ...server };
+      for (const k of ARRAY_KEYS) if (!Array.isArray(norm[k])) norm[k] = [];
+      setReport(norm);
+      if (norm.summary || norm.status !== "draft") setView("review");
       loadPhotos(reportId!);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -105,6 +116,7 @@ export default function SiteVisitReportEditor() {
   const flush = useCallback(async () => {
     const r = reportRef.current;
     if (!r || !dirty.current) return;
+    if (r.status === "approved") { dirty.current = false; return; }
     if (!navigator.onLine) { setSaveState("offline"); return; }
     setSaveState("saving");
     dirty.current = false;
@@ -171,7 +183,18 @@ export default function SiteVisitReportEditor() {
         <SaveBadge state={saveState} />
       </div>
       <h1 className="text-2xl font-semibold">Site Visit Report</h1>
+      {view === "review" ? (
+        <ReviewScreen
+          report={report} update={update} locked={locked} isOffice={isOffice} busy={statusBusy}
+          onStatus={changeStatus} jobDetails={jobDetailsSection} workOutcome={workOutcomeSection}
+          photos={<PhotosSection report={report} photos={photos} setPhotos={setPhotos} userId={user!.id} />}
+        />
+      ) : (<>
 
+      {jobDetailsSection}
+      {workOutcomeSection}
+      </>)}
+      {view === "notes" && (<>
       {/* 1. Job details */}
       <section className="rounded-xl border bg-card p-4 space-y-4">
         <h2 className="font-semibold">Job details</h2>
@@ -259,28 +282,20 @@ export default function SiteVisitReportEditor() {
       {/* 6. Draft report */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur p-3">
         <div className="mx-auto max-w-3xl flex justify-end">
-          <Button size="lg" className="h-12 px-8 text-base" disabled={drafting} onClick={async () => {
-            dirty.current = true;
-            await flush();
-            if (!navigator.onLine) {
-              toast.info("Saved on this device. The report will be drafted when you have signal.");
-              return;
-            }
-            setDrafting(true);
-            try {
-              const { data, error } = await supabase.functions.invoke("draft-site-visit-report", { body: { report_id: report.id } });
-              const msg = (data as any)?.error || (error ? "The AI couldn't draft the report right now." : null);
-              if (msg || !(data as any)?.report) {
-                toast.error(`${msg || "No report came back."} Everything you entered is saved – you can try again or fill the sections in by hand.`, { duration: 10000 });
-                return;
-              }
-              setReport((curr) => ({ ...(curr as Report), ...(data as any).report, raw_notes: curr?.raw_notes }));
-              toast.success("Report drafted. Check it over before it goes to the office.");
-              navigate(`/jobs/${jobId}`);
-            } finally {
-              setDrafting(false);
-            }
-          }}>{drafting ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Drafting…</> : "Draft report"}</Button>
+          {view === "notes" ? (
+            <Button size="lg" className="h-12 px-8 text-base" disabled={drafting} onClick={runDraft}>
+              {drafting ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Drafting…</> : "Draft report"}
+            </Button>
+          ) : (
+            <div className="flex w-full flex-wrap items-center justify-between gap-2">
+              <Button variant="outline" onClick={() => setView("notes")}>Back to notes</Button>
+              {!locked && (
+                <Button variant="outline" disabled={drafting} onClick={() => setRedraftOpen(true)} className="gap-1.5">
+                  {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Redraft from notes
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
