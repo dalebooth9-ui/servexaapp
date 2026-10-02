@@ -60,7 +60,7 @@ export default function SiteVisitReportEditor() {
   const [redraftOpen, setRedraftOpen] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
   const { userRole } = useAuth();
-  const isOffice = userRole === "admin" || userRole === "platform_admin";
+  const isOffice = userRole === "admin";
   const dirty = useRef(false);
   const timer = useRef<number>();
   const creating = useRef(false);
