@@ -28,3 +28,7 @@
 
 ## Dry riser pressure → visual switch
 - [x] Switch button + reason, data kept both ways, PDF notice, office tag/return visit/invoice warning, timeline log
+
+## Weekly planner grid
+- [x] Fixed one-cell-per-day cards, multi-day day counters, compact overflow and full-detail hover.
+- [x] Pointer-aligned drop targets and planner guide update.
