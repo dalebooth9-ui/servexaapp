@@ -75,6 +75,7 @@ const ServiceLevelAgreement = lazy(() => import("@/pages/ServiceLevelAgreement")
 const CookiePolicy = lazy(() => import("@/pages/CookiePolicy"));
 const FireProtectionLiability = lazy(() => import("@/pages/FireProtectionLiability"));
 const RamsEditor = lazy(() => import("@/pages/RamsEditor"));
+const SiteVisitReportEditor = lazy(() => import("@/pages/SiteVisitReportEditor"));
 const GenericRamsPage = lazy(() => import("@/pages/GenericRamsPage"));
 const NewRamsPage = lazy(() => import("@/pages/NewRamsPage"));
 const RamsLibrary = lazy(() => import("@/pages/RamsLibrary"));
