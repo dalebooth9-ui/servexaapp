@@ -14,6 +14,7 @@ import { buildSiteVisitPrefill } from "@/lib/siteVisitReportPrefill";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { buildDurableRef, resolveToSignedUrl } from "@/lib/durableStorageRef";
 import { orientBlob } from "@/lib/exifOrient";
+import InlineCamera from "@/components/paper-scan/InlineCamera";
 
 type EventRow = { date: string; time: string; source: string; what_was_recorded: string; note: string };
 type Report = Record<string, any> & { id: string; job_id: string; event_log: EventRow[] };
@@ -384,11 +385,11 @@ async function toUprightJpeg(file: File): Promise<Blob> {
 
 function PhotosSection({ report, photos, setPhotos, userId }: { report: Report; photos: Photo[]; setPhotos: (fn: (p: Photo[]) => Photo[]) => void; userId: string }) {
   const [busy, setBusy] = useState(0);
-  const cam = useRef<HTMLInputElement>(null);
+  const [camOpen, setCamOpen] = useState(false);
   const pickRef = useRef<HTMLInputElement>(null);
   const captionTimers = useRef<Record<string, number>>({});
 
-  const add = async (files: FileList | null) => {
+  const add = async (files: FileList | File[] | null) => {
     if (!files?.length) return;
     const list = Array.from(files);
     setBusy(list.length);
@@ -432,10 +433,11 @@ function PhotosSection({ report, photos, setPhotos, userId }: { report: Report; 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold">Photos</h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="lg" className="gap-2" onClick={() => cam.current?.click()}><Camera className="h-5 w-5" /> Take photo</Button>
+          <Button variant="outline" size="lg" className="gap-2" onClick={() => setCamOpen(true)}><Camera className="h-5 w-5" /> Take photo</Button>
           <Button variant="outline" size="lg" className="gap-2" onClick={() => pickRef.current?.click()}><Upload className="h-5 w-5" /> Add photos</Button>
         </div>
-        <input ref={cam} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
+        {/* In-page camera: the native camera app can make phones reload the page. */}
+        {camOpen && <InlineCamera maxPages={20} onCancel={() => setCamOpen(false)} onCapture={(files: File[]) => { setCamOpen(false); add(files); }} />}
         <input ref={pickRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
       </div>
       {busy > 0 && <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Adding {busy} photo{busy > 1 ? "s" : ""}…</p>}
