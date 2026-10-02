@@ -145,15 +145,16 @@ ${captions.length ? captions.join("\n") : "(none)"}
 
 Write the site visit report.`;
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        messages: [{ role: "system", content: systemPrompt(company) }, { role: "user", content: userPrompt }],
+        model: "openai/gpt-6-astra",
+        instructions: systemPrompt(company),
+        input: userPrompt,
         tools: [{
           type: "function",
-          function: {
+          ...({
             name: "draft_site_visit_report",
             description: "Return the drafted site visit report",
             parameters: {
@@ -184,9 +185,9 @@ Write the site visit report.`;
               required: ["summary", "system_description", "reason_for_visit", "outcome", "event_log", "findings",
                 "conclusion", "possible_causes", "recommendations", "closing_note", "gaps_to_confirm"],
             },
-          },
+          }),
         }],
-        tool_choice: { type: "function", function: { name: "draft_site_visit_report" } },
+        tool_choice: { type: "function", name: "draft_site_visit_report" },
       }),
     });
     if (resp.status === 429) return json(429, { error: "The AI is busy right now. Please try again in a minute." });
@@ -196,7 +197,7 @@ Write the site visit report.`;
       return json(502, { error: "The AI couldn't draft the report. Please try again." });
     }
     const data = await resp.json();
-    const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    const args = (data?.output || []).find((o: any) => o?.type === "function_call")?.arguments;
     if (!args) return json(502, { error: "The AI returned an empty report. Please try again." });
     const out = typeof args === "string" ? JSON.parse(args) : args;
 
