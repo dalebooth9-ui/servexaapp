@@ -92,6 +92,13 @@
       "when": 1790864875410,
       "tag": "0012_photo_slot_auto_fill",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790925517321,
+      "tag": "0013_visual_alternative_link",
+      "breakpoints": true
     }
   ]
 }
