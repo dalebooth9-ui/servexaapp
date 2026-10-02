@@ -69,7 +69,7 @@ export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan
   // job-type→template mapping in parallel.
   const [tplsRes, respsRes, locksRes, mapRes] = await Promise.all([
     supabase.from("job_sheet_templates").select("id, name, category, job_category, fields, locked").eq("status", "published"),
-    supabase.from("job_sheet_responses").select("id, template_id, mode_switch:responses->_mode_switch").eq("job_id", jobId),
+    (supabase.from("job_sheet_responses") as any).select("id, template_id, mode_switch:responses->_mode_switch").eq("job_id", jobId) as Promise<{ data: any[] | null }>,
     supabase.from("job_template_locks").select("bucket, template_id").eq("job_id", jobId),
     lookupSlugs.length
       ? supabase
