@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Camera, CheckCircle2, CloudOff, FileText, Loader2, Mic, Plus, Square, Trash2, Upload, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle2, CloudOff, FileText, Loader2, Mic, Plus, Square, Trash2, Upload, AlertTriangle, RefreshCw, ArrowUp, ArrowDown, Lock, X, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatDateTime } from "@/lib/dateFormat";
 import { buildSiteVisitPrefill } from "@/lib/siteVisitReportPrefill";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { buildDurableRef, resolveToSignedUrl } from "@/lib/durableStorageRef";
@@ -347,6 +350,21 @@ export default function SiteVisitReportEditor() {
 
       </>)}
 
+      <AlertDialog open={redraftOpen} onOpenChange={setRedraftOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Redraft from notes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This writes the report again from your notes, events and photo captions. It will replace any edits you've made to the written sections. Your original notes are kept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep my edits</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setRedraftOpen(false); void runDraft(); }}>Replace and redraft</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* 6. Draft report */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur p-3">
         <div className="mx-auto max-w-3xl flex justify-end">
@@ -439,6 +457,24 @@ function DictateButton({ jobId, onText }: { jobId: string; onText: (t: string) =
   return <Button variant="outline" size="lg" className="gap-2" onClick={start}><Mic className="h-5 w-5" /> Dictate</Button>;
 }
 
+function move<T>(arr: T[], i: number, d: number): T[] {
+  const j = i + d;
+  if (j < 0 || j >= arr.length) return arr;
+  const out = arr.slice();
+  [out[i], out[j]] = [out[j], out[i]];
+  return out;
+}
+
+function RowMoves({ i, n, onMove, onRemove }: { i: number; n: number; onMove: (d: number) => void; onRemove: () => void }) {
+  return (
+    <div className="flex gap-1">
+      <Button type="button" variant="ghost" size="icon" className="h-10 w-10" aria-label="Move up" disabled={i === 0} onClick={() => onMove(-1)}><ArrowUp className="h-4 w-4" /></Button>
+      <Button type="button" variant="ghost" size="icon" className="h-10 w-10" aria-label="Move down" disabled={i === n - 1} onClick={() => onMove(1)}><ArrowDown className="h-4 w-4" /></Button>
+      <Button type="button" variant="ghost" size="icon" className="h-10 w-10" aria-label="Remove" onClick={onRemove}><Trash2 className="h-4 w-4" /></Button>
+    </div>
+  );
+}
+
 function EventsTable({ rows, onChange }: { rows: EventRow[]; onChange: (r: EventRow[]) => void }) {
   const set = (i: number, patch: Partial<EventRow>) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   return (
@@ -461,7 +497,8 @@ function EventsTable({ rows, onChange }: { rows: EventRow[]; onChange: (r: Event
             <Input list="svr-sources" className="h-11" placeholder="Where recorded" value={r.source} onChange={(e) => set(i, { source: e.target.value })} />
             <Input className="h-11" placeholder="What was recorded" value={r.what_was_recorded} onChange={(e) => set(i, { what_was_recorded: e.target.value })} />
           </div>
-          <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Remove row" onClick={() => onChange(rows.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></Button>
+          <RowMoves i={i} n={rows.length} onMove={(d) => onChange(move(rows, i, d))} onRemove={() => onChange(rows.filter((_, j) => j !== i))} />
+          <Input className="h-11 sm:col-span-4" placeholder="Note (optional)" value={r.note ?? ""} onChange={(e) => set(i, { note: e.target.value })} />
         </div>
       ))}
     </section>
@@ -552,5 +589,165 @@ function PhotosSection({ report, photos, setPhotos, userId }: { report: Report; 
         ))}
       </div>
     </section>
+  );
+}
+
+// ── Review screen ─────────────────────────────────────────────────────────
+type Finding = { id: string; heading: string; text: string };
+type Rec = { id: string; action: string; owner_type: "us" | "client" | "third_party"; owner_name: string; status: "open" | "done"; defect_id: string | null };
+const newId = () => (crypto as any).randomUUID?.() || `${Date.now()}-${Math.random()}`;
+
+function ReviewScreen({ report, update, locked, isOffice, busy, onStatus, jobDetails, workOutcome, photos }: {
+  report: Report; update: (p: Record<string, any>) => void; locked: boolean; isOffice: boolean; busy: boolean;
+  onStatus: (to: "draft" | "reviewed" | "approved" | "unlock") => void;
+  jobDetails: React.ReactNode; workOutcome: React.ReactNode; photos: React.ReactNode;
+}) {
+  const gaps: string[] = report.gaps_to_confirm || [];
+  const resolved: string[] = report.gaps_resolved || [];
+  const openGaps = gaps.filter((g) => !resolved.includes(g));
+  const findings: Finding[] = report.findings || [];
+  const causes: string[] = report.possible_causes || [];
+  const recs: Rec[] = report.recommendations || [];
+
+  const text = (key: string, label: string, rows = 4) => (
+    <section className="rounded-xl border bg-card p-4 space-y-2">
+      <Label htmlFor={key} className="font-semibold text-base">{label}</Label>
+      <Textarea id={key} rows={rows} className="text-base leading-relaxed" value={report[key] ?? ""} onChange={(e) => update({ [key]: e.target.value || null })} />
+    </section>
+  );
+  const setRec = (i: number, p: Partial<Rec>) => update({ recommendations: recs.map((r, j) => (j === i ? { ...r, ...p } : r)) });
+  const setFinding = (i: number, p: Partial<Finding>) => update({ findings: findings.map((f, j) => (j === i ? { ...f, ...p } : f)) });
+
+  const steps = [
+    { key: "draft", label: "Draft" },
+    { key: "reviewed", label: "Reviewed" },
+    { key: "approved", label: "Approved" },
+  ];
+  const idx = steps.findIndex((s) => s.key === report.status);
+
+  return (
+    <div className="space-y-6">
+      {/* Status bar */}
+      <section className="rounded-xl border bg-card p-4 space-y-3">
+        <div className="flex items-center gap-2 text-sm">
+          {steps.map((s, i) => (
+            <div key={s.key} className="flex items-center gap-2">
+              <span className={`rounded-full px-3 py-1 font-medium ${i <= idx ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{s.label}</span>
+              {i < steps.length - 1 && <span className="text-muted-foreground">→</span>}
+            </div>
+          ))}
+          <span className="ml-auto text-muted-foreground">Version {report.version ?? 1}</span>
+        </div>
+        {locked && (
+          <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+            <Lock className="h-4 w-4" /> Approved{report.approved_at ? ` on ${formatDateTime(report.approved_at)}` : ""}. Editing is locked.
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {report.status === "draft" && <Button disabled={busy} onClick={() => onStatus("reviewed")}>Mark as reviewed</Button>}
+          {report.status === "reviewed" && <Button variant="outline" disabled={busy} onClick={() => onStatus("draft")}>Back to draft</Button>}
+          {!locked && isOffice && <Button disabled={busy} onClick={() => onStatus("approved")} className="gap-1.5"><Check className="h-4 w-4" /> Approve</Button>}
+          {!locked && !isOffice && report.status === "reviewed" && <p className="text-sm text-muted-foreground self-center">Waiting for the office to approve.</p>}
+          {locked && isOffice && <Button variant="outline" disabled={busy} onClick={() => onStatus("unlock")}>Unlock to revise</Button>}
+        </div>
+      </section>
+
+      {/* Check before sending — office only, never on the PDF */}
+      {gaps.length > 0 && (
+        <section className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-600" /> Check before sending</h2>
+            <span className="text-xs text-muted-foreground">Office only – not on the report</span>
+          </div>
+          {openGaps.length === 0 && <p className="text-sm text-muted-foreground">All checked.</p>}
+          {openGaps.map((g) => (
+            <div key={g} className="flex items-start gap-2 text-sm">
+              <span className="flex-1 pt-2">{g}</span>
+              <Button type="button" size="sm" variant="outline" className="gap-1" disabled={locked} onClick={() => update({ gaps_resolved: [...resolved, g] })}><Check className="h-4 w-4" /> Done</Button>
+              <Button type="button" size="sm" variant="ghost" className="gap-1" disabled={locked} onClick={() => update({ gaps_to_confirm: gaps.filter((x) => x !== g) })}><X className="h-4 w-4" /> Dismiss</Button>
+            </div>
+          ))}
+          {resolved.filter((g) => gaps.includes(g)).length > 0 && (
+            <p className="text-xs text-muted-foreground">{resolved.filter((g) => gaps.includes(g)).length} ticked off.</p>
+          )}
+        </section>
+      )}
+
+      <fieldset disabled={locked} className="space-y-6 disabled:opacity-90">
+        {text("summary", "Summary", 3)}
+        {jobDetails}
+        {workOutcome}
+        {text("system_description", "System description")}
+        {text("reason_for_visit", "Reason for visit")}
+        <EventsTable rows={report.event_log} onChange={(rows) => update({ event_log: rows })} />
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Findings</h2>
+            <Button type="button" variant="outline" className="gap-1.5" onClick={() => update({ findings: [...findings, { id: newId(), heading: "", text: "" }] })}><Plus className="h-4 w-4" /> Add finding</Button>
+          </div>
+          {findings.map((f, i) => (
+            <div key={f.id || i} className="rounded-lg border p-3 space-y-2">
+              <div className="flex gap-2">
+                <Input className="h-11 font-medium" placeholder="Heading, e.g. Sprinkler panel" value={f.heading} onChange={(e) => setFinding(i, { heading: e.target.value })} />
+                <RowMoves i={i} n={findings.length} onMove={(d) => update({ findings: move(findings, i, d) })} onRemove={() => update({ findings: findings.filter((_, j) => j !== i) })} />
+              </div>
+              <Textarea rows={3} className="text-base" value={f.text} onChange={(e) => setFinding(i, { text: e.target.value })} />
+            </div>
+          ))}
+        </section>
+
+        {text("conclusion", "Conclusion")}
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Possible causes <span className="text-sm font-normal text-muted-foreground">(most likely first)</span></h2>
+            <Button type="button" variant="outline" className="gap-1.5" onClick={() => update({ possible_causes: [...causes, ""] })}><Plus className="h-4 w-4" /> Add cause</Button>
+          </div>
+          {causes.map((c, i) => (
+            <div key={i} className="flex gap-2 items-center">
+              <span className="w-6 text-sm text-muted-foreground">{i + 1}.</span>
+              <Input className="h-11" value={c} onChange={(e) => update({ possible_causes: causes.map((x, j) => (j === i ? e.target.value : x)) })} />
+              <RowMoves i={i} n={causes.length} onMove={(d) => update({ possible_causes: move(causes, i, d) })} onRemove={() => update({ possible_causes: causes.filter((_, j) => j !== i) })} />
+            </div>
+          ))}
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Recommendations</h2>
+            <Button type="button" variant="outline" className="gap-1.5" onClick={() => update({ recommendations: [...recs, { id: newId(), action: "", owner_type: "us", owner_name: "", status: "open", defect_id: null }] })}><Plus className="h-4 w-4" /> Add recommendation</Button>
+          </div>
+          {recs.map((r, i) => (
+            <div key={r.id || i} className="rounded-lg border p-3 space-y-2">
+              <div className="flex gap-2">
+                <Textarea rows={2} className="text-base" placeholder="One clear action" value={r.action} onChange={(e) => setRec(i, { action: e.target.value })} />
+                <RowMoves i={i} n={recs.length} onMove={(d) => update({ recommendations: move(recs, i, d) })} onRemove={() => update({ recommendations: recs.filter((_, j) => j !== i) })} />
+              </div>
+              <div className="grid gap-2 sm:grid-cols-[12rem_1fr_auto] items-center">
+                <Select value={r.owner_type} onValueChange={(v) => setRec(i, { owner_type: v as Rec["owner_type"] })} disabled={locked}>
+                  <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="us">Us</SelectItem>
+                    <SelectItem value="client">Client</SelectItem>
+                    <SelectItem value="third_party">Third party</SelectItem>
+                  </SelectContent>
+                </Select>
+                {r.owner_type === "third_party" ? (
+                  <Input className="h-11" placeholder="Who, e.g. Fire alarm maintainer" value={r.owner_name ?? ""} onChange={(e) => setRec(i, { owner_name: e.target.value })} />
+                ) : <div />}
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={r.status === "done"} onCheckedChange={(v) => setRec(i, { status: v ? "done" : "open" })} disabled={locked} /> Done
+                </label>
+              </div>
+              {r.defect_id && <p className="text-xs text-muted-foreground">Defect raised for this action.</p>}
+            </div>
+          ))}
+        </section>
+
+        {text("closing_note", "Closing note", 3)}
+      </fieldset>
+      {photos}
+    </div>
   );
 }
