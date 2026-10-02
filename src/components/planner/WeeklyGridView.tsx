@@ -146,8 +146,8 @@ function DraggableUnallocatedJob({
           ref={setNodeRef}
           {...attributes}
           {...listeners}
-          className="cursor-grab absolute inset-0 rounded-md"
-          style={{ zIndex: 0, WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}
+          className="cursor-grab absolute inset-0 z-[2] rounded-md"
+          style={{ WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}
         />
       )}
 
