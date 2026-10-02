@@ -9,12 +9,12 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import VisualOnlyReportNotice from "@/components/jobs/VisualOnlyReportNotice";
-import { fetchVisualOnlyByJob } from "@/lib/reportModeSwitch";
+import { fetchVisualOnlyByJob, needsReasonReview } from "@/lib/reportModeSwitch";
 import { ClipboardCheck, Loader2, Mail, Pencil, Undo2, ExternalLink } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { officeReturnToEngineer, officeSendToCustomer, officeUnlockForEdit, type CustomerChannel } from "@/lib/reportReview";
 
-type Row = { jobId: string; ref: string; site: string; name: string; engineer: string; submittedAt: string; pdfPath: string | null; visualOnly: boolean };
+type Row = { jobId: string; ref: string; site: string; name: string; engineer: string; submittedAt: string; pdfPath: string | null; visualOnly: boolean; reasonCheck?: boolean };
 
 export default function ReportsToCheck() {
   const { toast } = useToast();
@@ -57,6 +57,7 @@ export default function ReportsToCheck() {
         submittedAt: e?.created_at || "",
         pdfPath: e?.pdf_path || null,
         visualOnly: switched.has(j.id),
+        reasonCheck: needsReasonReview(switched.get(j.id)?.state || null),
       };
     });
     out.sort((a, b) => a.submittedAt.localeCompare(b.submittedAt)); // oldest first
@@ -99,7 +100,8 @@ export default function ReportsToCheck() {
             <Card key={r.jobId} className="p-3 flex flex-wrap items-center gap-3 cursor-pointer hover:border-primary/60" onClick={() => openRow(r)}>
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate"><span className="font-mono">{r.ref}</span> — {r.site}
-                  {r.visualOnly && <Badge variant="outline" className="ml-2 border-amber-400 text-amber-800 dark:text-amber-300">Pressure test outstanding</Badge>}</p>
+                  {r.visualOnly && <Badge variant="outline" className="ml-2 border-amber-400 text-amber-800 dark:text-amber-300">Pressure test outstanding</Badge>}
+                  {r.reasonCheck && <Badge variant="outline" className="ml-2">Reason to check</Badge>}</p>
                 <p className="text-xs text-muted-foreground truncate">{r.name} · {r.engineer}{r.submittedAt && ` · ${format(new Date(r.submittedAt), "dd/MM/yyyy HH:mm")}`}</p>
               </div>
               <Button size="sm" variant="outline">Open</Button>
