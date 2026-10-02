@@ -134,10 +134,11 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
   };
 
   /** Table with rows never split across pages; header repeats on new pages. */
-  const table = (cols: { label: string; w: number }[], rows: string[][]) => {
+  const table = (cols: { label: string; w: number }[], rows: string[][], opts: { noHead?: boolean } = {}) => {
     const size = 9;
     const pad = 1.8;
     const drawHead = () => {
+      if (opts.noHead) return;
       doc.setFillColor(...brand.accent);
       doc.rect(M, y, CW, 7, "F");
       doc.setFont("helvetica", "bold");
@@ -147,7 +148,8 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
       cols.forEach((c) => { doc.text(c.label, x + pad, y + 4.8); x += c.w * CW; });
       y += 7;
     };
-    ensure(7 + 8);
+    const firstRowH = rows.length ? Math.max(...rows[0].map((v, i) => wrap(v || "", size, cols[i].w * CW - pad * 2).length)) * (lineH(size) + 0.8) + pad * 2 : 0;
+    ensure((opts.noHead ? 0 : 7) + firstRowH);
     drawHead();
     rows.forEach((row, ri) => {
       const cells = row.map((v, i) => wrap(v || "", size, cols[i].w * CW - pad * 2));
@@ -207,7 +209,7 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
   // 3. Job details (PO-first)
   heading("Job details", 30);
   const v = (x: any) => (String(x ?? "").trim() || TBC);
-  table([{ label: "Detail", w: 0.3 }, { label: "", w: 0.7 }], [
+  table([{ label: "", w: 0.3 }, { label: "", w: 0.7 }], [
     [ref && refLabel === "PO" ? "PO number" : "Reference", v(ref)],
     ["Client", v(r.client_name)],
     ["Site name", v(r.site_name)],
@@ -215,7 +217,7 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
     ["Date of visit", longDate(r.visit_date)],
     ["Attended by", v(r.attended_by)],
     ["Site contact", r.site_contact_name ? [r.site_contact_name, r.site_contact_title].filter(Boolean).join(", ") : TBC],
-  ]);
+  ], { noHead: true });
 
   // 3a. Work instructed + outcome
   {
@@ -244,7 +246,7 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
   // 6. Findings
   const events: any[] = Array.isArray(r.event_log) ? r.event_log.filter((e: any) => e && (e.what_was_recorded || e.date || e.time)) : [];
   const findings: any[] = Array.isArray(r.findings) ? r.findings : [];
-  heading("Findings", events.length ? 16 : firstH(findings[0]?.heading || ""));
+  heading("Findings", events.length ? 24 : firstH(findings[0]?.heading || ""));
   if (events.length) {
     table(
       [{ label: "Date", w: 0.18 }, { label: "Time", w: 0.1 }, { label: "Recorded by", w: 0.22 }, { label: "What was recorded", w: 0.5 }],
@@ -281,7 +283,7 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
 
   // 8. Recommendations
   const recs: any[] = (Array.isArray(r.recommendations) ? r.recommendations : []).filter((x: any) => x?.action?.trim());
-  heading("Recommendations and next steps", 16);
+  heading("Recommendations and next steps", 24);
   if (recs.length) {
     const who = (x: any) => x.owner_type === "us" ? (brand.name || "Us") : x.owner_type === "client" ? "Client" : ((x.owner_name || "").trim() || "Third party");
     table([{ label: "Action", w: 0.7 }, { label: "Who", w: 0.3 }], recs.map((x) => [x.action, who(x)]));
