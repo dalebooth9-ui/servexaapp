@@ -174,28 +174,8 @@ export default function SiteVisitReportEditor() {
     </div>
   );
 
-  const gaps: string[] = Array.isArray(report.gaps_to_confirm) ? report.gaps_to_confirm : [];
-
-  return (
-    <div className="mx-auto max-w-3xl px-4 py-4 pb-28 space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <Button variant="ghost" size="sm" asChild className="gap-1.5"><Link to={`/jobs/${jobId}`}><ArrowLeft className="h-4 w-4" /> Back to job</Link></Button>
-        <SaveBadge state={saveState} />
-      </div>
-      <h1 className="text-2xl font-semibold">Site Visit Report</h1>
-      {view === "review" ? (
-        <ReviewScreen
-          report={report} update={update} locked={locked} isOffice={isOffice} busy={statusBusy}
-          onStatus={changeStatus} jobDetails={jobDetailsSection} workOutcome={workOutcomeSection}
-          photos={<PhotosSection report={report} photos={photos} setPhotos={setPhotos} userId={user!.id} />}
-        />
-      ) : (<>
-
-      {jobDetailsSection}
-      {workOutcomeSection}
-      </>)}
-      {view === "notes" && (<>
-      {/* 1. Job details */}
+  const locked = report.status === "approved";
+  const jobDetailsSection = (
       <section className="rounded-xl border bg-card p-4 space-y-4">
         <h2 className="font-semibold">Job details</h2>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -210,8 +190,8 @@ export default function SiteVisitReportEditor() {
           {field("site_contact_title", "Site contact title")}
         </div>
       </section>
-
-      {/* 1a. Work instructed + outcome */}
+  );
+  const workOutcomeSection = (
       <section className="rounded-xl border bg-card p-4 space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="work_instructed">Work instructed</Label>
@@ -242,7 +222,26 @@ export default function SiteVisitReportEditor() {
           <Input id="parts_required" className="h-11 text-base" value={report.parts_required ?? ""} onChange={(e) => update({ parts_required: e.target.value || null })} />
         </div>
       </section>
+  );
 
+  const gaps: string[] = Array.isArray(report.gaps_to_confirm) ? report.gaps_to_confirm : [];
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-4 pb-28 space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <Button variant="ghost" size="sm" asChild className="gap-1.5"><Link to={`/jobs/${jobId}`}><ArrowLeft className="h-4 w-4" /> Back to job</Link></Button>
+        <SaveBadge state={saveState} />
+      </div>
+      <h1 className="text-2xl font-semibold">Site Visit Report</h1>
+      {view === "review" ? (
+        <ReviewScreen
+          report={report} update={update} locked={locked} isOffice={isOffice} busy={statusBusy}
+          onStatus={changeStatus} jobDetails={jobDetailsSection} workOutcome={workOutcomeSection}
+          photos={<PhotosSection report={report} photos={photos} setPhotos={setPhotos} userId={user!.id} />}
+        />
+      ) : (<>
+      {jobDetailsSection}
+      {workOutcomeSection}
       {/* 2. Title */}
       <section className="space-y-1.5">
         <Label htmlFor="title">Report title</Label>
@@ -278,6 +277,8 @@ export default function SiteVisitReportEditor() {
 
       {/* 5. Photos */}
       <PhotosSection report={report} photos={photos} setPhotos={setPhotos} userId={user!.id} />
+
+      </>)}
 
       {/* 6. Draft report */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur p-3">
