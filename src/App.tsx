@@ -217,6 +217,7 @@ const App = () => (
 
               <Route path="/jobs" element={<AccessRoute pageSlug="jobs"><Jobs /></AccessRoute>} />
               <Route path="/jobs/:id" element={<AccessRoute pageSlug="jobs"><JobDetail /></AccessRoute>} />
+              <Route path="/jobs/:jobId/site-visit-report/:reportId" element={<AccessRoute pageSlug="jobs"><SiteVisitReportEditor /></AccessRoute>} />
               <Route path="/jobs/:jobId/rams" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />
               <Route path="/jobs/:jobId/rams/:ramsId" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />
               <Route path="/rams/new" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />

@@ -82,6 +82,8 @@ const EngineerCertificates = lazy(() => import("@/components/jobs/EngineerCertif
 const JobDocuments = lazy(() => import("@/components/JobDocuments"));
 const ScanDocumentButton = lazy(() => import("@/components/documents/ScanDocumentButton"));
 const ScanPaperReportButton = lazy(() => import("@/components/paper-scan/ScanPaperReportButton"));
+const SiteVisitReportButton = lazy(() => import("@/components/jobs/SiteVisitReportButton"));
+const SiteVisitReportList = lazy(() => import("@/components/jobs/SiteVisitReportButton").then((m) => ({ default: m.SiteVisitReportList })));
 
 const InstallationProjects = lazy(() => import("@/components/InstallationProjects"));
 const SiteSurveyCard = lazy(() => import("@/components/SiteSurveyCard"));
@@ -1143,8 +1145,9 @@ export default function JobDetail() {
               <ScanPaperReportButton jobId={id!} onSaved={() => setScanDocsKey((k) => k + 1)} />
             </Suspense>
             <Suspense fallback={null}><ScanDocumentButton jobId={id!} /></Suspense>
-
+            <Suspense fallback={null}><SiteVisitReportButton jobId={id!} /></Suspense>
           </div>
+          <Suspense fallback={null}><SiteVisitReportList jobId={id!} /></Suspense>
           {userRole === "admin" && (
             <div className="mb-3 flex justify-end gap-2">
               <Button
