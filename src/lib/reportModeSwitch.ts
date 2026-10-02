@@ -22,6 +22,8 @@ export type ModeSwitchPair = {
   fieldMap?: Record<string, string>;
   /** Labels of wet-test fields hidden in "visual only" fallback mode. */
   wetFieldPattern?: RegExp;
+  /** Job type whose auto-attached form is the visual alternative (used if no explicit link is set). */
+  visualCategorySlug?: string;
 };
 
 export const MODE_SWITCH_PAIRS: ModeSwitchPair[] = [
@@ -32,6 +34,7 @@ export const MODE_SWITCH_PAIRS: ModeSwitchPair[] = [
     fullLabel: "Pressure test",
     visualLabel: "Visual inspection",
     wetFieldPattern: /test pressure|hold time|leaks? detected|pressure test result/i,
+    visualCategorySlug: "dry_riser_visual",
   },
 ];
 

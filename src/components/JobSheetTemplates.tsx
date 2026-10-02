@@ -1561,7 +1561,21 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       let target: Template | null;
       let state: ModeSwitchState;
       if (toVisual) {
-        const linked = await loadTemplateById((activeTemplate as any).visual_template_id);
+        // 1) explicit "Visual alternative" link on the form; 2) the form
+        // auto-attached to the pair's visual job type; 3) visual-only mode.
+        let linked = await loadTemplateById((activeTemplate as any).visual_template_id);
+        if (!linked && pair.visualCategorySlug) {
+          const { data: maps } = await supabase.from("job_category_template_map")
+            .select("template_id, org_id, sort_order")
+            .eq("job_category_slug", pair.visualCategorySlug)
+            .order("sort_order", { ascending: true });
+          const orgId = (activeTemplate as any).org_id;
+          const ordered = [...(maps || [])].sort((a: any, b: any) => (a.org_id === orgId ? -1 : 0) - (b.org_id === orgId ? -1 : 0));
+          for (const m of ordered as any[]) {
+            const t = await loadTemplateById(m.template_id);
+            if (t && (!orgId || (t as any).org_id === orgId) && (t as any).status !== "draft") { linked = t; break; }
+          }
+        }
         target = linked || activeTemplate;
         const fallback = !linked;
         state = {
