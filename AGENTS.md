@@ -6,3 +6,4 @@
 - Wet/visual report switching keeps one response row, changes only template_id and stores `_mode_switch` in the answers; pairs live in `src/lib/reportModeSwitch.ts` — why: no data loss on switch/back and new pairs need only a config entry.
 
 - Site Visit Reports live in `site_visit_reports` (not job sheet templates); photos link existing job photos via `site_visit_report_photos` (durable storage_ref + stable finding_id) — why: written reports differ from checklists and photos must not shift between findings.
+- Site Visit Reports are created immediately on open (prefilled by `src/lib/siteVisitReportPrefill.ts`) and autosave to the row plus an `autosave_svr_<id>` local copy — why: drafts survive signal loss and closed tabs.
