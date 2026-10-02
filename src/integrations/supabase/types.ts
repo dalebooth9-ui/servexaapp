@@ -9386,6 +9386,230 @@ export type Database = {
           },
         ]
       }
+      site_visit_report_photos: {
+        Row: {
+          caption: string
+          created_at: string
+          created_by: string
+          display_order: number
+          finding_id: string | null
+          id: string
+          org_id: string
+          report_id: string
+          storage_ref: string
+          submission_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          caption?: string
+          created_at?: string
+          created_by?: string
+          display_order?: number
+          finding_id?: string | null
+          id?: string
+          org_id?: string
+          report_id: string
+          storage_ref: string
+          submission_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          caption?: string
+          created_at?: string
+          created_by?: string
+          display_order?: number
+          finding_id?: string | null
+          id?: string
+          org_id?: string
+          report_id?: string
+          storage_ref?: string
+          submission_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_visit_report_photos_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_visit_report_photos_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_visit_report_photos_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "site_visit_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_visit_report_photos_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_visit_reports: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          attended_by: string | null
+          client_name: string | null
+          closing_note: string | null
+          conclusion: string | null
+          created_at: string
+          created_by: string
+          event_log: Json
+          findings: Json
+          gaps_to_confirm: Json
+          id: string
+          job_id: string
+          org_id: string
+          outcome: Database["public"]["Enums"]["site_visit_outcome"] | null
+          outcome_reason: string | null
+          parts_required: string | null
+          possible_causes: Json
+          raw_notes: string | null
+          reason_for_visit: string | null
+          recommendations: Json
+          return_visit_required: boolean
+          reviewed_by: string | null
+          site_address: string | null
+          site_contact_name: string | null
+          site_contact_title: string | null
+          site_name: string | null
+          source_job_sheet_id: string | null
+          status: Database["public"]["Enums"]["site_visit_report_status"]
+          summary: string | null
+          system_description: string | null
+          title: string
+          updated_at: string
+          version: number
+          visit_date: string
+          work_instructed: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          attended_by?: string | null
+          client_name?: string | null
+          closing_note?: string | null
+          conclusion?: string | null
+          created_at?: string
+          created_by?: string
+          event_log?: Json
+          findings?: Json
+          gaps_to_confirm?: Json
+          id?: string
+          job_id: string
+          org_id?: string
+          outcome?: Database["public"]["Enums"]["site_visit_outcome"] | null
+          outcome_reason?: string | null
+          parts_required?: string | null
+          possible_causes?: Json
+          raw_notes?: string | null
+          reason_for_visit?: string | null
+          recommendations?: Json
+          return_visit_required?: boolean
+          reviewed_by?: string | null
+          site_address?: string | null
+          site_contact_name?: string | null
+          site_contact_title?: string | null
+          site_name?: string | null
+          source_job_sheet_id?: string | null
+          status?: Database["public"]["Enums"]["site_visit_report_status"]
+          summary?: string | null
+          system_description?: string | null
+          title?: string
+          updated_at?: string
+          version?: number
+          visit_date?: string
+          work_instructed?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          attended_by?: string | null
+          client_name?: string | null
+          closing_note?: string | null
+          conclusion?: string | null
+          created_at?: string
+          created_by?: string
+          event_log?: Json
+          findings?: Json
+          gaps_to_confirm?: Json
+          id?: string
+          job_id?: string
+          org_id?: string
+          outcome?: Database["public"]["Enums"]["site_visit_outcome"] | null
+          outcome_reason?: string | null
+          parts_required?: string | null
+          possible_causes?: Json
+          raw_notes?: string | null
+          reason_for_visit?: string | null
+          recommendations?: Json
+          return_visit_required?: boolean
+          reviewed_by?: string | null
+          site_address?: string | null
+          site_contact_name?: string | null
+          site_contact_title?: string | null
+          site_name?: string | null
+          source_job_sheet_id?: string | null
+          status?: Database["public"]["Enums"]["site_visit_report_status"]
+          summary?: string | null
+          system_description?: string | null
+          title?: string
+          updated_at?: string
+          version?: number
+          visit_date?: string
+          work_instructed?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_visit_reports_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_visit_reports_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_visit_reports_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_visit_reports_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_visit_reports_source_job_sheet_id_fkey"
+            columns: ["source_job_sheet_id"]
+            isOneToOne: false
+            referencedRelation: "job_sheet_responses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sites: {
         Row: {
           address: string | null
@@ -10909,6 +11133,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "engineer" | "platform_admin" | "customer_user"
+      site_visit_outcome:
+        | "completed"
+        | "partly_completed"
+        | "not_completed"
+        | "investigation_only"
+      site_visit_report_status: "draft" | "reviewed" | "approved"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -11037,6 +11267,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "engineer", "platform_admin", "customer_user"],
+      site_visit_outcome: [
+        "completed",
+        "partly_completed",
+        "not_completed",
+        "investigation_only",
+      ],
+      site_visit_report_status: ["draft", "reviewed", "approved"],
     },
   },
 } as const
