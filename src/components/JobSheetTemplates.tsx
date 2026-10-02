@@ -55,7 +55,7 @@ import { createSubmissionPhotoSignedUrl } from "@/lib/jobPhotos";
 import SortablePhotoGrid from "./SortablePhotoGrid";
 import { UKDateInput } from "@/components/ui/uk-date-input";
 import ReportModeSwitchDialog from "@/components/jobs/ReportModeSwitchDialog";
-import { carryAnswers, findPair, getSwitchState, logSwitch, normName, switchReasonText, type ModeSwitchState } from "@/lib/reportModeSwitch";
+import { carryAnswers, findPair, getSwitchState, logSwitch, switchReasonText, hiddenFieldIds, withoutHiddenFields, wetFieldIds, MODE_SWITCH_PAIRS, GENERIC_PAIR, type ModeSwitchPair, type ModeSwitchState } from "@/lib/reportModeSwitch";
 
 type TemplateField = {
   id: string;
@@ -1548,7 +1548,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const hit = allTemplates.find((t) => t.id === id);
     if (hit) return hit;
     const { data } = await supabase.from("job_sheet_templates").select("*").eq("id", id).maybeSingle();
-    return data ? ({ ...(data as any), fields: parseTemplateFields((data as any).fields) } as Template) : null;
+    return data ? ({ ...(data as any), fields: typeof (data as any).fields === "string" ? JSON.parse((data as any).fields) : (data as any).fields } as Template) : null;
   };
   const handleModeSwitch = async (reason: string, note: string, internalNote: string) => {
     if (!activeTemplate || !modePair) return;
