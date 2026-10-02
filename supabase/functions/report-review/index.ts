@@ -20,6 +20,15 @@ const Body = z.discriminatedUnion("action", [
     channel: z.enum(["email", "whatsapp", "both"]).default("email"),
   }),
   z.object({ action: z.literal("edit"), jobId: z.string().uuid() }),
+  z.object({
+    action: z.literal("send_svr"),
+    jobId: z.string().uuid(),
+    reportId: z.string().uuid(),
+    pdfPath: z.string().min(1).max(500),
+    toEmail: z.string().email(),
+    subject: z.string().trim().min(1).max(300),
+    message: z.string().trim().min(1).max(10000),
+  }),
   z.object({ action: z.literal("return"), jobId: z.string().uuid(), reason: z.string().trim().min(1).max(2000) }),
 ]);
 
@@ -59,7 +68,7 @@ Deno.serve(async (req) => {
     const { data: assigned } = await admin.from("job_assignments").select("id").eq("job_id", job.id).eq("engineer_id", user.id).limit(1);
     const isAssigned = (assigned || []).length > 0;
 
-    const officeOnly = input.action === "send_customer" || input.action === "edit" || input.action === "return";
+    const officeOnly = input.action === "send_customer" || input.action === "send_svr" || input.action === "edit" || input.action === "return";
     if (officeOnly && !isAdmin) return json({ error: "Office access required" }, 403);
     if (!officeOnly && !isAdmin && !isAssigned) return json({ error: "Not assigned to this job" }, 403);
 
@@ -245,6 +254,22 @@ Deno.serve(async (req) => {
       const via = [sentEmail ? `email (${to})` : null, sentWhatsApp ? `WhatsApp (${phone})` : null].filter(Boolean).join(" and ");
       await log("report_sent_to_customer", `Report sent to customer via ${via || "no channel"} by ${actorName}`, { pdf_path: input.pdfPath });
       return json({ ok: true, to, phone, sentEmail, sentWhatsApp });
+    }
+
+    if (input.action === "send_svr") {
+      if (!pathInOrg(input.pdfPath)) return json({ error: "Invalid file path" }, 400);
+      const { data: svr } = await admin.from("site_visit_reports").select("id, job_id, status, title, version").eq("id", input.reportId).maybeSingle();
+      if (!svr || svr.job_id !== job.id) return json({ error: "Report not found on this job" }, 404);
+      if (svr.status !== "approved") return json({ error: "Only approved reports can be emailed to the customer" }, 400);
+      const bodyHtml = input.message.split(/\n{2,}/).map((p) => `<p>${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
+      const html = wrapCustomerEmail(branding, { previewText: input.subject, senderName: actorName, bodyHtml });
+      const pdf = await download(input.pdfPath);
+      const fname = `${ref.replace(/[^\w-]+/g, "_")}-site-visit-report-v${svr.version}.pdf`;
+      const r = await sendViaResend({ from: identity.from, reply_to: identity.reply_to, to: [input.toEmail], subject: input.subject, html, attachments: [{ filename: fname, content: toB64(pdf) }] });
+      if (!r.ok) return json({ error: "Email failed to send", detail: r.body }, 502);
+      await recordEmail([input.toEmail], input.subject, input.message, html, 1);
+      await admin.from("job_activity_log").insert({ job_id: job.id, org_id: job.org_id, user_id: user.id, action: "site_visit_report_emailed", details: `Site Visit Report "${svr.title || "Untitled"}" v${svr.version} emailed to ${input.toEmail} by ${actorName}` });
+      return json({ ok: true, to: input.toEmail });
     }
 
     if (input.action === "edit") {

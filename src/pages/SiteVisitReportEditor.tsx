@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDateTime } from "@/lib/dateFormat";
+import { viewSiteVisitReportPdf, fileApprovedSiteVisitReport } from "@/lib/siteVisitReportPdf";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { buildSiteVisitPrefill } from "@/lib/siteVisitReportPrefill";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { buildDurableRef, resolveToSignedUrl } from "@/lib/durableStorageRef";
@@ -199,6 +201,8 @@ export default function SiteVisitReportEditor() {
         const { data, error } = await supabase.rpc("approve_site_visit_report" as any, { _report_id: r.id });
         if (error) throw error;
         const n = (data as any)?.created || 0;
+        try { await fileApprovedSiteVisitReport(r.id); }
+        catch { toast.error("Approved, but the PDF couldn't be filed on the job yet. Open the report and tap View PDF to retry."); }
         toast.success(n ? `Approved. ${n} defect${n === 1 ? "" : "s"} raised for our own actions.` : "Report approved and locked.");
       } else if (to === "unlock") {
         const { error } = await supabase.rpc("unlock_site_visit_report" as any, { _report_id: r.id });
@@ -649,6 +653,10 @@ function ReviewScreen({ report, update, locked, isOffice, busy, onStatus, jobDet
           {!locked && isOffice && <Button disabled={busy} onClick={() => onStatus("approved")} className="gap-1.5"><Check className="h-4 w-4" /> Approve</Button>}
           {!locked && !isOffice && report.status === "reviewed" && <p className="text-sm text-muted-foreground self-center">Waiting for the office to approve.</p>}
           {locked && isOffice && <Button variant="outline" disabled={busy} onClick={() => onStatus("unlock")}>Unlock to revise</Button>}
+          <Button variant="outline" className="gap-1.5" onClick={() => viewSiteVisitReportPdf(report.id).catch((e) => toast.error(e?.message || "Couldn't make the PDF."))}>
+            <FileText className="h-4 w-4" /> View PDF
+          </Button>
+          {locked && isOffice && <EmailToCustomer report={report} />}
         </div>
       </section>
 
@@ -749,5 +757,70 @@ function ReviewScreen({ report, update, locked, isOffice, busy, onStatus, jobDet
       </fieldset>
       {photos}
     </div>
+  );
+}
+
+function EmailToCustomer({ report }: { report: Report }) {
+  const [open, setOpen] = useState(false);
+  const [to, setTo] = useState("");
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const prepare = async () => {
+    const { data: job } = await supabase.from("jobs")
+      .select("customer_po, reference_number, sites(name, contact_email, contact_name), customers(name, email)")
+      .eq("id", report.job_id).maybeSingle();
+    const j: any = job || {};
+    const ref = (j.customer_po || "").trim() ? `PO ${j.customer_po}` : (j.reference_number || "");
+    const site = report.site_name || j.sites?.name || "";
+    const greet = report.site_contact_name || j.sites?.contact_name || "";
+    setTo(j.sites?.contact_email || j.customers?.email || "");
+    setSubject([ref, site, `Site Visit Report – ${report.title || "Untitled"}`].filter(Boolean).join(" – "));
+    setMessage(`${greet ? `Dear ${greet},` : "Hello,"}\n\nPlease find attached our Site Visit Report for ${site || "your site"}${ref ? ` (${ref})` : ""}.\n\nIf you have any questions, just reply to this email.`);
+    setOpen(true);
+  };
+
+  const send = async () => {
+    setSending(true);
+    try {
+      const path = await fileApprovedSiteVisitReport(report.id);
+      const { data, error } = await supabase.functions.invoke("report-review", {
+        body: { action: "send_svr", jobId: report.job_id, reportId: report.id, pdfPath: path, toEmail: to.trim(), subject, message },
+      });
+      if (error || (data as any)?.error) throw new Error((data as any)?.error || "Email failed to send");
+      toast.success(`Emailed to ${to.trim()} and filed on the job.`);
+      setOpen(false);
+    } catch (e: any) {
+      toast.error(e?.message || "Email failed to send");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <>
+      <Button className="gap-1.5" onClick={prepare}>Email to customer</Button>
+      <Dialog open={open} onOpenChange={(o) => !sending && setOpen(o)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Check the email before it sends</DialogTitle>
+            <DialogDescription>The approved PDF is attached and the email is filed against this job.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5"><Label htmlFor="svr-to">To</Label><Input id="svr-to" type="email" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label htmlFor="svr-subj">Subject</Label><Input id="svr-subj" value={subject} onChange={(e) => setSubject(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label htmlFor="svr-msg">Message</Label><Textarea id="svr-msg" rows={7} value={message} onChange={(e) => setMessage(e.target.value)} /></div>
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5"><FileText className="h-4 w-4" /> Site Visit Report v{report.version} (PDF)</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" disabled={sending} onClick={() => setOpen(false)}>Cancel</Button>
+            <Button disabled={sending || !/^\S+@\S+\.\S+$/.test(to.trim()) || !subject.trim() || !message.trim()} onClick={send}>
+              {sending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending…</> : "Send email"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

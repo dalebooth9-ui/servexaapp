@@ -33,8 +33,13 @@ export default function PortalDocuments() {
     })();
   }, [ctx.customerId, jobFilter]);
 
-  function open(d: DocRow) {
-    if (d.file_url) window.open(d.file_url, "_blank", "noopener");
+  async function open(d: DocRow) {
+    if (!d.file_url) return;
+    if (!d.file_url.startsWith("storage://")) { window.open(d.file_url, "_blank", "noopener"); return; }
+    const tab = window.open("", "_blank");
+    const { data } = await supabase.functions.invoke("portal-document-url", { body: { documentId: d.id } });
+    const url = (data as any)?.url;
+    if (url && tab) tab.location.href = url; else if (url) window.location.href = url; else tab?.close();
   }
 
   if (loading) return <div className="text-muted-foreground">Loading…</div>;
@@ -51,7 +56,7 @@ export default function PortalDocuments() {
                 <div className="flex items-start gap-3 min-w-0 flex-1">
                   <FileText className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium break-words line-clamp-3 sm:line-clamp-2">{d.file_name || d.document_type || "Document"}</div>
+                    <div className="font-medium break-words line-clamp-3 sm:line-clamp-2">{d.label || d.file_name || d.document_type || "Document"}</div>
                     <div className="text-xs text-muted-foreground">{formatDate(d.created_at)} · {d.document_type}</div>
                   </div>
                 </div>
