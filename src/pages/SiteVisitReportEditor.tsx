@@ -144,6 +144,7 @@ export default function SiteVisitReportEditor() {
   }, [flush]);
 
   const update = (patch: Record<string, any>) => {
+    if (reportRef.current?.status === "approved") return;
     setReport((prev) => {
       if (!prev) return prev;
       const next = { ...prev, ...patch };
@@ -154,6 +155,72 @@ export default function SiteVisitReportEditor() {
     setSaveState(navigator.onLine ? "saving" : "offline");
     scheduleSave();
   };
+
+  const runDraft = async () => {
+    const r = reportRef.current;
+    if (!r) return;
+    dirty.current = true;
+    await flush();
+    if (!navigator.onLine) {
+      toast.info("Saved on this device. The report will be drafted when you have signal.");
+      return;
+    }
+    setDrafting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("draft-site-visit-report", { body: { report_id: r.id } });
+      const msg = (data as any)?.error || (error ? "The AI couldn't draft the report right now." : null);
+      if (msg || !(data as any)?.report) {
+        toast.error(`${msg || "No report came back."} Everything you entered is saved – you can try again or fill the sections in by hand.`, { duration: 10000 });
+        return;
+      }
+      const fresh: any = { ...(data as any).report };
+      for (const k of ARRAY_KEYS) if (!Array.isArray(fresh[k])) fresh[k] = [];
+      setReport((curr) => ({ ...(curr as Report), ...fresh, raw_notes: curr?.raw_notes }));
+      localStorage.setItem(localKey(r.id), JSON.stringify({ report: { ...r, ...fresh }, pending: false }));
+      setView("review");
+      window.scrollTo({ top: 0 });
+      toast.success("Report drafted. Check each section before it goes out.");
+    } finally {
+      setDrafting(false);
+    }
+  };
+
+  const changeStatus = async (to: "draft" | "reviewed" | "approved" | "unlock") => {
+    const r = reportRef.current;
+    if (!r || !user) return;
+    dirty.current = true;
+    await flush();
+    setStatusBusy(true);
+    try {
+      if (to === "approved") {
+        const { data, error } = await supabase.rpc("approve_site_visit_report" as any, { _report_id: r.id });
+        if (error) throw error;
+        const n = (data as any)?.created || 0;
+        toast.success(n ? `Approved. ${n} defect${n === 1 ? "" : "s"} raised for our own actions.` : "Report approved and locked.");
+      } else if (to === "unlock") {
+        const { error } = await supabase.rpc("unlock_site_visit_report" as any, { _report_id: r.id });
+        if (error) throw error;
+        toast.success("Unlocked to revise. The version number has gone up.");
+      } else {
+        const { error } = await supabase.from("site_visit_reports")
+          .update({ status: to, reviewed_by: to === "reviewed" ? user.id : null } as any).eq("id", r.id);
+        if (error) throw error;
+        await supabase.from("job_activity_log").insert({ job_id: r.job_id, user_id: user.id, action: `site_visit_report_${to}`, details: `Site Visit Report marked ${to === "reviewed" ? "Reviewed" : "Draft"}` } as any);
+      }
+      const { data: fresh } = await supabase.from("site_visit_reports").select("*").eq("id", r.id).single();
+      if (fresh) {
+        const f: any = { ...fresh };
+        for (const k of ARRAY_KEYS) if (!Array.isArray(f[k])) f[k] = [];
+        setReport(f);
+        localStorage.setItem(localKey(r.id), JSON.stringify({ report: f, pending: false }));
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't change the status.");
+    } finally {
+      setStatusBusy(false);
+    }
+  };
+
 
   if (error) {
     return (
