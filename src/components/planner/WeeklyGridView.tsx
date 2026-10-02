@@ -854,9 +854,9 @@ export default function WeeklyGridView({
 
         {/* Grid */}
         <div className="flex-1 overflow-x-auto">
-          <div className="min-w-[700px]">
+          <div className="min-w-[1120px]">
             {/* Day headers */}
-            <div className="grid gap-1 mb-1" style={{ gridTemplateColumns: `140px repeat(${weekDays.length}, minmax(0, 1fr))` }}>
+            <div className="grid gap-1 mb-1" style={{ gridTemplateColumns: `140px repeat(${weekDays.length}, minmax(140px, 1fr))` }}>
               <div className="text-xs font-semibold text-muted-foreground px-2 py-1">Engineer</div>
               {weekDays.map((d) => {
                 const isToday = isSameDay(d, new Date());
@@ -1038,7 +1038,7 @@ function SortableEngineerRow({
       {/* Main grid row */}
       <div
         className="grid gap-1"
-        style={{ gridTemplateColumns: `140px repeat(${weekDays.length}, minmax(0, 1fr))` }}
+        style={{ gridTemplateColumns: `140px repeat(${weekDays.length}, minmax(140px, 1fr))` }}
       >
         {/* Engineer name column */}
         <div
