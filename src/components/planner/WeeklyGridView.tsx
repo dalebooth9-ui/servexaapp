@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import { JobCardSubtitle } from "@/lib/jobCardLabel";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   DndContext,
   DragOverlay,
@@ -855,7 +856,7 @@ export default function WeeklyGridView({
         <div className="flex-1 overflow-x-auto">
           <div className="min-w-[700px]">
             {/* Day headers */}
-            <div className="grid gap-1 mb-1" style={{ gridTemplateColumns: `140px repeat(${weekDays.length}, 1fr)` }}>
+            <div className="grid gap-1 mb-1" style={{ gridTemplateColumns: `140px repeat(${weekDays.length}, minmax(0, 1fr))` }}>
               <div className="text-xs font-semibold text-muted-foreground px-2 py-1">Engineer</div>
               {weekDays.map((d) => {
                 const isToday = isSameDay(d, new Date());
@@ -1036,9 +1037,8 @@ function SortableEngineerRow({
     >
       {/* Main grid row */}
       <div
-        ref={gridRowRef}
         className="grid gap-1"
-        style={{ gridTemplateColumns: `140px repeat(${weekDays.length}, 1fr)` }}
+        style={{ gridTemplateColumns: `140px repeat(${weekDays.length}, minmax(0, 1fr))` }}
       >
         {/* Engineer name column */}
         <div
@@ -1108,7 +1108,6 @@ function SortableEngineerRow({
           const partner = partnerEntries.filter(s => s.schedule_date === dateStr);
           const visits = [...own, ...partner];
           const cellAdhoc = adhocEntries.filter(a => a.schedule_date === dateStr && (a.engineer_id === eng.user_id || a.engineer_id === partnerEng?.user_id));
-          const hasContent = visits.length + cellAdhoc.length > 0;
           return (
             <DroppableCell key={cellId} id={cellId} colIdx={colIdx} isToday={isSameDay(d, new Date())} isOver={overId === cellId}
               isLeave={leaveDates.includes(dateStr) || partnerLeaveDates.includes(dateStr) || bankHolidayDates.has(dateStr)}>
@@ -1126,8 +1125,18 @@ function SortableEngineerRow({
                     if (last) void onResizeSpan(entry.job_id, entry.engineer_id, dates, [...dates.map(s => s.schedule_date), format(addDays(parseISO(last.schedule_date), 1), "yyyy-MM-dd")]);
                   } : undefined} />;
               })}
-              {visits.length > 2 && <Button size="sm" variant="link" className="h-5 px-0 text-[10px]" onClick={() => dispatchOpenDayPanel({ engineerId: eng.user_id, engineerName: eng.full_name, date: dateStr })}>+{visits.length - 2} more</Button>}
-              {cellAdhoc.length > 0 && <Button size="sm" variant="link" className="h-5 px-0 text-[10px]" onClick={() => dispatchOpenDayPanel({ engineerId: eng.user_id, engineerName: eng.full_name, date: dateStr })}>{cellAdhoc.length} labour {cellAdhoc.length === 1 ? "entry" : "entries"}</Button>}
+              {visits.length > 2 && <Popover>
+                <PopoverTrigger asChild><Button size="sm" variant="link" className="h-5 px-0 text-[10px]">+{visits.length - 2} more</Button></PopoverTrigger>
+                <PopoverContent className="w-72 max-h-80 overflow-y-auto space-y-1" align="start">
+                  {visits.slice(2).map(entry => {
+                    const position = dayPosition(entry);
+                    return <DraggableScheduleCard key={entry.id} entry={entry} job={getJob(entry.job_id)}
+                      engineerName={(entry.engineer_id === eng.user_id ? eng : partnerEng)?.full_name || "—"}
+                      dayIndex={position.index} dayCount={position.count} isAdmin={isAdmin} onRemove={onRemove} />;
+                  })}
+                </PopoverContent>
+              </Popover>}
+              {cellAdhoc.map(adhoc => <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />)}
             </DroppableCell>
           );
         })}
