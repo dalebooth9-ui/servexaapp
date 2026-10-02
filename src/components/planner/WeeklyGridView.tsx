@@ -7,11 +7,13 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { X, GripVertical, AlertTriangle, CalendarDays, Palmtree, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { JobCardSubtitle } from "@/lib/jobCardLabel";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Button } from "@/components/ui/button";
 import {
   DndContext,
   DragOverlay,
   closestCenter,
-  closestCorners,
+  pointerWithin,
   PointerSensor,
   useSensor,
   useSensors,
@@ -30,7 +32,6 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import AdhocEntryCard from "./AdhocEntryCard";
-import CompactVisitRow from "./CompactVisitRow";
 import DayPanel from "./DayPanel";
 import BulkAssignBar from "./BulkAssignBar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -75,11 +76,9 @@ const PRIORITY_BG: Record<string, string> = {
   low: "border-l-accent bg-accent/5",
 };
 
-const STATUS_INDICATOR: Record<string, { label: string; class: string }> = {
-  active: { label: "Active", class: "bg-primary/20 text-primary" },
-  completed: { label: "Done", class: "bg-green-500/20 text-green-700 dark:text-green-400" },
-  archived: { label: "Archived", class: "bg-muted text-muted-foreground" },
-  revisit: { label: "Revisit", class: "bg-orange-500/20 text-orange-600 dark:text-orange-400" },
+const STATUS_DOT: Record<string, string> = {
+  active: "bg-primary", in_progress: "bg-primary", completed: "bg-green-500",
+  archived: "bg-muted-foreground", revisit: "bg-amber-500",
 };
 
 function extractPostcodeArea(job: Job): string {
@@ -205,273 +204,60 @@ function DraggableUnallocatedJob({
   );
 }
 
-// Spanning multi-day job card
-function SpanningJobCard({
-  entries,
-  job,
-  span,
-  isAdmin,
-  onRemove,
-  pairedEngineers,
-  isFirst,
-  isContinuation,
-  onAdjustSpan,
-}: {
-  entries: ScheduleEntry[];
-  job: Job | undefined;
-  span: number;
-  isAdmin: boolean;
-  onRemove: (id: string) => void;
-  pairedEngineers?: Engineer[];
-  isFirst: boolean;
-  isContinuation: boolean;
-  onAdjustSpan?: (delta: number) => void;
-}) {
-  if (!job) return null;
-  const isOverdue = job.due_date && isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date()) && job.status !== "completed";
-  const dueToday = job.due_date && isSameDay(parseISO(job.due_date), new Date());
-  const entry = entries[0];
-
-  return (
-    <div
-      className={cn(
-        "group/spancard relative rounded-md border-l-4 bg-card px-2 py-1.5 text-[11px] shadow-sm h-full flex flex-col justify-center min-h-[52px]",
-        PRIORITY_BG[job.priority] || "border-l-muted",
-        span > 1 && "rounded-r-md",
-        isContinuation && "border-l-0 rounded-l-none border-l-transparent pl-1.5"
-      )}
-      style={{
-        background: span > 1
-          ? `linear-gradient(90deg, hsl(var(--card)) 0%, hsl(var(--primary)/0.04) 100%)`
-          : undefined,
-      }}
-    >
-      {/* Top-right action bar: day badge + +/- buttons + remove */}
-      {isAdmin && (
-        <div className="absolute top-1 right-1 flex items-center gap-0.5 z-10">
-          {span > 1 && (
-            <span className="inline-flex items-center gap-0.5 rounded bg-primary text-primary-foreground px-1.5 py-0.5 text-[11px] font-bold leading-none shadow-sm">
-              <CalendarDays className="h-3 w-3" />{span}d
-            </span>
-          )}
-          {onAdjustSpan && (
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); onAdjustSpan(-1); }}
-              disabled={span <= 1}
-              className="rounded px-1 py-0.5 text-[10px] font-bold bg-muted hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-30 disabled:cursor-not-allowed leading-none"
-              title="Remove 1 day"
-            >−</button>
-          )}
-          {onAdjustSpan && (
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); onAdjustSpan(1); }}
-              className="rounded px-1 py-0.5 text-[10px] font-bold bg-muted hover:bg-primary/20 text-primary transition-colors leading-none"
-              title="Add 1 day"
-            >+</button>
-          )}
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); entries.forEach(e2 => onRemove(e2.id)); }}
-            className="rounded p-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-            title="Remove"
-          >
-            <X className="h-3 w-3" />
-          </button>
-        </div>
-      )}
-      {!isAdmin && span > 1 && (
-        <div className="absolute top-1 right-1 flex items-center gap-0.5 z-10">
-          <span className="inline-flex items-center gap-0.5 rounded bg-primary text-primary-foreground px-1.5 py-0.5 text-[11px] font-bold leading-none shadow-sm">
-            <CalendarDays className="h-3 w-3" />{span}d
-          </span>
-        </div>
-      )}
-      <div className="flex items-start gap-1 min-w-0">
-        <div className="flex-1 min-w-0 pr-16">
-          <div className="flex items-start justify-between gap-1 mb-0.5">
-            <div className="truncate text-foreground font-medium flex-1 min-w-0 pr-1">{job.name}</div>
-            <div className="flex items-center gap-1 flex-wrap shrink-0">
-              {STATUS_INDICATOR[job.status] && (
-                <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none shrink-0", STATUS_INDICATOR[job.status].class)}>
-                  {STATUS_INDICATOR[job.status].label}
-                </span>
-              )}
-              {isOverdue && (
-                <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
-                  <AlertTriangle className="h-2 w-2" /> OVR
-                </span>
-              )}
-              {dueToday && !isOverdue && (
-                <span className="inline-flex items-center rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white shrink-0">TODAY</span>
-              )}
-            </div>
-          </div>
-          <JobCardSubtitle job={job} className="truncate text-muted-foreground text-[10px]" />
-          {entry?.notes && (
-            <div
-              className="truncate italic text-[10px] font-medium"
-              style={entry.notes_color ? { color: entry.notes_color } : { color: "hsl(var(--muted-foreground))" }}
-            >
-              {entry.notes}
-            </div>
-          )}
-          {pairedEngineers && pairedEngineers.length > 0 && (
-            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-              <Users className="h-2.5 w-2.5 text-primary shrink-0" />
-              {pairedEngineers.map((pe) => (
-                <span key={pe.user_id} className="inline-flex items-center rounded-full bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[9px] font-medium leading-none">
-                  {pe.full_name.split(" ")[0]}
-                </span>
-              ))}
-            </div>
-          )}
-          {(job.category === "installation" || job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
-            <div className="flex flex-wrap gap-0.5 mt-0.5">
-              {job.category === "installation" && (
-                <span className="inline-flex items-center rounded bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 px-1 py-0.5 text-[9px] font-bold">DRI</span>
-              )}
-              {job.pressure_test_qty > 0 && (
-                <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>
-              )}
-              {job.visual_qty > 0 && (
-                <span className="inline-flex items-center rounded bg-secondary border border-border text-secondary-foreground px-1 py-0.5 text-[9px] font-semibold">Vis×{job.visual_qty}</span>
-              )}
-              {job.other_qty > 0 && job.other_service_type && (
-                <span className="inline-flex items-center rounded bg-accent border border-border text-accent-foreground px-1 py-0.5 text-[9px] font-semibold">{job.other_service_type}×{job.other_qty}</span>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Single-day schedule card (droppable for pairing)
-function DraggableScheduleCard({
-  entry,
-  job,
-  isAdmin,
-  onRemove,
-  pairedEngineers,
-  onAdjustSpan,
-}: {
+// One compact, draggable visit for exactly one engineer/day cell.
+function DraggableScheduleCard({ entry, job, engineerName, dayIndex, dayCount, isAdmin, onRemove, onAdjustSpan }: {
   entry: ScheduleEntry;
   job: Job | undefined;
+  engineerName: string;
+  dayIndex: number;
+  dayCount: number;
   isAdmin: boolean;
   onRemove: (id: string) => void;
-  pairedEngineers?: Engineer[];
   onAdjustSpan?: (delta: number) => void;
 }) {
-  const { attributes, listeners, setNodeRef: dragRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `sched-${entry.id}`,
     data: { type: "scheduled", entry, job },
     disabled: !isAdmin,
   });
-
   if (!job) return null;
-  const isOverdue = job.due_date && isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date()) && job.status !== "completed";
-  const dueToday = job.due_date && isSameDay(parseISO(job.due_date), new Date());
-
   return (
-    <div
-      ref={isAdmin ? dragRef : undefined}
-      {...(isAdmin ? attributes : {})}
-      {...(isAdmin ? listeners : {})}
-      className={cn(
-        "group/schedcard relative rounded-md border-l-4 bg-card p-1.5 text-[11px] shadow-sm transition-colors select-none",
-        PRIORITY_BG[job.priority] || "border-l-muted",
-        isDragging && "opacity-30",
-        isAdmin && "cursor-grab active:cursor-grabbing",
-      )}
-      style={{ WebkitUserSelect: "none", userSelect: "none" } as React.CSSProperties}
-    >
-      {/* Admin action bar — always visible */}
-      {isAdmin && (
-        <div className="absolute top-1 right-1 flex items-center gap-0.5 z-10">
-          {onAdjustSpan && (
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); onAdjustSpan(1); }}
-              className="rounded px-1.5 py-0.5 text-[10px] font-bold bg-primary text-primary-foreground hover:bg-primary/80 transition-colors leading-none shadow-sm"
-              title="Add 1 day"
-            >+1d</button>
+    <HoverCard openDelay={200} closeDelay={250}>
+      <HoverCardTrigger asChild>
+        <div
+          ref={setNodeRef}
+          {...(isAdmin ? attributes : {})}
+          {...(isAdmin ? listeners : {})}
+          className={cn(
+            "relative min-w-0 h-10 rounded-sm border border-border border-l-4 bg-card px-1.5 py-0.5 text-[11px] select-none",
+            PRIORITY_BG[job.priority] || "border-l-muted",
+            isDragging && "opacity-30",
+            isAdmin && "cursor-grab active:cursor-grabbing"
           )}
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
-            className="rounded p-0.5 bg-muted text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-            title="Remove"
-          >
-            <X className="h-3 w-3" />
-          </button>
+        >
+          <div className="flex items-center gap-1 min-w-0">
+            <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[job.status] || "bg-muted-foreground/50")} aria-label={job.status.replace(/_/g, " ")} />
+            <span className="truncate min-w-0 flex-1 font-medium" title={job.name}>{job.name}</span>
+            {dayCount > 1 && <span className="shrink-0 text-[9px] text-muted-foreground">Day {dayIndex}/{dayCount}</span>}
+          </div>
+          <div className="pl-2.5 truncate font-mono text-[10px] text-muted-foreground">{job.reference_number}</div>
         </div>
-      )}
-      <div className={cn("flex-1 min-w-0", isAdmin && "pr-14")}>
-        <div className="flex items-start justify-between gap-1 mb-0.5">
-          <div className="truncate text-foreground flex-1 min-w-0 pr-1">{job.name}</div>
-          <div className="flex items-center gap-1 flex-wrap shrink-0">
-            {STATUS_INDICATOR[job.status] && (
-              <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none shrink-0", STATUS_INDICATOR[job.status].class)}>
-                {STATUS_INDICATOR[job.status].label}
-              </span>
-            )}
-            {job.due_date && (() => {
-              return isOverdue ? (
-                <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
-                  <AlertTriangle className="h-2 w-2" /> OVERDUE
-                </span>
-              ) : dueToday ? (
-                <span className="inline-flex items-center rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white shrink-0">
-                  TODAY
-                </span>
-              ) : (
-                <span className="inline-flex items-center rounded bg-muted border border-border px-1.5 py-0.5 text-[9px] font-mono text-muted-foreground shrink-0">
-                  {format(parseISO(job.due_date!), "dd/MM/yy")}
-                </span>
-              );
-            })()}
-          </div>
-        </div>
-        <JobCardSubtitle job={job} className="truncate text-muted-foreground text-[10px]" />
-        {entry.notes && (
-          <div
-            className="truncate italic text-[10px] font-medium"
-            style={entry.notes_color ? { color: entry.notes_color } : { color: "hsl(var(--muted-foreground))" }}
-          >
-            {entry.notes}
-          </div>
-        )}
-        {pairedEngineers && pairedEngineers.length > 0 && (
-          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-            <Users className="h-2.5 w-2.5 text-primary shrink-0" />
-            {pairedEngineers.map((pe) => (
-              <span key={pe.user_id} className="inline-flex items-center rounded-full bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[9px] font-medium leading-none">
-                {pe.full_name.split(" ")[0]}
-              </span>
-            ))}
-          </div>
-        )}
-        {(job.category === "installation" || job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
-          <div className="flex flex-wrap gap-1 mt-0.5">
-            {job.category === "installation" && (
-              <span className="inline-flex items-center rounded bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 px-1 py-0.5 text-[9px] font-bold">DRI</span>
-            )}
-            {job.pressure_test_qty > 0 && (
-              <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>
-            )}
-            {job.visual_qty > 0 && (
-              <span className="inline-flex items-center rounded bg-secondary border border-border text-secondary-foreground px-1 py-0.5 text-[9px] font-semibold">Vis×{job.visual_qty}</span>
-            )}
-            {job.other_qty > 0 && job.other_service_type && (
-              <span className="inline-flex items-center rounded bg-accent border border-border text-accent-foreground px-1 py-0.5 text-[9px] font-semibold">{job.other_service_type}×{job.other_qty}</span>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+      </HoverCardTrigger>
+      <HoverCardContent side="top" align="start" className="w-72 space-y-1 text-xs" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="font-semibold break-words">{job.name}</div>
+        <div><span className="text-muted-foreground">Client:</span> {job.customer || "—"}</div>
+        <div><span className="text-muted-foreground">Site:</span> {job.site?.name ? `${job.site.name} · ` : ""}{job.site?.address || job.address || "—"}</div>
+        <div><span className="text-muted-foreground">Ref:</span> {job.reference_number}</div>
+        <div><span className="text-muted-foreground">Status:</span> {job.status.replace(/_/g, " ")} · <span className="text-muted-foreground">Priority:</span> {job.priority}</div>
+        <div><span className="text-muted-foreground">Engineer:</span> {engineerName}</div>
+        <div><span className="text-muted-foreground">Dates:</span> {dayCount > 1 ? `Day ${dayIndex} of ${dayCount} · ` : ""}{format(parseISO(entry.schedule_date), "dd/MM/yyyy")}{job.due_date ? ` · Due ${format(parseISO(job.due_date), "dd/MM/yyyy")}` : ""}</div>
+        {entry.notes && <div className="break-words">{entry.notes}</div>}
+        {isAdmin && <div className="flex justify-end gap-1 pt-1 border-t border-border">
+          {onAdjustSpan && <Button size="sm" variant="ghost" onClick={() => onAdjustSpan(1)} title="Add one day">+1 day</Button>}
+          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" aria-label="Remove visit" title="Remove visit" onClick={() => onRemove(entry.id)}><X className="h-4 w-4" /></Button>
+        </div>}
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 
@@ -524,7 +310,6 @@ function DroppableCell({
   isOver,
   isLeave,
   colIdx,
-  colSpan = 1,
 }: {
   id: string;
   children: React.ReactNode;
@@ -532,7 +317,6 @@ function DroppableCell({
   isOver: boolean;
   isLeave?: boolean;
   colIdx?: number;
-  colSpan?: number;
 }) {
   const { setNodeRef } = useDroppable({ id });
 
@@ -540,9 +324,8 @@ function DroppableCell({
     <div
       ref={setNodeRef}
       data-day-col={colIdx}
-      style={colSpan > 1 ? { gridColumn: `span ${colSpan}` } : undefined}
       className={cn(
-        "min-h-[80px] rounded-md border p-1.5 space-y-1 transition-colors",
+        "h-32 min-w-0 overflow-hidden rounded-md border p-1 space-y-0.5 transition-colors",
         isToday && "bg-primary/5 border-primary/20",
         isOver && "bg-primary/10 border-primary ring-1 ring-primary/30",
         isLeave && !isOver && "bg-blue-500/5 border-blue-500/20",
@@ -677,14 +460,14 @@ export default function WeeklyGridView({
     return () => window.removeEventListener("planner:open-day-panel", handler as EventListener);
   }, []);
 
-  // Custom collision detection: when dragging an engineer-pair, prefer eng-drop- droppables over sortable rows
+  // Job and labour targets are the cell under the actual pointer, not the card centre.
+  // Keep row sorting on closestCenter and pair matching limited to name-column zones.
   const collisionDetection: CollisionDetection = (args) => {
     if (activeItem?.type === "engineer-pair") {
-      const engDropCollisions = closestCorners({
-        ...args,
-        droppableContainers: args.droppableContainers.filter(c => String(c.id).startsWith("eng-drop-")),
-      });
-      if (engDropCollisions.length > 0) return engDropCollisions;
+      return pointerWithin({ ...args, droppableContainers: args.droppableContainers.filter(c => String(c.id).startsWith("eng-drop-")) });
+    }
+    if (activeItem?.type === "scheduled" || activeItem?.type === "unallocated" || activeItem?.type === "adhoc") {
+      return pointerWithin({ ...args, droppableContainers: args.droppableContainers.filter(c => String(c.id).startsWith("cell-") || c.id === "unallocated-zone") });
     }
     return closestCenter(args);
   };
@@ -1181,66 +964,6 @@ export function dispatchOpenDayPanel(detail: { engineerId: string; engineerName:
   window.dispatchEvent(new CustomEvent(openDayPanelEvent, { detail }));
 }
 
-// Compute multi-day spans for a set of schedule entries within the visible weekDays
-function computeSpans(
-  entries: ScheduleEntry[],
-  weekDays: Date[]
-): Array<{ jobId: string; startColIndex: number; span: number; entries: ScheduleEntry[]; isContinuation: boolean }> {
-  const weekDateStrs = weekDays.map(d => format(d, "yyyy-MM-dd"));
-
-  // Group entries by job
-  const byJob = new Map<string, ScheduleEntry[]>();
-  for (const e of entries) {
-    const arr = byJob.get(e.job_id) || [];
-    arr.push(e);
-    byJob.set(e.job_id, arr);
-  }
-
-  const spans: Array<{ jobId: string; startColIndex: number; span: number; entries: ScheduleEntry[]; isContinuation: boolean }> = [];
-
-  for (const [jobId, jobEntries] of byJob) {
-    // Find which column indices this job occupies
-    const colIndices = jobEntries
-      .map(e => weekDateStrs.indexOf(e.schedule_date))
-      .filter(i => i !== -1)
-      .sort((a, b) => a - b);
-
-    if (colIndices.length === 0) continue;
-
-    if (colIndices.length === 1) {
-      spans.push({ jobId, startColIndex: colIndices[0], span: 1, entries: jobEntries, isContinuation: false });
-      continue;
-    }
-
-    // Group consecutive columns into runs
-    let runStart = colIndices[0];
-    let runEnd = colIndices[0];
-    for (let i = 1; i <= colIndices.length; i++) {
-      if (i < colIndices.length && colIndices[i] === runEnd + 1) {
-        runEnd = colIndices[i];
-      } else {
-        const runEntries = jobEntries.filter(e => {
-          const idx = weekDateStrs.indexOf(e.schedule_date);
-          return idx >= runStart && idx <= runEnd;
-        });
-        spans.push({
-          jobId,
-          startColIndex: runStart,
-          span: runEnd - runStart + 1,
-          entries: runEntries,
-          isContinuation: false,
-        });
-        if (i < colIndices.length) {
-          runStart = colIndices[i];
-          runEnd = colIndices[i];
-        }
-      }
-    }
-  }
-
-  return spans;
-}
-
 // Sortable engineer row
 function SortableEngineerRow({
   eng,
@@ -1290,21 +1013,6 @@ function SortableEngineerRow({
   });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
 
-  // Resize state: tracks which span is being resized and the live preview column count
-  const [resizingSpanKey, setResizingSpanKey] = useState<string | null>(null);
-  const [resizePreviewSpan, setResizePreviewSpan] = useState<number>(1);
-  const resizeDataRef = useRef<{
-    spanKey: string;
-    jobId: string;
-    engineerId: string;
-    startColIndex: number;
-    existingEntries: ScheduleEntry[];
-    cellRects: DOMRect[];
-  } | null>(null);
-
-  // Build a ref for the grid row element to measure cell positions
-  const gridRowRef = useRef<HTMLDivElement | null>(null);
-
   const today = format(new Date(), "yyyy-MM-dd");
   const engEntries = schedule.filter((s) => s.engineer_id === eng.user_id);
   const partnerEntries = partnerEng ? schedule.filter((s) => s.engineer_id === partnerEng.user_id) : [];
@@ -1314,100 +1022,11 @@ function SortableEngineerRow({
   const totalPT = [...engEntries, ...partnerEntries].reduce((sum, s) => sum + (getJob(s.job_id)?.pressure_test_qty || 0), 0);
   const totalVis = [...engEntries, ...partnerEntries].reduce((sum, s) => sum + (getJob(s.job_id)?.visual_qty || 0), 0);
 
-  // Compute spans for this engineer (and partner)
-  const engSpans = useMemo(() => computeSpans(engEntries, weekDays), [engEntries, weekDays]);
-  const partnerSpans = useMemo(() => partnerEng ? computeSpans(partnerEntries, weekDays) : [], [partnerEntries, weekDays, partnerEng]);
-
-  // Track which column indices are covered by multi-day spans (span > 1, not start col) — these show empty in cells
-  const engCoveredCols = useMemo(() => {
-    const covered = new Set<number>();
-    for (const s of engSpans) {
-      if (s.span > 1) {
-        for (let i = s.startColIndex + 1; i < s.startColIndex + s.span; i++) covered.add(i);
-      }
-    }
-    return covered;
-  }, [engSpans]);
-
-  const partnerCoveredCols = useMemo(() => {
-    const covered = new Set<number>();
-    for (const s of partnerSpans) {
-      if (s.span > 1) {
-        for (let i = s.startColIndex + 1; i < s.startColIndex + s.span; i++) covered.add(i);
-      }
-    }
-    return covered;
-  }, [partnerSpans]);
-
   const weekDateStrs = weekDays.map(d => format(d, "yyyy-MM-dd"));
-
-  // Resize handler: uses document-level listeners so drag works even when cursor leaves the handle
-  const handleResizeStart = (
-    e: React.PointerEvent,
-    spanKey: string,
-    jobId: string,
-    engineerId: string,
-    startColIndex: number,
-    existingEntries: ScheduleEntry[]
-  ) => {
-    if (!onResizeSpan) return;
-    e.stopPropagation();
-    e.nativeEvent.stopImmediatePropagation();
-    e.preventDefault();
-
-    // Lock DnD sensor globally
-    globalResizeActive = true;
-
-    // Measure all day-column cells from the grid row BEFORE state changes
-    const gridEl = gridRowRef.current;
-    if (!gridEl) { globalResizeActive = false; return; }
-
-    // Collect all DroppableCell elements in order
-    const cells = Array.from(gridEl.querySelectorAll<HTMLElement>("[data-day-col]"));
-    // Build rects keyed by colIdx
-    const colRects: { idx: number; rect: DOMRect }[] = cells.map(c => ({
-      idx: parseInt(c.dataset.dayCol || "0", 10),
-      rect: c.getBoundingClientRect(),
-    }));
-
-    resizeDataRef.current = { spanKey, jobId, engineerId, startColIndex, existingEntries, cellRects: colRects.map(r => r.rect) };
-    setResizingSpanKey(spanKey);
-    setResizePreviewSpan(existingEntries.length || 1);
-
-    const getColFromX = (x: number): number => {
-      // Find which column the cursor is over based on measured rects
-      let best = startColIndex;
-      for (const { idx, rect } of colRects) {
-        if (idx < startColIndex) continue;
-        if (x >= rect.left && x <= rect.right) { best = idx; break; }
-        if (x > rect.right) best = idx;
-      }
-      return Math.max(startColIndex, best);
-    };
-
-    const onMove = (me: PointerEvent) => {
-      if (!resizeDataRef.current) return;
-      const col = getColFromX(me.clientX);
-      setResizePreviewSpan(col - startColIndex + 1);
-    };
-
-    const onUp = async (ue: PointerEvent) => {
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onUp);
-      globalResizeActive = false;
-      if (!resizeDataRef.current) { setResizingSpanKey(null); return; }
-      const col = getColFromX(ue.clientX);
-      const newSpan = Math.max(1, col - startColIndex + 1);
-      const newDates = weekDateStrs.slice(startColIndex, startColIndex + newSpan);
-      setResizingSpanKey(null);
-      resizeDataRef.current = null;
-      await onResizeSpan!(jobId, engineerId, existingEntries, newDates);
-    };
-
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onUp);
+  const dayPosition = (entry: ScheduleEntry) => {
+    const dates = [...new Set(schedule.filter(s => s.engineer_id === entry.engineer_id && s.job_id === entry.job_id).map(s => s.schedule_date))].sort();
+    return { index: dates.indexOf(entry.schedule_date) + 1, count: dates.length };
   };
-
 
   return (
     <div
@@ -1481,292 +1100,37 @@ function SortableEngineerRow({
           )}
         </div>
 
-        {/* Day cells — render spanning cards OR individual cards */}
-        {(() => {
-          const cells: React.ReactNode[] = [];
-          let colIdx = 0;
-
-          while (colIdx < weekDays.length) {
-            const d = weekDays[colIdx];
-            const dateStr = weekDateStrs[colIdx];
-            const cellId = `cell-${eng.user_id}_${dateStr}`;
-            const isToday = isSameDay(d, new Date());
-            const isOnLeave = leaveDates.includes(dateStr);
-            const isPartnerOnLeave = partnerLeaveDates.includes(dateStr);
-            const isBankHoliday = bankHolidayDates.has(dateStr);
-
-            // Find spanning jobs that START at this column
-            const spanStartsHere = engSpans.filter(s => s.span > 1 && s.startColIndex === colIdx);
-            const partnerSpanStartsHere = partnerSpans.filter(s => s.span > 1 && s.startColIndex === colIdx);
-
-            // Single-day entries at this column
-            const singleEngEntries = engSpans
-              .filter(s => s.span === 1 && s.startColIndex === colIdx)
-              .flatMap(s => s.entries);
-            const partnerSingleEntries = partnerSpans
-              .filter(s => s.span === 1 && s.startColIndex === colIdx)
-              .flatMap(s => s.entries);
-
-            const cellAdhoc = adhocEntries.filter(a => a.engineer_id === eng.user_id && a.schedule_date === dateStr);
-            const partnerCellAdhoc = partnerEng
-              ? adhocEntries.filter(a => a.engineer_id === partnerEng.user_id && a.schedule_date === dateStr)
-              : [];
-
-            // If this column is covered by a span started in a previous column, skip it with a simple increment
-            if (engCoveredCols.has(colIdx) || partnerCoveredCols.has(colIdx)) {
-              colIdx++;
-              continue;
-            }
-
-            const totalCellCount = singleEngEntries.length + spanStartsHere.length + cellAdhoc.length
-              + partnerSingleEntries.length + partnerSpanStartsHere.length + partnerCellAdhoc.length;
-            const hasAnyContent = totalCellCount > 0;
-            const COMPACT_THRESHOLD = 4;
-            const isCompact = totalCellCount > COMPACT_THRESHOLD;
-            const MINI_VISIBLE = 6;
-
-            // Prefetch mini-row data for compact mode
-            const compactRows = isCompact ? [
-              ...singleEngEntries.map((entry) => {
-                const j = getJob(entry.job_id);
-                return { key: `s-${entry.id}`, entryId: entry.id, job: j };
-              }),
-              ...spanStartsHere.map((s) => {
-                const j = getJob(s.jobId);
-                return { key: `sp-${s.jobId}`, entryId: s.entries[0]?.id, job: j };
-              }),
-              ...(partnerEng ? partnerSingleEntries.map((entry) => {
-                const j = getJob(entry.job_id);
-                return { key: `ps-${entry.id}`, entryId: entry.id, job: j };
-              }) : []),
-              ...(partnerEng ? partnerSpanStartsHere.map((s) => {
-                const j = getJob(s.jobId);
-                return { key: `psp-${s.jobId}`, entryId: s.entries[0]?.id, job: j };
-              }) : []),
-            ] : [];
-
-            // Determine live preview span for a span being resized at this col
-            const getEffectiveSpan = (spanItem: { jobId: string; startColIndex: number; span: number }, ownEngineerId: string) => {
-              const key = `${spanItem.jobId}-${ownEngineerId}`;
-              if (resizingSpanKey === key) return resizePreviewSpan;
-              return spanItem.span;
-            };
-
-            // How many grid columns should this cell span?
-            // Use the max span of any job starting here (for eng or partner)
-            const maxSpan = Math.max(
-              1,
-              ...spanStartsHere.map(s => Math.min(getEffectiveSpan(s, eng.user_id), weekDays.length - colIdx)),
-              ...partnerSpanStartsHere.map(s => Math.min(getEffectiveSpan(s, partnerEng!.user_id), weekDays.length - colIdx))
-            );
-
-            const content = (
-              <>
-                {isBankHoliday && !hasAnyContent && (
-                  <div className="flex items-center gap-1 rounded px-1.5 py-1 bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-700 dark:text-amber-400 font-medium">
-                    🏦 Bank Holiday
-                  </div>
-                )}
-                {isBankHoliday && hasAnyContent && (
-                  <div className="text-[10px] text-amber-700 dark:text-amber-400 font-medium mb-0.5 px-0.5">🏦 Bank Hol</div>
-                )}
-                {isOnLeave && (
-                  <div className="flex items-center gap-1 text-[10px] font-medium text-primary px-0.5 mb-0.5">
-                    <Palmtree className="h-3 w-3 shrink-0" />{eng.full_name.split(" ")[0]} on leave
-                  </div>
-                )}
-                {isPartnerOnLeave && partnerEng && (
-                  <div className="flex items-center gap-1 text-[10px] font-medium text-primary px-0.5 mb-0.5">
-                    <Palmtree className="h-3 w-3 shrink-0" />{partnerEng.full_name.split(" ")[0]} on leave
-                  </div>
-                )}
-                {isCompact ? (
-                  <>
-                    <button
-                      onClick={() => dispatchOpenDayPanel({ engineerId: eng.user_id, engineerName: eng.full_name, date: dateStr })}
-                      className="w-full flex items-center justify-between rounded bg-primary/10 hover:bg-primary/20 border border-primary/30 px-1.5 py-1 mb-1 text-[10px] font-semibold text-primary transition-colors"
-                      title="Open day panel"
-                    >
-                      <span>{totalCellCount} jobs</span>
-                      <span className="underline">Open</span>
-                    </button>
-                    <div className="space-y-0.5">
-                      {compactRows.slice(0, MINI_VISIBLE).map((r) => (
-                        <CompactVisitRow
-                          key={r.key}
-                          refNumber={r.job?.reference_number || "—"}
-                          jobId={r.job?.id || ""}
-                          title={r.job?.name || "Untitled"}
-                          siteName={r.job?.site?.name}
-                          postcode={r.job?.site?.postcode}
-                          address={r.job?.address}
-                          priority={r.job?.priority}
-                          status={r.job?.status}
-                          onRemove={isAdmin && r.entryId ? () => onRemove(r.entryId!) : undefined}
-                        />
-                      ))}
-                      {compactRows.length > MINI_VISIBLE && (
-                        <button
-                          onClick={() => dispatchOpenDayPanel({ engineerId: eng.user_id, engineerName: eng.full_name, date: dateStr })}
-                          className="w-full text-center text-[10px] text-muted-foreground hover:text-primary py-0.5"
-                        >
-                          + {compactRows.length - MINI_VISIBLE} more…
-                        </button>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                <>
-                {/* Spanning multi-day job cards */}
-                {spanStartsHere.map((spanItem) => {
-                  const job = getJob(spanItem.jobId);
-                  const paired = allEngineers.filter(
-                    (e) => e.user_id !== eng.user_id &&
-                      schedule.some((s) => s.job_id === spanItem.jobId && s.engineer_id === e.user_id && weekDateStrs.includes(s.schedule_date))
-                  );
-                  const effectiveSpan = getEffectiveSpan(spanItem, eng.user_id);
-                  return (
-                    <div key={`span-${spanItem.jobId}-${colIdx}`} className="group">
-                      <SpanningJobCard
-                        entries={spanItem.entries}
-                        job={job}
-                        span={effectiveSpan}
-                        isAdmin={isAdmin}
-                        onRemove={onRemove}
-                        pairedEngineers={paired}
-                        isFirst={true}
-                        isContinuation={false}
-                        onAdjustSpan={onResizeSpan ? (delta) => {
-                          const sorted = [...spanItem.entries].sort((a, b) => a.schedule_date.localeCompare(b.schedule_date));
-                          if (delta > 0) {
-                            const lastDate = parseISO(sorted[sorted.length - 1].schedule_date);
-                            const newDate = format(addDays(lastDate, 1), "yyyy-MM-dd");
-                            onResizeSpan(spanItem.jobId, eng.user_id, spanItem.entries, [...sorted.map(e => e.schedule_date), newDate]);
-                          } else if (delta < 0 && sorted.length > 1) {
-                            const keep = sorted.slice(0, -1).map(e => e.schedule_date);
-                            onResizeSpan(spanItem.jobId, eng.user_id, spanItem.entries, keep);
-                          }
-                        } : undefined}
-                      />
-                    </div>
-                  );
-                })}
-                {/* Single-day cards */}
-                {singleEngEntries.map((entry) => {
-                  const paired = allEngineers.filter(
-                    (e) => e.user_id !== eng.user_id &&
-                      schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
-                  );
-                  return (
-                    <DraggableScheduleCard
-                      key={entry.id}
-                      entry={entry}
-                      job={getJob(entry.job_id)}
-                      isAdmin={isAdmin}
-                      onRemove={onRemove}
-                      pairedEngineers={paired}
-                      onAdjustSpan={onResizeSpan ? (delta) => {
-                        if (delta > 0) {
-                          const nextDate = format(addDays(parseISO(entry.schedule_date), 1), "yyyy-MM-dd");
-                          onResizeSpan(entry.job_id, eng.user_id, [entry], [entry.schedule_date, nextDate]);
-                        }
-                      } : undefined}
-                    />
-                  );
-                })}
-                {cellAdhoc.map((adhoc) => (
-                  <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />
-                ))}
-                {/* Partner entries */}
-                {partnerEng && (partnerSingleEntries.length > 0 || partnerSpanStartsHere.length > 0 || partnerCellAdhoc.length > 0) && (
-                  <>
-                    {(singleEngEntries.length > 0 || spanStartsHere.length > 0 || cellAdhoc.length > 0) && (
-                      <div className="border-t border-primary/30 my-0.5" />
-                    )}
-                    {partnerSpanStartsHere.map((spanItem) => {
-                      const job = getJob(spanItem.jobId);
-                      const paired = allEngineers.filter(
-                        (e) => e.user_id !== partnerEng.user_id &&
-                          schedule.some((s) => s.job_id === spanItem.jobId && s.engineer_id === e.user_id && weekDateStrs.includes(s.schedule_date))
-                      );
-                      const effectiveSpan = getEffectiveSpan(spanItem, partnerEng.user_id);
-                      return (
-                        <div key={`pspan-${spanItem.jobId}-${colIdx}`} className="group">
-                          <SpanningJobCard
-                            entries={spanItem.entries}
-                            job={job}
-                            span={effectiveSpan}
-                            isAdmin={isAdmin}
-                            onRemove={onRemove}
-                            pairedEngineers={paired}
-                            isFirst={true}
-                            isContinuation={false}
-                            onAdjustSpan={onResizeSpan ? (delta) => {
-                              const sorted = [...spanItem.entries].sort((a, b) => a.schedule_date.localeCompare(b.schedule_date));
-                              if (delta > 0) {
-                                const lastDate = parseISO(sorted[sorted.length - 1].schedule_date);
-                                const newDate = format(addDays(lastDate, 1), "yyyy-MM-dd");
-                                onResizeSpan(spanItem.jobId, partnerEng.user_id, spanItem.entries, [...sorted.map(e => e.schedule_date), newDate]);
-                              } else if (delta < 0 && sorted.length > 1) {
-                                const keep = sorted.slice(0, -1).map(e => e.schedule_date);
-                                onResizeSpan(spanItem.jobId, partnerEng.user_id, spanItem.entries, keep);
-                              }
-                            } : undefined}
-                          />
-                        </div>
-                      );
-                    })}
-                    {partnerSingleEntries.map((entry) => {
-                      const paired = allEngineers.filter(
-                        (e) => e.user_id !== partnerEng.user_id &&
-                          schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
-                      );
-                      return (
-                        <DraggableScheduleCard
-                          key={entry.id}
-                          entry={entry}
-                          job={getJob(entry.job_id)}
-                          isAdmin={isAdmin}
-                          onRemove={onRemove}
-                          pairedEngineers={paired}
-                          onAdjustSpan={onResizeSpan ? (delta) => {
-                            if (delta > 0) {
-                              const nextDate = format(addDays(parseISO(entry.schedule_date), 1), "yyyy-MM-dd");
-                              onResizeSpan(entry.job_id, partnerEng.user_id, [entry], [entry.schedule_date, nextDate]);
-                            }
-                          } : undefined}
-                        />
-                      );
-                    })}
-                    {partnerCellAdhoc.map((adhoc) => (
-                      <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />
-                    ))}
-                    </>
-                )}
-                </>
-                )}
-              </>
-            );
-
-            cells.push(
-              <DroppableCell
-                key={cellId}
-                id={cellId}
-                isToday={isToday}
-                isOver={overId === cellId}
-                isLeave={((isOnLeave || isPartnerOnLeave) && !hasAnyContent) || isBankHoliday}
-                colIdx={colIdx}
-                colSpan={maxSpan}
-              >
-                {content}
-              </DroppableCell>
-            );
-
-            colIdx += maxSpan;
-          }
-
-          return cells;
-        })()}
+        {/* Exactly one drop zone per date, including dates covered by multi-day visits. */}
+        {weekDays.map((d, colIdx) => {
+          const dateStr = weekDateStrs[colIdx];
+          const cellId = `cell-${eng.user_id}_${dateStr}`;
+          const own = engEntries.filter(s => s.schedule_date === dateStr);
+          const partner = partnerEntries.filter(s => s.schedule_date === dateStr);
+          const visits = [...own, ...partner];
+          const cellAdhoc = adhocEntries.filter(a => a.schedule_date === dateStr && (a.engineer_id === eng.user_id || a.engineer_id === partnerEng?.user_id));
+          const hasContent = visits.length + cellAdhoc.length > 0;
+          return (
+            <DroppableCell key={cellId} id={cellId} colIdx={colIdx} isToday={isSameDay(d, new Date())} isOver={overId === cellId}
+              isLeave={leaveDates.includes(dateStr) || partnerLeaveDates.includes(dateStr) || bankHolidayDates.has(dateStr)}>
+              {bankHolidayDates.has(dateStr) && <div className="truncate text-[10px] text-amber-700 dark:text-amber-400">Bank holiday</div>}
+              {(leaveDates.includes(dateStr) || partnerLeaveDates.includes(dateStr)) && <div className="truncate text-[10px] text-primary"><Palmtree className="inline h-3 w-3" /> On leave</div>}
+              {visits.slice(0, 2).map(entry => {
+                const position = dayPosition(entry);
+                const engineer = entry.engineer_id === eng.user_id ? eng : partnerEng;
+                return <DraggableScheduleCard key={entry.id} entry={entry} job={getJob(entry.job_id)}
+                  engineerName={engineer?.full_name || "—"} dayIndex={position.index} dayCount={position.count}
+                  isAdmin={isAdmin} onRemove={onRemove}
+                  onAdjustSpan={onResizeSpan ? () => {
+                    const dates = schedule.filter(s => s.engineer_id === entry.engineer_id && s.job_id === entry.job_id).sort((x, y) => x.schedule_date.localeCompare(y.schedule_date));
+                    const last = dates[dates.length - 1];
+                    if (last) void onResizeSpan(entry.job_id, entry.engineer_id, dates, [...dates.map(s => s.schedule_date), format(addDays(parseISO(last.schedule_date), 1), "yyyy-MM-dd")]);
+                  } : undefined} />;
+              })}
+              {visits.length > 2 && <Button size="sm" variant="link" className="h-5 px-0 text-[10px]" onClick={() => dispatchOpenDayPanel({ engineerId: eng.user_id, engineerName: eng.full_name, date: dateStr })}>+{visits.length - 2} more</Button>}
+              {cellAdhoc.length > 0 && <Button size="sm" variant="link" className="h-5 px-0 text-[10px]" onClick={() => dispatchOpenDayPanel({ engineerId: eng.user_id, engineerName: eng.full_name, date: dateStr })}>{cellAdhoc.length} labour {cellAdhoc.length === 1 ? "entry" : "entries"}</Button>}
+            </DroppableCell>
+          );
+        })}
       </div>
     </div>
   );
