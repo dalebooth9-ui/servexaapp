@@ -2227,6 +2227,7 @@ export type Database = {
           resolved_by: string | null
           severity: string
           site_id: string | null
+          site_visit_report_id: string | null
           source_archived_document_id: string | null
           source_kind: string
           source_response_id: string | null
@@ -2256,6 +2257,7 @@ export type Database = {
           resolved_by?: string | null
           severity?: string
           site_id?: string | null
+          site_visit_report_id?: string | null
           source_archived_document_id?: string | null
           source_kind?: string
           source_response_id?: string | null
@@ -2285,6 +2287,7 @@ export type Database = {
           resolved_by?: string | null
           severity?: string
           site_id?: string | null
+          site_visit_report_id?: string | null
           source_archived_document_id?: string | null
           source_kind?: string
           source_response_id?: string | null
@@ -2361,6 +2364,13 @@ export type Database = {
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_site_visit_report_id_fkey"
+            columns: ["site_visit_report_id"]
+            isOneToOne: false
+            referencedRelation: "site_visit_reports"
             referencedColumns: ["id"]
           },
           {
@@ -9469,6 +9479,7 @@ export type Database = {
           created_by: string
           event_log: Json
           findings: Json
+          gaps_resolved: Json
           gaps_to_confirm: Json
           id: string
           job_id: string
@@ -9508,6 +9519,7 @@ export type Database = {
           created_by?: string
           event_log?: Json
           findings?: Json
+          gaps_resolved?: Json
           gaps_to_confirm?: Json
           id?: string
           job_id: string
@@ -9547,6 +9559,7 @@ export type Database = {
           created_by?: string
           event_log?: Json
           findings?: Json
+          gaps_resolved?: Json
           gaps_to_confirm?: Json
           id?: string
           job_id?: string
@@ -10770,6 +10783,7 @@ export type Database = {
         }[]
       }
       apply_backfill_rewrites: { Args: { _row_id: string }; Returns: number }
+      approve_site_visit_report: { Args: { _report_id: string }; Returns: Json }
       attach_defects_to_quote: {
         Args: { _defect_ids: string[]; _quote_id: string }
         Returns: string
@@ -11114,6 +11128,10 @@ export type Database = {
       }
       sync_asset_from_job_sheet: {
         Args: { _response_id: string }
+        Returns: undefined
+      }
+      unlock_site_visit_report: {
+        Args: { _report_id: string }
         Returns: undefined
       }
       upsert_service_schedule_from_historic: {

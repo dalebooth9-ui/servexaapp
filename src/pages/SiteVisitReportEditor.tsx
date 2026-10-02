@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Camera, CheckCircle2, CloudOff, FileText, Loader2, Mic, Plus, Square, Trash2, Upload, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle2, CloudOff, FileText, Loader2, Mic, Plus, Square, Trash2, Upload, AlertTriangle, RefreshCw, ArrowUp, ArrowDown, Lock, X, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatDateTime } from "@/lib/dateFormat";
 import { buildSiteVisitPrefill } from "@/lib/siteVisitReportPrefill";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { buildDurableRef, resolveToSignedUrl } from "@/lib/durableStorageRef";
@@ -30,12 +33,15 @@ const EDITABLE = [
   "po_reference", "client_name", "site_name", "site_address", "visit_date", "attended_by",
   "site_contact_name", "site_contact_title", "work_instructed", "outcome", "outcome_reason",
   "return_visit_required", "parts_required", "title", "raw_notes", "event_log",
+  "summary", "system_description", "reason_for_visit", "findings", "conclusion", "possible_causes",
+  "recommendations", "closing_note", "gaps_to_confirm", "gaps_resolved",
 ] as const;
+const ARRAY_KEYS = new Set(["event_log", "findings", "possible_causes", "recommendations", "gaps_to_confirm", "gaps_resolved"]);
 const localKey = (id: string) => `autosave_svr_${id}`;
 
 function pick(r: Record<string, any>) {
   const o: Record<string, any> = {};
-  for (const k of EDITABLE) o[k] = r[k] ?? (k === "event_log" ? [] : k === "return_visit_required" ? false : null);
+  for (const k of EDITABLE) o[k] = r[k] ?? (ARRAY_KEYS.has(k) ? [] : k === "return_visit_required" ? false : null);
   return o;
 }
 
@@ -50,6 +56,11 @@ export default function SiteVisitReportEditor() {
   const [saveState, setSaveState] = useState<"saved" | "saving" | "offline" | "idle">("idle");
   const [error, setError] = useState<string | null>(null);
   const [drafting, setDrafting] = useState(false);
+  const [view, setView] = useState<"notes" | "review">("notes");
+  const [redraftOpen, setRedraftOpen] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(false);
+  const { userRole } = useAuth();
+  const isOffice = userRole === "admin";
   const dirty = useRef(false);
   const timer = useRef<number>();
   const creating = useRef(false);
@@ -85,7 +96,10 @@ export default function SiteVisitReportEditor() {
         dirty.current = true;
         scheduleSave(0);
       }
-      setReport({ ...server, event_log: Array.isArray(server.event_log) ? server.event_log : [] });
+      const norm: any = { ...server };
+      for (const k of ARRAY_KEYS) if (!Array.isArray(norm[k])) norm[k] = [];
+      setReport(norm);
+      if (norm.summary || norm.status !== "draft") setView("review");
       loadPhotos(reportId!);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -105,6 +119,7 @@ export default function SiteVisitReportEditor() {
   const flush = useCallback(async () => {
     const r = reportRef.current;
     if (!r || !dirty.current) return;
+    if (r.status === "approved") { dirty.current = false; return; }
     if (!navigator.onLine) { setSaveState("offline"); return; }
     setSaveState("saving");
     dirty.current = false;
@@ -132,6 +147,7 @@ export default function SiteVisitReportEditor() {
   }, [flush]);
 
   const update = (patch: Record<string, any>) => {
+    if (reportRef.current?.status === "approved") return;
     setReport((prev) => {
       if (!prev) return prev;
       const next = { ...prev, ...patch };
@@ -142,6 +158,72 @@ export default function SiteVisitReportEditor() {
     setSaveState(navigator.onLine ? "saving" : "offline");
     scheduleSave();
   };
+
+  const runDraft = async () => {
+    const r = reportRef.current;
+    if (!r) return;
+    dirty.current = true;
+    await flush();
+    if (!navigator.onLine) {
+      toast.info("Saved on this device. The report will be drafted when you have signal.");
+      return;
+    }
+    setDrafting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("draft-site-visit-report", { body: { report_id: r.id } });
+      const msg = (data as any)?.error || (error ? "The AI couldn't draft the report right now." : null);
+      if (msg || !(data as any)?.report) {
+        toast.error(`${msg || "No report came back."} Everything you entered is saved – you can try again or fill the sections in by hand.`, { duration: 10000 });
+        return;
+      }
+      const fresh: any = { ...(data as any).report };
+      for (const k of ARRAY_KEYS) if (!Array.isArray(fresh[k])) fresh[k] = [];
+      setReport((curr) => ({ ...(curr as Report), ...fresh, raw_notes: curr?.raw_notes }));
+      localStorage.setItem(localKey(r.id), JSON.stringify({ report: { ...r, ...fresh }, pending: false }));
+      setView("review");
+      window.scrollTo({ top: 0 });
+      toast.success("Report drafted. Check each section before it goes out.");
+    } finally {
+      setDrafting(false);
+    }
+  };
+
+  const changeStatus = async (to: "draft" | "reviewed" | "approved" | "unlock") => {
+    const r = reportRef.current;
+    if (!r || !user) return;
+    dirty.current = true;
+    await flush();
+    setStatusBusy(true);
+    try {
+      if (to === "approved") {
+        const { data, error } = await supabase.rpc("approve_site_visit_report" as any, { _report_id: r.id });
+        if (error) throw error;
+        const n = (data as any)?.created || 0;
+        toast.success(n ? `Approved. ${n} defect${n === 1 ? "" : "s"} raised for our own actions.` : "Report approved and locked.");
+      } else if (to === "unlock") {
+        const { error } = await supabase.rpc("unlock_site_visit_report" as any, { _report_id: r.id });
+        if (error) throw error;
+        toast.success("Unlocked to revise. The version number has gone up.");
+      } else {
+        const { error } = await supabase.from("site_visit_reports")
+          .update({ status: to, reviewed_by: to === "reviewed" ? user.id : null } as any).eq("id", r.id);
+        if (error) throw error;
+        await supabase.from("job_activity_log").insert({ job_id: r.job_id, user_id: user.id, action: `site_visit_report_${to}`, details: `Site Visit Report marked ${to === "reviewed" ? "Reviewed" : "Draft"}` } as any);
+      }
+      const { data: fresh } = await supabase.from("site_visit_reports").select("*").eq("id", r.id).single();
+      if (fresh) {
+        const f: any = { ...fresh };
+        for (const k of ARRAY_KEYS) if (!Array.isArray(f[k])) f[k] = [];
+        setReport(f);
+        localStorage.setItem(localKey(r.id), JSON.stringify({ report: f, pending: false }));
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't change the status.");
+    } finally {
+      setStatusBusy(false);
+    }
+  };
+
 
   if (error) {
     return (
@@ -162,17 +244,8 @@ export default function SiteVisitReportEditor() {
     </div>
   );
 
-  const gaps: string[] = Array.isArray(report.gaps_to_confirm) ? report.gaps_to_confirm : [];
-
-  return (
-    <div className="mx-auto max-w-3xl px-4 py-4 pb-28 space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <Button variant="ghost" size="sm" asChild className="gap-1.5"><Link to={`/jobs/${jobId}`}><ArrowLeft className="h-4 w-4" /> Back to job</Link></Button>
-        <SaveBadge state={saveState} />
-      </div>
-      <h1 className="text-2xl font-semibold">Site Visit Report</h1>
-
-      {/* 1. Job details */}
+  const locked = report.status === "approved";
+  const jobDetailsSection = (
       <section className="rounded-xl border bg-card p-4 space-y-4">
         <h2 className="font-semibold">Job details</h2>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -187,8 +260,8 @@ export default function SiteVisitReportEditor() {
           {field("site_contact_title", "Site contact title")}
         </div>
       </section>
-
-      {/* 1a. Work instructed + outcome */}
+  );
+  const workOutcomeSection = (
       <section className="rounded-xl border bg-card p-4 space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="work_instructed">Work instructed</Label>
@@ -219,7 +292,26 @@ export default function SiteVisitReportEditor() {
           <Input id="parts_required" className="h-11 text-base" value={report.parts_required ?? ""} onChange={(e) => update({ parts_required: e.target.value || null })} />
         </div>
       </section>
+  );
 
+  const gaps: string[] = Array.isArray(report.gaps_to_confirm) ? report.gaps_to_confirm : [];
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-4 pb-28 space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <Button variant="ghost" size="sm" asChild className="gap-1.5"><Link to={`/jobs/${jobId}`}><ArrowLeft className="h-4 w-4" /> Back to job</Link></Button>
+        <SaveBadge state={saveState} />
+      </div>
+      <h1 className="text-2xl font-semibold">Site Visit Report</h1>
+      {view === "review" ? (
+        <ReviewScreen
+          report={report} update={update} locked={locked} isOffice={isOffice} busy={statusBusy}
+          onStatus={changeStatus} jobDetails={jobDetailsSection} workOutcome={workOutcomeSection}
+          photos={<PhotosSection report={report} photos={photos} setPhotos={setPhotos} userId={user!.id} />}
+        />
+      ) : (<>
+      {jobDetailsSection}
+      {workOutcomeSection}
       {/* 2. Title */}
       <section className="space-y-1.5">
         <Label htmlFor="title">Report title</Label>
@@ -256,31 +348,40 @@ export default function SiteVisitReportEditor() {
       {/* 5. Photos */}
       <PhotosSection report={report} photos={photos} setPhotos={setPhotos} userId={user!.id} />
 
+      </>)}
+
+      <AlertDialog open={redraftOpen} onOpenChange={setRedraftOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Redraft from notes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This writes the report again from your notes, events and photo captions. It will replace any edits you've made to the written sections. Your original notes are kept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep my edits</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setRedraftOpen(false); void runDraft(); }}>Replace and redraft</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* 6. Draft report */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur p-3">
         <div className="mx-auto max-w-3xl flex justify-end">
-          <Button size="lg" className="h-12 px-8 text-base" disabled={drafting} onClick={async () => {
-            dirty.current = true;
-            await flush();
-            if (!navigator.onLine) {
-              toast.info("Saved on this device. The report will be drafted when you have signal.");
-              return;
-            }
-            setDrafting(true);
-            try {
-              const { data, error } = await supabase.functions.invoke("draft-site-visit-report", { body: { report_id: report.id } });
-              const msg = (data as any)?.error || (error ? "The AI couldn't draft the report right now." : null);
-              if (msg || !(data as any)?.report) {
-                toast.error(`${msg || "No report came back."} Everything you entered is saved – you can try again or fill the sections in by hand.`, { duration: 10000 });
-                return;
-              }
-              setReport((curr) => ({ ...(curr as Report), ...(data as any).report, raw_notes: curr?.raw_notes }));
-              toast.success("Report drafted. Check it over before it goes to the office.");
-              navigate(`/jobs/${jobId}`);
-            } finally {
-              setDrafting(false);
-            }
-          }}>{drafting ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Drafting…</> : "Draft report"}</Button>
+          {view === "notes" ? (
+            <Button size="lg" className="h-12 px-8 text-base" disabled={drafting} onClick={runDraft}>
+              {drafting ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Drafting…</> : "Draft report"}
+            </Button>
+          ) : (
+            <div className="flex w-full flex-wrap items-center justify-between gap-2">
+              <Button variant="outline" onClick={() => setView("notes")}>Back to notes</Button>
+              {!locked && (
+                <Button variant="outline" disabled={drafting} onClick={() => setRedraftOpen(true)} className="gap-1.5">
+                  {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Redraft from notes
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -356,6 +457,24 @@ function DictateButton({ jobId, onText }: { jobId: string; onText: (t: string) =
   return <Button variant="outline" size="lg" className="gap-2" onClick={start}><Mic className="h-5 w-5" /> Dictate</Button>;
 }
 
+function move<T>(arr: T[], i: number, d: number): T[] {
+  const j = i + d;
+  if (j < 0 || j >= arr.length) return arr;
+  const out = arr.slice();
+  [out[i], out[j]] = [out[j], out[i]];
+  return out;
+}
+
+function RowMoves({ i, n, onMove, onRemove }: { i: number; n: number; onMove: (d: number) => void; onRemove: () => void }) {
+  return (
+    <div className="flex gap-1">
+      <Button type="button" variant="ghost" size="icon" className="h-10 w-10" aria-label="Move up" disabled={i === 0} onClick={() => onMove(-1)}><ArrowUp className="h-4 w-4" /></Button>
+      <Button type="button" variant="ghost" size="icon" className="h-10 w-10" aria-label="Move down" disabled={i === n - 1} onClick={() => onMove(1)}><ArrowDown className="h-4 w-4" /></Button>
+      <Button type="button" variant="ghost" size="icon" className="h-10 w-10" aria-label="Remove" onClick={onRemove}><Trash2 className="h-4 w-4" /></Button>
+    </div>
+  );
+}
+
 function EventsTable({ rows, onChange }: { rows: EventRow[]; onChange: (r: EventRow[]) => void }) {
   const set = (i: number, patch: Partial<EventRow>) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   return (
@@ -378,7 +497,8 @@ function EventsTable({ rows, onChange }: { rows: EventRow[]; onChange: (r: Event
             <Input list="svr-sources" className="h-11" placeholder="Where recorded" value={r.source} onChange={(e) => set(i, { source: e.target.value })} />
             <Input className="h-11" placeholder="What was recorded" value={r.what_was_recorded} onChange={(e) => set(i, { what_was_recorded: e.target.value })} />
           </div>
-          <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Remove row" onClick={() => onChange(rows.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></Button>
+          <RowMoves i={i} n={rows.length} onMove={(d) => onChange(move(rows, i, d))} onRemove={() => onChange(rows.filter((_, j) => j !== i))} />
+          <Input className="h-11 sm:col-span-4" placeholder="Note (optional)" value={r.note ?? ""} onChange={(e) => set(i, { note: e.target.value })} />
         </div>
       ))}
     </section>
@@ -469,5 +589,165 @@ function PhotosSection({ report, photos, setPhotos, userId }: { report: Report; 
         ))}
       </div>
     </section>
+  );
+}
+
+// ── Review screen ─────────────────────────────────────────────────────────
+type Finding = { id: string; heading: string; text: string };
+type Rec = { id: string; action: string; owner_type: "us" | "client" | "third_party"; owner_name: string; status: "open" | "done"; defect_id: string | null };
+const newId = () => (crypto as any).randomUUID?.() || `${Date.now()}-${Math.random()}`;
+
+function ReviewScreen({ report, update, locked, isOffice, busy, onStatus, jobDetails, workOutcome, photos }: {
+  report: Report; update: (p: Record<string, any>) => void; locked: boolean; isOffice: boolean; busy: boolean;
+  onStatus: (to: "draft" | "reviewed" | "approved" | "unlock") => void;
+  jobDetails: React.ReactNode; workOutcome: React.ReactNode; photos: React.ReactNode;
+}) {
+  const gaps: string[] = report.gaps_to_confirm || [];
+  const resolved: string[] = report.gaps_resolved || [];
+  const openGaps = gaps.filter((g) => !resolved.includes(g));
+  const findings: Finding[] = report.findings || [];
+  const causes: string[] = report.possible_causes || [];
+  const recs: Rec[] = report.recommendations || [];
+
+  const text = (key: string, label: string, rows = 4) => (
+    <section className="rounded-xl border bg-card p-4 space-y-2">
+      <Label htmlFor={key} className="font-semibold text-base">{label}</Label>
+      <Textarea id={key} rows={rows} className="text-base leading-relaxed" value={report[key] ?? ""} onChange={(e) => update({ [key]: e.target.value || null })} />
+    </section>
+  );
+  const setRec = (i: number, p: Partial<Rec>) => update({ recommendations: recs.map((r, j) => (j === i ? { ...r, ...p } : r)) });
+  const setFinding = (i: number, p: Partial<Finding>) => update({ findings: findings.map((f, j) => (j === i ? { ...f, ...p } : f)) });
+
+  const steps = [
+    { key: "draft", label: "Draft" },
+    { key: "reviewed", label: "Reviewed" },
+    { key: "approved", label: "Approved" },
+  ];
+  const idx = steps.findIndex((s) => s.key === report.status);
+
+  return (
+    <div className="space-y-6">
+      {/* Status bar */}
+      <section className="rounded-xl border bg-card p-4 space-y-3">
+        <div className="flex items-center gap-2 text-sm">
+          {steps.map((s, i) => (
+            <div key={s.key} className="flex items-center gap-2">
+              <span className={`rounded-full px-3 py-1 font-medium ${i <= idx ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{s.label}</span>
+              {i < steps.length - 1 && <span className="text-muted-foreground">→</span>}
+            </div>
+          ))}
+          <span className="ml-auto text-muted-foreground">Version {report.version ?? 1}</span>
+        </div>
+        {locked && (
+          <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+            <Lock className="h-4 w-4" /> Approved{report.approved_at ? ` on ${formatDateTime(report.approved_at)}` : ""}. Editing is locked.
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {report.status === "draft" && <Button disabled={busy} onClick={() => onStatus("reviewed")}>Mark as reviewed</Button>}
+          {report.status === "reviewed" && <Button variant="outline" disabled={busy} onClick={() => onStatus("draft")}>Back to draft</Button>}
+          {!locked && isOffice && <Button disabled={busy} onClick={() => onStatus("approved")} className="gap-1.5"><Check className="h-4 w-4" /> Approve</Button>}
+          {!locked && !isOffice && report.status === "reviewed" && <p className="text-sm text-muted-foreground self-center">Waiting for the office to approve.</p>}
+          {locked && isOffice && <Button variant="outline" disabled={busy} onClick={() => onStatus("unlock")}>Unlock to revise</Button>}
+        </div>
+      </section>
+
+      {/* Check before sending — office only, never on the PDF */}
+      {gaps.length > 0 && (
+        <section className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-600" /> Check before sending</h2>
+            <span className="text-xs text-muted-foreground">Office only – not on the report</span>
+          </div>
+          {openGaps.length === 0 && <p className="text-sm text-muted-foreground">All checked.</p>}
+          {openGaps.map((g) => (
+            <div key={g} className="flex items-start gap-2 text-sm">
+              <span className="flex-1 pt-2">{g}</span>
+              <Button type="button" size="sm" variant="outline" className="gap-1" disabled={locked} onClick={() => update({ gaps_resolved: [...resolved, g] })}><Check className="h-4 w-4" /> Done</Button>
+              <Button type="button" size="sm" variant="ghost" className="gap-1" disabled={locked} onClick={() => update({ gaps_to_confirm: gaps.filter((x) => x !== g) })}><X className="h-4 w-4" /> Dismiss</Button>
+            </div>
+          ))}
+          {resolved.filter((g) => gaps.includes(g)).length > 0 && (
+            <p className="text-xs text-muted-foreground">{resolved.filter((g) => gaps.includes(g)).length} ticked off.</p>
+          )}
+        </section>
+      )}
+
+      <fieldset disabled={locked} className="space-y-6 disabled:opacity-90">
+        {text("summary", "Summary", 3)}
+        {jobDetails}
+        {workOutcome}
+        {text("system_description", "System description")}
+        {text("reason_for_visit", "Reason for visit")}
+        <EventsTable rows={report.event_log} onChange={(rows) => update({ event_log: rows })} />
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Findings</h2>
+            <Button type="button" variant="outline" className="gap-1.5" onClick={() => update({ findings: [...findings, { id: newId(), heading: "", text: "" }] })}><Plus className="h-4 w-4" /> Add finding</Button>
+          </div>
+          {findings.map((f, i) => (
+            <div key={f.id || i} className="rounded-lg border p-3 space-y-2">
+              <div className="flex gap-2">
+                <Input className="h-11 font-medium" placeholder="Heading, e.g. Sprinkler panel" value={f.heading} onChange={(e) => setFinding(i, { heading: e.target.value })} />
+                <RowMoves i={i} n={findings.length} onMove={(d) => update({ findings: move(findings, i, d) })} onRemove={() => update({ findings: findings.filter((_, j) => j !== i) })} />
+              </div>
+              <Textarea rows={3} className="text-base" value={f.text} onChange={(e) => setFinding(i, { text: e.target.value })} />
+            </div>
+          ))}
+        </section>
+
+        {text("conclusion", "Conclusion")}
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Possible causes <span className="text-sm font-normal text-muted-foreground">(most likely first)</span></h2>
+            <Button type="button" variant="outline" className="gap-1.5" onClick={() => update({ possible_causes: [...causes, ""] })}><Plus className="h-4 w-4" /> Add cause</Button>
+          </div>
+          {causes.map((c, i) => (
+            <div key={i} className="flex gap-2 items-center">
+              <span className="w-6 text-sm text-muted-foreground">{i + 1}.</span>
+              <Input className="h-11" value={c} onChange={(e) => update({ possible_causes: causes.map((x, j) => (j === i ? e.target.value : x)) })} />
+              <RowMoves i={i} n={causes.length} onMove={(d) => update({ possible_causes: move(causes, i, d) })} onRemove={() => update({ possible_causes: causes.filter((_, j) => j !== i) })} />
+            </div>
+          ))}
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Recommendations</h2>
+            <Button type="button" variant="outline" className="gap-1.5" onClick={() => update({ recommendations: [...recs, { id: newId(), action: "", owner_type: "us", owner_name: "", status: "open", defect_id: null }] })}><Plus className="h-4 w-4" /> Add recommendation</Button>
+          </div>
+          {recs.map((r, i) => (
+            <div key={r.id || i} className="rounded-lg border p-3 space-y-2">
+              <div className="flex gap-2">
+                <Textarea rows={2} className="text-base" placeholder="One clear action" value={r.action} onChange={(e) => setRec(i, { action: e.target.value })} />
+                <RowMoves i={i} n={recs.length} onMove={(d) => update({ recommendations: move(recs, i, d) })} onRemove={() => update({ recommendations: recs.filter((_, j) => j !== i) })} />
+              </div>
+              <div className="grid gap-2 sm:grid-cols-[12rem_1fr_auto] items-center">
+                <Select value={r.owner_type} onValueChange={(v) => setRec(i, { owner_type: v as Rec["owner_type"] })} disabled={locked}>
+                  <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="us">Us</SelectItem>
+                    <SelectItem value="client">Client</SelectItem>
+                    <SelectItem value="third_party">Third party</SelectItem>
+                  </SelectContent>
+                </Select>
+                {r.owner_type === "third_party" ? (
+                  <Input className="h-11" placeholder="Who, e.g. Fire alarm maintainer" value={r.owner_name ?? ""} onChange={(e) => setRec(i, { owner_name: e.target.value })} />
+                ) : <div />}
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={r.status === "done"} onCheckedChange={(v) => setRec(i, { status: v ? "done" : "open" })} disabled={locked} /> Done
+                </label>
+              </div>
+              {r.defect_id && <p className="text-xs text-muted-foreground">Defect raised for this action.</p>}
+            </div>
+          ))}
+        </section>
+
+        {text("closing_note", "Closing note", 3)}
+      </fieldset>
+      {photos}
+    </div>
   );
 }
