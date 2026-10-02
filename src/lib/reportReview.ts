@@ -2,6 +2,7 @@
 // Builds one merged PDF of a job's submitted reports, uploads it under the
 // org-prefixed path, and calls the `report-review` edge function. Offline
 // submissions are queued in localStorage and replayed on reconnect.
+import { hiddenFieldIds } from "@/lib/reportModeSwitch";
 import { PDFDocument } from "pdf-lib";
 import { supabase } from "@/integrations/supabase/client";
 import { generateJobSheetPdf } from "@/components/JobSheetPdfExport";
@@ -59,6 +60,7 @@ export async function findMissingRequired(jobId: string): Promise<{ hasReports: 
     for (const f of fields) {
       if (!isFieldRequired(f)) continue;
       if (omitted.includes(f.section || "General")) continue;
+      if (hiddenFieldIds(data).includes(String(f.id))) continue;
       if (isEmptyValue(data[f.id])) missing.push({ responseId: r.id, templateId: r.template_id, templateName: tpl?.name || "Report", fieldId: f.id, label: f.label });
     }
   }
