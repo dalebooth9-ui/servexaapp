@@ -1511,8 +1511,9 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   };
 
   const sections = activeTemplate
-    ? [...new Set(activeTemplate.fields.map((f) => f.section || "General"))]
+    ? [...new Set(activeTemplate.fields.filter((f) => !hiddenFieldIds(formData).includes(String(f.id))).map((f) => f.section || "General"))]
     : [];
+  const hiddenIds = hiddenFieldIds(formData);
 
   const omittedSections: string[] = Array.isArray((formData as any).__omitted_sections__)
     ? (formData as any).__omitted_sections__
@@ -1526,37 +1527,56 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   };
   const filterTemplateBySections = <T extends { fields: any[] }>(tpl: T, data: Record<string, any>): T => {
     const omitted: string[] = Array.isArray(data?.__omitted_sections__) ? data.__omitted_sections__ : [];
-    if (!omitted.length) return tpl;
-    return { ...tpl, fields: tpl.fields.filter((f: any) => !omitted.includes(f.section || "General")) };
+    const base = withoutHiddenFields(tpl, data);
+    if (!omitted.length) return base;
+    return { ...base, fields: base.fields.filter((f: any) => !omitted.includes(f.section || "General")) };
   };
 
   const closeForm = () => { setActiveTemplate(null); setActiveResponse(null); setFormData({}); setViewingResponse(null); sitePhotos.forEach(p => URL.revokeObjectURL(p.preview)); setSitePhotos([]); };
 
   // ---- Wet ↔ visual mode switch (see src/lib/reportModeSwitch.ts) ----
-  const modePair = activeTemplate && !viewingResponse ? findPair(activeTemplate.name) : null;
   const switchState = getSwitchState(formData);
-  const findPartnerTemplate = (name: string) => {
-    const pool = allTemplates.filter((t) => normName(t.name) === name && !/retired/i.test(t.name));
-    const sameOrg = pool.filter((t: any) => t.org_id === (activeTemplate as any)?.org_id);
-    const list = sameOrg.length ? sameOrg : pool;
-    return list.find((t: any) => t.status === "published") || list[0] || null;
+  const modePair: { pair: ModeSwitchPair; side: "full" | "visual" } | null = (() => {
+    if (!activeTemplate || viewingResponse) return null;
+    if (switchState?.active) return { pair: MODE_SWITCH_PAIRS.find((p) => p.key === switchState.pair) || findPair(activeTemplate.name)?.pair || GENERIC_PAIR, side: "visual" };
+    const named = findPair(activeTemplate.name);
+    if ((activeTemplate as any).visual_template_id) return { pair: named?.pair || GENERIC_PAIR, side: "full" };
+    return named?.side === "full" ? named : null;
+  })();
+  const loadTemplateById = async (id?: string | null) => {
+    if (!id) return null;
+    const hit = allTemplates.find((t) => t.id === id);
+    if (hit) return hit;
+    const { data } = await supabase.from("job_sheet_templates").select("*").eq("id", id).maybeSingle();
+    return data ? ({ ...(data as any), fields: parseTemplateFields((data as any).fields) } as Template) : null;
   };
-  const handleModeSwitch = async (reason: string, note: string) => {
+  const handleModeSwitch = async (reason: string, note: string, internalNote: string) => {
     if (!activeTemplate || !modePair) return;
     const toVisual = modePair.side === "full";
-    const target = findPartnerTemplate(toVisual ? modePair.pair.visualName : modePair.pair.fullName);
-    if (!target) {
-      toast({ title: "Can't switch", description: `No "${toVisual ? modePair.pair.visualLabel : modePair.pair.fullLabel}" form is set up for your organisation.`, variant: "destructive" });
-      return;
-    }
+    const pair = modePair.pair;
     setSwitchBusy(true);
     try {
       const prev = getSwitchState(formData);
-      const state: ModeSwitchState = toVisual
-        ? { pair: modePair.pair.key, active: true, full_template_id: activeTemplate.id, visual_template_id: target.id, reason, note: note || null, switched_at: new Date().toISOString(), switched_by: user?.id || null }
-        : { ...(prev as ModeSwitchState), active: false, switched_at: new Date().toISOString(), switched_by: user?.id || null };
+      const now = new Date().toISOString();
+      let target: Template | null;
+      let state: ModeSwitchState;
+      if (toVisual) {
+        const linked = await loadTemplateById((activeTemplate as any).visual_template_id);
+        target = linked || activeTemplate;
+        const fallback = !linked;
+        state = {
+          pair: pair.key, active: true, full_template_id: activeTemplate.id, visual_template_id: target.id,
+          reason, note: note || null, internal_note: internalNote || null, approved_reason: null,
+          switched_at: now, switched_by: user?.id || null,
+          fallback, hidden_fields: fallback ? wetFieldIds(activeTemplate.fields as any[], pair) : [],
+        };
+      } else {
+        target = prev?.fallback ? activeTemplate : await loadTemplateById(prev?.full_template_id);
+        if (!target) throw new Error("The original pressure test form can't be found.");
+        state = { ...(prev as ModeSwitchState), active: false, switched_at: now, switched_by: user?.id || null };
+      }
       const base = await withPreservedSitePhotos(formData);
-      const payload = { ...carryAnswers(base, modePair.pair, toVisual), _mode_switch: state };
+      const payload = { ...carryAnswers(base, pair, toVisual), _mode_switch: state };
       let resp = activeResponse;
       if (resp) {
         const { data, error } = await supabase.from("job_sheet_responses")
@@ -1573,16 +1593,19 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       await logSwitch(
         jobId, user?.id,
         toVisual
-          ? `${modePair.pair.fullLabel} switched to ${modePair.pair.visualLabel.toLowerCase()}. Reason: ${switchReasonText(state)}`
-          : `Switched back from ${modePair.pair.visualLabel.toLowerCase()} to ${modePair.pair.fullLabel.toLowerCase()}`,
+          ? `${pair.fullLabel} switched to ${pair.visualLabel.toLowerCase()}${state.fallback ? " (visual-only mode, no visual form linked)" : ""}. Reason: ${switchReasonText(state)}${internalNote ? `. Internal note: ${internalNote}` : ""}`
+          : `Switched back from ${pair.visualLabel.toLowerCase()} to ${pair.fullLabel.toLowerCase()}`,
         toVisual ? "report_switched_to_visual" : "report_switched_to_full",
       );
+      if (toVisual && state.fallback) {
+        try { await supabase.rpc("notify_admins_visual_fallback" as any, { _job_id: jobId, _template_name: activeTemplate.name } as any); } catch { /* best-effort */ }
+      }
       clearTemplateFormDraft();
       setActiveTemplate(target);
       setActiveResponse(resp);
       setFormData(payload);
       setSwitchOpen(false);
-      toast({ title: toVisual ? `Switched to ${modePair.pair.visualLabel.toLowerCase()}` : `Switched back to ${modePair.pair.fullLabel.toLowerCase()}`, description: "All your answers, photos and defects are kept." });
+      toast({ title: toVisual ? `Switched to ${pair.visualLabel.toLowerCase()}` : `Switched back to ${pair.fullLabel.toLowerCase()}`, description: "All your answers, photos and defects are kept." });
       fetchData();
     } catch (e: any) {
       toast({ title: "Switch failed", description: e?.message, variant: "destructive" });
@@ -2214,7 +2237,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                   </button>
                 </div>
                 {!omitted && activeTemplate?.fields
-                  .filter((f) => (f.section || "General") === section)
+                  .filter((f) => (f.section || "General") === section && !hiddenIds.includes(String(f.id)))
                   .map((field) => (
                     <div
                       key={field.id}
