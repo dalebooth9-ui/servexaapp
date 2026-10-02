@@ -49,6 +49,7 @@ export default function SiteVisitReportEditor() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "offline" | "idle">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [drafting, setDrafting] = useState(false);
   const dirty = useRef(false);
   const timer = useRef<number>();
   const creating = useRef(false);
@@ -258,13 +259,28 @@ export default function SiteVisitReportEditor() {
       {/* 6. Draft report */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur p-3">
         <div className="mx-auto max-w-3xl flex justify-end">
-          <Button size="lg" className="h-12 px-8 text-base" onClick={async () => {
+          <Button size="lg" className="h-12 px-8 text-base" disabled={drafting} onClick={async () => {
             dirty.current = true;
             await flush();
-            if (!navigator.onLine) toast.info("Saved on this device. It will upload when you have signal.");
-            else toast.success("Draft report saved");
-            navigate(`/jobs/${jobId}`);
-          }}>Draft report</Button>
+            if (!navigator.onLine) {
+              toast.info("Saved on this device. The report will be drafted when you have signal.");
+              return;
+            }
+            setDrafting(true);
+            try {
+              const { data, error } = await supabase.functions.invoke("draft-site-visit-report", { body: { report_id: report.id } });
+              const msg = (data as any)?.error || (error ? "The AI couldn't draft the report right now." : null);
+              if (msg || !(data as any)?.report) {
+                toast.error(`${msg || "No report came back."} Everything you entered is saved – you can try again or fill the sections in by hand.`, { duration: 10000 });
+                return;
+              }
+              setReport((curr) => ({ ...(curr as Report), ...(data as any).report, raw_notes: curr?.raw_notes }));
+              toast.success("Report drafted. Check it over before it goes to the office.");
+              navigate(`/jobs/${jobId}`);
+            } finally {
+              setDrafting(false);
+            }
+          }}>{drafting ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Drafting…</> : "Draft report"}</Button>
         </div>
       </div>
     </div>
