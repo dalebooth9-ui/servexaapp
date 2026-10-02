@@ -1,0 +1,1 @@
+ALTER TABLE public.site_visit_reports ADD COLUMN IF NOT EXISTS po_reference text;

@@ -9476,6 +9476,7 @@ export type Database = {
           outcome: Database["public"]["Enums"]["site_visit_outcome"] | null
           outcome_reason: string | null
           parts_required: string | null
+          po_reference: string | null
           possible_causes: Json
           raw_notes: string | null
           reason_for_visit: string | null
@@ -9514,6 +9515,7 @@ export type Database = {
           outcome?: Database["public"]["Enums"]["site_visit_outcome"] | null
           outcome_reason?: string | null
           parts_required?: string | null
+          po_reference?: string | null
           possible_causes?: Json
           raw_notes?: string | null
           reason_for_visit?: string | null
@@ -9552,6 +9554,7 @@ export type Database = {
           outcome?: Database["public"]["Enums"]["site_visit_outcome"] | null
           outcome_reason?: string | null
           parts_required?: string | null
+          po_reference?: string | null
           possible_causes?: Json
           raw_notes?: string | null
           reason_for_visit?: string | null
