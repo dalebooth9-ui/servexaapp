@@ -211,11 +211,21 @@ Write the site visit report.`;
       findings: arr(out.findings).map((f: any) => ({ id: crypto.randomUUID(), heading: str(f.heading), text: str(f.text) })),
       conclusion: str(out.conclusion) || null,
       possible_causes: arr(out.possible_causes).map(str).filter(Boolean),
-      recommendations: arr(out.recommendations).map((r: any) => ({
-        id: crypto.randomUUID(), action: str(r.action),
-        owner_type: ["us", "client", "third_party"].includes(r.owner_type) ? r.owner_type : "third_party",
-        owner_name: str(r.owner_name), status: "open", defect_id: null,
-      })),
+      recommendations: (() => {
+        // Keep defect links from earlier approvals so a redraft never raises the same defect twice.
+        const norm = (x: unknown) => str(x).toLowerCase().replace(/\s+/g, " ");
+        const prior = arr(report.recommendations).filter((r: any) => r?.defect_id);
+        const fresh = arr(out.recommendations).map((r: any) => {
+          const match = prior.find((p: any) => norm(p.action) === norm(r.action));
+          return {
+            id: match?.id || crypto.randomUUID(), action: str(r.action),
+            owner_type: ["us", "client", "third_party"].includes(r.owner_type) ? r.owner_type : "third_party",
+            owner_name: str(r.owner_name), status: match?.status || "open", defect_id: match?.defect_id || null,
+          };
+        });
+        const kept = prior.filter((p: any) => !fresh.some((f: any) => f.defect_id === p.defect_id));
+        return [...fresh, ...kept];
+      })(),
       closing_note: str(out.closing_note) || null,
       gaps_to_confirm: Array.from(new Set([...arr(report.gaps_to_confirm), ...arr(out.gaps_to_confirm).map(str).filter(Boolean)])),
       status: "draft",
