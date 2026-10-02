@@ -1849,6 +1849,9 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleViewResponse(resp)} title="View">
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
+                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { window.location.assign(`/jobs/${jobId}/site-visit-report/new?sheet=${resp.id}`); }} title="Write up full report">
+                            Write up full report
+                          </Button>
                           {canEdit && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>

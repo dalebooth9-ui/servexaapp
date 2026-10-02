@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 /**
  * EngineerJobView — simplified, mobile/tablet-first job detail view for
  * engineers (and admins previewing as engineer). Replaces the full admin
@@ -27,6 +28,7 @@ import EngineerJobHero from "@/components/engineer/EngineerJobHero";
 const JobDocuments = lazy(() => import("@/components/JobDocuments"));
 const ScanDocumentButton = lazy(() => import("@/components/documents/ScanDocumentButton"));
 const ScanPaperReportButton = lazy(() => import("@/components/paper-scan/ScanPaperReportButton"));
+const SiteVisitReportButton = lazy(() => import("@/components/jobs/SiteVisitReportButton"));
 
 const JobDefects = lazy(() => import("@/components/jobs/JobDefects"));
 const JobPhotos = lazy(() => import("@/components/jobs/JobPhotos"));
@@ -52,6 +54,7 @@ const Fallback = () => (
  * moment the scan dialog saves.
  */
 function ScanReportCards({ jobId }: { jobId: string }) {
+  const navigate = useNavigate();
   const [reports, setReports] = useState<Array<{ id: string; templateId: string; templateName: string }>>([]);
 
   useEffect(() => {
@@ -142,10 +145,15 @@ function ScanReportCards({ jobId }: { jobId: string }) {
             <p className="text-sm font-medium">Digital report saved</p>
             <p className="text-xs text-muted-foreground truncate">{r.templateName}</p>
           </div>
-          <Button size="sm" variant="outline" className="shrink-0 gap-1.5" onClick={() => openReport(r)}>
-            <Eye className="h-4 w-4" />
-            View report
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => openReport(r)}>
+              <Eye className="h-4 w-4" />
+              View report
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => navigate(`/jobs/${jobId}/site-visit-report/new?sheet=${r.id}`)}>
+              Write up full report
+            </Button>
+          </div>
         </div>
       ))}
     </div>
@@ -273,6 +281,7 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
             Photograph a completed paper sheet — it's filed on this job and read into a digital report.
           </p>
         </div>
+        <div className="mb-4"><Suspense fallback={null}><SiteVisitReportButton jobId={jobId} prominent /></Suspense></div>
         <ScanReportCards jobId={jobId} />
         <Suspense fallback={<Fallback />}>
           <JobDocuments key={docsKey} jobId={jobId} job={job} engineers={engineers} />

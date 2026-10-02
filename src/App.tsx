@@ -75,6 +75,7 @@ const ServiceLevelAgreement = lazy(() => import("@/pages/ServiceLevelAgreement")
 const CookiePolicy = lazy(() => import("@/pages/CookiePolicy"));
 const FireProtectionLiability = lazy(() => import("@/pages/FireProtectionLiability"));
 const RamsEditor = lazy(() => import("@/pages/RamsEditor"));
+const SiteVisitReportEditor = lazy(() => import("@/pages/SiteVisitReportEditor"));
 const GenericRamsPage = lazy(() => import("@/pages/GenericRamsPage"));
 const NewRamsPage = lazy(() => import("@/pages/NewRamsPage"));
 const RamsLibrary = lazy(() => import("@/pages/RamsLibrary"));
@@ -217,6 +218,7 @@ const App = () => (
 
               <Route path="/jobs" element={<AccessRoute pageSlug="jobs"><Jobs /></AccessRoute>} />
               <Route path="/jobs/:id" element={<AccessRoute pageSlug="jobs"><JobDetail /></AccessRoute>} />
+              <Route path="/jobs/:jobId/site-visit-report/:reportId" element={<AccessRoute pageSlug="jobs"><SiteVisitReportEditor /></AccessRoute>} />
               <Route path="/jobs/:jobId/rams" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />
               <Route path="/jobs/:jobId/rams/:ramsId" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />
               <Route path="/rams/new" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />
