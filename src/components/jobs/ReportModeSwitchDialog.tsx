@@ -14,10 +14,11 @@ export default function ReportModeSwitchDialog({
   toVisual: boolean;
   fullLabel: string;
   busy: boolean;
-  onConfirm: (reason: string, note: string) => void;
+  onConfirm: (reason: string, note: string, internalNote: string) => void;
 }) {
   const [reason, setReason] = useState<string>("");
   const [note, setNote] = useState("");
+  const [internal, setInternal] = useState("");
   const needsNote = reason === "Other";
   const ok = toVisual ? !!reason && (!needsNote || note.trim().length > 0) : true;
 
@@ -44,13 +45,20 @@ export default function ReportModeSwitchDialog({
               ))}
             </RadioGroup>
             {needsNote && (
-              <Textarea rows={3} value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder="Explain why the test couldn't be done" />
+              <div className="space-y-1">
+                <Textarea rows={3} value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder="Explain why the test couldn't be done" />
+                <p className="text-xs text-muted-foreground">The office checks this wording before it goes on the customer report.</p>
+              </div>
             )}
+            <div className="space-y-1">
+              <label htmlFor="sw-internal" className="text-sm font-medium">Internal note (office only)</label>
+              <Textarea id="sw-internal" rows={2} value={internal} maxLength={1000} onChange={(e) => setInternal(e.target.value)} placeholder="Optional – never shown to the customer" />
+            </div>
           </div>
         )}
         <DialogFooter className="gap-2">
           <Button variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button disabled={!ok || busy} onClick={() => onConfirm(reason, note.trim())}>
+          <Button disabled={!ok || busy} onClick={() => onConfirm(reason, note.trim(), internal.trim())}>
             {busy && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
             {toVisual ? "Switch to visual" : `Switch back`}
           </Button>

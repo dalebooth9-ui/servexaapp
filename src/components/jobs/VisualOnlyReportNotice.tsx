@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -8,7 +9,7 @@ import {
 import { AlertTriangle, CalendarPlus, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { fetchVisualOnlyByJob, logSwitch, MODE_SWITCH_PAIRS, switchReasonText, type ModeSwitchState } from "@/lib/reportModeSwitch";
+import { fetchVisualOnlyByJob, logSwitch, MODE_SWITCH_PAIRS, switchReasonText, needsReasonReview, type ModeSwitchState } from "@/lib/reportModeSwitch";
 
 /**
  * Office notice for a job whose report was switched to visual-only:
@@ -21,11 +22,13 @@ export default function VisualOnlyReportNotice({ jobId, showInvoiceWarning = tru
   const [returnRef, setReturnRef] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [reasonDraft, setReasonDraft] = useState("");
 
   const load = async () => {
     const m = await fetchVisualOnlyByJob([jobId]);
     const i = m.get(jobId) || null;
     setInfo(i);
+    setReasonDraft(i?.state.approved_reason || i?.state.note || "");
     if (i?.state.return_job_id) {
       const { data } = await supabase.from("jobs").select("reference_number").eq("id", i.state.return_job_id).maybeSingle();
       setReturnRef((data as any)?.reference_number || "return visit");
@@ -72,6 +75,21 @@ export default function VisualOnlyReportNotice({ jobId, showInvoiceWarning = tru
     } finally { setBusy(false); }
   };
 
+  const approveReason = async () => {
+    const text = reasonDraft.trim();
+    if (!text) return;
+    setBusy(true);
+    try {
+      await patchState({ approved_reason: text });
+      await logSwitch(jobId, user?.id, `Reason approved for the customer report: ${text}`, "switch_reason_approved");
+      toast({ title: "Reason approved", description: "It now appears on the customer report." });
+      await load();
+      onChanged?.();
+    } catch (e: any) {
+      toast({ title: "Action failed", description: e?.message, variant: "destructive" });
+    } finally { setBusy(false); }
+  };
+
   const dismiss = async () => {
     setBusy(true);
     try {
@@ -90,6 +108,21 @@ export default function VisualOnlyReportNotice({ jobId, showInvoiceWarning = tru
         <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
         Visual inspection only – {full} not carried out. Reason: {switchReasonText(info.state)}
       </p>
+      {info.state.fallback && (
+        <p className="pl-6">No visual form is linked to this template, so the pressure test form was used in visual-only mode. Link one in form settings.</p>
+      )}
+      {info.state.internal_note && (
+        <p className="pl-6"><span className="font-medium">Internal note (office only):</span> {info.state.internal_note}</p>
+      )}
+      {info.state.reason === "Other" && (
+        <div className="pl-6 space-y-1">
+          <p className="font-medium">{needsReasonReview(info.state) ? "Check the engineer's reason before it goes on the customer report (it shows as \"Other\" until approved):" : "Customer report reason:"}</p>
+          <div className="flex flex-wrap gap-2">
+            <Input value={reasonDraft} maxLength={300} onChange={(e) => setReasonDraft(e.target.value)} className="h-9 flex-1 min-w-[12rem] bg-background" />
+            <Button size="sm" disabled={busy || !reasonDraft.trim()} onClick={approveReason}>{needsReasonReview(info.state) ? "Approve reason" : "Update reason"}</Button>
+          </div>
+        </div>
+      )}
       {showInvoiceWarning && (
         <p className="pl-6">PO was for {full} – visual only completed. Check price before invoicing.</p>
       )}
