@@ -58,7 +58,7 @@ export default function VisualOnlyReportNotice({ jobId, showInvoiceWarning = tru
       const j = job as any;
       const { data: newJob, error } = await supabase.from("jobs").insert({
         name: `${pair?.fullLabel || "Pressure test"} return visit — ${j.reference_number}`,
-        description: `Return visit to carry out the ${full}. Original visit ${j.reference_number} was visual only. Reason: ${switchReasonText(info.state)}`,
+        brief: `Return visit to carry out the ${full}. Original visit ${j.reference_number} was visual only. Reason: ${switchReasonText(info.state)}`,
         customer: j.customer, customer_id: j.customer_id, site_id: j.site_id, address: j.address,
         customer_po: j.customer_po, category: j.category, priority: j.priority || "medium",
         status: "active", source: "Return visit", created_by: user?.id,
