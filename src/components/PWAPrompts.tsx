@@ -5,7 +5,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { Download, RefreshCw, X } from "lucide-react";
-import { setupPWA, setLastPromptedVersion, shouldPromptForUpdate } from "@/pwa/registerSW";
+import { setupPWA, setLastPromptedVersion, shouldPromptForUpdate, reloadToLatest } from "@/pwa/registerSW";
 import { startVersionPolling } from "@/pwa/versionPoll";
 
 
@@ -57,14 +57,12 @@ export default function PWAPrompts() {
     // Fallback for long-lived tabs where the SW update check is throttled:
     // poll /version.json and surface the same banner if a newer build ships.
     const stop = startVersionPolling((deployedVersion) => {
-      const currentVersion = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "unknown";
       if (!shouldPromptForUpdate(deployedVersion)) return;
       setLastPromptedVersion(deployedVersion);
-      setReload(() => async () => {
-        // User-initiated reload only — never auto — so in-flight forms stay safe.
-        void currentVersion;
-        window.location.reload();
-      });
+      // User-initiated only — never auto — so in-flight forms stay safe.
+      // A plain reload would be served the old cached build by the stale
+      // service worker, so drop it first and load the deployed version.
+      setReload(() => reloadToLatest);
     });
     return () => stop();
   }, []);
