@@ -127,6 +127,17 @@ async function unregisterMatching(): Promise<void> {
   }
 }
 
+/**
+ * Load the newest deployed build even when the installed service worker has
+ * not updated yet. A plain reload would be answered by the old worker's cached
+ * page, so we drop the app worker first; the next load re-registers a fresh one.
+ * Saved drafts (localStorage) and the offline queue (IndexedDB) are untouched.
+ */
+export async function reloadToLatest(): Promise<void> {
+  await unregisterMatching();
+  window.location.reload();
+}
+
 export async function setupPWA(cb: Callbacks = {}): Promise<void> {
   if (shouldRefuse()) {
     await unregisterMatching();
