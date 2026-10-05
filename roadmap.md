@@ -59,5 +59,6 @@
 - [x] Remove per-report write-up actions from completed and scanned report rows.
 - [x] Add one shared Extra section with optional multi-report comment selection and existing Site Visit Reports.
 - [x] Distinguish duplicate completed reports by system label or riser location.
-- [ ] Verify office and engineer layouts and update Help & guides.
+- [x] Update Help & guides.
+- [ ] Verify office and engineer layouts.
 
