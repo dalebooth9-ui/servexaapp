@@ -52,7 +52,8 @@ export default defineConfig(({ mode }) => ({
 
 
     VitePWA({
-      registerType: "autoUpdate",
+      // "prompt": a new version waits until the user taps Update or reopens the app — never reloads mid-form
+      registerType: "prompt",
       injectRegister: null, // we register via a guarded wrapper in src/pwa/registerSW.ts
       devOptions: { enabled: false }, // never emit a SW in dev / Lovable preview
       includeAssets: ["favicon.png", "favicon.ico", "bg-sync.js", "icon-192.png", "icon-512.png", "icon-maskable-512.png"],

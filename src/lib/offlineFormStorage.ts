@@ -15,6 +15,17 @@ import { get, set, del, keys, createStore } from "idb-keyval";
 
 const store = createStore("servexa-form-drafts", "drafts");
 const LS_PREFIX = "autosave_";
+const LS_TS_PREFIX = "autosave_ts_";
+
+/** When the device copy was last written (ms), or null. */
+export function loadFormDraftTimestamp(formId: string): number | null {
+  try {
+    const raw = localStorage.getItem(LS_TS_PREFIX + formId);
+    return raw ? Number(raw) || null : null;
+  } catch {
+    return null;
+  }
+}
 
 export type DraftMeta = {
   id: string;
@@ -33,6 +44,7 @@ export async function saveFormDraft<T>(formId: string, data: T): Promise<void> {
   // Sync mirror (best-effort; ignore quota errors)
   try {
     localStorage.setItem(LS_PREFIX + formId, JSON.stringify(data));
+    localStorage.setItem(LS_TS_PREFIX + formId, String(envelope.updatedAt));
   } catch {
     // localStorage full — IDB still works
   }
@@ -69,6 +81,7 @@ export function loadFormDraftSync<T>(formId: string): T | null {
 export async function clearFormDraft(formId: string): Promise<void> {
   try {
     localStorage.removeItem(LS_PREFIX + formId);
+    localStorage.removeItem(LS_TS_PREFIX + formId);
   } catch {
     // ignore
   }
