@@ -32,3 +32,11 @@
 ## Weekly planner grid
 - [x] Fixed one-cell-per-day cards, multi-day day counters, compact overflow and full-detail hover.
 - [x] Pointer-aligned drop targets and planner guide update.
+
+## Multiple systems per job
+- [x] Engineer list shows every report (one per system) with "System N of M", Not started / In progress / Done, "X of M done"
+- [x] Craven House: 3 Visual Inspections = Systems 1–3; 3 empty old pressure tests set aside (not deleted)
+- [ ] Editable system labels; add/remove a report on site; quantity change never deletes filled reports
+- [ ] "How many systems?" box on every job-creation path; PO/scan without clear number → 1 + "Check quantity" flag
+- [ ] Completion reason when reports not done (no access / not on site / other), shown to office
+- [ ] Help guide update
