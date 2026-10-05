@@ -12,3 +12,5 @@
 - The 'new version' banner's Update now drops the app service worker before reloading (reloadToLatest in src/pwa/registerSW.ts) — why: a plain reload is answered by a stale worker's cached page, leaving devices stuck on old builds.
 
 - Weekly planner renders one fixed droppable cell per engineer/date and uses pointer-position collisions for visit moves; cards remain per-day even for multi-day jobs — why: spanning zones and centre-based collisions displaced drop targets.
+- The app service worker uses prompt mode and the page never reloads itself; the update notice shows once per deployed version, only on dashboard/job list — why: auto-reloads wiped engineers' in-progress reports.
+- Open job-sheet forms persist per job (`open_form_<jobId>`) and flush drafts on pagehide/hidden — why: a reload must return to the same report with answers.
