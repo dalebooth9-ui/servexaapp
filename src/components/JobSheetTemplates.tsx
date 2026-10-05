@@ -1135,6 +1135,16 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     }
   };
 
+  const reopenUnusedReport = async (template: Template, response: Response) => {
+    const { error } = await supabase.from("job_sheet_responses").update({ status: "draft" } as any).eq("id", response.id);
+    if (error) {
+      toast({ title: "Couldn't reopen report", description: error.message, variant: "destructive" });
+      return;
+    }
+    await handleStartForm(template, { ...response, status: "draft" });
+    void fetchData();
+  };
+
   const announceRestore = (key: string) => {
     const ts = loadFormDraftTimestamp(key);
     toast({
@@ -1889,7 +1899,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           <span className="text-sm truncate">{tpl?.name || "Unknown Template"}</span>
                           <Badge variant="outline" className="text-[10px] shrink-0">Not used</Badge>
                         </div>
-                        {tpl && <Button variant="ghost" size="sm" className="h-7 text-xs px-2 gap-1" onClick={() => handleStartForm(tpl, { ...resp, status: "draft" })}><Pencil className="h-3 w-3" />Reopen</Button>}
+                        {tpl && <Button variant="ghost" size="sm" className="h-7 text-xs px-2 gap-1" onClick={() => void reopenUnusedReport(tpl, resp)}><Pencil className="h-3 w-3" />Reopen</Button>}
                       </div>
                     );
                   })}

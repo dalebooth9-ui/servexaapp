@@ -102,13 +102,13 @@ export async function findMissingRequired(jobId: string): Promise<{ hasReports: 
 }
 
 /** Generate a single merged PDF of every submitted report and upload it. */
-export async function buildAndUploadReportPdf(jobId: string): Promise<string> {
+export async function buildAndUploadReportPdf(jobId: string): Promise<string | null> {
   const [{ data: job }, rows] = await Promise.all([
     supabase.from("jobs").select("id, org_id, address, customer, reference_number, customers(name), sites(name, address)").eq("id", jobId).single(),
     loadSubmitted(jobId),
   ]);
   if (!job) throw new Error("Job not found");
-  if (!rows.length) throw new Error("No submitted report on this job yet");
+  if (!rows.length) return null;
 
   const merged = await PDFDocument.create();
   for (const r of rows) {
