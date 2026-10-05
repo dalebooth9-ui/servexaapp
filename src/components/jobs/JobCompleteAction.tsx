@@ -185,25 +185,6 @@ export default function JobCompleteAction({
   const hasMissing = missingRequired.length > 0;
   const canProceed = !hasMissing || userRole === "admin";
 
-  const handleDeleteDraft = async (draftId: string) => {
-    const { error } = await supabase.from("job_sheet_responses").delete().eq("id", draftId);
-    if (error) {
-      toast({ title: "Couldn't delete draft", description: error.message, variant: "destructive" });
-      return;
-    }
-    toast({ title: "Draft deleted" });
-    await loadReadiness();
-  };
-
-  const handleOpenDraft = () => {
-    // Sheets are on the same job detail page — close and let the user scroll.
-    setOpen(false);
-    // Best-effort: hash anchor if page uses it.
-    if (typeof window !== "undefined") {
-      window.location.hash = "job-sheets";
-    }
-  };
-
   const handleComplete = async () => {
     if (!user) {
       toast({ title: "Couldn't complete job", description: "You're signed out — sign in again and retry.", variant: "destructive" });
