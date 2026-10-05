@@ -49,6 +49,7 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
     if (!navigator.onLine) {
       queueSubmit(jobId, requestId);
       setState("queued");
+      toast({ title: "Waiting to send", description: "No signal — it sends by itself when signal returns." });
       return;
     }
     setState("busy");
@@ -76,6 +77,8 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
       const res = await submitToOffice(jobId, requestId);
       setState("sent");
       setReturned(null);
+      toast({ title: "Sent to office ✓" });
+      window.dispatchEvent(new CustomEvent("report-review:submitted", { detail: { jobId } }));
       onStatusChanged?.("submitted_for_review");
       if (!res?.officeEmailConfigured) toast({ title: "Submitted", description: "No office email is set up, so the office wasn't emailed — it's in their Reports to check list." });
     } catch (e: any) {

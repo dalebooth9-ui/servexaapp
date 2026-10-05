@@ -134,6 +134,13 @@
       "when": 1791205358530,
       "tag": "0018_report_system_label_archive",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791213376963,
+      "tag": "0019_allow_submitted_for_review_status",
+      "breakpoints": true
     }
   ]
 }
