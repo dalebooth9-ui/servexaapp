@@ -21,36 +21,70 @@ function b64ToBytes(b64: string): Uint8Array {
 
 export type MissingField = { responseId: string; templateId: string; templateName: string; fieldId: string; label: string };
 
-/** Forms the engineer actually used: not skipped, and either submitted or a
- *  draft with at least one answer. Drafts are dropped when the same form has
- *  already been submitted. */
-async function loadActive(jobId: string) {
+type ReportRow = {
+  id: string;
+  status: string;
+  responses: Record<string, any> | null;
+  job_sheet_templates?: { fields?: any[] } | null;
+};
+
+export type ReportCompletionSummary = {
+  total: number;
+  completed: number;
+  untouchedIds: string[];
+  unfinishedIds: string[];
+};
+
+/** Classify reports by actual entered answers. Job-prefilled values are part
+ * of the template response, so only real template input fields count. */
+export function classifyReportsForCompletion(rows: ReportRow[]): ReportCompletionSummary {
+  const active = rows.filter((r) => r.status !== "not_used");
+  const drafts = active.filter((r) => r.status === "draft");
+  const started = (r: ReportRow) => isResponseStarted(r.responses, r.job_sheet_templates?.fields || []);
+  return {
+    total: rows.length,
+    completed: rows.filter((r) => r.status === "submitted").length,
+    untouchedIds: drafts.filter((r) => !started(r)).map((r) => r.id),
+    unfinishedIds: drafts.filter(started).map((r) => r.id),
+  };
+}
+
+export async function getReportCompletionSummary(jobId: string): Promise<ReportCompletionSummary> {
+  const { data, error } = await supabase
+    .from("job_sheet_responses")
+    .select("id, status, responses, job_sheet_templates(fields)")
+    .eq("job_id", jobId)
+    .is("archived_at", null);
+  if (error) throw error;
+  return classifyReportsForCompletion((data || []) as ReportRow[]);
+}
+
+export async function markUntouchedReportsNotUsed(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  const { error } = await supabase
+    .from("job_sheet_responses")
+    .update({ status: "not_used", submitted_at: null } as any)
+    .in("id", ids)
+    .eq("status", "draft");
+  if (error) throw error;
+}
+
+/** Submitted reports are the only reports included in office/customer PDFs. */
+async function loadSubmitted(jobId: string) {
   const { data, error } = await supabase
     .from("job_sheet_responses")
     .select("id, template_id, responses, submitted_at, status, skipped_at, created_at, updated_at, job_sheet_templates(id, name, fields, branding)")
     .eq("job_id", jobId)
     .is("skipped_at", null)
-    .in("status", ["submitted", "draft"])
+    .eq("status", "submitted")
     .order("created_at", { ascending: true });
   if (error) throw error;
-  const rows = (data || []) as any[];
-  const submittedTpl = new Set(rows.filter((r) => r.status === "submitted").map((r) => r.template_id));
-  return rows.filter((r) =>
-    r.status === "submitted" ||
-    (!submittedTpl.has(r.template_id) && wasEdited(r) && isResponseStarted(r.responses, r.job_sheet_templates?.fields || [])),
-  );
-}
-const loadSubmitted = loadActive;
-// Drafts are pre-filled with job details when created, so "has answers" alone
-// isn't enough — the engineer must have saved it after creation.
-function wasEdited(r: any) {
-  if (!r.updated_at || !r.created_at) return true;
-  return new Date(r.updated_at).getTime() - new Date(r.created_at).getTime() > 5000;
+  return (data || []) as any[];
 }
 
 /** Required fields left blank on forms the engineer has started. */
 export async function findMissingRequired(jobId: string): Promise<{ hasReports: boolean; missing: MissingField[] }> {
-  const rows = await loadActive(jobId);
+  const rows = await loadSubmitted(jobId);
   const missing: MissingField[] = [];
   for (const r of rows) {
     const tpl = r.job_sheet_templates;
@@ -67,22 +101,12 @@ export async function findMissingRequired(jobId: string): Promise<{ hasReports: 
   return { hasReports: rows.length > 0, missing };
 }
 
-/** Promote started drafts to submitted so the office gets them. */
-async function submitStartedDrafts(rows: any[]) {
-  const drafts = rows.filter((r) => r.status === "draft");
-  if (!drafts.length) return;
-  const now = new Date().toISOString();
-  await supabase.from("job_sheet_responses").update({ status: "submitted", submitted_at: now }).in("id", drafts.map((d) => d.id));
-  drafts.forEach((d) => { d.status = "submitted"; d.submitted_at = now; });
-}
-
 /** Generate a single merged PDF of every submitted report and upload it. */
 export async function buildAndUploadReportPdf(jobId: string): Promise<string> {
   const [{ data: job }, rows] = await Promise.all([
     supabase.from("jobs").select("id, org_id, address, customer, reference_number, customers(name), sites(name, address)").eq("id", jobId).single(),
     loadSubmitted(jobId),
   ]);
-  await submitStartedDrafts(rows);
   if (!job) throw new Error("Job not found");
   if (!rows.length) throw new Error("No submitted report on this job yet");
 
