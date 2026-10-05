@@ -316,14 +316,17 @@ export default function JobCompleteAction({
   );
 
   function renderDialog() {
+    const unfinishedEngineerConfirmation = userRole === "engineer" && unfinishedDrafts.length > 0 && !hasMissing;
     return (
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Complete {jobRef ? <span className="font-mono">{jobRef}</span> : "this job"}?
+              {unfinishedEngineerConfirmation
+                ? "This report isn't finished. Complete the job anyway?"
+                : <>Complete {jobRef ? <span className="font-mono">{jobRef}</span> : "this job"}?</>}
             </AlertDialogTitle>
-            <AlertDialogDescription asChild>
+            {!unfinishedEngineerConfirmation && <AlertDialogDescription asChild>
               <div className="space-y-3 text-sm">
                 <div className="rounded-md border p-3 space-y-1.5">
                   <p className="font-medium text-foreground">Captured on this job:</p>
@@ -391,10 +394,10 @@ export default function JobCompleteAction({
                   </div>
                 )}
               </div>
-            </AlertDialogDescription>
+            </AlertDialogDescription>}
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={submitting}>Not yet</AlertDialogCancel>
+            <AlertDialogCancel disabled={submitting}>{unfinishedEngineerConfirmation ? "Go back" : "Not yet"}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
@@ -408,7 +411,7 @@ export default function JobCompleteAction({
               )}
             >
               {submitting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
-              {hasMissing ? "Complete with override" : "Complete Job"}
+              {unfinishedEngineerConfirmation ? "Yes" : hasMissing ? "Complete with override" : "Complete Job"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

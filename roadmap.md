@@ -52,5 +52,6 @@
 - [x] Started unfinished reports use one Complete anyway confirmation.
 - [x] Customer output contains only submitted reports.
 - [x] Reports to check shows the submitted-report ratio.
-- [ ] Verify both engineer scenarios at tablet size and update Help & guides.
+- [x] Update Help & guides and verify the engineer-only tablet layout/session.
+- [ ] Run both completion scenarios end to end — blocked because the available demo engineer has no assigned multi-report test jobs, and live engineer records must not be altered.
 
