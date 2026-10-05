@@ -27,7 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { SKIP_REASONS, skipReasonLabel } from "@/lib/reportFieldRules";
+import { isResponseStarted, SKIP_REASONS, skipReasonLabel } from "@/lib/reportFieldRules";
 import JobRemedialChecklist from "@/components/jobs/JobRemedialChecklist";
 
 type Response = {
@@ -43,7 +43,7 @@ type Response = {
   answered?: boolean;
 };
 
-type Template = { id: string; name: string; status?: string | null };
+type Template = { id: string; name: string; status?: string | null; fields?: any[] };
 
 type Props = {
   jobId: string;
@@ -94,16 +94,13 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
       .eq("job_id", jobId)
       .is("archived_at", null)
       .order("created_at", { ascending: true });
-    const responses = ((resps as any[]) || []).map((r) => ({
-      ...r,
-      answered: Object.keys(r.responses || {}).some((k) => !k.startsWith("_") && r.responses[k] !== "" && r.responses[k] != null),
-    })) as Response[];
+    const responses = ((resps as any[]) || []) as Response[];
     const tplIds = Array.from(new Set(responses.map((r) => r.template_id).filter(Boolean)));
     let templates: Template[] = [];
     if (tplIds.length) {
       const { data: tpls } = await supabase
         .from("job_sheet_templates")
-        .select("id, name, status")
+        .select("id, name, status, fields")
         .in("id", tplIds);
       templates = (tpls as Template[]) || [];
     }
@@ -111,7 +108,7 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
     const built = responses
       .map((response) => {
         const template = templates.find((t) => t.id === response.template_id);
-        return template ? { response, template } : null;
+        return template ? { response: { ...response, answered: isResponseStarted((response as any).responses, template.fields || []) }, template } : null;
       })
       .filter(Boolean) as Array<{ response: Response; template: Template }>;
     const perTpl = new Map<string, number>();
@@ -141,7 +138,15 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 
-  const openSheet = (templateId: string, response: Response) => {
+  const openSheet = async (templateId: string, response: Response) => {
+    if (response.status === "not_used") {
+      const { error } = await supabase.from("job_sheet_responses").update({ status: "draft" } as any).eq("id", response.id);
+      if (error) {
+        toast({ title: "Couldn't reopen report", description: error.message, variant: "destructive" });
+        return;
+      }
+      response = { ...response, status: "draft" };
+    }
     onNavigateTab?.("documents");
     const mode: "view" | "continue" | "fill" =
       response.status === "submitted" ? "view" : response.status === "draft" ? "continue" : "fill";
@@ -186,6 +191,7 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
           <div className="space-y-2">
             {rows.map(({ response, template }) => {
               const submitted = response.status === "submitted";
+              const notUsed = response.status === "not_used";
               const isDraft = response.status === "draft";
               const skipped = !!response.skipped_at;
               if (skipped) {
@@ -201,9 +207,11 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
                   </div>
                 );
               }
-              const label = submitted ? "View" : isDraft && response.answered ? "Continue" : "Fill out";
+              const label = submitted ? "View" : notUsed ? "Reopen" : isDraft && response.answered ? "Continue" : "Fill out";
               const chip = submitted ? (
                 <Badge className="bg-green-600 hover:bg-green-600">Done</Badge>
+              ) : notUsed ? (
+                <Badge variant="outline">Not used</Badge>
               ) : isDraft && response.answered ? (
                 <Badge variant="secondary">In progress</Badge>
               ) : (

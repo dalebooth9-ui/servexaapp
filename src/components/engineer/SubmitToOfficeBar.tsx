@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { drainSubmitQueue, getReportCompletionSummary, isQueued, markUntouchedReportsNotUsed, messageOffice, queueSubmit, submitToOffice } from "@/lib/reportReview";
 import { useAuth } from "@/hooks/useAuth";
 import SignatureCapture from "@/components/SignatureCapture";
-import { ChevronRight, PenLine } from "lucide-react";
+import { PenLine } from "lucide-react";
 
 type Props = { jobId: string; jobStatus?: string; canAct: boolean; onStatusChanged?: (s: string) => void };
 
