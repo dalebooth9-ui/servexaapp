@@ -123,6 +123,14 @@ type JobInfo = {
 
 const handledFillNonces = new Set<string>();
 
+function completedReportDetail(resp: Response, template?: Template): string | null {
+  const systemLabel = String(resp.system_label || resp.responses?._system_label || "").trim();
+  if (systemLabel) return systemLabel;
+  const locationField = template?.fields.find((field) => /riser\s*(location|loc)|system\s*(location|label)/i.test(field.label || ""));
+  const location = locationField ? String(resp.responses?.[locationField.id] || "").trim() : "";
+  return location || null;
+}
+
 export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }: { jobId: string; hideSiteVisitExtra?: boolean }) {
   const { user, userRole, profile } = useAuth();
   const { toast } = useToast();
@@ -1844,10 +1852,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                       <div key={resp.id} className="flex items-center justify-between px-3 py-2 min-h-[38px]">
                         <div className="flex items-center gap-2 min-w-0">
                           <FileText className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-                          <span className="text-sm truncate">
-                            {tpl?.name || "Unknown Template"}
-                            {(resp.system_label || resp.responses?._system_label) ? ` — ${resp.system_label || resp.responses?._system_label}` : ""}
-                          </span>
+                          <span className="text-sm truncate">{templateName}{displayDetail ? ` — ${displayDetail}` : ""}</span>
                           <Badge variant="secondary" className="text-[10px] shrink-0">Draft</Badge>
                         </div>
                         <div className="flex items-center gap-1 shrink-0 ml-2">
@@ -1919,6 +1924,11 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
               const tpl = allTemplates.find((t) => t.id === r.template_id);
               return (tpl as any)?.category !== "rams" && r.status === "submitted";
             });
+            const completedNameCounts = new Map<string, number>();
+            completedResps.forEach((resp) => {
+              const name = allTemplates.find((template) => template.id === resp.template_id)?.name || "Unknown Template";
+              completedNameCounts.set(name, (completedNameCounts.get(name) || 0) + 1);
+            });
             if (!completedResps.length) return null;
             return (
               <div className="mb-3">
@@ -1929,6 +1939,9 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                     // Submitted reports: only office admins can amend after submission.
                     // Engineers cannot re-edit their own once submitted — office reviews and edits.
                     const canEdit = userRole === "admin";
+                    const templateName = tpl?.name || "Unknown Template";
+                    const detail = completedReportDetail(resp, tpl);
+                    const displayDetail = (completedNameCounts.get(templateName) || 0) > 1 ? detail : null;
                     return (
                       <div key={resp.id} className="px-3 py-2">
                       <div className="flex items-center justify-between min-h-[38px]">

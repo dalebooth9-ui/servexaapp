@@ -67,7 +67,8 @@ export async function buildSiteVisitPrefill(jobId: string, sheetIds: string | st
     site = data;
   }
 
-  const requestedIds = (Array.isArray(sheetIds) ? sheetIds : sheetIds ? [sheetIds] : []).filter(Boolean);
+  const hasExplicitSelection = Array.isArray(sheetIds);
+  const requestedIds = (hasExplicitSelection ? sheetIds : sheetIds ? [sheetIds] : []).filter(Boolean);
   let sheets: any[] = [];
   if (requestedIds.length) {
     const { data } = await supabase
@@ -77,7 +78,7 @@ export async function buildSiteVisitPrefill(jobId: string, sheetIds: string | st
       .in("id", requestedIds);
     const byId = new Map(((data as any[]) || []).map((row) => [row.id, row]));
     sheets = requestedIds.map((id) => byId.get(id)).filter(Boolean);
-  } else {
+  } else if (!hasExplicitSelection) {
     const { data } = await supabase
       .from("job_sheet_responses")
       .select("id, responses, status, submitted_at")
