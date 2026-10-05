@@ -55,6 +55,7 @@ import { createSubmissionPhotoSignedUrl } from "@/lib/jobPhotos";
 import SortablePhotoGrid from "./SortablePhotoGrid";
 import { UKDateInput } from "@/components/ui/uk-date-input";
 import ReportModeSwitchDialog from "@/components/jobs/ReportModeSwitchDialog";
+import SiteVisitReportExtra from "@/components/jobs/SiteVisitReportExtra";
 import { carryAnswers, findPair, getSwitchState, logSwitch, switchReasonText, hiddenFieldIds, withoutHiddenFields, wetFieldIds, MODE_SWITCH_PAIRS, GENERIC_PAIR, type ModeSwitchPair, type ModeSwitchState } from "@/lib/reportModeSwitch";
 
 type TemplateField = {
@@ -95,6 +96,7 @@ type Response = {
   last_amended_at?: string | null;
   last_amended_by?: string | null;
   created_at: string;
+  system_label?: string | null;
 };
 
 type JobInfo = {
@@ -121,7 +123,7 @@ type JobInfo = {
 
 const handledFillNonces = new Set<string>();
 
-export default function JobSheetTemplates({ jobId }: { jobId: string }) {
+export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }: { jobId: string; hideSiteVisitExtra?: boolean }) {
   const { user, userRole, profile } = useAuth();
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
@@ -1842,7 +1844,10 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                       <div key={resp.id} className="flex items-center justify-between px-3 py-2 min-h-[38px]">
                         <div className="flex items-center gap-2 min-w-0">
                           <FileText className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-                          <span className="text-sm truncate">{tpl?.name || "Unknown Template"}</span>
+                          <span className="text-sm truncate">
+                            {tpl?.name || "Unknown Template"}
+                            {(resp.system_label || resp.responses?._system_label) ? ` — ${resp.system_label || resp.responses?._system_label}` : ""}
+                          </span>
                           <Badge variant="secondary" className="text-[10px] shrink-0">Draft</Badge>
                         </div>
                         <div className="flex items-center gap-1 shrink-0 ml-2">
@@ -1953,9 +1958,6 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           )}
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleViewResponse(resp)} title="View">
                             <Eye className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { window.location.assign(`/jobs/${jobId}/site-visit-report/new?sheet=${resp.id}`); }} title="Write up full report">
-                            Write up full report
                           </Button>
                           {canEdit && (
                             <AlertDialog>
@@ -2252,6 +2254,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               No templates yet.{userRole === "admin" ? " Import a template to get started." : " Ask an admin to import a template."}
             </p>
           )}
+          {!hideSiteVisitExtra && <SiteVisitReportExtra jobId={jobId} />}
         </CardContent>
       </Card>
 

@@ -55,7 +55,7 @@ export function extractSheetComments(responses: Record<string, any>): SheetComme
   return { text: lines.join("\n"), gaps: Array.from(new Set(gaps)) };
 }
 
-export async function buildSiteVisitPrefill(jobId: string, sheetId: string | null, userId: string) {
+export async function buildSiteVisitPrefill(jobId: string, sheetIds: string | string[] | null, userId: string) {
   const [{ data: job }, { data: profile }] = await Promise.all([
     supabase.from("jobs").select("id, customer, customer_po, reference_number, address, brief, name, site_id").eq("id", jobId).maybeSingle(),
     supabase.from("profiles").select("full_name").eq("user_id", userId).maybeSingle(),
@@ -67,10 +67,16 @@ export async function buildSiteVisitPrefill(jobId: string, sheetId: string | nul
     site = data;
   }
 
-  let sheet: any = null;
-  if (sheetId) {
-    const { data } = await supabase.from("job_sheet_responses").select("id, responses, status").eq("id", sheetId).maybeSingle();
-    sheet = data;
+  const requestedIds = (Array.isArray(sheetIds) ? sheetIds : sheetIds ? [sheetIds] : []).filter(Boolean);
+  let sheets: any[] = [];
+  if (requestedIds.length) {
+    const { data } = await supabase
+      .from("job_sheet_responses")
+      .select("id, responses, status, submitted_at")
+      .eq("job_id", jobId)
+      .in("id", requestedIds);
+    const byId = new Map(((data as any[]) || []).map((row) => [row.id, row]));
+    sheets = requestedIds.map((id) => byId.get(id)).filter(Boolean);
   } else {
     const { data } = await supabase
       .from("job_sheet_responses")
@@ -79,8 +85,9 @@ export async function buildSiteVisitPrefill(jobId: string, sheetId: string | nul
       .eq("status", "submitted")
       .order("submitted_at", { ascending: false })
       .limit(1);
-    sheet = data?.[0] || null;
+    sheets = data?.[0] ? [data[0]] : [];
   }
+  const sheet = sheets[0] || null;
   const r: Record<string, any> = sheet?.responses || {};
   const header = r._scan_header || {};
   const isScan = !!r._scan_source;
@@ -108,8 +115,10 @@ export async function buildSiteVisitPrefill(jobId: string, sheetId: string | nul
     contactName = str(header.customer_signed_name);
   }
 
-  const comments = sheet ? extractSheetComments(r) : { text: "", gaps: [] };
-  const rawNotes = comments.text ? `From the job sheet:\n${comments.text}\n\n` : "";
+  const commentSets = sheets.map((item) => extractSheetComments(item.responses || {}));
+  const commentLines = Array.from(new Set(commentSets.flatMap((item) => item.text.split("\n").map((line) => line.trim()).filter(Boolean))));
+  const gaps = Array.from(new Set(commentSets.flatMap((item) => item.gaps)));
+  const rawNotes = commentLines.length ? `From the job sheet:\n${commentLines.join("\n")}\n\n` : "";
   const siteAddress = site?.address ? [site.address, site.postcode].filter(Boolean).join(", ") : str(j.address);
 
   return {
@@ -125,7 +134,7 @@ export async function buildSiteVisitPrefill(jobId: string, sheetId: string | nul
     site_contact_title: contactTitle || null,
     work_instructed: str(j.brief) || str(j.name) || null,
     raw_notes: rawNotes || null,
-    gaps_to_confirm: comments.gaps,
+    gaps_to_confirm: gaps,
     status: "draft" as const,
   };
 }

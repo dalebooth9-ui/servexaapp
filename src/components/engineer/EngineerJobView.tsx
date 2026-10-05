@@ -1,4 +1,3 @@
-import { useNavigate } from "react-router-dom";
 /**
  * EngineerJobView — simplified, mobile/tablet-first job detail view for
  * engineers (and admins previewing as engineer). Replaces the full admin
@@ -24,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, CheckCircle2, Eye } from "lucide-react";
 import EngineerJobHero from "@/components/engineer/EngineerJobHero";
+import SiteVisitReportExtra from "@/components/jobs/SiteVisitReportExtra";
 
 const JobDocuments = lazy(() => import("@/components/JobDocuments"));
 const ScanDocumentButton = lazy(() => import("@/components/documents/ScanDocumentButton"));
@@ -54,7 +54,6 @@ const Fallback = () => (
  * moment the scan dialog saves.
  */
 function ScanReportCards({ jobId }: { jobId: string }) {
-  const navigate = useNavigate();
   const [reports, setReports] = useState<Array<{ id: string; templateId: string; templateName: string }>>([]);
 
   useEffect(() => {
@@ -145,13 +144,10 @@ function ScanReportCards({ jobId }: { jobId: string }) {
             <p className="text-sm font-medium">Digital report saved</p>
             <p className="text-xs text-muted-foreground truncate">{r.templateName}</p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+          <div className="flex shrink-0">
             <Button size="sm" variant="outline" className="gap-1.5" onClick={() => openReport(r)}>
               <Eye className="h-4 w-4" />
               View report
-            </Button>
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => navigate(`/jobs/${jobId}/site-visit-report/new?sheet=${r.id}`)}>
-              Write up full report
             </Button>
           </div>
         </div>
@@ -236,12 +232,14 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
         onNavigateTab={() => { /* no tabs in engineer view */ }}
       />
 
+      <SiteVisitReportExtra jobId={jobId} />
+
       {/* Hidden mount so the `job-sheet:fill-online` listener exists.
           JobSheetTemplates renders its dialog on document.body via Radix
           Portal, so keeping the list itself out of view is safe. */}
       <div className="sr-only" aria-hidden>
         <Suspense fallback={null}>
-          <JobSheet jobId={jobId} job={job} />
+          <JobSheet jobId={jobId} job={job} hideSiteVisitExtra />
         </Suspense>
       </div>
 

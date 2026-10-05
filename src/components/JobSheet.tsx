@@ -59,7 +59,7 @@ const VISIT_STATUS_ICON: Record<string, React.ReactNode> = {
   unscheduled: <AlertTriangle className="h-3 w-3 text-amber-500" />,
 };
 
-export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
+export default function JobSheet({ jobId, job, hideSiteVisitExtra = false }: { jobId: string; job: any; hideSiteVisitExtra?: boolean }) {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
   const [activities, setActivities] = useState<ActivityEntry[]>([]);
@@ -399,7 +399,7 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
           )}
 
           {/* Job Sheet Templates — engineers fill in, admins also manage */}
-          <JobSheetTemplates jobId={jobId} />
+          <JobSheetTemplates jobId={jobId} hideSiteVisitExtra={hideSiteVisitExtra} />
           {/* Certificate of Conformity (installation jobs) */}
           <CertificateOfConformity jobId={jobId} />
         </div>

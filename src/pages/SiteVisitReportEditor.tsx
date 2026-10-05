@@ -76,7 +76,10 @@ export default function SiteVisitReportEditor() {
       (async () => {
         try {
           if (!navigator.onLine) throw new Error("You need signal to start a new report. Once it's started, it keeps saving on this device without signal.");
-          const prefill = await buildSiteVisitPrefill(jobId, params.get("sheet"), user.id);
+          const selectedSheets = params.has("sheets")
+            ? (params.get("sheets") || "").split(",").map((id) => id.trim()).filter(Boolean)
+            : params.get("sheet");
+          const prefill = await buildSiteVisitPrefill(jobId, selectedSheets, user.id);
           const { data, error } = await supabase.from("site_visit_reports").insert(prefill as any).select("*").single();
           if (error) throw error;
           await supabase.from("job_activity_log").insert({ job_id: jobId, user_id: user.id, action: "site_visit_report_started", details: "Site Visit Report started" } as any);
