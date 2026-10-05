@@ -55,6 +55,7 @@ import { createSubmissionPhotoSignedUrl } from "@/lib/jobPhotos";
 import SortablePhotoGrid from "./SortablePhotoGrid";
 import { UKDateInput } from "@/components/ui/uk-date-input";
 import ReportModeSwitchDialog from "@/components/jobs/ReportModeSwitchDialog";
+import SiteVisitReportExtra from "@/components/jobs/SiteVisitReportExtra";
 import { carryAnswers, findPair, getSwitchState, logSwitch, switchReasonText, hiddenFieldIds, withoutHiddenFields, wetFieldIds, MODE_SWITCH_PAIRS, GENERIC_PAIR, type ModeSwitchPair, type ModeSwitchState } from "@/lib/reportModeSwitch";
 
 type TemplateField = {
@@ -95,6 +96,7 @@ type Response = {
   last_amended_at?: string | null;
   last_amended_by?: string | null;
   created_at: string;
+  system_label?: string | null;
 };
 
 type JobInfo = {
@@ -121,7 +123,15 @@ type JobInfo = {
 
 const handledFillNonces = new Set<string>();
 
-export default function JobSheetTemplates({ jobId }: { jobId: string }) {
+function completedReportDetail(resp: Response, template?: Template): string | null {
+  const systemLabel = String(resp.system_label || resp.responses?._system_label || "").trim();
+  if (systemLabel) return systemLabel;
+  const locationField = template?.fields.find((field) => /riser\s*(location|loc)|system\s*(location|label)/i.test(field.label || ""));
+  const location = locationField ? String(resp.responses?.[locationField.id] || "").trim() : "";
+  return location || null;
+}
+
+export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }: { jobId: string; hideSiteVisitExtra?: boolean }) {
   const { user, userRole, profile } = useAuth();
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
@@ -1914,6 +1924,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               const tpl = allTemplates.find((t) => t.id === r.template_id);
               return (tpl as any)?.category !== "rams" && r.status === "submitted";
             });
+            const completedNameCounts = new Map<string, number>();
+            completedResps.forEach((resp) => {
+              const name = allTemplates.find((template) => template.id === resp.template_id)?.name || "Unknown Template";
+              completedNameCounts.set(name, (completedNameCounts.get(name) || 0) + 1);
+            });
             if (!completedResps.length) return null;
             return (
               <div className="mb-3">
@@ -1924,12 +1939,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     // Submitted reports: only office admins can amend after submission.
                     // Engineers cannot re-edit their own once submitted — office reviews and edits.
                     const canEdit = userRole === "admin";
+                    const templateName = tpl?.name || "Unknown Template";
+                    const detail = completedReportDetail(resp, tpl);
+                    const displayDetail = (completedNameCounts.get(templateName) || 0) > 1 ? detail : null;
                     return (
                       <div key={resp.id} className="px-3 py-2">
                       <div className="flex items-center justify-between min-h-[38px]">
                         <div className="flex items-center gap-2 min-w-0">
                           <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-600" />
-                          <span className="text-sm truncate">{tpl?.name || "Unknown Template"}</span>
+                          <span className="text-sm truncate">{templateName}{displayDetail ? ` — ${displayDetail}` : ""}</span>
                           <Badge variant="secondary" className="text-[10px] shrink-0">Submitted</Badge>
                           {resp.submitted_by && profiles[resp.submitted_by] && (
                             <span className="text-[10px] text-muted-foreground shrink-0">by {profiles[resp.submitted_by]}</span>
@@ -1953,9 +1971,6 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           )}
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleViewResponse(resp)} title="View">
                             <Eye className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { window.location.assign(`/jobs/${jobId}/site-visit-report/new?sheet=${resp.id}`); }} title="Write up full report">
-                            Write up full report
                           </Button>
                           {canEdit && (
                             <AlertDialog>
@@ -2252,6 +2267,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               No templates yet.{userRole === "admin" ? " Import a template to get started." : " Ask an admin to import a template."}
             </p>
           )}
+          {!hideSiteVisitExtra && <SiteVisitReportExtra jobId={jobId} />}
         </CardContent>
       </Card>
 

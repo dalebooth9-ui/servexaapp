@@ -55,3 +55,10 @@
 - [x] Update Help & guides and verify the engineer-only tablet layout/session.
 - [ ] Run both completion scenarios end to end — blocked because the available demo engineer has no assigned multi-report test jobs, and live engineer records must not be altered.
 
+## Full written report entry
+- [x] Remove per-report write-up actions from completed and scanned report rows.
+- [x] Add one shared Extra section with optional multi-report comment selection and existing Site Visit Reports.
+- [x] Distinguish duplicate completed reports by system label or riser location.
+- [x] Update Help & guides.
+- [ ] Verify office and engineer layouts.
+
