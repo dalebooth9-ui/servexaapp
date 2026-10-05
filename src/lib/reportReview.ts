@@ -24,6 +24,7 @@ export type MissingField = { responseId: string; templateId: string; templateNam
 type ReportRow = {
   id: string;
   status: string;
+  skipped_at?: string | null;
   responses: Record<string, any> | null;
   job_sheet_templates?: { fields?: any[] } | null;
 };
@@ -38,13 +39,13 @@ export type ReportCompletionSummary = {
 /** Classify reports by actual entered answers. Job-prefilled values are part
  * of the template response, so only real template input fields count. */
 export function classifyReportsForCompletion(rows: ReportRow[]): ReportCompletionSummary {
-  const active = rows.filter((r) => r.status !== "not_used");
+  const active = rows.filter((r) => r.status !== "not_used" && !r.skipped_at);
   const drafts = active.filter((r) => r.status === "draft");
   const started = (r: ReportRow) => isResponseStarted(r.responses, r.job_sheet_templates?.fields || []);
   return {
     total: rows.length,
     completed: rows.filter((r) => r.status === "submitted").length,
-    untouchedIds: drafts.filter((r) => !started(r)).map((r) => r.id),
+    untouchedIds: rows.filter((r) => r.status === "draft" && (!!r.skipped_at || !started(r))).map((r) => r.id),
     unfinishedIds: drafts.filter(started).map((r) => r.id),
   };
 }
@@ -52,7 +53,7 @@ export function classifyReportsForCompletion(rows: ReportRow[]): ReportCompletio
 export async function getReportCompletionSummary(jobId: string): Promise<ReportCompletionSummary> {
   const { data, error } = await supabase
     .from("job_sheet_responses")
-    .select("id, status, responses, job_sheet_templates(fields)")
+    .select("id, status, skipped_at, responses, job_sheet_templates(fields)")
     .eq("job_id", jobId)
     .is("archived_at", null);
   if (error) throw error;

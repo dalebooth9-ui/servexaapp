@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
       if (officeEmail) {
         const subject = `${ref} – ${siteName} – Report submitted by ${actorName}`;
         const text = `${actorName} has submitted the report for ${job.name || ref} at ${siteName}. Review it here: ${jobLink}`;
-        const html = wrapCustomerEmail(branding, { previewText: subject, bodyHtml: `<p>${esc(actorName)} has submitted the report for <strong>${esc(job.name || ref)}</strong> at ${esc(siteName)}.</p><p>The PDF is attached.</p><p><a href="${jobLink}">Open the job</a></p>` });
+        const html = wrapCustomerEmail(branding, { previewText: subject, bodyHtml: `<p>${esc(actorName)} has submitted the report for <strong>${esc(job.name || ref)}</strong> at ${esc(siteName)}.</p>${input.pdfPath ? "<p>The PDF is attached.</p>" : "<p>No completed report was attached.</p>"}<p><a href="${jobLink}">Open the job</a></p>` });
         const attachments = input.pdfPath
           ? [{ filename: `${ref.replace(/[^\w-]+/g, "_")}-report.pdf`, content: toB64(await download(input.pdfPath)) }]
           : undefined;
