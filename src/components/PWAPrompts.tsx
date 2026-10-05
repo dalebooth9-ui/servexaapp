@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -6,7 +7,10 @@ import {
 } from "@/components/ui/dialog";
 import { Download, RefreshCw, X } from "lucide-react";
 import { setupPWA, setLastPromptedVersion, shouldPromptForUpdate, reloadToLatest } from "@/pwa/registerSW";
-import { startVersionPolling } from "@/pwa/versionPoll";
+import { startVersionPolling, fetchDeployedVersion } from "@/pwa/versionPoll";
+
+// Screens with no form open (dashboard / job list) where the update notice may appear.
+const QUIET_PATHS = new Set(["/", "/app", "/jobs"]);
 
 
 type BeforeInstallPromptEvent = Event & {
@@ -40,33 +44,40 @@ export default function PWAPrompts() {
   const [showInstall, setShowInstall] = useState(false);
   const [reload, setReload] = useState<null | (() => Promise<void>)>(null);
 
-  // Set up service worker and subscribe to update events
+  // Update notice rules: at most once per new version per device, never
+  // over a form — held until the user is on the dashboard or job list.
+  const location = useLocation();
+  const [pending, setPending] = useState<null | { version: string; reload: () => Promise<void> }>(null);
+  const running = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "unknown";
+
   useEffect(() => {
+    const offer = (version: string | null, doReload: () => Promise<void>) => {
+      if (!version || version === running) return;
+      if (!shouldPromptForUpdate(version)) return; // already shown for this version
+      setPending((cur) => (cur && cur.version === version ? cur : { version, reload: doReload }));
+    };
     void setupPWA({
       onNeedRefresh: (doReload) => {
-        const currentVersion = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "unknown";
-        if (!shouldPromptForUpdate(currentVersion)) return;
-        setLastPromptedVersion(currentVersion);
-        setReload(() => doReload);
+        // The waiting worker doesn't say which version it is; read it from version.json.
+        void fetchDeployedVersion().then((v) => offer(v, doReload));
       },
       onOfflineReady: () => {
         toast.success("App ready to work offline");
       },
     });
-
-    // Fallback for long-lived tabs where the SW update check is throttled:
-    // poll /version.json and surface the same banner if a newer build ships.
-    const stop = startVersionPolling((deployedVersion) => {
-      if (!shouldPromptForUpdate(deployedVersion)) return;
-      setLastPromptedVersion(deployedVersion);
-      // User-initiated only — never auto — so in-flight forms stay safe.
-      // A plain reload would be served the old cached build by the stale
-      // service worker, so drop it first and load the deployed version.
-      setReload(() => reloadToLatest);
-    });
+    // Fallback for long-lived tabs where the SW update check is throttled.
+    // A plain reload would be served the old cached build, so drop the worker first.
+    const stop = startVersionPolling((deployedVersion) => offer(deployedVersion, reloadToLatest));
     return () => stop();
-  }, []);
+  }, [running]);
 
+  const onQuietScreen = QUIET_PATHS.has(location.pathname);
+  useEffect(() => {
+    if (pending && onQuietScreen && !reload) {
+      setLastPromptedVersion(pending.version); // shown once — never again for this version
+      setReload(() => pending.reload);
+    }
+  }, [pending, onQuietScreen, reload]);
 
   // Capture the install prompt
   useEffect(() => {
@@ -129,7 +140,7 @@ export default function PWAPrompts() {
       </Dialog>
 
       {/* Update prompt — bottom-right toast-style banner */}
-      {reload && (
+      {reload && onQuietScreen && (
         <div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-lg border bg-card p-4 shadow-lg animate-in slide-in-from-bottom-2">
           <div className="flex items-start gap-3">
             <RefreshCw className="h-5 w-5 mt-0.5 text-primary" />
@@ -142,7 +153,7 @@ export default function PWAPrompts() {
                 <Button size="sm" onClick={() => { void reload(); }}>
                   Update now
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => setReload(null)}>
+                <Button size="sm" variant="ghost" onClick={() => { setReload(null); setPending(null); }}>
                   Later
                 </Button>
               </div>
