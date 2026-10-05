@@ -555,6 +555,8 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
               <LogOut className="h-3.5 w-3.5" />
             </Button>
           </div>
+          <AppVersion className="px-2 pt-1 text-sidebar-foreground/60" />
+
 
         </div>
       </aside>
