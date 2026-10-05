@@ -130,12 +130,23 @@ export function switchReasonText(s: ModeSwitchState) {
   return s.reason === "Other" && s.note ? s.note : [s.reason, s.note].filter(Boolean).join(" – ");
 }
 
-export function pdfSwitchLine(responses: any): string | null {
+/**
+ * Customer-facing report name for a switched response. The stored template
+ * and switch audit data remain untouched; this only controls exported output.
+ */
+export function customerReportName(templateName: string, responses: any): string {
   const s = getSwitchState(responses);
-  if (!s?.active) return null;
+  if (!s?.active) return templateName;
   const pair = MODE_SWITCH_PAIRS.find((p) => p.key === s.pair);
-  const what = pair?.fullLabel.toLowerCase() || "pressure test";
-  return `Visual inspection only – ${what} not carried out. Reason: ${customerReasonText(s)}`;
+  return pair?.visualName
+    ? pair.visualName.replace(/\b\w/g, (char) => char.toUpperCase())
+    : templateName;
+}
+
+export function pdfSwitchLine(responses: any): string | null {
+  // Switch reasons and internal notes are office-only. Keep this function as
+  // a compatibility seam for callers, but never expose the data in a PDF.
+  return null;
 }
 
 /** Copy answers across to the target template (keeps every existing key). */

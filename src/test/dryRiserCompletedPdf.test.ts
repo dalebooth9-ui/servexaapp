@@ -5,6 +5,7 @@ import { dirname } from "node:path";
 
 import { generateJobSheetPdf, warnIfUnexpectedPdfPageSpill } from "@/components/JobSheetPdfExport";
 import jsPDF from "jspdf";
+import { customerReportName, pdfSwitchLine } from "@/lib/reportModeSwitch";
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -200,5 +201,45 @@ describe("Dry Riser completed archive PDF", () => {
 
     expect(pageCount).toBe(2);
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("SINGLE-PAGE REGRESSION: 2 pages"));
+  });
+
+  it("exports a switched report as a one-page Visual Inspection without a customer switch notice", async () => {
+    const switchedResponses = {
+      ...seedArchivedResponses,
+      scope_of_work: "Pressure Test",
+      _mode_switch: {
+        pair: "dry_riser",
+        active: true,
+        full_template_id: "pressure-template",
+        visual_template_id: "visual-template",
+        reason: "Other",
+        note: "No test kit",
+        internal_note: "Office-only detail",
+        switched_at: "2026-10-05T10:26:26.946Z",
+      },
+    };
+
+    expect(pdfSwitchLine(switchedResponses)).toBeNull();
+    expect(customerReportName(dryRiserPressureTemplate.name, switchedResponses)).toBe("Dry Riser Visual Inspection");
+
+    const { fileName, pageCount } = await generateJobSheetPdf(
+      dryRiserPressureTemplate as any,
+      switchedResponses,
+      {
+        address: "CRAVEN HOUSE MICHAELSON ROAD, BARROW IN FURNESS, LA14 1AE",
+        customer: "IDL TECHNICAL",
+        customers: { name: "IDL TECHNICAL", logo_url: null, brand_colour: null } as any,
+        reference_number: "VFP-00257",
+        site: { name: "Craven House", address: "MICHAELSON ROAD, BARROW IN FURNESS, LA14 1AE" },
+      },
+      "archive-craven-house",
+      "Dale Booth",
+      "2026-10-05",
+      "Dry Riser",
+    );
+
+    expect(fileName).toContain("dry-riser-visual-inspection.pdf");
+    expect(fileName).not.toContain("pressure-test");
+    expect(pageCount).toBe(1);
   });
 });
