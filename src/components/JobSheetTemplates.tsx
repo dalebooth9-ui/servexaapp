@@ -1215,6 +1215,12 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         return;
       }
 
+      if (targeted && targeted.status === "not_used") {
+        void supabase.from("job_sheet_responses").update({ status: "draft" } as any).eq("id", targeted.id);
+        handleStartForm(template, { ...targeted, status: "draft" });
+        return;
+      }
+
       const existingDraft =
         targeted && targeted.status === "draft"
           ? targeted
@@ -1855,6 +1861,35 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                             </AlertDialog>
                           )}
                         </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Untouched reports retained when a job was completed */}
+          {(() => {
+            const unusedResps = responses.filter((r) => {
+              const tpl = allTemplates.find((t) => t.id === r.template_id);
+              return (tpl as any)?.category !== "rams" && r.status === "not_used";
+            });
+            if (!unusedResps.length) return null;
+            return (
+              <div className="mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Not used</p>
+                <div className="rounded-md border divide-y">
+                  {unusedResps.map((resp) => {
+                    const tpl = allTemplates.find((t) => t.id === resp.template_id);
+                    return (
+                      <div key={resp.id} className="flex items-center justify-between px-3 py-2 min-h-[38px]">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="text-sm truncate">{tpl?.name || "Unknown Template"}</span>
+                          <Badge variant="outline" className="text-[10px] shrink-0">Not used</Badge>
+                        </div>
+                        {tpl && <Button variant="ghost" size="sm" className="h-7 text-xs px-2 gap-1" onClick={() => handleStartForm(tpl, { ...resp, status: "draft" })}><Pencil className="h-3 w-3" />Reopen</Button>}
                       </div>
                     );
                   })}

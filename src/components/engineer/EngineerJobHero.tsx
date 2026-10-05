@@ -40,6 +40,7 @@ type Response = {
   skip_reason?: string | null;
   skip_note?: string | null;
   system_label?: string | null;
+  responses?: Record<string, any> | null;
   answered?: boolean;
 };
 
