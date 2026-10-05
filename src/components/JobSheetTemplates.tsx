@@ -1852,7 +1852,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                       <div key={resp.id} className="flex items-center justify-between px-3 py-2 min-h-[38px]">
                         <div className="flex items-center gap-2 min-w-0">
                           <FileText className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-                          <span className="text-sm truncate">{templateName}{displayDetail ? ` — ${displayDetail}` : ""}</span>
+                          <span className="text-sm truncate">{tpl?.name || "Unknown Template"}</span>
                           <Badge variant="secondary" className="text-[10px] shrink-0">Draft</Badge>
                         </div>
                         <div className="flex items-center gap-1 shrink-0 ml-2">
@@ -1906,7 +1906,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                       <div key={resp.id} className="flex items-center justify-between px-3 py-2 min-h-[38px]">
                         <div className="flex items-center gap-2 min-w-0">
                           <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          <span className="text-sm truncate">{tpl?.name || "Unknown Template"}</span>
+                          <span className="text-sm truncate">{templateName}{displayDetail ? ` — ${displayDetail}` : ""}</span>
                           <Badge variant="outline" className="text-[10px] shrink-0">Not used</Badge>
                         </div>
                         {tpl && <Button variant="ghost" size="sm" className="h-7 text-xs px-2 gap-1" onClick={() => void reopenUnusedReport(tpl, resp)}><Pencil className="h-3 w-3" />Reopen</Button>}
