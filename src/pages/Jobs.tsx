@@ -2113,6 +2113,9 @@ export default function Jobs() {
 
       {/* Primary status tabs — completed jobs are one tap away */}
       <div className="mb-3 flex flex-wrap gap-1.5">
+        {isEngineerView && waitingToSend > 0 && (
+          <p className="text-xs text-muted-foreground">{waitingToSend} job{waitingToSend > 1 ? "s" : ""} waiting to send — they send by themselves when signal returns.</p>
+        )}
         {(([
           { key: "active", label: "Active" },
           { key: "pending_review", label: "Pending Review" },
@@ -2528,6 +2531,9 @@ export default function Jobs() {
                           <span className="text-xs font-medium text-muted-foreground truncate shrink-0">· {(j as any).sites.name}</span>
                         )}
                         <span className="text-sm font-medium truncate">{j.name}</span>
+                        {isEngineerView && sentBack[j.id] && (
+                          <span className="shrink-0 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive" title={sentBack[j.id]}>Sent back by office</span>
+                        )}
                         <span className="text-xs text-muted-foreground truncate hidden sm:inline">
                           {getCustomerName(j) || "Unassigned"}
                         </span>
