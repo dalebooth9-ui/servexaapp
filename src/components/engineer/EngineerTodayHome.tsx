@@ -1,3 +1,4 @@
+import { isQueued } from "@/lib/reportReview";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { format, addDays, isSameDay, parseISO } from "date-fns";
@@ -45,7 +46,7 @@ type JobLite = {
 
 /** Jobs that are finished (or called off) — no longer active work. */
 function isFinished(status?: string) {
-  return status === "completed" || status === "cancelled";
+  return status === "completed" || status === "cancelled" || status === "submitted_for_review";
 }
 
 /** Date (yyyy-MM-dd) the job stopped being active; falls back to today. */
@@ -323,6 +324,8 @@ export default function EngineerTodayHome() {
       rams_state: (signedJobs.has(j.id) ? "signed" : ramsJobs.has(j.id) ? "attached" : "none") as JobLite["rams_state"],
     }));
 
+    // Jobs waiting to send (no signal) leave the list straight away.
+    for (const j of enriched) if (isQueued(j.id)) j.status = "submitted_for_review";
     setToday(enriched.filter((j) => j.schedule_date === todayStr && !isFinished(j.status)));
     setCompletedToday(enriched.filter((j) => j.schedule_date === todayStr && isFinished(j.status)));
     setWeek(enriched);
@@ -384,6 +387,12 @@ export default function EngineerTodayHome() {
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [user?.id, engineerId, isGenericPreview]);
+  useEffect(() => {
+    const r = () => load();
+    window.addEventListener("report-review:submitted", r);
+    return () => window.removeEventListener("report-review:submitted", r);
+    // eslint-disable-next-line
+  }, [user?.id, engineerId]);
 
   const tomorrow = useMemo(() => {
     const key = format(addDays(new Date(), 1), "yyyy-MM-dd");

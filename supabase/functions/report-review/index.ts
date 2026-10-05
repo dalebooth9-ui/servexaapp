@@ -168,7 +168,8 @@ Deno.serve(async (req) => {
       const now = new Date().toISOString();
       await admin.from("job_sheet_responses").update({ locked_at: now, locked_by: user.id, returned_reason: null, returned_at: null })
         .eq("job_id", job.id).eq("status", "submitted");
-      await admin.from("jobs").update({ status: "submitted_for_review" }).eq("id", job.id);
+      const { error: statusErr } = await admin.from("jobs").update({ status: "submitted_for_review" }).eq("id", job.id);
+      if (statusErr) return json({ error: `Job could not be marked as sent: ${statusErr.message}` }, 500);
       await admin.from("report_review_events").insert({ job_id: job.id, org_id: job.org_id, actor_id: user.id, action: "report_submitted", details: `Report submitted by ${actorName}`, pdf_path: input.pdfPath, client_request_id: input.clientRequestId });
       await admin.from("job_activity_log").insert({ job_id: job.id, org_id: job.org_id, user_id: user.id, action: "report_submitted", details: `Report submitted to office by ${actorName}` });
 
@@ -283,7 +284,8 @@ Deno.serve(async (req) => {
     // return to engineer
     await admin.from("job_sheet_responses").update({ locked_at: null, locked_by: null, returned_reason: input.reason, returned_at: new Date().toISOString() })
       .eq("job_id", job.id).eq("status", "submitted");
-    await admin.from("jobs").update({ status: "in_progress" }).eq("id", job.id);
+    const { error: retErr } = await admin.from("jobs").update({ status: "in_progress" }).eq("id", job.id);
+    if (retErr) return json({ error: `Job could not be sent back: ${retErr.message}` }, 500);
     await log("report_returned", `Report returned to engineer by ${actorName}: ${input.reason}`);
     const { data: engs } = await admin.from("job_assignments").select("engineer_id").eq("job_id", job.id);
     for (const e of engs || []) {

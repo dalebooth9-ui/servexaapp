@@ -1,3 +1,4 @@
+import { isQueued, readQueue } from "@/lib/reportReview";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import PoImportDialog from "@/components/PoImportDialog";
@@ -203,6 +204,8 @@ export default function Jobs() {
   const folderImportRef = useRef<FolderImportDialogHandle | null>(null);
 
   const [statusFilter, setStatusFilter] = useState("all");
+  const [waitingToSend, setWaitingToSend] = useState(0);
+  const [sentBack, setSentBack] = useState<Record<string, string>>({});
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [categoryFilters, setCategoryFilters] = useState<string[]>(() => {
     try {
@@ -352,7 +355,7 @@ export default function Jobs() {
       : statusTab;
     if (!searching) {
       if (effectiveTab === "active") {
-        query = query.not("status", "in", "(completed,archived,rejected)");
+        query = query.not("status", "in", isEngineerView ? "(completed,archived,rejected,submitted_for_review)" : "(completed,archived,rejected)");
       } else if (effectiveTab === "pending_review") {
         query = query.eq("status", "pending_review");
       } else if (effectiveTab === "completed") {
@@ -367,7 +370,7 @@ export default function Jobs() {
       // Searching across statuses — still hide rejected unless the user is on the rejected tab.
       if (effectiveTab !== "rejected") query = query.neq("status", "rejected");
       // Engineers never search across completed/archived — keep it scoped to active work.
-      if (isEngineerView) query = query.not("status", "in", "(completed,archived,rejected)");
+      if (isEngineerView) query = query.not("status", "in", "(completed,archived,rejected,submitted_for_review)");
     }
 
     query = query.limit(pageSize + 1);
@@ -384,7 +387,19 @@ export default function Jobs() {
 
 
     const { data } = await query;
-    const rows = data || [];
+    let rows: any[] = data || [];
+    if (isEngineerView) {
+      // Sent-with-no-signal jobs leave the list now; they send when signal returns.
+      rows = rows.filter((j) => !isQueued(j.id));
+      setWaitingToSend(readQueue().length);
+      const ids = rows.map((j) => j.id);
+      if (ids.length) {
+        const { data: ret } = await supabase.from("job_sheet_responses").select("job_id, returned_reason").in("job_id", ids).not("returned_reason", "is", null);
+        const m: Record<string, string> = {};
+        for (const r of (ret as any[]) || []) m[r.job_id] = r.returned_reason;
+        setSentBack(m);
+      }
+    }
     setHasMore(rows.length > pageSize);
     setJobs(rows.slice(0, pageSize));
   };
