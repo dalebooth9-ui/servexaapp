@@ -264,7 +264,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         .select("*")
         .or(orParts.join(","))
         .order("created_at", { ascending: false }),
-      supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
+      supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).is("archived_at", null).order("created_at", { ascending: false }),
       supabase.from("job_schedule").select("schedule_date").eq("job_id", jobId).order("schedule_date", { ascending: true }).limit(1),
     ]);
 
