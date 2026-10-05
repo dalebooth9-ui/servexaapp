@@ -6,31 +6,18 @@ import { Input } from "@/components/ui/input";
 import { CheckCircle2, Clock, Loader2, MessageSquare, Send, AlertTriangle, Undo2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { drainSubmitQueue, findMissingRequired, isQueued, messageOffice, queueSubmit, submitToOffice, type MissingField } from "@/lib/reportReview";
+import { drainSubmitQueue, getReportCompletionSummary, isQueued, markUntouchedReportsNotUsed, messageOffice, queueSubmit, submitToOffice } from "@/lib/reportReview";
 import { useAuth } from "@/hooks/useAuth";
 import SignatureCapture from "@/components/SignatureCapture";
-import { ChevronRight, PenLine } from "lucide-react";
-
-type Group = { key: string; title: string; items: { id: string; label: string; onTap: () => void }[] };
-
-function openField(jobId: string, m: MissingField) {
-  const nonce = `focus-${m.responseId}-${m.fieldId}-${Date.now()}`;
-  let attempts = 0;
-  const tryDispatch = () => {
-    attempts++;
-    const detail: Record<string, unknown> = { jobId, templateId: m.templateId, responseId: m.responseId, mode: "continue", focusFieldId: m.fieldId, nonce };
-    window.dispatchEvent(new CustomEvent("job-sheet:fill-online", { detail }));
-    if (!detail.handled && attempts < 16) setTimeout(tryDispatch, 250);
-  };
-  setTimeout(tryDispatch, 50);
-}
+import { PenLine } from "lucide-react";
 
 type Props = { jobId: string; jobStatus?: string; canAct: boolean; onStatusChanged?: (s: string) => void };
 
 export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusChanged }: Props) {
   const { toast } = useToast();
   const [state, setState] = useState<"idle" | "busy" | "sent" | "queued">(() => (isQueued(jobId) ? "queued" : "idle"));
-  const [missing, setMissing] = useState<Group[]>([]);
+  const [missing, setMissing] = useState<string[]>([]);
+  const [unfinishedOpen, setUnfinishedOpen] = useState(false);
   const [signOpen, setSignOpen] = useState(false);
   const { user } = useAuth();
   const [returned, setReturned] = useState<string | null>(null);
@@ -57,7 +44,7 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
     return () => { window.removeEventListener("online", onOnline); window.removeEventListener("report-review:submitted", onDone); window.removeEventListener("submit-to-office:run", onRun); };
   }, [jobId, onStatusChanged]);
 
-  const submit = async () => {
+  const submit = async (unfinishedConfirmed = false) => {
     const requestId = `${jobId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     if (!navigator.onLine) {
       queueSubmit(jobId, requestId);
@@ -66,26 +53,22 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
     }
     setState("busy");
     try {
-      const [check, sigs, remed] = await Promise.all([
-        findMissingRequired(jobId),
+      const [reportSummary, sigs, remed] = await Promise.all([
+        getReportCompletionSummary(jobId),
         supabase.from("job_signatures").select("signer_role").eq("job_id", jobId),
         supabase.from("job_remedial_items" as any).select("id", { count: "exact", head: true }).eq("job_id", jobId).eq("status", "pending"),
       ]);
-      const groups: Group[] = [];
-      if (!check.hasReports) groups.push({ key: "none", title: "Job report", items: [{ id: "none", label: "Fill in at least one form, or mark forms as not done on this visit", onTap: () => document.getElementById("engineer-job-hero")?.scrollIntoView({ behavior: "smooth", block: "start" }) }] });
-      const byForm = new Map<string, Group>();
-      for (const m of check.missing) {
-        const g = byForm.get(m.responseId) || { key: m.responseId, title: m.templateName, items: [] };
-        g.items.push({ id: m.fieldId, label: m.label, onTap: () => openField(jobId, m) });
-        byForm.set(m.responseId, g);
-      }
-      groups.push(...byForm.values());
-      const other: Group = { key: "other", title: "Sign-off", items: [] };
-      if (!((sigs.data as any[]) || []).some((x) => x.signer_role === "engineer")) other.items.push({ id: "sig", label: "Engineer signature", onTap: () => setSignOpen(true) });
-      if ((remed as any).count > 0) other.items.push({ id: "remed", label: `${(remed as any).count} remedial item(s) outstanding`, onTap: () => document.getElementById("engineer-remedial-hero")?.scrollIntoView({ behavior: "smooth", block: "start" }) });
-      if (other.items.length) groups.push(other);
-      if (groups.length) { setMissing(groups); setState("idle"); return; }
+      const required: string[] = [];
+      if (!((sigs.data as any[]) || []).some((x) => x.signer_role === "engineer")) required.push("Engineer signature");
+      if ((remed as any).count > 0) required.push(`${(remed as any).count} remedial item(s) outstanding`);
+      if (required.length) { setMissing(required); setState("idle"); return; }
       setMissing([]);
+      if (reportSummary.unfinishedIds.length > 0 && !unfinishedConfirmed) {
+        setState("idle");
+        setUnfinishedOpen(true);
+        return;
+      }
+      await markUntouchedReportsNotUsed(reportSummary.untouchedIds);
       if (user) {
         await supabase.from("jobs").update({ completed_at: new Date().toISOString(), completed_by: user.id } as any).eq("id", jobId);
         await supabase.from("job_visits").update({ status: "completed" }).eq("job_id", jobId).in("status", ["upcoming", "unscheduled", "overdue"]);
@@ -140,7 +123,7 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
           <div><p className="font-semibold">Waiting for signal</p><p className="text-xs text-muted-foreground">You can carry on; it sends by itself once you have signal.</p></div>
         </div>
       ) : (
-        <Button size="lg" className="w-full min-h-14 text-base font-semibold gap-2" disabled={!canAct || state === "busy"} onClick={submit}>
+        <Button size="lg" className="w-full min-h-14 text-base font-semibold gap-2" disabled={!canAct || state === "busy"} onClick={() => void submit()}>
           {state === "busy" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           {state === "busy" ? "Completing & sending…" : "Complete & submit to office"}
         </Button>
@@ -148,20 +131,7 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
       {missing.length > 0 && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm space-y-3">
           <p className="flex items-center gap-1.5 font-medium"><AlertTriangle className="h-4 w-4 text-destructive" /> Fill these in first:</p>
-          {missing.map((g) => (
-            <div key={g.key}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{g.title}</p>
-              <ul className="space-y-1">
-                {g.items.slice(0, 20).map((it) => (
-                  <li key={it.id}>
-                    <button type="button" onClick={it.onTap} className="flex w-full items-center justify-between gap-2 rounded-md border bg-background px-3 py-2 min-h-11 text-left hover:bg-muted">
-                      <span>{it.label}</span><ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          <ul className="list-disc pl-5 space-y-1">{missing.map((item) => <li key={item}>{item}</li>)}</ul>
         </div>
       )}
       <Button variant="outline" size="lg" className="w-full min-h-12 gap-2" disabled={!canAct} onClick={() => setMsgOpen(true)}>
@@ -174,6 +144,16 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
           <SignatureCapture jobId={jobId} signerRole="engineer" heading="Engineer sign-off" filterByRole />
           <div className="border-t pt-3"><SignatureCapture jobId={jobId} signerRole="customer" heading="Customer sign-off (optional)" filterByRole /></div>
           <DialogFooter><Button className="w-full min-h-12" onClick={() => setSignOpen(false)}>Done</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={unfinishedOpen} onOpenChange={setUnfinishedOpen}>
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-sm">
+          <DialogHeader><DialogTitle>This report isn't finished. Complete the job anyway?</DialogTitle></DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setUnfinishedOpen(false)}>Go back</Button>
+            <Button onClick={() => { setUnfinishedOpen(false); void submit(true); }}>Yes</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -14,7 +14,7 @@ import { ClipboardCheck, Loader2, Mail, Pencil, Undo2, ExternalLink } from "luci
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { officeReturnToEngineer, officeSendToCustomer, officeUnlockForEdit, type CustomerChannel } from "@/lib/reportReview";
 
-type Row = { jobId: string; ref: string; site: string; name: string; engineer: string; submittedAt: string; pdfPath: string | null; visualOnly: boolean; reasonCheck?: boolean };
+type Row = { jobId: string; ref: string; site: string; name: string; engineer: string; submittedAt: string; pdfPath: string | null; visualOnly: boolean; reasonCheck?: boolean; completedReports: number; totalReports: number };
 
 export default function ReportsToCheck() {
   const { toast } = useToast();
@@ -45,6 +45,16 @@ export default function ReportsToCheck() {
       ? await supabase.from("profiles").select("user_id, full_name").in("user_id", actorIds)
       : { data: [] as any[] };
     const switched = await fetchVisualOnlyByJob(ids);
+    const { data: reportRows } = ids.length
+      ? await supabase.from("job_sheet_responses").select("job_id, status").in("job_id", ids).is("archived_at", null)
+      : { data: [] as any[] };
+    const reportCounts = new Map<string, { completed: number; total: number }>();
+    ((reportRows as any[]) || []).forEach((report) => {
+      const current = reportCounts.get(report.job_id) || { completed: 0, total: 0 };
+      current.total += 1;
+      if (report.status === "submitted") current.completed += 1;
+      reportCounts.set(report.job_id, current);
+    });
     const names = new Map((profs || []).map((p: any) => [p.user_id, p.full_name]));
     const out: Row[] = (jobs || []).map((j: any) => {
       const e = latest.get(j.id);
@@ -58,6 +68,8 @@ export default function ReportsToCheck() {
         pdfPath: e?.pdf_path || null,
         visualOnly: switched.has(j.id),
         reasonCheck: needsReasonReview(switched.get(j.id)?.state || null),
+        completedReports: reportCounts.get(j.id)?.completed || 0,
+        totalReports: reportCounts.get(j.id)?.total || 0,
       };
     });
     out.sort((a, b) => a.submittedAt.localeCompare(b.submittedAt)); // oldest first
@@ -103,6 +115,9 @@ export default function ReportsToCheck() {
                   {r.visualOnly && <Badge variant="outline" className="ml-2 border-amber-400 text-amber-800 dark:text-amber-300">Pressure test outstanding</Badge>}
                   {r.reasonCheck && <Badge variant="outline" className="ml-2">Reason to check</Badge>}</p>
                 <p className="text-xs text-muted-foreground truncate">{r.name} · {r.engineer}{r.submittedAt && ` · ${format(new Date(r.submittedAt), "dd/MM/yyyy HH:mm")}`}</p>
+                {r.totalReports > 0 && r.completedReports < r.totalReports && (
+                  <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{r.completedReports} of {r.totalReports} reports completed</p>
+                )}
               </div>
               <Button size="sm" variant="outline">Open</Button>
             </Card>

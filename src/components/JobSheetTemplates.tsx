@@ -1135,6 +1135,16 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     }
   };
 
+  const reopenUnusedReport = async (template: Template, response: Response) => {
+    const { error } = await supabase.from("job_sheet_responses").update({ status: "draft" } as any).eq("id", response.id);
+    if (error) {
+      toast({ title: "Couldn't reopen report", description: error.message, variant: "destructive" });
+      return;
+    }
+    await handleStartForm(template, { ...response, status: "draft" });
+    void fetchData();
+  };
+
   const announceRestore = (key: string) => {
     const ts = loadFormDraftTimestamp(key);
     toast({
@@ -1212,6 +1222,12 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       }
       if (targeted && (targeted.status === "submitted" || detail.mode === "view")) {
         handleViewResponse(targeted);
+        return;
+      }
+
+      if (targeted && targeted.status === "not_used") {
+        void supabase.from("job_sheet_responses").update({ status: "draft" } as any).eq("id", targeted.id);
+        handleStartForm(template, { ...targeted, status: "draft" });
         return;
       }
 
@@ -1855,6 +1871,35 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                             </AlertDialog>
                           )}
                         </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Untouched reports retained when a job was completed */}
+          {(() => {
+            const unusedResps = responses.filter((r) => {
+              const tpl = allTemplates.find((t) => t.id === r.template_id);
+              return (tpl as any)?.category !== "rams" && r.status === "not_used";
+            });
+            if (!unusedResps.length) return null;
+            return (
+              <div className="mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Not used</p>
+                <div className="rounded-md border divide-y">
+                  {unusedResps.map((resp) => {
+                    const tpl = allTemplates.find((t) => t.id === resp.template_id);
+                    return (
+                      <div key={resp.id} className="flex items-center justify-between px-3 py-2 min-h-[38px]">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="text-sm truncate">{tpl?.name || "Unknown Template"}</span>
+                          <Badge variant="outline" className="text-[10px] shrink-0">Not used</Badge>
+                        </div>
+                        {tpl && <Button variant="ghost" size="sm" className="h-7 text-xs px-2 gap-1" onClick={() => void reopenUnusedReport(tpl, resp)}><Pencil className="h-3 w-3" />Reopen</Button>}
                       </div>
                     );
                   })}

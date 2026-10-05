@@ -90,9 +90,10 @@ export default function EngineerNextStepBar({
     }
 
     const { count: subCount } = await supabase
-      .from("submissions")
+      .from("job_sheet_responses")
       .select("id", { count: "exact", head: true })
-      .eq("job_id", jobId);
+      .eq("job_id", jobId)
+      .eq("status", "submitted");
     setSheetSubmitted((subCount || 0) > 0);
   };
 
@@ -111,7 +112,6 @@ export default function EngineerNextStepBar({
     const channel = supabase
       .channel(`next-step-${jobId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "job_sheet_responses", filter: `job_id=eq.${jobId}` }, onSaved)
-      .on("postgres_changes", { event: "*", schema: "public", table: "submissions", filter: `job_id=eq.${jobId}` }, onSaved)
       .subscribe();
     return () => {
       window.removeEventListener("scan-saved", onSaved);

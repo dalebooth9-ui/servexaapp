@@ -9,7 +9,7 @@ import { getEmailBranding, getSendIdentity, wrapCustomerEmail, sendViaResend } f
 const APP_URL = "https://servexaapp.lovable.app";
 
 const Body = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("submit"), jobId: z.string().uuid(), pdfPath: z.string().min(1).max(500), clientRequestId: z.string().min(4).max(120) }),
+  z.object({ action: z.literal("submit"), jobId: z.string().uuid(), pdfPath: z.string().min(1).max(500).nullable(), clientRequestId: z.string().min(4).max(120) }),
   z.object({ action: z.literal("message"), jobId: z.string().uuid(), text: z.string().trim().min(1).max(5000), photoPaths: z.array(z.string().max(500)).max(6).default([]) }),
   z.object({
     action: z.literal("send_customer"),
@@ -163,7 +163,7 @@ Deno.serve(async (req) => {
     if (input.action === "submit") {
       const { data: dup } = await admin.from("report_review_events").select("id").eq("client_request_id", input.clientRequestId).maybeSingle();
       if (dup) return json({ ok: true, duplicate: true, emailed: true });
-      if (!pathInOrg(input.pdfPath)) return json({ error: "Invalid file path" }, 400);
+      if (input.pdfPath && !pathInOrg(input.pdfPath)) return json({ error: "Invalid file path" }, 400);
 
       const now = new Date().toISOString();
       await admin.from("job_sheet_responses").update({ locked_at: now, locked_by: user.id, returned_reason: null, returned_at: null })
@@ -176,11 +176,13 @@ Deno.serve(async (req) => {
       if (officeEmail) {
         const subject = `${ref} – ${siteName} – Report submitted by ${actorName}`;
         const text = `${actorName} has submitted the report for ${job.name || ref} at ${siteName}. Review it here: ${jobLink}`;
-        const html = wrapCustomerEmail(branding, { previewText: subject, bodyHtml: `<p>${esc(actorName)} has submitted the report for <strong>${esc(job.name || ref)}</strong> at ${esc(siteName)}.</p><p>The PDF is attached.</p><p><a href="${jobLink}">Open the job</a></p>` });
-        const pdf = await download(input.pdfPath);
-        const r = await sendViaResend({ from: identity.from, reply_to: identity.reply_to, to: [officeEmail], subject, html, attachments: [{ filename: `${ref.replace(/[^\w-]+/g, "_")}-report.pdf`, content: toB64(pdf) }] });
+        const html = wrapCustomerEmail(branding, { previewText: subject, bodyHtml: `<p>${esc(actorName)} has submitted the report for <strong>${esc(job.name || ref)}</strong> at ${esc(siteName)}.</p>${input.pdfPath ? "<p>The PDF is attached.</p>" : "<p>No completed report was attached.</p>"}<p><a href="${jobLink}">Open the job</a></p>` });
+        const attachments = input.pdfPath
+          ? [{ filename: `${ref.replace(/[^\w-]+/g, "_")}-report.pdf`, content: toB64(await download(input.pdfPath)) }]
+          : undefined;
+        const r = await sendViaResend({ from: identity.from, reply_to: identity.reply_to, to: [officeEmail], subject, html, attachments });
         emailed = r.ok;
-        if (r.ok) await recordEmail([officeEmail], subject, text, html, 1);
+        if (r.ok) await recordEmail([officeEmail], subject, text, html, attachments?.length || 0);
       }
       const whatsapped = await alertOffice(
         `${ref} – ${siteName}: report submitted by ${actorName}. ${jobLink}`,

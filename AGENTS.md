@@ -15,3 +15,4 @@
 - Weekly planner renders one fixed droppable cell per engineer/date and uses pointer-position collisions for visit moves; cards remain per-day even for multi-day jobs — why: spanning zones and centre-based collisions displaced drop targets.
 - The app service worker uses prompt mode and the page never reloads itself; the update notice shows once per deployed version, only on dashboard/job list — why: auto-reloads wiped engineers' in-progress reports.
 - Open job-sheet forms persist per job (`open_form_<jobId>`) and flush drafts on pagehide/hidden — why: a reload must return to the same report with answers.
+- Job completion classifies job sheets by actual template answers: untouched drafts become `not_used`, started drafts remain editable, and only `submitted` sheets enter office/customer PDFs — why: unused or unfinished forms must not block field completion or leak blank reports to customers.

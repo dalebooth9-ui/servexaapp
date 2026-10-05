@@ -47,3 +47,10 @@
 - [x] Verify the completed Craven House report visually and keep its main report to one page.
 - [x] Update Help & guides.
 
+## Engineer completion with unused reports
+- [x] Untouched reports never block completion and are retained as Not used.
+- [x] Started unfinished reports use one Complete anyway confirmation.
+- [x] Customer output contains only submitted reports.
+- [x] Reports to check shows the submitted-report ratio.
+- [ ] Verify both engineer scenarios at tablet size and update Help & guides.
+
