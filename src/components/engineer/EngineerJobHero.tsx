@@ -39,6 +39,8 @@ type Response = {
   skipped_at?: string | null;
   skip_reason?: string | null;
   skip_note?: string | null;
+  system_label?: string | null;
+  answered?: boolean;
 };
 
 type Template = { id: string; name: string; status?: string | null };
@@ -88,10 +90,14 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
   const load = async () => {
     const { data: resps } = await supabase
       .from("job_sheet_responses")
-      .select("id, template_id, status, submitted_at, submitted_by, skipped_at, skip_reason, skip_note")
+      .select("id, template_id, status, submitted_at, submitted_by, skipped_at, skip_reason, skip_note, system_label, responses")
       .eq("job_id", jobId)
+      .is("archived_at", null)
       .order("created_at", { ascending: true });
-    const responses = (resps as Response[]) || [];
+    const responses = ((resps as any[]) || []).map((r) => ({
+      ...r,
+      answered: Object.keys(r.responses || {}).some((k) => !k.startsWith("_") && r.responses[k] !== "" && r.responses[k] != null),
+    })) as Response[];
     const tplIds = Array.from(new Set(responses.map((r) => r.template_id).filter(Boolean)));
     let templates: Template[] = [];
     if (tplIds.length) {
@@ -101,19 +107,22 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
         .in("id", tplIds);
       templates = (tpls as Template[]) || [];
     }
-    // Deduplicate: one row per template, prefer submitted > draft > other
-    const rank = (s: string) => (s === "submitted" ? 2 : s === "draft" ? 1 : 0);
-    const byTpl = new Map<string, Response>();
-    for (const r of responses) {
-      const cur = byTpl.get(r.template_id);
-      if (!cur || rank(r.status) > rank(cur.status)) byTpl.set(r.template_id, r);
-    }
-    const built = Array.from(byTpl.entries())
-      .map(([tid, response]) => {
-        const template = templates.find((t) => t.id === tid);
+    // One row per report (one per system) — never collapse copies of the same form.
+    const built = responses
+      .map((response) => {
+        const template = templates.find((t) => t.id === response.template_id);
         return template ? { response, template } : null;
       })
       .filter(Boolean) as Array<{ response: Response; template: Template }>;
+    const perTpl = new Map<string, number>();
+    built.forEach((b) => perTpl.set(b.template.id, (perTpl.get(b.template.id) || 0) + 1));
+    const seen = new Map<string, number>();
+    built.forEach((b) => {
+      const total = perTpl.get(b.template.id) || 1;
+      const n = (seen.get(b.template.id) || 0) + 1;
+      seen.set(b.template.id, n);
+      if (!b.response.system_label && total > 1) b.response.system_label = `System ${n} of ${total}`;
+    });
     setRows(built);
     setLoading(false);
   };
@@ -156,6 +165,11 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
         <div className="flex items-center gap-2 mb-3">
           <ClipboardCheck className="h-5 w-5 text-primary" />
           <h2 className="text-base font-semibold">Today on this job</h2>
+          {rows.length > 1 && (
+            <Badge variant="secondary" className="ml-auto">
+              {rows.filter((r) => r.response.status === "submitted").length} of {rows.length} done
+            </Badge>
+          )}
         </div>
 
         {loading ? (
@@ -176,9 +190,9 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
               const skipped = !!response.skipped_at;
               if (skipped) {
                 return (
-                  <div key={template.id} className="rounded-lg border border-dashed bg-muted/40 p-3 md:p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div key={response.id} className="rounded-lg border border-dashed bg-muted/40 p-3 md:p-4 flex flex-col sm:flex-row sm:items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm break-words text-muted-foreground line-through">{template.name}</p>
+                      <p className="font-medium text-sm break-words text-muted-foreground line-through">{template.name}{response.system_label ? ` — ${response.system_label}` : ""}</p>
                       <div className="mt-1"><Badge variant="outline">Not done — {skipReasonLabel(response.skip_reason)}{response.skip_note ? `: ${response.skip_note}` : ""}</Badge></div>
                     </div>
                     <Button variant="ghost" className="min-h-11 gap-2" onClick={() => undoSkip(response, template)}>
@@ -187,22 +201,23 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
                   </div>
                 );
               }
-              const label = submitted ? "View" : isDraft ? "Continue" : "Fill out";
+              const label = submitted ? "View" : isDraft && response.answered ? "Continue" : "Fill out";
               const chip = submitted ? (
-                <Badge className="bg-green-600 hover:bg-green-600">Submitted</Badge>
-              ) : isDraft ? (
-                <Badge variant="secondary">Draft</Badge>
+                <Badge className="bg-green-600 hover:bg-green-600">Done</Badge>
+              ) : isDraft && response.answered ? (
+                <Badge variant="secondary">In progress</Badge>
               ) : (
                 <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400">Not started</Badge>
               );
               return (
                 <div
-                  key={template.id}
+                  key={response.id}
                   className="rounded-lg border bg-card p-3 md:p-4 space-y-2"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm break-words">{template.name}</p>
+                      {response.system_label && <p className="text-xs font-semibold text-primary">{response.system_label}</p>}
                       <div className="mt-1">{chip}</div>
                     </div>
                     <Button

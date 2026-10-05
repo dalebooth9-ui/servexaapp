@@ -127,6 +127,13 @@
       "when": 1791198887585,
       "tag": "0017_report_autosave_updates_guide",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791205358530,
+      "tag": "0018_report_system_label_archive",
+      "breakpoints": true
     }
   ]
 }

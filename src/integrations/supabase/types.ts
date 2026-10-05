@@ -5272,6 +5272,7 @@ export type Database = {
       }
       job_sheet_responses: {
         Row: {
+          archived_at: string | null
           created_at: string
           id: string
           job_id: string
@@ -5290,10 +5291,12 @@ export type Database = {
           status: string
           submitted_at: string | null
           submitted_by: string
+          system_label: string | null
           template_id: string
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           created_at?: string
           id?: string
           job_id: string
@@ -5312,10 +5315,12 @@ export type Database = {
           status?: string
           submitted_at?: string | null
           submitted_by: string
+          system_label?: string | null
           template_id: string
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           created_at?: string
           id?: string
           job_id?: string
@@ -5334,6 +5339,7 @@ export type Database = {
           status?: string
           submitted_at?: string | null
           submitted_by?: string
+          system_label?: string | null
           template_id?: string
           updated_at?: string
         }
