@@ -11,7 +11,7 @@ import { loadWatermarkImage } from "@/lib/pdfWatermark";
 import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { renderPdfHeader } from "@/lib/pdfHeader";
-import { pdfSwitchLine, hiddenFieldIds } from "@/lib/reportModeSwitch";
+import { customerReportName, hiddenFieldIds } from "@/lib/reportModeSwitch";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
 import { computePdfFooterFlow, renderPdfSignatures, renderPdfFooter, getDefaultFooterText, resolveAccreditationLogoHeight } from "@/lib/pdfFooter";
@@ -193,6 +193,7 @@ export async function generateJobSheetPdf(
   // Resolve scope/category fields in formData using the human-readable category name
   // Display formatting only: stored answers stay ISO; PDFs print UK DD/MM/YYYY.
   const resolvedFormData = ukDateifyRecord({ ...formData });
+  const reportName = customerReportName(template.name, formData);
   const normalizeFieldLabel = (label: string) => label.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const hasValue = (value: unknown) => value !== undefined && value !== null && value !== "";
 
@@ -201,6 +202,15 @@ export async function generateJobSheetPdf(
       const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
       if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category") || label.includes("service type")) {
         resolvedFormData[f.id] = categoryName;
+      }
+    });
+  }
+
+  if (reportName !== template.name) {
+    template.fields.forEach((f) => {
+      const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+      if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category") || label.includes("service type")) {
+        resolvedFormData[f.id] = reportName;
       }
     });
   }
@@ -405,7 +415,7 @@ export async function generateJobSheetPdf(
     ...(template.branding || {}),
     logo_url: brandProfile.logoUrl,
   };
-  const footerText = getDefaultFooterText(template.name, branding, template.footer_text);
+  const footerText = getDefaultFooterText(reportName, branding, reportName !== template.name ? null : template.footer_text);
   const brandLogoImg = brandProfile.logoImage;
   const accentColor = brandProfile.accentColor;
 
@@ -505,7 +515,7 @@ export async function generateJobSheetPdf(
   }
 
   const { title: sheetTitle, subtitle: sheetSubtitle } = resolveTemplateDisplayTitle(
-    template.name,
+    reportName,
     { brandingSubtitle: branding.company_subtitle ?? null },
   );
 
@@ -539,24 +549,6 @@ export async function generateJobSheetPdf(
         }
       : undefined,
   });
-
-  // --- Visual-only switch notice (src/lib/reportModeSwitch.ts) ----------
-  const switchLine = pdfSwitchLine(formData);
-  if (switchLine) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
-    const lines = doc.splitTextToSize(switchLine, maxWidth - 6) as string[];
-    const boxH = 3 + lines.length * 3.8;
-    doc.setFillColor(255, 243, 205);
-    doc.setDrawColor(200, 140, 0);
-    doc.setLineWidth(0.3);
-    doc.rect(margin, y, maxWidth, boxH, "FD");
-    doc.setTextColor(120, 70, 0);
-    lines.forEach((ln, i) => doc.text(ln, margin + 3, y + 4.2 + i * 3.8));
-    doc.setTextColor(0, 0, 0);
-    doc.setFont("helvetica", "normal");
-    y += boxH + 2;
-  }
 
   // --- Customer summary block (AI-drafted, office-editable) --------------
   // Rendered only when a summary has been saved onto the report answers under
@@ -1378,7 +1370,7 @@ export async function generateJobSheetPdf(
 
   const safeSite = siteDisplay.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
   const filenameRef = (jobInfo as any)?.customer_po || jobInfo?.reference_number || "job-sheet";
-  const fileName = [filenameRef, safeSite || null, template.name.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
+  const fileName = [filenameRef, safeSite || null, reportName.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
   // Only the main sheet counts towards the single-page check; photo pages are expected extras.
   warnIfUnexpectedPdfPageSpill({ getNumberOfPages: () => mainSheetPages } as unknown as jsPDF, template.name, fileName, {
     jobId,
@@ -1454,7 +1446,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       onOpenChange={setPreviewOpen}
       blob={previewBlob}
       fileName={previewName}
-      title={template.name}
+      title={customerReportName(template.name, formData)}
     />
   );
 

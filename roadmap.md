@@ -40,3 +40,10 @@
 - [ ] "How many systems?" box on every job-creation path; PO/scan without clear number → 1 + "Check quantity" flag
 - [ ] Completion reason when reports not done (no access / not on site / other), shown to office
 - [ ] Help guide update
+## Switched visual report customer PDF
+- [x] Remove switch reason banner from customer PDFs without a layout gap.
+- [x] Use Dry Riser Visual Inspection for scope, title/header, filename and email subject.
+- [x] Keep switch reason and internal note available to office screens.
+- [x] Verify the completed Craven House report visually and keep its main report to one page.
+- [x] Update Help & guides.
+

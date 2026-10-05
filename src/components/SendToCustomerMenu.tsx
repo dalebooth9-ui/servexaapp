@@ -22,6 +22,7 @@ import { useEffect } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { AlertTriangle, ExternalLink } from "lucide-react";
 import { getGraphSendStatus, sendViaGraph, type GraphSendStatus } from "@/lib/graphMailSend";
+import { customerReportName } from "@/lib/reportModeSwitch";
 
 interface Props {
   jobId: string;
@@ -86,7 +87,11 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     if (docs.has("report")) parts.push("Report");
     if (docs.has("rams")) parts.push("RAMS");
     if (docs.has("certs")) parts.push("Engineer Certificates");
-    if (docs.has("jobsheets")) parts.push("Job Sheets");
+    if (docs.has("jobsheets")) {
+      const selected = sheetResponses.filter((sheet: any) => selectedSheets.has(sheet.id));
+      const names = Array.from(new Set(selected.map((sheet: any) => customerReportName(sheet.job_sheet_templates?.name || "Job Sheet", sheet.responses))));
+      parts.push(names.length === 1 ? names[0] : "Job Sheets");
+    }
     if (docs.has("coc")) parts.push("Certificate of Conformity");
     if (docs.has("prestart")) parts.push("Pre-start Checklist");
     if (docs.has("quote")) parts.push("Quote");
@@ -130,6 +135,12 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      if (selectedDocs.has("jobsheets")) {
+        const selected = sheetResponses.filter((sheet: any) => next.has(sheet.id));
+        const names = Array.from(new Set(selected.map((sheet: any) => customerReportName(sheet.job_sheet_templates?.name || "Job Sheet", sheet.responses))));
+        const label = names.length === 1 ? names[0] : "Job Sheets";
+        setSubject(`${label} — ${job.reference_number}`);
+      }
       return next;
     });
   };
@@ -173,7 +184,7 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
         .order("created_at", { ascending: false }),
       supabase
         .from("job_sheet_responses")
-        .select("id, template_id, submitted_at, status, job_sheet_templates(id, name, fields, branding)")
+        .select("id, template_id, submitted_at, status, responses, job_sheet_templates(id, name, fields, branding)")
         .eq("job_id", jobId)
         .eq("status", "submitted")
         .order("submitted_at", { ascending: false }),
