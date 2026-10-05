@@ -123,7 +123,7 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
           <div><p className="font-semibold">Waiting for signal</p><p className="text-xs text-muted-foreground">You can carry on; it sends by itself once you have signal.</p></div>
         </div>
       ) : (
-        <Button size="lg" className="w-full min-h-14 text-base font-semibold gap-2" disabled={!canAct || state === "busy"} onClick={submit}>
+        <Button size="lg" className="w-full min-h-14 text-base font-semibold gap-2" disabled={!canAct || state === "busy"} onClick={() => void submit()}>
           {state === "busy" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           {state === "busy" ? "Completing & sending…" : "Complete & submit to office"}
         </Button>
