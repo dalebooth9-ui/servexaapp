@@ -9,6 +9,7 @@ import AccountPaused from "@/components/AccountPaused";
 import { ROUTE_TO_SLUG } from "@/lib/engineerPages";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Palmtree, AlertTriangle, FileArchive, History, Truck, CloudUpload, Rocket, LifeBuoy, Bug, CreditCard, ScanLine, Eye } from "lucide-react";
+import AppVersion from "@/components/AppVersion";
 import EngineerPreviewBanner from "@/components/engineer/EngineerPreviewBanner";
 import EngineerPreviewDialog from "@/components/engineer/EngineerPreviewDialog";
 
@@ -554,6 +555,8 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
               <LogOut className="h-3.5 w-3.5" />
             </Button>
           </div>
+          <AppVersion className="px-2 pt-1 text-sidebar-foreground/60" />
+
 
         </div>
       </aside>

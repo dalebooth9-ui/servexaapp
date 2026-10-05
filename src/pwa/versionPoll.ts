@@ -14,7 +14,7 @@
 const VERSION_URL = "/version.json";
 const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
-async function fetchDeployedVersion(): Promise<string | null> {
+export async function fetchDeployedVersion(): Promise<string | null> {
   try {
     const res = await fetch(`${VERSION_URL}?ts=${Date.now()}`, {
       cache: "no-store",

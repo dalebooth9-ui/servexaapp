@@ -147,8 +147,6 @@ export async function setupPWA(cb: Callbacks = {}): Promise<void> {
   // Reset the last-prompted version whenever the installed app version changes.
   // A fresh PWA install can inherit origin localStorage from prior browser use;
   // clearing the key guarantees the update banner behaves correctly from run one.
-  const currentVersion = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "unknown";
-  resetPromptStateOnNewInstall(currentVersion);
 
   try {
     const { registerSW } = await import("virtual:pwa-register");
@@ -164,16 +162,9 @@ export async function setupPWA(cb: Callbacks = {}): Promise<void> {
       },
     });
 
-    // When a new SW takes control (autoUpdate swap), reload once so the
-    // running page picks up the new code without requiring a full relaunch.
-    if ("serviceWorker" in navigator) {
-      let reloaded = false;
-      navigator.serviceWorker.addEventListener("controllerchange", () => {
-        if (reloaded) return;
-        reloaded = true;
-        window.location.reload();
-      });
-    }
+    // No automatic reload when a new worker takes control: the app only
+    // reloads when the user taps "Update now" (update(true) below). A waiting
+    // worker otherwise activates the next time the app is opened from closed.
 
     // Actively poll for a new service worker so installed phone apps that
     // stay open for days still pick up published updates. We check:

@@ -1,7 +1,7 @@
 import ReportSitePhotos from "@/components/jobs/ReportSitePhotos";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAutoSave } from "@/hooks/useAutoSave";
-import { saveFormDraft, clearFormDraft, loadFormDraftSync } from "@/lib/offlineFormStorage";
+import { saveFormDraft, clearFormDraft, loadFormDraftSync, loadFormDraftTimestamp } from "@/lib/offlineFormStorage";
 import { supabase } from "@/integrations/supabase/client";
 import { buildRemedialWorksPrefill } from "@/lib/remedialWorksPrefill";
 import { useAuth } from "@/hooks/useAuth";
@@ -160,6 +160,37 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     }, 500);
     return () => clearTimeout(t);
   }, [formData, templateFormKey]);
+
+  // Save again the moment the app is backgrounded or the page is unloading,
+  // so nothing typed in the last debounce window is lost.
+  const latestDraftRef = useRef<{ key: string | null; data: Record<string, any> }>({ key: null, data: {} });
+  latestDraftRef.current = { key: templateFormKey, data: formData };
+  useEffect(() => {
+    const flush = () => {
+      const { key, data } = latestDraftRef.current;
+      if (key && Object.keys(data).length > 0) void saveFormDraft(key, data);
+    };
+    const onVis = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
+
+  // Remember which report is open on this job so a reload returns to it.
+  const openFormKey = `open_form_${jobId}`;
+  useEffect(() => {
+    try {
+      if (activeTemplate && !viewingResponse) {
+        localStorage.setItem(openFormKey, JSON.stringify({ templateId: activeTemplate.id, responseId: activeResponse?.id ?? null }));
+      }
+    } catch { /* ignore */ }
+  }, [activeTemplate?.id, activeResponse?.id, viewingResponse, openFormKey]);
+  const reopenTriedRef = useRef(false);
 
   const clearTemplateFormDraft = useCallback(() => {
     if (templateFormKey) void clearFormDraft(templateFormKey);
@@ -1026,12 +1057,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       });
       // Overlay any locally-saved progress (e.g. from lost connection)
       if (localDraft) {
+        let restoredAny = false;
         Object.entries(localDraft).forEach(([key, val]) => {
           if (autoPopulatedIds.has(key)) return;
           if (val !== undefined && val !== null && val !== "") {
+            if (JSON.stringify(merged[key]) !== JSON.stringify(val)) restoredAny = true;
             merged[key] = val;
           }
         });
+        if (restoredAny) announceRestore(draftKey);
       }
       // Alias: if the template field id is "site" but saved data only has
       // "site_name" (or vice versa), copy the value across so the input pre-fills.
@@ -1093,12 +1127,38 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       if (localDraft) {
         // Restore from local draft, keeping fresh auto-populated values
         const merged = { ...localDraft, ...prefilled };
+        announceRestore(draftKey);
         setFormData(await withRemedialWorks(merged, template.fields));
       } else {
         setFormData(await withRemedialWorks(prefilled, template.fields));
       }
     }
   };
+
+  const announceRestore = (key: string) => {
+    const ts = loadFormDraftTimestamp(key);
+    toast({
+      title: ts ? `Restored your unsaved work from ${new Date(ts).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : "Restored your unsaved work",
+      description: "Saved on this device — tap Save to send it to the office.",
+    });
+  };
+
+  // After a reload, reopen the report that was open on this job.
+  useEffect(() => {
+    if (reopenTriedRef.current || activeTemplate || allTemplates.length === 0) return;
+    reopenTriedRef.current = true;
+    let saved: { templateId?: string; responseId?: string | null } | null = null;
+    try { saved = JSON.parse(localStorage.getItem(openFormKey) || "null"); } catch { saved = null; }
+    if (!saved?.templateId) return;
+    const resp = saved.responseId ? responses.find((r) => r.id === saved!.responseId) : undefined;
+    if (saved.responseId && !resp) return;
+    if (resp && resp.status === "submitted") return;
+    void (async () => {
+      const tpl = await loadTemplateById(resp?.template_id || saved!.templateId);
+      if (tpl) void handleStartForm(tpl, resp);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allTemplates, responses]);
 
   /** Fill the remedial works table from the job's remedial checklist (if empty). */
   const withRemedialWorks = async (data: Record<string, any>, fields: any[]): Promise<Record<string, any>> => {
@@ -1532,7 +1592,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     return { ...base, fields: base.fields.filter((f: any) => !omitted.includes(f.section || "General")) };
   };
 
-  const closeForm = () => { setActiveTemplate(null); setActiveResponse(null); setFormData({}); setViewingResponse(null); sitePhotos.forEach(p => URL.revokeObjectURL(p.preview)); setSitePhotos([]); };
+  const closeForm = () => { try { localStorage.removeItem(openFormKey); } catch { /* ignore */ } setActiveTemplate(null); setActiveResponse(null); setFormData({}); setViewingResponse(null); sitePhotos.forEach(p => URL.revokeObjectURL(p.preview)); setSitePhotos([]); };
 
   // ---- Wet ↔ visual mode switch (see src/lib/reportModeSwitch.ts) ----
   const switchState = getSwitchState(formData);
