@@ -778,7 +778,12 @@ export function renderFilledFieldRow(
   // row height to fit — nothing must ever clip past the right edge of the cell.
   let descriptiveLines: string[] | null = null;
   if (isDescriptiveText) {
-    descriptiveLines = doc.splitTextToSize(rawTextForCheck, resultCellWidth);
+    // Free-text fields can also carry a note. Keep both inside the measured
+    // value block so the note cannot be drawn over a long wrapped answer.
+    const descriptiveText = noteValue
+      ? `${rawTextForCheck} (${noteValue})`
+      : rawTextForCheck;
+    descriptiveLines = doc.splitTextToSize(descriptiveText, resultCellWidth);
   } else if (
     field.type !== "pass_fail" &&
     field.type !== "checkbox" &&
@@ -879,7 +884,7 @@ export function renderFilledFieldRow(
 
   let extraY = 0;
   // Inline note — placed in the result column, immediately after the YES/NO answer
-  if (noteValue) {
+  if (noteValue && !descriptiveLines) {
     // Find roughly where the answer text ended in the result column
     doc.setFontSize(9.5);
     doc.setFont("helvetica", "bold");
