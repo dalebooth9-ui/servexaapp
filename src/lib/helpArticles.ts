@@ -26,6 +26,7 @@ const RULES: SlugRule[] = [
   { test: (p) => p === "/sites", slug: "sites" },
   { test: (p) => p === "/site-surveys" || p.startsWith("/site-surveys/"), slug: "site-surveys" },
   { test: (p) => p === "/assets", slug: "assets" },
+  { test: (p) => p === "/assets/review", slug: "assets.review" },
   { test: (p) => p.startsWith("/assets/"), slug: "assets.detail" },
   { test: (p) => p === "/engineers", slug: "engineers" },
   { test: (p) => p === "/planner", slug: "planner" },
