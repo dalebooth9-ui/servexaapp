@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import DryRisersTable from "@/components/assets/DryRisersTable";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -128,7 +129,7 @@ export default function Assets() {
   const [addingCat, setAddingCat] = useState(false);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editCatName, setEditCatName] = useState("");
-  const [viewMode, setViewMode] = useState<"folders" | "all">("folders");
+  const [viewMode, setViewMode] = useState<"folders" | "all" | "risers">(() => (new URLSearchParams(window.location.search).get("view") === "risers" ? "risers" : "folders"));
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [showEmptySites, setShowEmptySites] = useState(false);
   const [folderSearch, setFolderSearch] = useState("");
@@ -434,6 +435,7 @@ export default function Assets() {
             <FolderOpen className="mr-1.5 h-4 w-4" /> By site
           </TabsTrigger>
           <TabsTrigger value="all">All assets</TabsTrigger>
+          <TabsTrigger value="risers">Dry risers</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -456,7 +458,9 @@ export default function Assets() {
       )}
 
       {/* Folder list (default view) */}
-      {showFolderList ? (
+      {viewMode === "risers" ? (
+        <DryRisersTable />
+      ) : showFolderList ? (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative flex-1 min-w-[220px] max-w-sm">
