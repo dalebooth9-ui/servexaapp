@@ -17,3 +17,4 @@
 - The app service worker uses prompt mode and the page never reloads itself; the update notice shows once per deployed version, only on dashboard/job list — why: auto-reloads wiped engineers' in-progress reports.
 - Open job-sheet forms persist per job (`open_form_<jobId>`) and flush drafts on pagehide/hidden — why: a reload must return to the same report with answers.
 - Job completion classifies job sheets by actual template answers: untouched drafts become `not_used`, started drafts remain editable, and only `submitted` sheets enter office/customer PDFs — why: unused or unfinished forms must not block field completion or leak blank reports to customers.
+- Dry risers are rows in `assets` (asset_type/category "Dry Riser"); sheets link via `riser_asset_id` in answers, sync matches chosen asset then exact site+riser_location, and failures/unknowns go to `asset_review_flags` — why: no duplicate risers and no silent sync failures.
