@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import DryRiserPanel from "@/components/assets/DryRiserPanel";
+import { isDryRiserAsset } from "@/lib/dryRisers";
 import PpmSchedules from "@/components/PpmSchedules";
 import DigitalTwinPanel from "@/components/DigitalTwinPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -340,6 +342,8 @@ export default function AssetDetail() {
         </Card>
       </div>
 
+
+      {isDryRiserAsset(asset as any) && <DryRiserPanel assetId={asset.id} isAdmin={userRole === "admin"} onChanged={fetchAll} />}
 
       {asset.notes && (
         <Card>
