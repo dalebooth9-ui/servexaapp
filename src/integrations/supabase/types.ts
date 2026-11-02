@@ -359,7 +359,7 @@ export type Database = {
       }
       asset_review_flags: {
         Row: {
-          asset_id: string
+          asset_id: string | null
           created_at: string
           field: string
           id: string
@@ -371,10 +371,11 @@ export type Database = {
           reason: string | null
           resolved_at: string | null
           resolved_by: string | null
+          site_id: string | null
           status: string
         }
         Insert: {
-          asset_id: string
+          asset_id?: string | null
           created_at?: string
           field: string
           id?: string
@@ -386,10 +387,11 @@ export type Database = {
           reason?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          site_id?: string | null
           status?: string
         }
         Update: {
-          asset_id?: string
+          asset_id?: string | null
           created_at?: string
           field?: string
           id?: string
@@ -401,6 +403,7 @@ export type Database = {
           reason?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          site_id?: string | null
           status?: string
         }
         Relationships: [
@@ -409,6 +412,13 @@ export type Database = {
             columns: ["asset_id"]
             isOneToOne: false
             referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_review_flags_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -491,7 +501,7 @@ export type Database = {
       }
       asset_service_history: {
         Row: {
-          asset_id: string
+          asset_id: string | null
           created_at: string
           id: string
           inspection_date: string | null
@@ -500,13 +510,17 @@ export type Database = {
           job_sheet_response_id: string | null
           org_id: string | null
           outlets_count: number | null
+          report_date_text: string | null
+          report_file: string | null
+          report_link: string | null
           result_summary: string | null
           riser_location: string | null
+          site_id: string | null
           template_id: string | null
           template_name: string | null
         }
         Insert: {
-          asset_id: string
+          asset_id?: string | null
           created_at?: string
           id?: string
           inspection_date?: string | null
@@ -515,13 +529,17 @@ export type Database = {
           job_sheet_response_id?: string | null
           org_id?: string | null
           outlets_count?: number | null
+          report_date_text?: string | null
+          report_file?: string | null
+          report_link?: string | null
           result_summary?: string | null
           riser_location?: string | null
+          site_id?: string | null
           template_id?: string | null
           template_name?: string | null
         }
         Update: {
-          asset_id?: string
+          asset_id?: string | null
           created_at?: string
           id?: string
           inspection_date?: string | null
@@ -530,8 +548,12 @@ export type Database = {
           job_sheet_response_id?: string | null
           org_id?: string | null
           outlets_count?: number | null
+          report_date_text?: string | null
+          report_file?: string | null
+          report_link?: string | null
           result_summary?: string | null
           riser_location?: string | null
+          site_id?: string | null
           template_id?: string | null
           template_name?: string | null
         }
@@ -541,6 +563,13 @@ export type Database = {
             columns: ["asset_id"]
             isOneToOne: false
             referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_service_history_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -10914,6 +10943,7 @@ export type Database = {
           similarity: number
         }[]
       }
+      generate_asset_tag: { Args: never; Returns: string }
       generate_contract_reference: { Args: never; Returns: string }
       generate_intake_email: { Args: { _slug: string }; Returns: string }
       generate_scan_intake_email: { Args: { _slug: string }; Returns: string }
@@ -10999,6 +11029,14 @@ export type Database = {
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       mark_job_message_read: {
         Args: { _message_id: string }
+        Returns: undefined
+      }
+      merge_assets: {
+        Args: { _keep_id: string; _remove_id: string }
+        Returns: undefined
+      }
+      move_asset_site: {
+        Args: { _asset_id: string; _site_id: string }
         Returns: undefined
       }
       move_to_dlq: {

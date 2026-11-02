@@ -141,6 +141,13 @@
       "when": 1791213376963,
       "tag": "0019_allow_submitted_for_review_status",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793648760620,
+      "tag": "0020_dry_riser_register_stage1",
+      "breakpoints": true
     }
   ]
 }
