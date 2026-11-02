@@ -39,6 +39,12 @@ function toDate(s: string | undefined | null): string | null {
   return d.toISOString().slice(0, 10);
 }
 
+function toInt(s: any): number | null {
+  if (s == null) return null;
+  const m = String(s).match(/\d+/);
+  return m ? parseInt(m[0], 10) : null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -128,13 +134,20 @@ serve(async (req) => {
       }
       if (body.entity === "assets") {
         if (!v.name) return null;
+        const isDryRiser = /dry\s*riser/i.test(`${v.asset_type || ""} ${v.category || ""} ${v.name || ""}`);
         const status = v.status && VALID_ASSET_STATUS.has(String(v.status).toLowerCase()) ? String(v.status).toLowerCase() : "operational";
         return {
           org_id: orgId,
           created_by: caller.id,
           name: String(v.name).trim(),
-          asset_tag: v.asset_tag || null,
-          category: (v.category || "general").toString().toLowerCase().replace(/\s+/g, "_"),
+          asset_tag: (v.asset_tag && String(v.asset_tag).trim()) ? String(v.asset_tag).trim().toUpperCase() : null,
+          category: isDryRiser && !v.category ? "Dry Riser" : (v.category || "general").toString().toLowerCase().replace(/\s+/g, "_"),
+          asset_type: v.asset_type ? String(v.asset_type).trim() : (isDryRiser ? "Dry Riser" : null),
+          riser_location: v.riser_location ? String(v.riser_location).trim() : null,
+          outlets_count: toInt(v.outlets_count),
+          last_inspection_at: toDate(v.last_inspection_at),
+          last_inspection_type: v.last_inspection_type ? String(v.last_inspection_type).trim() : null,
+          last_inspection_result: v.last_inspection_result ? String(v.last_inspection_result).trim() : null,
           make: v.make || null,
           model: v.model || null,
           serial_number: v.serial_number || null,
