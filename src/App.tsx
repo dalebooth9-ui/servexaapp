@@ -35,6 +35,7 @@ const WeeklyPlanner = lazy(() => import("@/pages/WeeklyPlanner"));
 const Sites = lazy(() => import("@/pages/Sites"));
 const Assets = lazy(() => import("@/pages/Assets"));
 const AssetDetail = lazy(() => import("@/pages/AssetDetail"));
+const AssetReview = lazy(() => import("@/pages/AssetReview"));
 const Compliance = lazy(() => import("@/pages/Compliance"));
 const Audits = lazy(() => import("@/pages/Audits"));
 const Invoices = lazy(() => import("@/pages/Invoices"));
@@ -247,6 +248,7 @@ const App = () => (
               <Route path="/site-surveys" element={<AccessRoute pageSlug="site-surveys"><Suspense fallback={<PageFallback />}><SiteSurveys /></Suspense></AccessRoute>} />
               <Route path="/site-surveys/:id" element={<AccessRoute pageSlug="site-surveys"><Suspense fallback={<PageFallback />}><SiteSurveyDetail /></Suspense></AccessRoute>} />
               <Route path="/assets" element={<AccessRoute pageSlug="assets"><Assets /></AccessRoute>} />
+              <Route path="/assets/review" element={<AccessRoute pageSlug="assets"><AssetReview /></AccessRoute>} />
               <Route path="/assets/:id" element={<AccessRoute pageSlug="assets"><AssetDetail /></AccessRoute>} />
               <Route path="/parts-library" element={<AdminRoute><PartsLibrary /></AdminRoute>} />
               <Route path="/stock" element={<ProtectedRoute><VanStock /></ProtectedRoute>} />
