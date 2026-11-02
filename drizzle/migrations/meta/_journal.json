@@ -148,6 +148,13 @@
       "when": 1793648760620,
       "tag": "0020_dry_riser_register_stage1",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793649291862,
+      "tag": "0021_fix_sync_asset_record_init",
+      "breakpoints": true
     }
   ]
 }
