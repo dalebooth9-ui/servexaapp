@@ -37,10 +37,17 @@ export default function AssetReview() {
 
   const load = async () => {
     const { data, error } = await supabase.from("asset_review_flags")
-      .select("id, asset_id, site_id, job_id, field, old_value, new_value, reason, created_at, assets(asset_tag, riser_location, name, sites(name)), sites(name), jobs(reference_number)")
+      .select("id, asset_id, site_id, job_id, field, old_value, new_value, reason, created_at, assets(asset_tag, riser_location, name, sites(name)), sites(name)")
       .eq("status", "open").order("created_at", { ascending: false }).limit(1000);
     if (error) toast({ title: "Couldn't load review flags", description: error.message, variant: "destructive" });
-    setFlags((data as any) || []);
+    const rows = ((data as any) || []) as Flag[];
+    const jobIds = [...new Set(rows.map((r) => r.job_id).filter(Boolean))] as string[];
+    if (jobIds.length) {
+      const { data: jobs } = await supabase.from("jobs").select("id, reference_number").in("id", jobIds);
+      const ref = new Map((jobs || []).map((j: any) => [j.id, j.reference_number]));
+      rows.forEach((r) => { r.jobs = r.job_id ? { reference_number: ref.get(r.job_id) ?? null } : null; });
+    }
+    setFlags(rows);
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
