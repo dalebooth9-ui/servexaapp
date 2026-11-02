@@ -68,6 +68,7 @@ const NAV_GROUPS: NavGroupDef[] = [
       { to: "/customers", label: "Customers", icon: Building2, adminOnly: true },
       { to: "/sites", label: "Sites", icon: MapPin, adminOnly: true },
       { to: "/assets", label: "Assets", icon: Package, adminOnly: true },
+      { to: "/assets/review", label: "Asset review", icon: Package, adminOnly: true },
       { to: "/site-surveys", label: "Site Surveys", icon: ClipboardList },
     ],
   },
@@ -233,6 +234,19 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
 
 
   const [openDefectCount, setOpenDefectCount] = useReactState<number>(0);
+  const [assetReviewCount, setAssetReviewCount] = useReactState<number>(0);
+  useEffect(() => {
+    if (userRole !== "admin") return;
+    let mounted = true;
+    const fetchFlags = async () => {
+      const { count } = await supabase.from("asset_review_flags").select("id", { count: "exact", head: true }).eq("status", "open");
+      if (mounted) setAssetReviewCount(count || 0);
+    };
+    fetchFlags();
+    window.addEventListener("asset-review:changed", fetchFlags);
+    const t = window.setInterval(fetchFlags, 120000);
+    return () => { mounted = false; window.removeEventListener("asset-review:changed", fetchFlags); window.clearInterval(t); };
+  }, [userRole]);
   const [pendingReviewCount, setPendingReviewCount] = useReactState<number>(0);
   const [platformSupportOpen, setPlatformSupportOpen] = useReactState<number>(0);
   const paperScansPending = usePaperScanPendingCount();
@@ -348,6 +362,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
 
   const badgeFor = (to: string) =>
     to === "/defects" ? openDefectCount :
+    to === "/assets/review" ? assetReviewCount :
     to === "/jobs" ? pendingReviewCount :
     to === "/platform/support" ? platformSupportOpen :
     to === "/paper-scans" ? paperScansPending :

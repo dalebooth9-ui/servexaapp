@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import ImportHistory from "@/components/settings/ImportHistory";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { MessageSquare, Copy, CheckCircle2, ArrowLeft, Loader2, Send, BarChart2, Smartphone, Mail, ShieldCheck, RotateCcw, AlertTriangle, Calendar, Link2, ExternalLink, RefreshCw, ChevronDown } from "lucide-react";
@@ -206,6 +207,7 @@ export default function SettingsPage() {
           <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
+          <TabsTrigger value="import-history">Import history</TabsTrigger>
           <TabsTrigger value="advanced">Advanced</TabsTrigger>
         </TabsList>
 
@@ -485,6 +487,10 @@ export default function SettingsPage() {
               <JobDocumentReattachSettings />
             </CollapsibleContent>
           </Collapsible>
+        </TabsContent>
+
+        <TabsContent value="import-history" className="space-y-6 mt-0">
+          <ImportHistory />
         </TabsContent>
 
         <TabsContent value="advanced" className="space-y-6 mt-0">

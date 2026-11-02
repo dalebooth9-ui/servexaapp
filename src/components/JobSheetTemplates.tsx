@@ -1,4 +1,11 @@
 import ReportSitePhotos from "@/components/jobs/ReportSitePhotos";
+import RiserLocationPicker from "@/components/assets/RiserLocationPicker";
+
+function isDryRiserTemplate(t: any): boolean {
+  if (!t) return false;
+  const jc = String(t.job_category || "");
+  return /^dry_riser_(pressure_test|visual)/.test(jc) || /dry riser/i.test(String(t.name || ""));
+}
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { saveFormDraft, clearFormDraft, loadFormDraftSync, loadFormDraftTimestamp } from "@/lib/offlineFormStorage";
@@ -145,6 +152,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
   const [activeTemplate, setActiveTemplate] = useState<Template | null>(null);
+  const [jobSiteId, setJobSiteId] = useState<string | null>(null);
   const [activeResponse, setActiveResponse] = useState<Response | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [sitePhotos, setSitePhotos] = useState<{ file: File; preview: string; caption: string }[]>([]);
@@ -334,6 +342,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     let engineerNames: string[] = [];
     if (jobRes.data) {
       const jd = jobRes.data as any;
+      setJobSiteId(jd.site_id ?? null);
       const assigns = assignsRes.data || [];
       if (assigns.length > 0) {
         const { data: profs } = await supabase
@@ -2395,7 +2404,18 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                           </Label>
                         </div>
                         <div className="px-2 py-1.5 flex items-center">
-                          {renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v), lockedFieldIds.has(field.id), engineerOptions, jobId, user?.id)}
+                          {field.id === "riser_location" && field.type === "text" && isDryRiserTemplate(activeTemplate) ? (
+                            <RiserLocationPicker
+                              siteId={jobSiteId}
+                              value={formData.riser_location || ""}
+                              assetId={formData.riser_asset_id || null}
+                              locked={lockedFieldIds.has(field.id)}
+                              onChange={(loc, aid) => {
+                                handleFieldValue("riser_location", loc);
+                                setFormData((prev) => ({ ...prev, riser_asset_id: aid }));
+                              }}
+                            />
+                          ) : renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v), lockedFieldIds.has(field.id), engineerOptions, jobId, user?.id)}
                         </div>
                       </div>
                       {(field.allow_notes || formData[`${field.id}_notes`]) && (

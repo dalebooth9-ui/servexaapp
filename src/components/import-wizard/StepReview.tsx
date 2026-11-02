@@ -96,7 +96,8 @@ export default function StepReview({
           if (hit) { duplicateOfExistingId = hit.id; duplicateOfName = hit.name; }
         } else {
           const tag = (v.asset_tag || "").toLowerCase().trim();
-          const hit = existingList.find((e: any) => (tag && (e.asset_tag || "").toLowerCase() === tag) || e.name.toLowerCase().trim() === nameKey);
+          // Duplicate check on asset_tag only — many dry risers share the same name.
+          const hit = tag ? existingList.find((e: any) => (e.asset_tag || "").toLowerCase() === tag) : undefined;
           if (hit) { duplicateOfExistingId = hit.id; duplicateOfName = hit.name; }
         }
       }
@@ -121,9 +122,17 @@ export default function StepReview({
             .map((p) => ({ p, s: fuzzyScore(q, p.name, p.address) }))
             .filter((x) => x.s > 0)
             .sort((a, b) => b.s - a.s);
-          const top = scored[0];
-          if (top && top.s >= 500) { parentMatchId = top.p.id; parentMatchName = top.p.name; }
-          else if (!top) { problems.push(`No ${entity === "sites" ? "customer" : "site"} matches "${q}"`); }
+          // Exact name only (no fuzzy auto-match) so we never attach to the wrong record.
+          const norm = (x: string) => x.toLowerCase().replace(/\s+/g, " ").trim();
+          const exact = parentList.filter((p) => norm(p.name) === norm(q));
+          let pcHit: ExistingRecord[] = [];
+          if (exact.length !== 1 && entity === "assets") {
+            const pc = (v.site_postcode || "").toLowerCase().replace(/\s+/g, "");
+            if (pc) pcHit = parentList.filter((p) => (p.postcode || "").toLowerCase().replace(/\s+/g, "") === pc);
+          }
+          const chosen = exact.length === 1 ? exact[0] : pcHit.length === 1 ? pcHit[0] : null;
+          if (chosen) { parentMatchId = chosen.id; parentMatchName = chosen.name; }
+          else problems.push(`${entity === "sites" ? "Customer" : "Site"} "${q}" not matched — pick one to confirm`);
           parentCandidates = scored.slice(0, 5).map((x) => ({ id: x.p.id, name: x.p.name, extra: (x.p as any).address || (x.p as any).postcode }));
         }
       }
@@ -216,6 +225,7 @@ export default function StepReview({
                       <Select
                         value={r.parentMatchId || "__none__"}
                         onValueChange={(v) => updateRow(i, {
+                          problems: v === "__none__" ? r.problems : r.problems.filter((p) => !p.includes("not matched")),
                           parentMatchId: v === "__none__" ? null : v,
                           parentMatchName: v === "__none__" ? undefined : r.parentCandidates?.find((c) => c.id === v)?.name,
                         })}

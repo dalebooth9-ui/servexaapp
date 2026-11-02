@@ -1,3 +1,4 @@
+import SiteDryRisers from "@/components/assets/SiteDryRisers";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { format, parseISO } from "date-fns";
@@ -217,6 +218,7 @@ export default function SiteHistoryPanel({ currentJobId, siteId, address }: Site
       </CardHeader>
       <CardContent className="space-y-4">
         {siteId && <SiteAtAGlance siteId={siteId} />}
+        {siteId && <SiteDryRisers siteId={siteId} />}
         {loading ? (
           <div className="space-y-2">
             <Skeleton className="h-12 w-full" />
