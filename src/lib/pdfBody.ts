@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { formatRemedialItemsText } from "@/lib/remedialItems";
+import {printPdfProfiles} from '@/lib/printPdfProfile';
 
 export interface AutoPopulateJobInfo {
   address?: string | null;
@@ -691,9 +692,11 @@ export function renderSectionHeader(
   }
 
   // Light grey section header bar with black bold text (matches reference DOCX layout)
-  doc.setFillColor(...PDF_PALETTE.headerStrip);
+  const profile=printPdfProfiles.get(doc)?.profile;
+  const colour=profile?.isCustomerBranded?profile.accentColor:null;
+  doc.setFillColor(...(colour?colour.map(c=>Math.round(230+c*0.1)):PDF_PALETTE.headerStrip) as [number,number,number]);
   doc.rect(margin, y, maxWidth, sectionHeaderH, "F");
-  doc.setDrawColor(...PDF_PALETTE.border);
+  doc.setDrawColor(...(colour||PDF_PALETTE.border));
   doc.rect(margin, y, colSplit, sectionHeaderH);
   doc.rect(margin + colSplit, y, maxWidth - colSplit, sectionHeaderH);
   doc.setFontSize(10);
