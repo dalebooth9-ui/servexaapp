@@ -489,7 +489,7 @@ export async function generateConformityPdfBase64(
     "", // title text unused — replaced by titleBands
     { logo_url: await (await import("@/lib/generatingOrgBranding")).getGeneratingOrgFallbackLogoUrl() },
     {
-      customerName: "",
+      customerName: cert.customer_name || "",
       siteName: "",
       siteAddress: "",
       refNumber: "",

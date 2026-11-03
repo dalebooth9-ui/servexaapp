@@ -150,14 +150,15 @@ export function addWatermarkToAllPages(
   const pageCount = doc.getNumberOfPages();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const wmH = pageHeight * 0.85;
-  const wmW = (watermark.naturalWidth / watermark.naturalHeight) * wmH;
+  const scale=Math.min(pageWidth*0.85/watermark.naturalWidth,pageHeight*0.75/watermark.naturalHeight);
+  const wmH = watermark.naturalHeight*scale;
+  const wmW = watermark.naturalWidth*scale;
   const x = (pageWidth - wmW) / 2;
   const yPos = (pageHeight - wmH) / 2 + 12;
 
   const useTint = mode === "tinted" && !!brandColor;
-  const tintedDataUrl = useTint ? tintWatermark(watermark, brandColor!) : null;
-  const normalizedDataUrl = !tintedDataUrl ? normalizeWatermarkAlpha(watermark) : null;
+  const tintedDataUrl = useTint && brandColor ? tintWatermark(watermark, brandColor) : null;
+  const normalizedDataUrl = null;
   const opacity =
     typeof options.opacity === "number"
       ? Math.max(0, Math.min(1, options.opacity))

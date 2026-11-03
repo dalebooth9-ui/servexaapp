@@ -2,6 +2,8 @@ import jsPDF from "jspdf";
 import type { RgbTriple } from "@/lib/extractLogoColors";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { resolveToSignedUrl } from "@/lib/durableStorageRef";
+import {resolveDocumentBrandingProfile} from '@/lib/documentBrandingProfile';
+import {registerPrintPdf} from '@/lib/printPdfProfile';
 
 export interface PdfHeaderData {
   customerName: string;
@@ -159,6 +161,10 @@ export async function renderPdfHeader(
   accentColor?: RgbTriple | null,
   opts?: RenderPdfHeaderOpts
 ): Promise<number> {
+  const profile=await resolveDocumentBrandingProfile({customer:{name:data.customerName}});
+  branding={...branding,logo_url:profile.logoUrl,company_name:profile.companyName};
+  if(profile.isCustomerBranded)accentColor=profile.accentColor;
+  registerPrintPdf(doc,profile);
   const accent = accentColor ?? DEFAULT_ACCENT;
   const compact = !!opts?.compact;
   const style = opts?.style ?? {};

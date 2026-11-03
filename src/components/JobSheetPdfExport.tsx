@@ -406,8 +406,9 @@ export async function generateJobSheetPdf(
   // per-customer watermark assets.
   const brandProfile = await resolveDocumentBrandingProfile({
     template,
+    jobId: isValidUuid ? jobId : undefined,
     customer: {
-      name: jobInfo?.customers?.name,
+      name: jobInfo?.customers?.name || jobInfo?.customer,
       logo_url: customerLogoUrl,
       brand_colour: customerBrandColour,
     },
@@ -520,7 +521,7 @@ export async function generateJobSheetPdf(
     { brandingSubtitle: branding.company_subtitle ?? null },
   );
 
-  const headerAccent = isDryRiser ? DRY_RISER_LAYOUT.header.brandBlueRgb : accentColor;
+  const headerAccent = isDryRiser && !brandProfile.isCustomerBranded ? DRY_RISER_LAYOUT.header.brandBlueRgb : accentColor;
   const ptToMm = (pt: number) => pt * 0.3527777778;
 
   let y = await renderPdfHeader(doc, sheetTitle, branding, {
