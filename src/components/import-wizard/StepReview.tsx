@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { ImportEntity, ENTITY_SCHEMAS } from "./schemas";
 import { transformRows } from "@/lib/importMapping";
 import { fuzzyScore } from "@/lib/fuzzyMatch";
@@ -49,14 +50,14 @@ export default function StepReview({
       setLoading(true);
       // Fetch existing records of this entity for duplicate detection.
       const cols = entity === "sites" ? "id,name,postcode,address" : entity === "assets" ? "id,name,asset_tag" : "id,name";
-      const { data: existingData } = await supabase.from(entity).select(cols as any).limit(10000);
+      const existingData = await fetchAllRows<any>(entity, cols, "id");
       // Parents: sites need customers; assets need sites.
       let parentData: any[] = [];
       if (entity === "sites") {
-        const { data } = await supabase.from("customers").select("id,name").limit(10000);
+        const data = await fetchAllRows<any>("customers", "id,name", "id");
         parentData = data || [];
       } else if (entity === "assets") {
-        const { data } = await supabase.from("sites").select("id,name,address,postcode").limit(10000);
+        const data = await fetchAllRows<any>("sites", "id,name,address,postcode", "id");
         parentData = data || [];
       }
       if (cancelled) return;

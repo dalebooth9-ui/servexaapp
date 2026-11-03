@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -72,7 +73,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
     setEditOpen(false); toast({ title: "Riser updated" }); load(); onChanged?.();
   };
   const openMove = async () => {
-    const { data } = await supabase.from("sites").select("id, name").order("name").limit(5000);
+    const data = (await fetchAllRows<any>("sites", "id, name", "id")).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     setSites((data as any) || []); setTargetSite(""); setMoveOpen(true);
   };
   const doMove = async () => {
