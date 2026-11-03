@@ -1093,7 +1093,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       // Backfill EMPTY saved fields with fresh auto-populated values — but
       // never clobber a value the engineer has already typed.
       const merged: Record<string, any> = { ...saved };
-      Object.entries(prefilled).forEach(([key, val]) => {
+      Object.entries(saved._riser_visit ? {} : prefilled).forEach(([key, val]) => {
         if (val === undefined || val === null || val === "") return;
         const existing = merged[key];
         const isEmpty = existing === undefined || existing === null || existing === "";
