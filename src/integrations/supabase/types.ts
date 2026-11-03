@@ -11378,6 +11378,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      site_access_staff_allowed: {
+        Args: { p_org_id: string; p_site_id: string }
+        Returns: boolean
+      }
       site_data_stats: {
         Args: never
         Returns: {
