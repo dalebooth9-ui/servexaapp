@@ -1,5 +1,13 @@
 # Roadmap
 
+## New dry-riser visits and due reminders
+- [ ] Plan reuse of existing site jobs, per-riser templates, paperwork and reminders.
+- [ ] Add office New visit flow with one job and selected-riser sheets.
+- [ ] Add per-riser blank PDF/print/Word paperwork and matched digital prefills.
+- [ ] Add office Due visits, dashboard card, snooze/lost/restore and no-longer-serviced controls.
+- [ ] Add reminder settings; resolve a supported weekly office digest sending option.
+- [ ] Update Help & guides and verify rules and office/engineer flows.
+
 - [x] Add permanent UK date/time, job reference, and optional GPS stamps to checklist photos.
 - [x] Add the same image-only stamping to general job photo uploads without changing video, audio, or document handling.
 - [x] Preserve stamped payloads for any offline queue fallback and update Help & guides.
