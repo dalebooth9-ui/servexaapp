@@ -657,6 +657,22 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
 
   const lockedFieldIds = activeTemplate ? getLockedFieldIds(activeTemplate) : new Set<string>();
 
+  // Pre-pick the scanned riser on a blank dry riser sheet (job created via "Start service").
+  useEffect(() => {
+    if (!jobAssetId || !activeTemplate || !isDryRiserTemplate(activeTemplate)) return;
+    if (activeResponse?.status === "submitted") return;
+    if (formData.riser_asset_id || (formData.riser_location && String(formData.riser_location).trim())) return;
+    let cancelled = false;
+    supabase.from("assets").select("id, riser_location").eq("id", jobAssetId).maybeSingle().then(({ data }) => {
+      if (cancelled || !data?.riser_location) return;
+      setFormData((prev) => (prev.riser_asset_id || prev.riser_location)
+        ? prev
+        : { ...prev, riser_location: data.riser_location, riser_asset_id: data.id });
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobAssetId, activeTemplate?.id, activeResponse?.id]);
+
   // Auto-create N draft responses for a template based on job quantities
   const handleAutoCreateDrafts = async (template: Template) => {
     if (!user || !jobInfo) return;
