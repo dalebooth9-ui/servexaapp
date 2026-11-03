@@ -1111,6 +1111,15 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
         });
         if (restoredAny) announceRestore(draftKey);
       }
+      // Visit drafts contain context only. Do not backfill checks or signatures
+      // from generic defaults when opening a new per-riser visit sheet.
+      if (saved._riser_visit) {
+        template.fields.forEach(f => {
+          if (f.type === 'checkbox' || f.type === 'pass_fail' || f.type === 'signature' || /customer_name|technician_name/.test(f.id)) {
+            if (!(f.id in saved) && !(localDraft && f.id in localDraft)) delete merged[f.id];
+          }
+        });
+      }
       // Alias: if the template field id is "site" but saved data only has
       // "site_name" (or vice versa), copy the value across so the input pre-fills.
       const SITE_ALIASES: Array<[string, string]> = [
@@ -2356,6 +2365,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
             </div>
           </DialogHeader>
           <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
+            {formData._riser_visit && <div className="px-4 py-3 border-b text-sm space-y-1"><p className="font-semibold">{formData._riser_visit.riser_name || formData._riser_visit.riser_location} · Riser ID {formData._riser_visit.asset_tag}</p><p className="text-muted-foreground">Last inspection: {formData._riser_visit.last_inspection_at ? new Date(formData._riser_visit.last_inspection_at).toLocaleDateString('en-GB') : 'Not recorded'} · {formData._riser_visit.last_inspection_type || 'Type not recorded'} · Result: {formData._riser_visit.last_inspection_result || 'Not recorded'}</p>{formData._riser_visit.remedial_notes && <p className="whitespace-pre-wrap">Open remedial work from last visit: {formData._riser_visit.remedial_notes}</p>}</div>}
             {modePair && (
               <div className={`flex flex-wrap items-center gap-2 border-b px-4 py-2 text-xs ${switchState?.active ? "border-amber-300 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200" : "border-border bg-muted/40"}`}>
                 <span className="flex-1 min-w-[12rem]">

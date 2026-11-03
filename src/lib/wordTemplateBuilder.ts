@@ -19,7 +19,10 @@ import {
   HorizontalPositionRelativeFrom,
   VerticalPositionAlign,
   VerticalPositionRelativeFrom,
+  type ISectionOptions,
 } from "docx";
+import QRCode from 'qrcode';
+import { stickerUrl } from '@/lib/riserStickers';
 import { getDefaultFooterText } from "@/lib/pdfFooter";
 import {
   buildSkipIds,
@@ -102,6 +105,7 @@ export type WordTemplateInput = {
     auto_fit_single_page?: boolean;
   } | null;
   layout?: WordTemplateLayoutInput;
+  riserVisit?: Record<string, any> | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -435,6 +439,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
 export function renderFieldRow(
   field: TemplateField,
   layout: ResolvedTableLayout = DEFAULT_LAYOUT,
+  prefilledValue?: string,
 ): TableRow {
   const isMultiLine = field.type === "textarea" || field.type === "long_text";
   const isSignature = field.type === "signature";
@@ -464,7 +469,7 @@ export function renderFieldRow(
         width: { size: layout.valueCol, type: WidthType.DXA },
         margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
-        children: buildValueCellChildren(field),
+        children: prefilledValue !== undefined ? [new Paragraph({children:[new TextRun({text:prefilledValue,size:18})]})] : buildValueCellChildren(field),
       }),
     ],
   });
@@ -527,7 +532,7 @@ export function renderSectionHeaderRow(
 // ---------------------------------------------------------------------------
 
 /** Build a docx Document for a blank template. */
-export async function buildBlankTemplateDoc(template: WordTemplateInput): Promise<Document> {
+async function buildBlankTemplateSection(template: WordTemplateInput): Promise<ISectionOptions> {
   // Detect the Dry Riser blank template — when matched, every layout
   // dimension is driven by the shared `dryRiserLayout` config so the Word
   // and PDF outputs read from the same numbers. See dryRiserLayoutParity test.
@@ -547,7 +552,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const TBL = layout.tableW;
   const LBL = layout.labelCol;
   const VAL = layout.valueCol;
-  const customLogoUrl = template.branding?.logo_url?.trim();
+  const customLogoUrl = template.riserVisit ? '' : template.branding?.logo_url?.trim();
   // Resolve durable storage refs / legacy signed URLs to a fresh signed URL.
   const resolvedCustomLogo = customLogoUrl
     ? (await (await import("@/lib/durableStorageRef")).resolveToSignedUrl(customLogoUrl, "submissions").catch(() => null)) || customLogoUrl
@@ -684,22 +689,22 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         }),
       ],
     });
-  const detailValueCell = (w: number) =>
+  const detailValueCell = (w: number, text = ' ') =>
     new TableCell({
       borders: cellBorders,
       width: { size: w, type: WidthType.DXA },
       margins: { top: 30, bottom: 30, left: 100, right: 60 },
       verticalAlign: VerticalAlign.CENTER,
-      children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
+      children: [new Paragraph({ children: [new TextRun({ text })] })],
     });
-  const wideValueCell = (w: number, colSpan = 1) =>
+  const wideValueCell = (w: number, colSpan = 1, text = ' ') =>
     new TableCell({
       borders: cellBorders,
       width: { size: w, type: WidthType.DXA },
       columnSpan: colSpan,
       margins: { top: 60, bottom: 60, left: 100, right: 60 },
       verticalAlign: VerticalAlign.CENTER,
-      children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
+      children: [new Paragraph({ children: [new TextRun({ text })] })],
     });
 
   children.push(
@@ -711,25 +716,25 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           height: detailRowH,
           children: [
             detailLabelCell("Customer:", detailLabelColLeft),
-            detailValueCell(detailValueColLeft),
+            detailValueCell(detailValueColLeft, template.riserVisit?.customer),
             detailLabelCell("DATE:", detailLabelColRight),
-            detailValueCell(detailValueColRight),
+            detailValueCell(detailValueColRight, template.riserVisit?.planned_date),
           ],
         }),
         new TableRow({
           height: detailRowH,
           children: [
             detailLabelCell("Site:", detailLabelColLeft),
-            detailValueCell(detailValueColLeft),
+            detailValueCell(detailValueColLeft, template.riserVisit ? `${template.riserVisit.site_name}\n${template.riserVisit.address}` : undefined),
             detailLabelCell("PO/REF:", detailLabelColRight),
-            detailValueCell(detailValueColRight),
+            detailValueCell(detailValueColRight, template.riserVisit?.job_reference),
           ],
         }),
         new TableRow({
           height: detailRowH,
           children: [
             detailLabelCell("Riser Location:", detailLabelColLeft),
-            wideValueCell(TBL - detailLabelColLeft, 3),
+            wideValueCell(TBL - detailLabelColLeft, 3, template.riserVisit?.riser_location),
           ],
         }),
       ],
@@ -749,7 +754,13 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // Blank documents must NOT pre-tick the "Scope of Work" option — the engineer
   // selects it on site. The PDF renders this row as plain unticked checkboxes
   // and the Word output does the same via renderFieldRow().
-  const renderRowForField = (field: TemplateField): TableRow => renderFieldRow(field, layout);
+  if (template.riserVisit) {
+    const v = template.riserVisit;
+    const context = [`Riser: ${v.riser_name || v.riser_location} · Riser ID ${v.asset_tag} · Outlets: ${v.outlets_count ?? 'Not recorded'}`, `Last inspection: ${v.last_inspection_at ? new Date(v.last_inspection_at).toLocaleDateString('en-GB') : 'Not recorded'} · ${v.last_inspection_type || 'Type not recorded'} · Result: ${v.last_inspection_result || 'Not recorded'}`, ...(v.remedial_notes ? [`Open remedial work from last visit: ${v.remedial_notes}`] : [])];
+    context.forEach(text => children.push(new Paragraph({spacing:{after:30},children:[new TextRun({text,size:14})]})));
+  }
+  const renderRowForField = (field: TemplateField): TableRow => renderFieldRow(field, layout,
+    template.riserVisit && /outlet/i.test(field.label) && field.type === 'number' ? String(template.riserVisit.outlets_count ?? '') : undefined);
 
   for (const [sectionName, fields] of sectionMap) {
     if (fields.length === 0) continue;
@@ -812,7 +823,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         fields.length * mmToDxaLocal(DRY_RISER_LAYOUT.body.fieldRowMm);
     }
     usedAboveDxa += 180; // "Comments:" label paragraph
-    commentsMin = commentsElasticDxa(usedAboveDxa);
+    commentsMin = commentsElasticDxa(usedAboveDxa + (template.riserVisit ? 1200 : 0));
   } else {
     const PX_TO_TWIPS_C = 15;
     const estLogoTwips = 180 * PX_TO_TWIPS_C;
@@ -922,6 +933,11 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
 
   // --- Header (centred logo + page-wide watermark behind document text) ---
   const headerChildren: Paragraph[] = [];
+  if (template.riserVisit?.asset_tag) {
+    const dataUrl = await QRCode.toDataURL(stickerUrl(template.riserVisit.asset_tag), {margin:4,width:240});
+    const data = Uint8Array.from(atob(dataUrl.split(',')[1]), c => c.charCodeAt(0));
+    headerChildren.push(new Paragraph({alignment:AlignmentType.RIGHT,children:[new ImageRun({type:'png',data,transformation:{width:76,height:76},floating:{horizontalPosition:{relative:HorizontalPositionRelativeFrom.PAGE,offset:mmToDxaLocal(175)*635},verticalPosition:{relative:VerticalPositionRelativeFrom.PAGE,offset:mmToDxaLocal(10)*635},allowOverlap:true},altText:{title:`Riser ID ${template.riserVisit.asset_tag}`,description:stickerUrl(template.riserVisit.asset_tag),name:'Riser QR'}})]}));
+  }
 
   // Watermark — anchored in the header so it repeats on every page, sized to
   // ~150mm and centred on the page, drawn BEHIND the document so it shows
@@ -1139,16 +1155,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     footerChildren.push(new Paragraph({ children: [new TextRun({ text: " " })] }));
   }
 
-  return new Document({
-    styles: {
-      // Helvetica to mirror the PDF (jspdf uses 'helvetica'). Word falls back
-      // to Arial when Helvetica is unavailable, which is visually identical.
-      default: {
-        document: { run: { font: { name: "Helvetica", hint: "default" }, size: 18 } },
-      },
-    },
-    sections: [
-      {
+  return {
         properties: {
           page: {
             size: {
@@ -1179,9 +1186,16 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         headers: { default: new Header({ children: headerChildren }) },
         footers: { default: new Footer({ children: footerChildren }) },
         children,
-      },
-    ],
-  });
+  };
+}
+
+export async function buildBlankTemplateDoc(template: WordTemplateInput): Promise<Document> {
+  return new Document({styles:{default:{document:{run:{font:{name:'Helvetica',hint:'default'},size:18}}}},sections:[await buildBlankTemplateSection(template)]});
+}
+export async function buildVisitTemplateDoc(templates: WordTemplateInput[]): Promise<Document> {
+  const sections: ISectionOptions[] = [];
+  for (const template of templates) sections.push(await buildBlankTemplateSection(template));
+  return new Document({styles:{default:{document:{run:{font:{name:'Helvetica',hint:'default'},size:18}}}},sections});
 }
 
 /** Filename-safe slug for a template name. */

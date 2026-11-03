@@ -18,6 +18,7 @@ import SageSettings from "@/components/SageSettings";
 import FreeAgentSettings from "@/components/FreeAgentSettings";
 import RamsTemplateSettings from "@/components/RamsTemplateSettings";
 import RenewalsSettingsCard from "@/components/settings/RenewalsSettingsCard";
+import DueVisitSettings from '@/components/riser-visits/DueVisitSettings';
 import FollowUpReminderSettings from "@/components/FollowUpReminderSettings";
 import EmailDeliveryTestCard from "@/components/EmailDeliveryTestCard";
 // StorageMigrationPanel intentionally not imported — one-off migration completed.
@@ -333,6 +334,7 @@ export default function SettingsPage() {
           <CategoryDocumentTemplateSettings />
           <RamsTemplateSettings />
           <RenewalsSettingsCard />
+          <DueVisitSettings />
           <Card className="cursor-pointer hover:border-primary transition" onClick={() => navigate("/settings/rams-library")}>
             <CardHeader>
               <CardTitle className="text-lg">RAMS Library</CardTitle>

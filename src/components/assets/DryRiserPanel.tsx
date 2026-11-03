@@ -15,6 +15,7 @@ import { ExternalLink, Pencil, MoveRight, Merge } from "lucide-react";
 import { format } from "date-fns";
 import { openStorageRef } from "@/components/assets/openStorageRef";
 import { riserOrFilter, riserTypeOf } from "@/lib/dryRisers";
+import ServicingControl from '@/components/riser-visits/ServicingControl';
 
 interface RiserAsset {
   id: string; asset_tag: string | null; riser_location: string | null; outlets_count: number | null; status: string;
@@ -113,6 +114,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
                 <Button size="sm" variant="outline" onClick={openEdit}><Pencil className="h-4 w-4 mr-1.5" />Edit</Button>
                 <Button size="sm" variant="outline" onClick={openMove}><MoveRight className="h-4 w-4 mr-1.5" />Move site</Button>
                 <Button size="sm" variant="outline" onClick={openMerge}><Merge className="h-4 w-4 mr-1.5" />Merge duplicate</Button>
+                {riserTypeOf(a) === 'Dry Riser' && <ServicingControl table="assets" id={a.id}/>}
               </div>
             )}
           </div>

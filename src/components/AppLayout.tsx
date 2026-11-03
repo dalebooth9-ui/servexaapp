@@ -59,6 +59,7 @@ const NAV_GROUPS: NavGroupDef[] = [
       { to: "/", label: "Dashboard", icon: LayoutDashboard },
       { to: "/jobs", label: "Jobs", icon: Briefcase },
       { to: "/planner", label: "Planner", icon: CalendarDays },
+      { to: '/due-visits', label: 'Due visits', icon: CalendarDays, adminOnly: true },
     ],
   },
   {

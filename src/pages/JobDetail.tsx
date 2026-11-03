@@ -92,6 +92,7 @@ const JobPartsUsed = lazy(() => import("@/components/jobs/JobPartsUsed"));
 const JobPhotos = lazy(() => import("@/components/jobs/JobPhotos"));
 const ShareGalleryDialog = lazy(() => import("@/components/jobs/ShareGalleryDialog"));
 const StickerPackDialog = lazy(() => import("@/components/assets/StickerPackDialog"));
+const VisitPaperwork = lazy(() => import('@/components/riser-visits/VisitPaperwork'));
 const JobEmailChain = lazy(() => import("@/components/jobs/JobEmailChain"));
 import RamsRequiredBanner from "@/components/rams/RamsRequiredBanner";
 import JobRamsPanel from "@/components/rams/JobRamsPanel";
@@ -1135,6 +1136,7 @@ export default function JobDetail() {
 
 
       {activeTab === "documents" && (<>
+      {id && <Suspense fallback={null}><VisitPaperwork jobId={id}/></Suspense>}
       {userRole === "admin" && job?.site_id && (
         <div className="mb-4">
           <Suspense fallback={null}>

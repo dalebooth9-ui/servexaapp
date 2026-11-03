@@ -15,6 +15,8 @@
  */
 import jsPDF from "jspdf";
 import type { PdfTemplateField } from "@/lib/pdfBody";
+import { drawQr, stickerUrl } from '@/lib/riserStickers';
+import { DRY_RISER_LAYOUT } from '@/lib/dryRiserLayout';
 
 export type LoadedImage = {
   dataUrl: string;
@@ -32,6 +34,7 @@ export type PaperFormJobInfo = {
   due_date?: string | null;
   address?: string | null;
   printNotes?: string | null;
+  riserVisit?: Record<string, any> | null;
   site?: {
     name: string;
     address: string | null;
@@ -240,6 +243,7 @@ export function renderPaperFormPage(
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 10;
   const maxWidth = pageWidth - margin * 2;
+  const visit = jobInfo?.riserVisit;
 
   // ─── HEADER ────────────────────────────────────────────────────────
   // Logo centred; the Viva logo image already carries the strapline.
@@ -262,7 +266,7 @@ export function renderPaperFormPage(
   const scopeText = derivedScopeLine(template.name);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(...(visit ? DRY_RISER_LAYOUT.header.brandBlueRgb : [0, 0, 0]) as [number, number, number]);
   const scopeW = doc.getTextWidth(scopeText);
   const scopeX = (pageWidth - scopeW) / 2;
   const scopeY = cursorY + 5;
@@ -282,7 +286,7 @@ export function renderPaperFormPage(
   const detailRowH = 7;
   const rightRowCount = 3; // date/po, riser, keys
   const rightBlockH = rightRowCount * detailRowH;
-  const leftBlockH = Math.max(rightBlockH, 26);
+  const leftBlockH = Math.max(rightBlockH, visit ? 30 : 26);
 
   const custName = jobInfo?.customers?.name || jobInfo?.customer || "";
   const siteName = jobInfo?.site?.name || "";
@@ -311,7 +315,7 @@ export function renderPaperFormPage(
   const detailY = detailsTop + 9;
   const detailX = margin + 2;
   const contentLines = [custName, ...siteLines].filter(Boolean);
-  contentLines.slice(0, 4).forEach((ln, i) => {
+  contentLines.slice(0, visit ? 5 : 4).forEach((ln, i) => {
     const clipped = doc.splitTextToSize(ln, leftW - 4).slice(0, 1)[0] || "";
     doc.text(clipped, detailX, detailY + i * 4.2);
   });
@@ -363,6 +367,21 @@ export function renderPaperFormPage(
   doc.line(rightX + 2, keysY + 6.2, margin + maxWidth - 2, keysY + 6.2);
 
   cursorY = detailsTop + leftBlockH + 1;
+  if (visit) {
+    if (visit.asset_tag) {
+      drawQr(doc, stickerUrl(visit.asset_tag), pageWidth - margin - 23, 10, 20);
+      doc.setTextColor(0); doc.setFontSize(8); doc.setFont('helvetica','bold');
+      doc.text(`Riser ID ${visit.asset_tag}`, pageWidth-margin-13, 34, {align:'center'});
+    }
+    doc.setTextColor(0); doc.setFontSize(8); doc.setFont('helvetica','normal');
+    const previous = visit.last_inspection_at ? new Date(visit.last_inspection_at).toLocaleDateString('en-GB') : 'Not recorded';
+    const contextLines = [`Riser: ${visit.riser_name || visit.riser_location} | Outlets: ${visit.outlets_count ?? 'Not recorded'} | Job: ${visit.job_reference}`, `Last inspection: ${previous} | ${visit.last_inspection_type || 'Type not recorded'} | Result: ${visit.last_inspection_result || 'Not recorded'}`, ...(visit.remedial_notes ? [`Open remedial work from last visit: ${visit.remedial_notes}`] : [])];
+    for (const text of contextLines) {
+      const lines = doc.splitTextToSize(text,maxWidth-4) as string[];
+      doc.text(lines,margin+2,cursorY+3); cursorY += lines.length*3.4;
+    }
+    cursorY += 2;
+  }
 
   // ─── OPTIONAL SITE NOTES STRIP ─────────────────────────────────────
   const notesText = (jobInfo?.printNotes || "").trim();
@@ -551,7 +570,8 @@ export function renderPaperFormPage(
         y = margin;
       }
       const label = it.field.label;
-      const ans = handfill ? "" : answerCellText(it.field);
+      const ans = visit && /outlet/i.test(it.field.label) && it.field.type === 'number'
+        ? String(visit.outlets_count ?? '') : handfill ? "" : answerCellText(it.field);
       drawCell(label, ans, y, fit.rowH, false, it.field);
       y += fit.rowH;
     }

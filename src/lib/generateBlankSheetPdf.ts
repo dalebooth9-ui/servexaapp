@@ -46,6 +46,8 @@ export type BlankSheetJobInfo = {
   other_service_type?: string | null;
   due_date?: string | null;
   printNotes?: string | null;
+  /** Opt-in blank visit paperwork, never used by completed report exports. */
+  riserVisit?: Record<string, any> | null;
   site?: {
     name: string;
     address: string | null;

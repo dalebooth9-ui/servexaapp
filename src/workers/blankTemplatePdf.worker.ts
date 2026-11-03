@@ -115,6 +115,7 @@ type JobInfo = {
    *  contact-on-arrival etc. Overridden per-print in the edit-before-print
    *  dialog; never persisted back to the job record. */
   printNotes?: string | null;
+  riserVisit?: Record<string, any> | null;
   site?: {
     name: string;
     address: string | null;
@@ -446,7 +447,7 @@ async function buildPdf(payload: WorkerPayload) {
   // supplied. If nothing resolves, `branding.logo_url` is empty and the
   // header renderer falls through to a text-only mark.
   const orgFallback = (payload.orgFallbackLogoUrl || "").trim();
-  const resolvedHeaderLogo = (template.branding?.logo_url as string | undefined)
+  const resolvedHeaderLogo = jobInfo?.riserVisit ? orgFallback : (template.branding?.logo_url as string | undefined)
     || customerLogoUrl
     || (orgFallback || "");
   const branding = { ...(template.branding || {}), logo_url: resolvedHeaderLogo };
