@@ -1,0 +1,3 @@
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS print_logo_url text, ADD COLUMN IF NOT EXISTS use_print_branding boolean NOT NULL DEFAULT false;
+COMMENT ON COLUMN public.customers.print_logo_url IS 'Explicit printed paperwork logo. Governed by existing customers org_id and org-scoped RLS.';
+COMMENT ON COLUMN public.customers.use_print_branding IS 'Opt-in white-label printed paperwork. OFF uses generating organisation branding. Existing brand_colour stores chosen print colour.';

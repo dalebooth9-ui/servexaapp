@@ -190,6 +190,13 @@
       "when": 1793740399080,
       "tag": "0026_riser_visit_context_and_customer_resolution",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1793741377039,
+      "tag": "0027_customer_print_branding_opt_in",
+      "breakpoints": true
     }
   ]
 }
