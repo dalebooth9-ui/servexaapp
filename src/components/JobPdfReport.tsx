@@ -613,6 +613,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       // Use the shared renderPdfHeader helper with a JOB-REPORT-specific
       // style (smaller logo box, larger title, REF-and-date subtitle line,
       // no Customer/Site detail grid — those are drawn separately below).
+      const printProfile=await resolveDocumentBrandingProfile({jobId,customer:{name:job.customers?.name||job.customer}});
       y = await renderPdfHeader(
         doc,
         "JOB REPORT",
@@ -628,6 +629,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
         null,
         null,
         {
+          printProfile,
           style: {
             logo: { maxW: 70, maxH: 20 },
             title: { fontSize: 16 },
