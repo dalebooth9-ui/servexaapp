@@ -584,6 +584,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       // Pre-load company logo + resolve unified branding profile so the
       // header logo, watermark tint, and footer all come from the same source.
       const brandProfile = await resolveDocumentBrandingProfile({
+        jobId,
         template: null,
         customer: { name: job.customers?.name, logo_url: job.customers?.logo_url },
       });
@@ -613,7 +614,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       // Use the shared renderPdfHeader helper with a JOB-REPORT-specific
       // style (smaller logo box, larger title, REF-and-date subtitle line,
       // no Customer/Site detail grid — those are drawn separately below).
-      const printProfile=await resolveDocumentBrandingProfile({jobId,customer:{name:job.customers?.name||job.customer}});
+      const printProfile=brandProfile;
       y = await renderPdfHeader(
         doc,
         "JOB REPORT",

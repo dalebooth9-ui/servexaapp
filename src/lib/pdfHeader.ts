@@ -221,19 +221,10 @@ export async function renderPdfHeader(
       }
       const fmt = detectFormat(logoUrl, logoStyle.format);
       doc.addImage(logoImg, fmt, lx, logoTopY, lw, lh);
+      registerPrintPdf(doc,profile,true);
       logoBottomY = logoTopY + lh + (compact ? 1.5 : 3);
-    } catch {
-      if (!logoStyle.noFallbackText && companyName) {
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.text(companyName, pageWidth / 2, logoTopY + 5, { align: "center" });
-        if (companySubtitle) {
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "normal");
-          doc.text(companySubtitle, pageWidth / 2, logoTopY + 9, { align: "center" });
-        }
-        logoBottomY = logoTopY + 12;
-      }
+    } catch (error) {
+      throw new Error('Header logo could not be rendered. Please retry before printing.',{cause:error});
     }
   } else if (logoPosition !== "none" && !logoStyle.noFallbackText && companyName) {
     doc.setFontSize(13);
