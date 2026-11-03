@@ -11,7 +11,7 @@ export function inspectionType(value?: string | null): VisitType | null {
 }
 function date(value?: string | null) { if (!value) return null; const d = parseISO(value); return isValid(d) ? startOfDay(d) : null; }
 export function visitCycle(asset: any, history: Inspection[] = []) {
-  const rows = [...history, { inspection_date: asset.last_inspection_at, inspection_type: asset.last_inspection_type }]
+  const rows = [...history, { inspection_date: asset.last_inspection_at, inspection_type: asset.last_inspection_type, template_name: null }]
     .map(h => ({ date: date(h.inspection_date), type: inspectionType(h.inspection_type || h.template_name) }))
     .filter((h): h is { date: Date; type: VisitType } => Boolean(h.date && h.type)).sort((a,b) => b.date.getTime()-a.date.getTime());
   const last = rows[0]; const pressure = rows.find(h => h.type === 'pressure');
