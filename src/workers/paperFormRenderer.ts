@@ -57,6 +57,7 @@ export type PaperFormRenderOpts = {
   accreditationLogos: LoadedImage[];
   /** Print without any pre-filled data (blank stock). */
   handfill: boolean;
+  brandColor?:[number,number,number];
 };
 
 /** Templates that render with the paper-form layout. */
@@ -507,9 +508,9 @@ export function renderPaperFormPage(
   ) => {
     if (isSection) {
       // Full-width bold shaded band.
-      doc.setFillColor(224, 224, 224);
+      doc.setFillColor(...(opts.brandColor?opts.brandColor.map(c=>Math.round(230+c*0.1)):[224,224,224]) as [number,number,number]);
       doc.rect(margin, yy, maxWidth, rowH, "F");
-      doc.setDrawColor(90);
+      doc.setDrawColor(...(opts.brandColor||[90,90,90]) as [number,number,number]);
       doc.rect(margin, yy, maxWidth, rowH);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(fit.font.sec);

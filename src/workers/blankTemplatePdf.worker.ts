@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import {isPrintableFinancialField} from "@/lib/printBrandingRules";
 import {
   PdfTemplateField,
   buildSkipIds,
@@ -130,6 +131,7 @@ type JobInfo = {
 
 
 type WorkerPayload = {
+  printBranding?:{enabled:boolean;logoUrl:string;watermarkUrl:string|null};
   template: Template;
   jobInfo?: JobInfo | null;
   handfill: boolean;
@@ -415,17 +417,19 @@ function addWatermark(doc: jsPDF, watermark: LoadedImage | null, brandColor: Rgb
   const pageCount = doc.getNumberOfPages();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const wmH = pageHeight * 0.85;
-  const wmW = (watermark.width / watermark.height) * wmH;
+  const scale=Math.min(pageWidth*0.85/watermark.width,pageHeight*0.75/watermark.height);
+  const wmH=watermark.height*scale;const wmW=watermark.width*scale;
   const x = (pageWidth - wmW) / 2;
   const y = (pageHeight - wmH) / 2 + 12;
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
+    const ops=(doc as any).internal.pages[i] as string[];const saved=ops.splice(0,ops.length);
     const gState = (doc as any).GState({ opacity });
     doc.saveGraphicsState();
     (doc as any).setGState(gState);
     doc.addImage(watermark.dataUrl, watermark.format, x, y, wmW, wmH);
     doc.restoreGraphicsState();
+    ops.push(...saved);
   }
 }
 
@@ -447,9 +451,10 @@ async function buildPdf(payload: WorkerPayload) {
   // supplied. If nothing resolves, `branding.logo_url` is empty and the
   // header renderer falls through to a text-only mark.
   const orgFallback = (payload.orgFallbackLogoUrl || "").trim();
-  const resolvedHeaderLogo = jobInfo?.riserVisit ? orgFallback : (template.branding?.logo_url as string | undefined)
+  const resolvedHeaderLogo = payload.printBranding?.logoUrl || (template.branding?.logo_url as string | undefined)
     || customerLogoUrl
     || (orgFallback || "");
+  template.fields=template.fields.filter(f=>!isPrintableFinancialField(f));
   const branding = { ...(template.branding || {}), logo_url: resolvedHeaderLogo };
   const footerText = getDefaultFooterText(cleanTemplateName, branding, template.footer_text);
   const autoVals = getAutoPopulatedValues(cleanTemplateName, template.fields, jobInfo ? { ...jobInfo, categoryName } : jobInfo);
@@ -477,11 +482,12 @@ async function buildPdf(payload: WorkerPayload) {
 
   const [logoImage, watermark, accreditationLogos] = await Promise.all([
     loadImage(resolvedHeaderLogo || null),
-    loadImage(payload.orgWatermarkUrl || null),
+    loadImage(payload.printBranding?.watermarkUrl || payload.orgWatermarkUrl || null),
     Promise.all((payload.accreditationLogoUrls || []).map(loadImage)),
   ]);
 
-  const doc = new jsPDF(jobInfo?.riserVisit ? { compress: true } : undefined);
+  if(resolvedHeaderLogo&&!logoImage)throw new Error("Header logo could not be loaded. Please retry before printing.");
+  const doc = new jsPDF({compress:true});
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const marginX = isDryRiser ? DRY_RISER_LAYOUT.page.marginLeftMm : 10;
@@ -533,6 +539,7 @@ async function buildPdf(payload: WorkerPayload) {
         logo: logoImage,
         accreditationLogos: (accreditationLogos.filter(Boolean) as LoadedImage[]),
         handfill,
+        brandColor:payload.printBranding?.enabled?accentColor:undefined,
       });
     }
     // Faint Viva flame watermark — matches the branded report set and the
@@ -540,6 +547,7 @@ async function buildPdf(payload: WorkerPayload) {
     // opaque white fills so the watermark shows through uniformly).
     const wmPaper = resolveWatermark(payload.watermarkSettings, payload.watermarkOverride);
     addWatermark(doc, watermark, accentColor, wmPaper.mode, wmPaper.opacity);
+    if(payload.printBranding?.enabled){for(let p=1;p<=doc.getNumberOfPages();p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(80);doc.text("Serviced by Viva Fire Protection Ltd",pageWidth/2,pageHeight-4,{align:"center"});}}
     const fileName = [
       jobInfo?.customer_po || jobInfo?.reference_number || "blank",
       template.name.replace(/\s+/g, "-").toLowerCase(),
@@ -777,6 +785,7 @@ async function buildPdf(payload: WorkerPayload) {
     }
   }
 
+  if(payload.printBranding?.enabled){for(let p=1;p<=doc.getNumberOfPages();p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(80);doc.text("Serviced by Viva Fire Protection Ltd",pageWidth/2,pageHeight-4,{align:"center"});}}
   const wm = resolveWatermark(payload.watermarkSettings, payload.watermarkOverride);
   addWatermark(doc, watermark, accentColor, wm.mode, wm.opacity);
   addAccreditationLogos(doc, accreditationLogos.filter(Boolean) as LoadedImage[], footerYForLogos, LOGO_H, wm.accreditationOpacity);

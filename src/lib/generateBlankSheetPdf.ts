@@ -6,6 +6,7 @@
 //
 // Keep this in sync with the payload builder inside BlankTemplatePdfExport.tsx.
 
+import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
 import { loadWatermarkSettings } from "@/hooks/useWatermarkSettings";
 import { getGeneratingOrgFallbackLogoUrl, getGeneratingOrgWatermarkUrl } from "@/lib/generatingOrgBranding";
 import { fetchCustomerAccreditationLogos } from "@/lib/pdfAccreditations";
@@ -100,42 +101,16 @@ export async function generateBlankSheetPdfBlob(
     copiesOverride?: number | null;
   } = {},
 ): Promise<Blob> {
-  const customerLogoUrl = jobInfo?.customers?.logo_url || null;
-  const isDryRiser = /dry\s*riser/i.test(template.name || "");
-  const customerName = jobInfo?.customers?.name || jobInfo?.customer || "";
-
-  let brandLogoImg: HTMLImageElement | null = null;
-  if (customerLogoUrl) {
-    try {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      await new Promise<void>((res, rej) => {
-        img.onload = () => res();
-        img.onerror = () => rej();
-        img.src = customerLogoUrl;
-      });
-      brandLogoImg = img;
-    } catch {
-      /* fall through to text branding */
-    }
-  }
-
-  const accentColor = (isDryRiser
-    ? DRY_RISER_LAYOUT.header.brandBlueRgb
-    : getBrandColorFromLogo(brandLogoImg, !!customerLogoUrl)) as [number, number, number];
-
-  const [watermarkSettings, accreditationLogoUrls, orgFallbackLogoUrl, orgWatermarkUrl] = await Promise.all([
-    loadWatermarkSettings(),
-    fetchCustomerAccreditationLogos(customerName),
-    getGeneratingOrgFallbackLogoUrl(),
-    getGeneratingOrgWatermarkUrl(),
-  ]);
-
+  const profile=await resolveDocumentBrandingProfile({template,customer:{...jobInfo?.customers,name:jobInfo?.customers?.name||jobInfo?.customer},jobId:jobInfo?.riserVisit?.job_id});
+  const customerName=jobInfo?.customers?.name||jobInfo?.customer||'';
+  const [watermarkSettings,accreditationLogoUrls]=await Promise.all([loadWatermarkSettings(),fetchCustomerAccreditationLogos(customerName)]);
+  const accentColor=profile.accentColor;const orgFallbackLogoUrl=profile.logoUrl;const orgWatermarkUrl=profile.watermarkUrl;
   const { blob } = await runWorker({
-    template,
-    jobInfo,
+    template: {...template,branding:{...template.branding,logo_url:profile.logoUrl}},
+    jobInfo: jobInfo ? {...jobInfo,customer_po:null} : null,
+    printBranding: {enabled:profile.isCustomerBranded,logoUrl:profile.logoUrl,watermarkUrl:profile.watermarkUrl},
     handfill: false,
-    watermarkOverride: opts.watermarkOverride ?? null,
+    watermarkOverride: {mode:"untinted",opacity:0.11},
     watermarkSettings,
     categoryName: opts.categoryName || "",
     accentColor,
