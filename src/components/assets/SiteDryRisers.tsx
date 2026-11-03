@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { riserOrFilter, riserTypeOf } from "@/lib/dryRisers";
 import { format } from "date-fns";
 import { openStorageRef } from "@/components/assets/openStorageRef";
 
@@ -18,7 +19,7 @@ export default function SiteDryRisers({ siteId, showRisers = true, showSiteHisto
     (async () => {
       const [{ data: r }, { data: h }] = await Promise.all([
         supabase.from("assets").select("id, riser_location, outlets_count, last_inspection_result, asset_tag, label_status")
-          .eq("site_id", siteId).or("asset_type.ilike.dry%riser%,category.ilike.dry%riser%").neq("status", "decommissioned").order("riser_location"),
+          .eq("site_id", siteId).or(riserOrFilter()).neq("status", "decommissioned").order("riser_location"),
         supabase.from("asset_service_history").select("id, inspection_date, report_date_text, inspection_type, template_name, result_summary, report_link, report_file")
           .eq("site_id", siteId).is("asset_id", null).order("inspection_date", { ascending: false, nullsFirst: false }).limit(100),
       ]);

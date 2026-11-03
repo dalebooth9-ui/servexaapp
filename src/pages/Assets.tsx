@@ -435,7 +435,7 @@ export default function Assets() {
             <FolderOpen className="mr-1.5 h-4 w-4" /> By site
           </TabsTrigger>
           <TabsTrigger value="all">All assets</TabsTrigger>
-          <TabsTrigger value="risers">Dry risers</TabsTrigger>
+          <TabsTrigger value="risers">Risers</TabsTrigger>
         </TabsList>
       </Tabs>
 

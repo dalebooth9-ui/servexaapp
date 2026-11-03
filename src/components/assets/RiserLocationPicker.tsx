@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import { riserOrFilter, type RiserType } from "@/lib/dryRisers";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const OTHER = "__other__";
@@ -14,8 +15,9 @@ interface Riser { id: string; riser_location: string | null; outlets_count: numb
  * the engineer type a new location (riser_asset_id cleared).
  */
 export default function RiserLocationPicker({
-  siteId, value, assetId, locked, onChange,
+  siteId, value, assetId, locked, onChange, riserType = "Dry Riser",
 }: {
+  riserType?: RiserType;
   siteId: string | null;
   value: string;
   assetId: string | null;
@@ -31,12 +33,12 @@ export default function RiserLocationPicker({
     supabase.from("assets")
       .select("id, riser_location, outlets_count, asset_tag")
       .eq("site_id", siteId)
-      .or("asset_type.ilike.dry%riser%,category.ilike.dry%riser%")
+      .or(riserOrFilter(riserType))
       .neq("status", "decommissioned")
       .order("riser_location")
       .then(({ data }) => { if (!cancelled) setRisers((data as Riser[]) || []); });
     return () => { cancelled = true; };
-  }, [siteId]);
+  }, [siteId, riserType]);
 
   const list = (risers || []).filter((r) => r.riser_location && r.riser_location.trim());
   const selected = assetId && list.some((r) => r.id === assetId) ? assetId : null;

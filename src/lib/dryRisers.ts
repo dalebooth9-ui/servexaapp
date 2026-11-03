@@ -8,6 +8,31 @@ export function isDryRiserAsset(a: { asset_type?: string | null; category?: stri
   return /dry[\s_-]*riser/i.test(`${a.asset_type || ""} ${a.category || ""}`);
 }
 
+export function isWetRiserAsset(a: { asset_type?: string | null; category?: string | null } | null | undefined): boolean {
+  if (!a) return false;
+  return /wet[\s_-]*riser/i.test(`${a.asset_type || ""} ${a.category || ""}`);
+}
+
+export type RiserType = "Dry Riser" | "Wet Riser";
+
+/** "Dry Riser" / "Wet Riser" for a riser asset, otherwise null. */
+export function riserTypeOf(a: { asset_type?: string | null; category?: string | null } | null | undefined): RiserType | null {
+  if (isWetRiserAsset(a)) return "Wet Riser";
+  if (isDryRiserAsset(a)) return "Dry Riser";
+  return null;
+}
+
+export function isRiserAsset(a: { asset_type?: string | null; category?: string | null } | null | undefined): boolean {
+  return riserTypeOf(a) !== null;
+}
+
+/** Supabase .or() filter matching riser assets of one type, or both when omitted. */
+export function riserOrFilter(type?: RiserType | null): string {
+  const d = "asset_type.ilike.dry%riser%,category.ilike.dry%riser%";
+  const w = "asset_type.ilike.wet%riser%,category.ilike.wet%riser%";
+  return type === "Dry Riser" ? d : type === "Wet Riser" ? w : `${d},${w}`;
+}
+
 const MONTHS: Record<string, number> = {
   jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
 };

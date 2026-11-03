@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { riserOrFilter, riserTypeOf } from "@/lib/dryRisers";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +16,7 @@ interface Row {
   sites: { name: string } | null;
 }
 
-/** Office table of every dry riser with inline editing of location and outlets. */
+/** Office table of every dry and wet riser with inline editing of location and outlets. */
 export default function DryRisersTable() {
   const { toast } = useToast();
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -23,15 +24,16 @@ export default function DryRisersTable() {
   const [blankOutlets, setBlankOutlets] = useState(false);
   const [faulty, setFaulty] = useState(false);
   const [notPlaced, setNotPlaced] = useState(false);
+  const [type, setType] = useState<"all" | "Dry Riser" | "Wet Riser">("all");
 
   const load = async () => {
     const all: Row[] = [];
     for (let from = 0; ; from += 1000) {
       const { data, error } = await supabase.from("assets")
-        .select("id, asset_tag, riser_location, outlets_count, status, site_id, last_inspection_at, last_inspection_result, label_status, sites(name)")
-        .or("asset_type.ilike.dry%riser%,category.ilike.dry%riser%")
+        .select("id, asset_tag, riser_location, outlets_count, status, site_id, last_inspection_at, last_inspection_result, label_status, asset_type, category, sites(name)")
+        .or(riserOrFilter())
         .order("riser_location").range(from, from + 999);
-      if (error) { toast({ title: "Couldn't load dry risers", description: error.message, variant: "destructive" }); break; }
+      if (error) { toast({ title: "Couldn't load risers", description: error.message, variant: "destructive" }); break; }
       all.push(...((data as any) || []));
       if (!data || data.length < 1000) break;
     }
@@ -47,6 +49,7 @@ export default function DryRisersTable() {
   };
 
   const shown = useMemo(() => (rows || []).filter((r) => {
+    if (type !== "all" && riserTypeOf(r as any) !== type) return false;
     if (blankOutlets && r.outlets_count != null) return false;
     if (faulty && r.status !== "faulty") return false;
     if (notPlaced && (r as any).label_status !== "printed") return false;
@@ -55,14 +58,22 @@ export default function DryRisersTable() {
       if (!t.includes(q.toLowerCase())) return false;
     }
     return true;
-  }), [rows, q, blankOutlets, faulty, notPlaced]);
+  }), [rows, q, blankOutlets, faulty, notPlaced, type]);
 
-  if (!rows) return <div className="flex items-center gap-2 text-muted-foreground py-8"><Loader2 className="h-4 w-4 animate-spin" /> Loading dry risers…</div>;
+  if (!rows) return <div className="flex items-center gap-2 text-muted-foreground py-8"><Loader2 className="h-4 w-4 animate-spin" /> Loading risers…</div>;
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-4">
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tag, location or site" className="max-w-xs" />
+        <div className="flex rounded-md border overflow-hidden text-sm" role="group" aria-label="Riser type">
+          {(["all", "Dry Riser", "Wet Riser"] as const).map((t) => (
+            <button key={t} type="button" onClick={() => setType(t)}
+              className={`px-3 py-1.5 ${type === t ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}>
+              {t === "all" ? "All" : t === "Dry Riser" ? "Dry" : "Wet"}
+            </button>
+          ))}
+        </div>
         <label className="flex items-center gap-2 text-sm"><Checkbox checked={blankOutlets} onCheckedChange={(v) => setBlankOutlets(!!v)} /> Blank outlets</label>
         <label className="flex items-center gap-2 text-sm"><Checkbox checked={faulty} onCheckedChange={(v) => setFaulty(!!v)} /> Faulty</label>
         <label className="flex items-center gap-2 text-sm"><Checkbox checked={notPlaced} onCheckedChange={(v) => setNotPlaced(!!v)} /> Printed but not placed</label>
@@ -72,15 +83,16 @@ export default function DryRisersTable() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Tag</TableHead><TableHead>Site</TableHead><TableHead>Riser location</TableHead>
+              <TableHead>Tag</TableHead><TableHead>Type</TableHead><TableHead>Site</TableHead><TableHead>Riser location</TableHead>
               <TableHead className="w-28">Outlets</TableHead><TableHead>Status</TableHead><TableHead>Last inspection</TableHead><TableHead>Sticker</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {shown.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">No dry risers match.</TableCell></TableRow>}
+            {shown.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">No risers match.</TableCell></TableRow>}
             {shown.map((r) => (
               <TableRow key={r.id}>
                 <TableCell><Link to={`/assets/${r.id}`} className="font-mono text-primary hover:underline">{r.asset_tag || "—"}</Link></TableCell>
+                <TableCell className="text-sm whitespace-nowrap">{riserTypeOf(r as any) === "Wet Riser" ? "Wet" : "Dry"}</TableCell>
                 <TableCell className="text-sm">{r.sites?.name || "—"}</TableCell>
                 <TableCell>
                   <Input defaultValue={r.riser_location || ""} className="h-8 text-sm"
