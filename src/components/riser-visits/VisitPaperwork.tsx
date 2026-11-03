@@ -5,7 +5,7 @@ import {Printer,Download,FileText,Loader2} from 'lucide-react';
 import {toast} from 'sonner';
 export async function loadVisitSheets(jobId:string){
  const rows:any[]=[];for(let from=0;;from+=1000){const {data,error}=await supabase.from('job_sheet_responses').select('id,responses,job_sheet_templates(id,name,description,fields,footer_text,branding)').eq('job_id',jobId).is('archived_at',null).order('created_at').order('id').range(from,from+999);if(error)throw error;rows.push(...data);if(data.length<1000)break;}
- return rows.filter(r=>r.responses?._riser_visit).sort((a,b)=>a.responses._riser_visit.order-b.responses._riser_visit.order);
+ return rows.filter(r=>r.responses?._riser_visit).map(r=>({...r,responses:{...r.responses,_riser_visit:{...r.responses._riser_visit,job_id:jobId}}})).sort((a,b)=>a.responses._riser_visit.order-b.responses._riser_visit.order);
 }
 export async function buildVisitPdf(rows:any[]){
  const [{PDFDocument},{generateBlankSheetPdfBlob}]=await Promise.all([import('pdf-lib'),import('@/lib/generateBlankSheetPdf')]);const merged=await PDFDocument.create();
