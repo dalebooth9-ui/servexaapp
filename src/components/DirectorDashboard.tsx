@@ -18,6 +18,7 @@ import NeedsAttentionToday from "@/components/dashboard/NeedsAttentionToday";
 
 import { toast } from "sonner";
 import RenewalsTile from "@/components/renewals/RenewalsTile";
+import DueVisitsCard from '@/components/riser-visits/DueVisitsCard';
 
 function reportError(label: string, error: any) {
   console.error(`[DirectorDashboard] ${label}:`, error);
@@ -363,6 +364,7 @@ export default function DirectorDashboard() {
       <SetupChecklist />
 
       <NeedsAttentionToday />
+      <DueVisitsCard />
 
 
 

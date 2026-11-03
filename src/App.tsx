@@ -81,6 +81,7 @@ const GenericRamsPage = lazy(() => import("@/pages/GenericRamsPage"));
 const NewRamsPage = lazy(() => import("@/pages/NewRamsPage"));
 const RamsLibrary = lazy(() => import("@/pages/RamsLibrary"));
 const Renewals = lazy(() => import("@/pages/Renewals"));
+const DueVisits = lazy(() => import('@/pages/DueVisits'));
 const RamsDetail = lazy(() => import("@/pages/RamsDetail"));
 const Offline = lazy(() => import("@/pages/Offline"));
 const LeaveCalendar = lazy(() => import("@/pages/LeaveCalendar"));
@@ -241,6 +242,7 @@ const App = () => (
               <Route path="/rams/view/:id" element={<AccessRoute pageSlug="jobs"><RamsDetail /></AccessRoute>} />
               <Route path="/settings/rams-library" element={<AdminRoute><RamsLibrary /></AdminRoute>} />
               <Route path="/renewals" element={<AdminRoute><Suspense fallback={<PageFallback />}><Renewals /></Suspense></AdminRoute>} />
+              <Route path="/due-visits" element={<AdminRoute><Suspense fallback={<PageFallback />}><DueVisits /></Suspense></AdminRoute>} />
               <Route path="/planner" element={<AccessRoute pageSlug="planner"><WeeklyPlanner /></AccessRoute>} />
               <Route path="/leave" element={<AccessRoute pageSlug="leave"><LeaveCalendar /></AccessRoute>} />
               <Route path="/customers" element={<AccessRoute pageSlug="customers"><Customers /></AccessRoute>} />
