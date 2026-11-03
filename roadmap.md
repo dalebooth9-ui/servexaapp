@@ -1,5 +1,11 @@
 # Roadmap
 
+## Site access information
+- [ ] Add staff-only site access storage, confirmation and immutable change history.
+- [ ] Add site card, engineer completion editing, QR visibility and report-field Save to site file.
+- [ ] Add engineer-only PDF/Word access boxes, cabinet key prefill and default-on/masked print setting.
+- [ ] Update Help, add permission/printing rule tests and verify real staff flow.
+
 ## Printable logos and customer print branding
 - [x] Restore every-page header logos without changing report fields or boxes.
 - [x] Add opt-in customer print logo, brand colour and switch; use Besseges' existing saved logo and colour.
