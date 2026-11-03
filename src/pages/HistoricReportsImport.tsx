@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { fuzzyFilter, fuzzyScore } from "@/lib/fuzzyMatch";
 import { getCurrentOrgId, buildOrgPath } from "@/lib/orgStoragePath";
 import { formatDate } from "@/lib/dateFormat";
@@ -151,12 +152,10 @@ export default function HistoricReportsImport() {
 
   useEffect(() => {
     (async () => {
-      const [{ data: c }, { data: s }, { data: cs }, { data: t }] = await Promise.all([
-        supabase.from("customers").select("id, name").order("name"),
-        supabase
-          .from("sites")
-          .select("id, name, address, postcode")
-          .order("name"),
+      const byName = (a: any, b: any) => (a.name || "").localeCompare(b.name || "");
+      const [c, s, { data: cs }, { data: t }] = await Promise.all([
+        fetchAllRows<any>("customers", "id, name", "id").then((r) => r.sort(byName)),
+        fetchAllRows<any>("sites", "id, name, address, postcode", "id").then((r) => r.sort(byName)),
         supabase.from("customer_sites").select("customer_id, site_id"),
         supabase
           .from("job_sheet_templates")
