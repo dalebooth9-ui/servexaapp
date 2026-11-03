@@ -91,6 +91,7 @@ const JobDefects = lazy(() => import("@/components/jobs/JobDefects"));
 const JobPartsUsed = lazy(() => import("@/components/jobs/JobPartsUsed"));
 const JobPhotos = lazy(() => import("@/components/jobs/JobPhotos"));
 const ShareGalleryDialog = lazy(() => import("@/components/jobs/ShareGalleryDialog"));
+const StickerPackDialog = lazy(() => import("@/components/assets/StickerPackDialog"));
 const JobEmailChain = lazy(() => import("@/components/jobs/JobEmailChain"));
 import RamsRequiredBanner from "@/components/rams/RamsRequiredBanner";
 import JobRamsPanel from "@/components/rams/JobRamsPanel";
@@ -1134,6 +1135,17 @@ export default function JobDetail() {
 
 
       {activeTab === "documents" && (<>
+      {userRole === "admin" && job?.site_id && (
+        <div className="mb-4">
+          <Suspense fallback={null}>
+            <StickerPackDialog
+              siteId={job.site_id}
+              siteName={(job as any)?.sites?.name || null}
+              customerLogoUrl={(job as any)?.customers?.logo_url || null}
+            />
+          </Suspense>
+        </div>
+      )}
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Documents
