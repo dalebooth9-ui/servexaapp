@@ -1,5 +1,6 @@
 import ReportSitePhotos from "@/components/jobs/ReportSitePhotos";
 import RiserLocationPicker from "@/components/assets/RiserLocationPicker";
+import SiteRiserStickerList from "@/components/assets/SiteRiserStickerList";
 
 function isDryRiserTemplate(t: any): boolean {
   if (!t) return false;
@@ -153,6 +154,8 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
   const [activeTemplate, setActiveTemplate] = useState<Template | null>(null);
   const [jobSiteId, setJobSiteId] = useState<string | null>(null);
+  // Job started from a riser sticker scan: pre-pick that riser on dry riser sheets.
+  const [jobAssetId, setJobAssetId] = useState<string | null>(null);
   const [activeResponse, setActiveResponse] = useState<Response | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [sitePhotos, setSitePhotos] = useState<{ file: File; preview: string; caption: string }[]>([]);
@@ -240,7 +243,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     // Job first (small) so we can server-side filter templates by category
     const jobRes = await supabase
       .from("jobs")
-      .select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone, logo_url), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)")
+      .select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, asset_id, customers(name, email, phone, logo_url), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)")
       .eq("id", jobId)
       .single();
 
@@ -343,6 +346,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     if (jobRes.data) {
       const jd = jobRes.data as any;
       setJobSiteId(jd.site_id ?? null);
+      setJobAssetId(jd.asset_id ?? null);
       const assigns = assignsRes.data || [];
       if (assigns.length > 0) {
         const { data: profs } = await supabase
@@ -652,6 +656,22 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   };
 
   const lockedFieldIds = activeTemplate ? getLockedFieldIds(activeTemplate) : new Set<string>();
+
+  // Pre-pick the scanned riser on a blank dry riser sheet (job created via "Start service").
+  useEffect(() => {
+    if (!jobAssetId || !activeTemplate || !isDryRiserTemplate(activeTemplate)) return;
+    if (activeResponse?.status === "submitted") return;
+    if (formData.riser_asset_id || (formData.riser_location && String(formData.riser_location).trim())) return;
+    let cancelled = false;
+    supabase.from("assets").select("id, riser_location").eq("id", jobAssetId).maybeSingle().then(({ data }) => {
+      if (cancelled || !data?.riser_location) return;
+      setFormData((prev) => (prev.riser_asset_id || prev.riser_location)
+        ? prev
+        : { ...prev, riser_location: data.riser_location, riser_asset_id: data.id });
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobAssetId, activeTemplate?.id, activeResponse?.id]);
 
   // Auto-create N draft responses for a template based on job quantities
   const handleAutoCreateDrafts = async (template: Template) => {
@@ -2621,6 +2641,11 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                 <p className="text-[10px] text-muted-foreground mt-1">{sitePhotos.length} photo(s) — will appear at the bottom of the PDF</p>
               )}
             </div>
+
+            {isDryRiserTemplate(activeTemplate) && jobSiteId && (
+              <SiteRiserStickerList siteId={jobSiteId} />
+            )}
+
 
             {/* Inline sign-off — engineer signs here so the flow is one continuous
                 sequence (answer → sign → submit) without hunting for a separate tab.

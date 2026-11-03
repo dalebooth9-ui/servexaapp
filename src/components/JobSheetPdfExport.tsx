@@ -35,6 +35,7 @@ import {
 import { fetchOrientedImage } from "@/lib/exifOrient";
 import { ukDateifyRecord } from "@/lib/dateFormat";
 import { waitForSignatureSaves } from "@/lib/signatureSaveTracker";
+import { drawQr, stickerUrl } from "@/lib/riserStickers";
 
 /**
  * Load a stored signature as an in-memory image. Downloads the bytes through
@@ -549,6 +550,31 @@ export async function generateJobSheetPdf(
         }
       : undefined,
   });
+
+  // --- Riser sticker QR (dry riser reports linked to a register asset) ----
+  // Top-right corner of the riser's page: QR + "Riser ID ABC123" only, in
+  // black on white, identical for customer- and Viva-branded reports.
+  const riserAssetId = String((formData as any)?.riser_asset_id || "").trim();
+  if (isDryRiser && /^[0-9a-f-]{36}$/i.test(riserAssetId)) {
+    try {
+      const { data: ra } = await supabase.from("assets").select("asset_tag").eq("id", riserAssetId).maybeSingle();
+      const tag = (ra as any)?.asset_tag as string | undefined;
+      if (tag) {
+        const qrSize = 20;
+        const qx = pageWidth - margin - qrSize;
+        const qy = DRY_RISER_LAYOUT.page.marginTopMm;
+        doc.setPage(1);
+        doc.setFillColor(255, 255, 255);
+        doc.rect(qx - 1, qy - 1, qrSize + 2, qrSize + 5.5, "F");
+        drawQr(doc, stickerUrl(tag), qx, qy, qrSize);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.text(`Riser ID ${tag}`, qx + qrSize / 2, qy + qrSize + 3.2, { align: "center" });
+        doc.setFont("helvetica", "normal");
+      }
+    } catch { /* best effort – never block the report */ }
+  }
 
   // --- Customer summary block (AI-drafted, office-editable) --------------
   // Rendered only when a summary has been saved onto the report answers under
