@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/fetchAllRows";
+import { loadSiteStats, pickSiteWithMostData, type SiteStat } from "@/lib/siteDuplicates";
 import { ImportEntity, ENTITY_SCHEMAS } from "./schemas";
 import { transformRows } from "@/lib/importMapping";
 import { fuzzyScore } from "@/lib/fuzzyMatch";
@@ -63,14 +64,17 @@ export default function StepReview({
       if (cancelled) return;
       setExisting((existingData || []) as any);
       setParents(parentData as any);
-      buildReview((existingData || []) as any, parentData as any);
+      let siteStats = new Map<string, SiteStat>();
+      if (entity === "assets") { try { siteStats = await loadSiteStats(supabase); } catch { /* fall back to no tie-break */ } }
+      if (cancelled) return;
+      buildReview((existingData || []) as any, parentData as any, siteStats);
       setLoading(false);
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function buildReview(existingList: ExistingRecord[], parentList: ExistingRecord[]) {
+  function buildReview(existingList: ExistingRecord[], parentList: ExistingRecord[], siteStats: Map<string, SiteStat> = new Map()) {
     const transformed = transformRows(parsed.headers, parsed.rows, mapping);
     const seen = new Map<string, number>(); // dedupe within file
     const out: ReviewRow[] = [];
@@ -131,7 +135,10 @@ export default function StepReview({
             const pc = (v.site_postcode || "").toLowerCase().replace(/\s+/g, "");
             if (pc) pcHit = parentList.filter((p) => (p.postcode || "").toLowerCase().replace(/\s+/g, "") === pc);
           }
-          const chosen = exact.length === 1 ? exact[0] : pcHit.length === 1 ? pcHit[0] : null;
+          // Several sites with the exact same name: use the one with the most data.
+          const chosen = exact.length === 1 ? exact[0]
+            : exact.length > 1 && entity === "assets" ? pickSiteWithMostData(exact, siteStats)
+            : pcHit.length === 1 ? pcHit[0] : null;
           if (chosen) { parentMatchId = chosen.id; parentMatchName = chosen.name; }
           else problems.push(`${entity === "sites" ? "Customer" : "Site"} "${q}" not matched — pick one to confirm`);
           parentCandidates = scored.slice(0, 5).map((x) => ({ id: x.p.id, name: x.p.name, extra: (x.p as any).address || (x.p as any).postcode }));

@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { History, Loader2, Upload, CheckCircle2 } from "lucide-react";
 import { parseReportDateText, priorityToSeverity, remedialStatus } from "@/lib/dryRisers";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { loadSiteStats, pickSiteWithMostData, type SiteStat } from "@/lib/siteDuplicates";
 
 type Kind = "history" | "remedial";
 type Raw = Record<string, string>;
@@ -18,7 +20,9 @@ interface Prepared {
 }
 interface Lookups {
   orgId: string;
-  sites: Map<string, { id: string; name: string }>;
+  sites: Map<string, { id: string; name: string }[]>;
+  siteCustomers: Map<string, Set<string>>;
+  siteStats: Map<string, SiteStat>;
   customers: Map<string, string>;
   assets: Map<string, { id: string; site_id: string | null }>;
 }
@@ -40,21 +44,38 @@ async function fetchAll<T>(build: (from: number) => any): Promise<T[]> {
 
 async function loadLookups(): Promise<Lookups> {
   const { data: orgId } = await supabase.rpc("get_user_org_id");
-  const [sites, customers, assets] = await Promise.all([
+  const [sites, customers, assets, links, siteStats] = await Promise.all([
     fetchAll<any>(() => supabase.from("sites").select("id, name").order("id")),
     fetchAll<any>(() => supabase.from("customers").select("id, name").order("id")),
     fetchAll<any>(() => supabase.from("assets").select("id, asset_tag, site_id").not("asset_tag", "is", null).order("id")),
+    fetchAllRows<any>("customer_sites", "id,customer_id,site_id", "id"),
+    loadSiteStats(supabase).catch(() => new Map<string, SiteStat>()),
   ]);
-  const siteMap = new Map<string, { id: string; name: string }>();
-  const dupNames = new Set<string>();
-  for (const s of sites) { const k = norm(s.name); if (siteMap.has(k)) dupNames.add(k); siteMap.set(k, s); }
-  dupNames.forEach((k) => siteMap.delete(k)); // ambiguous names never auto-match
+  const siteMap = new Map<string, { id: string; name: string }[]>();
+  for (const s of sites) { const k = norm(s.name); if (!siteMap.has(k)) siteMap.set(k, []); siteMap.get(k)!.push(s); }
+  const siteCustomers = new Map<string, Set<string>>();
+  for (const l of links) { if (!siteCustomers.has(l.site_id)) siteCustomers.set(l.site_id, new Set()); siteCustomers.get(l.site_id)!.add(l.customer_id); }
   return {
     orgId: orgId as string,
     sites: siteMap,
+    siteCustomers,
+    siteStats,
     customers: new Map(customers.map((c: any) => [norm(c.name), c.id])),
     assets: new Map(assets.map((a: any) => [String(a.asset_tag).toUpperCase().trim(), { id: a.id, site_id: a.site_id }])),
   };
+}
+
+/** Exact site name; when several sites share it, narrow to the row's customer, then use the one with the most data. */
+function resolveSite(lk: Lookups, siteName: string, customerName?: string) {
+  let cands = lk.sites.get(norm(siteName)) ?? [];
+  if (cands.length > 1) {
+    const custId = customerName ? lk.customers.get(norm(customerName)) : undefined;
+    if (custId) {
+      const forCust = cands.filter((s) => lk.siteCustomers.get(s.id)?.has(custId));
+      if (forCust.length) cands = forCust;
+    }
+  }
+  return pickSiteWithMostData(cands, lk.siteStats);
 }
 
 export default function ImportHistory() {
@@ -99,7 +120,7 @@ function Importer({ kind, title, description, cols }: { kind: Kind; title: strin
       const seen = new Set<string>();
       const out: Prepared[] = parsed.data.map((raw) => {
         const problems: string[] = [];
-        const site = lk.sites.get(norm(raw.site));
+        const site = resolveSite(lk, raw.site, raw.customer);
         const tag = String(raw.asset_tag || "").toUpperCase().trim();
         let assetId: string | null = null;
         if (tag) {
