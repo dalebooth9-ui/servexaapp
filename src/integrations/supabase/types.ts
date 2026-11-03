@@ -11168,6 +11168,7 @@ export type Database = {
           status: string
         }[]
       }
+      riser_type_by_tag: { Args: { _tag: string }; Returns: string }
       seed_org_hazard_modules: { Args: { _org_id: string }; Returns: undefined }
       seed_org_reference_data: {
         Args: { _new_org_id: string; _source_org_id?: string }

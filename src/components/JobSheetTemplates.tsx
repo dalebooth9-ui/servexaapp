@@ -7,6 +7,11 @@ function isDryRiserTemplate(t: any): boolean {
   const jc = String(t.job_category || "");
   return /^dry_riser_(pressure_test|visual)/.test(jc) || /dry riser/i.test(String(t.name || ""));
 }
+
+function isWetRiserTemplate(t: any): boolean {
+  if (!t) return false;
+  return /^wet_riser/.test(String(t.job_category || "")) || String(t.category || "") === "wet_riser" || /wet riser/i.test(String(t.name || ""));
+}
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { saveFormDraft, clearFormDraft, loadFormDraftSync, loadFormDraftTimestamp } from "@/lib/offlineFormStorage";
@@ -659,7 +664,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
 
   // Pre-pick the scanned riser on a blank dry riser sheet (job created via "Start service").
   useEffect(() => {
-    if (!jobAssetId || !activeTemplate || !isDryRiserTemplate(activeTemplate)) return;
+    if (!jobAssetId || !activeTemplate || !(isDryRiserTemplate(activeTemplate) || isWetRiserTemplate(activeTemplate))) return;
     if (activeResponse?.status === "submitted") return;
     if (formData.riser_asset_id || (formData.riser_location && String(formData.riser_location).trim())) return;
     let cancelled = false;
@@ -2388,6 +2393,22 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                 </Button>
               </div>
             )}
+            {isWetRiserTemplate(activeTemplate) && (
+              <div className="rounded-md border px-3 py-2 space-y-1">
+                <p className="text-xs font-medium">Riser</p>
+                <RiserLocationPicker
+                  riserType="Wet Riser"
+                  siteId={jobSiteId}
+                  value={formData.riser_location || ""}
+                  assetId={formData.riser_asset_id || null}
+                  locked={activeResponse?.status === "submitted"}
+                  onChange={(loc, aid) => {
+                    handleFieldValue("riser_location", loc);
+                    setFormData((prev) => ({ ...prev, riser_asset_id: aid }));
+                  }}
+                />
+              </div>
+            )}
             {sections.map((section) => {
               const omitted = isSectionOmitted(section);
               return (
@@ -2642,7 +2663,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
               )}
             </div>
 
-            {isDryRiserTemplate(activeTemplate) && jobSiteId && (
+            {(isDryRiserTemplate(activeTemplate) || isWetRiserTemplate(activeTemplate)) && jobSiteId && (
               <SiteRiserStickerList siteId={jobSiteId} />
             )}
 

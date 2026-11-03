@@ -134,15 +134,18 @@ serve(async (req) => {
       }
       if (body.entity === "assets") {
         if (!v.name) return null;
-        const isDryRiser = /dry\s*riser/i.test(`${v.asset_type || ""} ${v.category || ""} ${v.name || ""}`);
+        const typeText = `${v.asset_type || ""} ${v.category || ""} ${v.name || ""}`;
+        const isWetRiser = /wet[\s_-]*riser/i.test(`${v.asset_type || ""} ${v.category || ""}`) || (!/dry[\s_-]*riser/i.test(typeText) && /wet\s*riser/i.test(typeText));
+        const isDryRiser = !isWetRiser && /dry[\s_-]*riser/i.test(typeText);
+        const riserType = isWetRiser ? "Wet Riser" : isDryRiser ? "Dry Riser" : null;
         const status = v.status && VALID_ASSET_STATUS.has(String(v.status).toLowerCase()) ? String(v.status).toLowerCase() : "operational";
         return {
           org_id: orgId,
           created_by: caller.id,
           name: String(v.name).trim(),
           asset_tag: (v.asset_tag && String(v.asset_tag).trim()) ? String(v.asset_tag).trim().toUpperCase() : null,
-          category: isDryRiser ? "Dry Riser" : (v.category || "general").toString().toLowerCase().replace(/\s+/g, "_"),
-          asset_type: isDryRiser ? "Dry Riser" : (v.asset_type ? String(v.asset_type).trim() : null),
+          category: riserType ? riserType : (v.category || "general").toString().toLowerCase().replace(/\s+/g, "_"),
+          asset_type: riserType ? riserType : (v.asset_type ? String(v.asset_type).trim() : null),
           riser_location: v.riser_location ? String(v.riser_location).trim() : null,
           outlets_count: toInt(v.outlets_count),
           last_inspection_at: toDate(v.last_inspection_at),

@@ -14,11 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ExternalLink, Pencil, MoveRight, Merge } from "lucide-react";
 import { format } from "date-fns";
 import { openStorageRef } from "@/components/assets/openStorageRef";
+import { riserOrFilter, riserTypeOf } from "@/lib/dryRisers";
 
 interface RiserAsset {
   id: string; asset_tag: string | null; riser_location: string | null; outlets_count: number | null; status: string;
   notes: string | null; site_id: string | null; last_inspection_at: string | null; last_inspection_type: string | null;
-  last_inspection_result: string | null;
+  last_inspection_result: string | null; asset_type?: string | null; category?: string | null;
 }
 interface HistoryRow {
   id: string; inspection_date: string | null; report_date_text: string | null; inspection_type: string | null;
@@ -47,7 +48,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
 
   const load = async () => {
     const [{ data: asset }, { data: h }, { data: d }] = await Promise.all([
-      supabase.from("assets").select("id, asset_tag, riser_location, outlets_count, status, notes, site_id, last_inspection_at, last_inspection_type, last_inspection_result").eq("id", assetId).maybeSingle(),
+      supabase.from("assets").select("id, asset_tag, riser_location, outlets_count, status, notes, site_id, last_inspection_at, last_inspection_type, last_inspection_result, asset_type, category").eq("id", assetId).maybeSingle(),
       supabase.from("asset_service_history").select("id, inspection_date, report_date_text, inspection_type, template_name, result_summary, report_link, report_file, job_id").eq("asset_id", assetId).order("inspection_date", { ascending: false, nullsFirst: false }),
       supabase.from("defects").select("id, title, severity, status, created_at").eq("asset_id", assetId).neq("status", "resolved").order("created_at", { ascending: false }),
     ]);
@@ -84,7 +85,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
     setMoveOpen(false); toast({ title: "Riser moved" }); load(); onChanged?.();
   };
   const openMerge = async () => {
-    let q = supabase.from("assets").select("id, asset_tag, riser_location").or("asset_type.ilike.dry%riser%,category.ilike.dry%riser%").neq("id", a.id).neq("status", "decommissioned");
+    let q = supabase.from("assets").select("id, asset_tag, riser_location").or(riserOrFilter(riserTypeOf(a) ?? "Dry Riser")).neq("id", a.id).neq("status", "decommissioned");
     if (a.site_id) q = q.eq("site_id", a.site_id);
     const { data } = await q.limit(500);
     setOthers((data as any) || []); setMergeId(""); setMergeOpen(true);
@@ -171,7 +172,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Edit dry riser</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Edit {(riserTypeOf(a) ?? "Dry Riser").toLowerCase()}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1"><label className="text-sm font-medium">Riser location</label><Input value={form.riser_location} onChange={(e) => setForm({ ...form, riser_location: e.target.value })} /></div>
             <div className="space-y-1"><label className="text-sm font-medium">Number of outlets</label><Input type="number" min={0} value={form.outlets_count} onChange={(e) => setForm({ ...form, outlets_count: e.target.value })} /></div>
@@ -202,7 +203,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
       <Dialog open={mergeOpen} onOpenChange={setMergeOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Merge a duplicate into this riser</DialogTitle></DialogHeader>
-          {others.length === 0 ? <p className="text-sm text-muted-foreground">No other dry risers at this site.</p> : (
+          {others.length === 0 ? <p className="text-sm text-muted-foreground">No other {(riserTypeOf(a) ?? "Dry Riser").toLowerCase()}s at this site.</p> : (
             <Select value={mergeId} onValueChange={setMergeId}>
               <SelectTrigger><SelectValue placeholder="Pick the duplicate" /></SelectTrigger>
               <SelectContent>{others.map((o) => <SelectItem key={o.id} value={o.id}>{o.riser_location || "No location"} {o.asset_tag ? `(${o.asset_tag})` : ""}</SelectItem>)}</SelectContent>

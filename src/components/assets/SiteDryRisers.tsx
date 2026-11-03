@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { riserOrFilter, riserTypeOf } from "@/lib/dryRisers";
 import { format } from "date-fns";
 import { openStorageRef } from "@/components/assets/openStorageRef";
 
@@ -17,8 +18,8 @@ export default function SiteDryRisers({ siteId, showRisers = true, showSiteHisto
     let off = false;
     (async () => {
       const [{ data: r }, { data: h }] = await Promise.all([
-        supabase.from("assets").select("id, riser_location, outlets_count, last_inspection_result, asset_tag, label_status")
-          .eq("site_id", siteId).or("asset_type.ilike.dry%riser%,category.ilike.dry%riser%").neq("status", "decommissioned").order("riser_location"),
+        supabase.from("assets").select("id, riser_location, outlets_count, last_inspection_result, asset_tag, label_status, asset_type, category")
+          .eq("site_id", siteId).or(riserOrFilter()).neq("status", "decommissioned").order("riser_location"),
         supabase.from("asset_service_history").select("id, inspection_date, report_date_text, inspection_type, template_name, result_summary, report_link, report_file")
           .eq("site_id", siteId).is("asset_id", null).order("inspection_date", { ascending: false, nullsFirst: false }).limit(100),
       ]);
@@ -35,7 +36,7 @@ export default function SiteDryRisers({ siteId, showRisers = true, showSiteHisto
       {showRisers && risers.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Dry risers</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Risers</p>
             <label className="flex items-center gap-1 text-xs text-muted-foreground">
               <input type="checkbox" checked={notPlaced} onChange={(e) => setNotPlaced(e.target.checked)} /> Printed but not placed
             </label>
@@ -44,7 +45,7 @@ export default function SiteDryRisers({ siteId, showRisers = true, showSiteHisto
             {risers.filter((r) => !notPlaced || r.label_status === "printed").map((r) => (
               <li key={r.id}>
                 <Link to={`/assets/${r.id}`} className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-muted/50">
-                  <span className="font-medium">{r.riser_location || "No location"}</span>
+                  <span className="font-medium">{r.riser_location || "No location"}{riserTypeOf(r as any) === "Wet Riser" ? <span className="ml-1 text-xs text-muted-foreground">(wet)</span> : null}</span>
                   <span className="text-xs text-muted-foreground">{r.outlets_count ?? "—"} outlets · {r.last_inspection_result || "no result"} · Sticker: {r.label_status || "none"}</span>
                 </Link>
               </li>

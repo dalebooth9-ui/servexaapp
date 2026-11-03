@@ -162,6 +162,13 @@
       "when": 1793694003041,
       "tag": "0022_dry_riser_stickers_stage2",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1793704852072,
+      "tag": "0023_wet_riser_register_stage5",
+      "breakpoints": true
     }
   ]
 }

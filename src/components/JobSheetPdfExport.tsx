@@ -555,14 +555,15 @@ export async function generateJobSheetPdf(
   // Top-right corner of the riser's page: QR + "Riser ID ABC123" only, in
   // black on white, identical for customer- and Viva-branded reports.
   const riserAssetId = String((formData as any)?.riser_asset_id || "").trim();
-  if (isDryRiser && /^[0-9a-f-]{36}$/i.test(riserAssetId)) {
+  const isWetRiser = /wet\s*riser/i.test(template.name || "") || /^wet_riser/.test(String((template as any).job_category || ""));
+  if ((isDryRiser || isWetRiser) && /^[0-9a-f-]{36}$/i.test(riserAssetId)) {
     try {
       const { data: ra } = await supabase.from("assets").select("asset_tag").eq("id", riserAssetId).maybeSingle();
       const tag = (ra as any)?.asset_tag as string | undefined;
       if (tag) {
         const qrSize = 20;
         const qx = pageWidth - margin - qrSize;
-        const qy = DRY_RISER_LAYOUT.page.marginTopMm;
+        const qy = isDryRiser ? DRY_RISER_LAYOUT.page.marginTopMm : 10;
         doc.setPage(1);
         doc.setFillColor(255, 255, 255);
         doc.rect(qx - 1, qy - 1, qrSize + 2, qrSize + 5.5, "F");

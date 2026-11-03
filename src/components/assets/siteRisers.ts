@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { riserOrFilter, type RiserType } from "@/lib/dryRisers";
 
 export interface SiteRiser {
   id: string;
@@ -7,14 +8,15 @@ export interface SiteRiser {
   outlets_count: number | null;
   label_status: string;
   label_placed_at: string | null;
+  asset_type: string | null;
 }
 
-/** Site's Dry Riser assets in the same order as the job sheet riser picker. */
-export async function fetchSiteRisers(siteId: string): Promise<SiteRiser[]> {
+/** Site's riser assets (dry and wet, or one type) in the riser picker order. */
+export async function fetchSiteRisers(siteId: string, type?: RiserType | null): Promise<SiteRiser[]> {
   const { data, error } = await supabase.from("assets")
-    .select("id, asset_tag, riser_location, outlets_count, label_status, label_placed_at")
+    .select("id, asset_tag, riser_location, outlets_count, label_status, label_placed_at, asset_type")
     .eq("site_id", siteId)
-    .or("asset_type.ilike.dry%riser%,category.ilike.dry%riser%")
+    .or(riserOrFilter(type))
     .neq("status", "decommissioned")
     .order("riser_location")
     .order("created_at");

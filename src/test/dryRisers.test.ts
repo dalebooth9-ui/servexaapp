@@ -27,3 +27,18 @@ describe("dry riser rules", () => {
     expect(remedialStatus("draft only")).toEqual({ status: "open", needsReview: true });
   });
 });
+
+import { riserTypeOf, isRiserAsset, riserOrFilter } from "@/lib/dryRisers";
+describe("riser type detection", () => {
+  it("wet riser is Wet Riser, never Dry", () => {
+    expect(riserTypeOf({ asset_type: "Wet Riser", category: "Wet Riser" })).toBe("Wet Riser");
+    expect(riserTypeOf({ asset_type: "Dry Riser" })).toBe("Dry Riser");
+  });
+  it("other assets are not risers", () => {
+    expect(isRiserAsset({ asset_type: "Extinguisher" })).toBe(false);
+  });
+  it("type filter only matches that type", () => {
+    expect(riserOrFilter("Wet Riser")).not.toContain("dry");
+    expect(riserOrFilter("Dry Riser")).not.toContain("wet");
+  });
+});
