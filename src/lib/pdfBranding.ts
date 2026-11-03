@@ -49,7 +49,7 @@ export async function renderBrandingOverlay(
     if(profile.watermarkUrl){const img=new Image();img.src=profile.watermarkUrl;await img.decode();args.watermark=img;args.brandColor=null;settings.mode='untinted';settings.opacity=0.11;}
     for(let page=1;page<=doc.getNumberOfPages();page++){
       doc.setPage(page);
-      if(!logoPages.has(page)&&profile.logoImage){const img=profile.logoImage;const w=Math.min(45,12*img.naturalWidth/img.naturalHeight);const h=w*img.naturalHeight/img.naturalWidth;doc.addImage(img,'PNG',doc.internal.pageSize.getWidth()-w-10,2,w,h);}
+      if(!logoPages.has(page)&&profile.logoImage){const img=profile.logoImage;const w=Math.min(35,6*img.naturalWidth/img.naturalHeight);const h=w*img.naturalHeight/img.naturalWidth;doc.addImage(img,'PNG',doc.internal.pageSize.getWidth()-w-10,2,w,h);}
       if(profile.isCustomerBranded){doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(80);doc.text('Serviced by Viva Fire Protection Ltd',doc.internal.pageSize.getWidth()/2,doc.internal.pageSize.getHeight()-4,{align:'center'});}
     }
   }

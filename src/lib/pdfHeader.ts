@@ -223,8 +223,8 @@ export async function renderPdfHeader(
       doc.addImage(logoImg, fmt, lx, logoTopY, lw, lh);
       registerPrintPdf(doc,profile,true);
       logoBottomY = logoTopY + lh + (compact ? 1.5 : 3);
-    } catch (error) {
-      throw new Error('Header logo could not be rendered. Please retry before printing.',{cause:error});
+    } catch {
+      throw new Error('Header logo could not be rendered. Please retry before printing.');
     }
   } else if (logoPosition !== "none" && !logoStyle.noFallbackText && companyName) {
     doc.setFontSize(13);
@@ -267,7 +267,7 @@ export async function renderPdfHeader(
   if (style.titleBands && style.titleBands.length > 0) {
     for (const band of style.titleBands) {
       const bandH = band.height ?? 9;
-      const fill = band.fillColor ?? PDF_PALETTE.headerStrip;
+      const fill = band.fillColor ?? (profile.isCustomerBranded?profile.accentColor.map(c=>Math.round(255+(c-255)*0.12)) as RgbTriple:PDF_PALETTE.headerStrip);
       const textColor = band.textColor ?? PDF_PALETTE.ink;
       const fontSize = band.fontSize ?? 12;
       const fontStyle = band.fontStyle ?? "bold";

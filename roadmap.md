@@ -1,10 +1,11 @@
 # Roadmap
 
 ## Printable logos and customer print branding
-- [ ] Restore every-page header logos without changing report fields or boxes.
-- [ ] Add opt-in customer print logo, brand colour and switch; configure verified Besseges branding.
-- [ ] Apply shared branding to printable PDF/Word, visit sheets, reports and certificates.
-- [ ] Keep prices/costs off printables and PO office-only; update Help and verify exports.
+- [x] Restore every-page header logos without changing report fields or boxes.
+- [x] Add opt-in customer print logo, brand colour and switch; use Besseges' existing saved logo and colour.
+- [x] Apply shared branding to printable PDF/Word, visit sheets, reports and certificates.
+- [x] Keep prices/costs off printables and PO office-only; update Help and verify exports.
+- [ ] Physical print and pure-engineer tablet verification — no printer available; Dale's account also has admin access.
 
 ## New dry-riser visits and due reminders
 - [x] Plan reuse of existing site jobs, per-riser templates, paperwork and reminders.
