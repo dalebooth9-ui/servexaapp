@@ -9134,6 +9134,51 @@ export type Database = {
           },
         ]
       }
+      site_merge_log: {
+        Row: {
+          batch_id: string
+          created_at: string
+          id: string
+          kept_before: Json
+          kept_site_id: string
+          merged_by: string | null
+          merged_site_id: string
+          moved: Json
+          org_id: string
+          removed_links: Json
+          undone_at: string | null
+          undone_by: string | null
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          id?: string
+          kept_before: Json
+          kept_site_id: string
+          merged_by?: string | null
+          merged_site_id: string
+          moved?: Json
+          org_id: string
+          removed_links?: Json
+          undone_at?: string | null
+          undone_by?: string | null
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          id?: string
+          kept_before?: Json
+          kept_site_id?: string
+          merged_by?: string | null
+          merged_site_id?: string
+          moved?: Json
+          org_id?: string
+          removed_links?: Json
+          undone_at?: string | null
+          undone_by?: string | null
+        }
+        Relationships: []
+      }
       site_service_schedules: {
         Row: {
           active: boolean
@@ -9682,9 +9727,11 @@ export type Database = {
           contact_phone: string | null
           created_at: string
           created_by: string | null
+          deleted_at: string | null
           id: string
           import_batch_id: string | null
           imported_at: string | null
+          merged_into_site_id: string | null
           name: string
           notes: string | null
           org_id: string | null
@@ -9705,9 +9752,11 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           id?: string
           import_batch_id?: string | null
           imported_at?: string | null
+          merged_into_site_id?: string | null
           name: string
           notes?: string | null
           org_id?: string | null
@@ -9728,9 +9777,11 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           id?: string
           import_batch_id?: string | null
           imported_at?: string | null
+          merged_into_site_id?: string | null
           name?: string
           notes?: string | null
           org_id?: string | null
@@ -9749,6 +9800,13 @@ export type Database = {
             columns: ["import_batch_id"]
             isOneToOne: false
             referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sites_merged_into_site_id_fkey"
+            columns: ["merged_into_site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
           {
@@ -11079,6 +11137,7 @@ export type Database = {
         Args: { _keep_id: string; _remove_id: string }
         Returns: undefined
       }
+      merge_sites: { Args: { _groups: Json }; Returns: string }
       move_asset_site: {
         Args: { _asset_id: string; _site_id: string }
         Returns: undefined
@@ -11194,6 +11253,21 @@ export type Database = {
         }
         Returns: boolean
       }
+      site_data_stats: {
+        Args: never
+        Returns: {
+          agreements: number
+          assets: number
+          buildings: number
+          defects: number
+          documents: number
+          jobs: number
+          last_activity: string
+          reports: number
+          site_id: string
+          total: number
+        }[]
+      }
       starter_hazard_modules: {
         Args: never
         Returns: {
@@ -11223,6 +11297,7 @@ export type Database = {
         Args: { _response_id: string }
         Returns: undefined
       }
+      undo_last_site_merge: { Args: never; Returns: number }
       unlock_site_visit_report: {
         Args: { _report_id: string }
         Returns: undefined
