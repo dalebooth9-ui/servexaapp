@@ -154,6 +154,8 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
   const [activeTemplate, setActiveTemplate] = useState<Template | null>(null);
   const [jobSiteId, setJobSiteId] = useState<string | null>(null);
+  // Job started from a riser sticker scan: pre-pick that riser on dry riser sheets.
+  const [jobAssetId, setJobAssetId] = useState<string | null>(null);
   const [activeResponse, setActiveResponse] = useState<Response | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [sitePhotos, setSitePhotos] = useState<{ file: File; preview: string; caption: string }[]>([]);
@@ -241,7 +243,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     // Job first (small) so we can server-side filter templates by category
     const jobRes = await supabase
       .from("jobs")
-      .select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone, logo_url), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)")
+      .select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, asset_id, customers(name, email, phone, logo_url), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)")
       .eq("id", jobId)
       .single();
 
@@ -344,6 +346,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     if (jobRes.data) {
       const jd = jobRes.data as any;
       setJobSiteId(jd.site_id ?? null);
+      setJobAssetId(jd.asset_id ?? null);
       const assigns = assignsRes.data || [];
       if (assigns.length > 0) {
         const { data: profs } = await supabase
