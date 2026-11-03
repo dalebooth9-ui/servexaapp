@@ -15,6 +15,7 @@ import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/li
 import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { isPaperFormTemplate, renderPaperFormPage } from "@/workers/paperFormRenderer";
+import {drawEngineerAccessBox,type EngineerAccessPrint} from '@/lib/siteAccessPdf';
 
 /**
  * Strip trailing template-workflow status suffixes (e.g. "— DRAFT, AWAITING
@@ -98,6 +99,7 @@ type Template = {
 };
 
 type JobInfo = {
+  engineerAccess?:EngineerAccessPrint|null;
   address: string | null;
   customer: string | null;
   customers?: { name: string; logo_url?: string | null } | null;
@@ -583,6 +585,7 @@ async function buildPdf(payload: WorkerPayload) {
       isDryRiser,
     });
 
+    y=drawEngineerAccessBox(doc,jobInfo?.engineerAccess,y,marginX,maxWidth);
     const skipIds = buildSkipIds(template.fields);
     const sections = getSections(template.fields);
     const colSplit = maxWidth * 0.68;

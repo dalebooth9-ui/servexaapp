@@ -7,6 +7,8 @@
 // Keep this in sync with the payload builder inside BlankTemplatePdfExport.tsx.
 
 import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
+import {engineerAccessForPrint} from '@/lib/siteAccess';
+import type {EngineerAccessPrint} from '@/lib/siteAccessPdf';
 import { loadWatermarkSettings } from "@/hooks/useWatermarkSettings";
 import { getGeneratingOrgFallbackLogoUrl, getGeneratingOrgWatermarkUrl } from "@/lib/generatingOrgBranding";
 import { fetchCustomerAccreditationLogos } from "@/lib/pdfAccreditations";
@@ -32,6 +34,7 @@ export type BlankSheetTemplate = {
 };
 
 export type BlankSheetJobInfo = {
+  id?:string;site_id?:string;engineerAccess?:EngineerAccessPrint|null;
   address: string | null;
   customer: string | null;
   customers?: { name: string; logo_url?: string | null } | null;
@@ -107,7 +110,7 @@ export async function generateBlankSheetPdfBlob(
   const accentColor=profile.accentColor;const orgFallbackLogoUrl=profile.logoUrl;const orgWatermarkUrl=profile.watermarkUrl;
   const { blob } = await runWorker({
     template: {...template,branding:{...template.branding,logo_url:profile.logoUrl}},
-    jobInfo: jobInfo ? {...jobInfo,customer_po:null} : null,
+    jobInfo: jobInfo ? {...jobInfo,customer_po:null,engineerAccess:await engineerAccessForPrint({siteId:jobInfo.site_id,jobId:jobInfo.id||jobInfo.riserVisit?.job_id})} : null,
     printBranding: {enabled:profile.isCustomerBranded,logoUrl:profile.logoUrl,watermarkUrl:profile.watermarkUrl},
     handfill: false,
     watermarkOverride: {mode:"untinted",opacity:0.11},
