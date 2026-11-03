@@ -582,6 +582,7 @@ export type Database = {
           category: string
           created_at: string
           created_by: string | null
+          due_visit_state: Json
           id: string
           import_batch_id: string | null
           imported_at: string | null
@@ -598,6 +599,7 @@ export type Database = {
           make: string | null
           model: string | null
           name: string
+          no_longer_serviced: boolean
           notes: string | null
           org_id: string | null
           outlets_count: number | null
@@ -615,6 +617,7 @@ export type Database = {
           category?: string
           created_at?: string
           created_by?: string | null
+          due_visit_state?: Json
           id?: string
           import_batch_id?: string | null
           imported_at?: string | null
@@ -631,6 +634,7 @@ export type Database = {
           make?: string | null
           model?: string | null
           name: string
+          no_longer_serviced?: boolean
           notes?: string | null
           org_id?: string | null
           outlets_count?: number | null
@@ -648,6 +652,7 @@ export type Database = {
           category?: string
           created_at?: string
           created_by?: string | null
+          due_visit_state?: Json
           id?: string
           import_batch_id?: string | null
           imported_at?: string | null
@@ -664,6 +669,7 @@ export type Database = {
           make?: string | null
           model?: string | null
           name?: string
+          no_longer_serviced?: boolean
           notes?: string | null
           org_id?: string | null
           outlets_count?: number | null
@@ -6003,6 +6009,7 @@ export type Database = {
           reference_number: string
           rejection_reason: string | null
           result: string | null
+          riser_visit_request_id: string | null
           site_id: string | null
           site_latitude: number | null
           site_longitude: number | null
@@ -6060,6 +6067,7 @@ export type Database = {
           reference_number?: string
           rejection_reason?: string | null
           result?: string | null
+          riser_visit_request_id?: string | null
           site_id?: string | null
           site_latitude?: number | null
           site_longitude?: number | null
@@ -6117,6 +6125,7 @@ export type Database = {
           reference_number?: string
           rejection_reason?: string | null
           result?: string | null
+          riser_visit_request_id?: string | null
           site_id?: string | null
           site_latitude?: number | null
           site_longitude?: number | null
@@ -9733,6 +9742,7 @@ export type Database = {
           imported_at: string | null
           merged_into_site_id: string | null
           name: string
+          no_longer_serviced: boolean
           notes: string | null
           org_id: string | null
           outlets_count: number | null
@@ -9758,6 +9768,7 @@ export type Database = {
           imported_at?: string | null
           merged_into_site_id?: string | null
           name: string
+          no_longer_serviced?: boolean
           notes?: string | null
           org_id?: string | null
           outlets_count?: number | null
@@ -9783,6 +9794,7 @@ export type Database = {
           imported_at?: string | null
           merged_into_site_id?: string | null
           name?: string
+          no_longer_serviced?: boolean
           notes?: string | null
           org_id?: string | null
           outlets_count?: number | null
@@ -10957,6 +10969,18 @@ export type Database = {
         Args: { _quote_id: string }
         Returns: string
       }
+      create_riser_visit: {
+        Args: {
+          _date: string
+          _engineer_id: string
+          _notes: string
+          _po: string
+          _request_id: string
+          _risers: Json
+          _site_id: string
+        }
+        Returns: string
+      }
       current_user_org_status: {
         Args: never
         Returns: {
@@ -11236,6 +11260,10 @@ export type Database = {
       set_email_automation_active: {
         Args: { _active: boolean; _jobname: string }
         Returns: boolean
+      }
+      set_riser_reminder_state: {
+        Args: { _asset_id: string; _state: Json }
+        Returns: undefined
       }
       shares_job_assignment: {
         Args: { _target: string; _viewer: string }
