@@ -19,7 +19,10 @@ import {
   HorizontalPositionRelativeFrom,
   VerticalPositionAlign,
   VerticalPositionRelativeFrom,
+  type ISectionOptions,
 } from "docx";
+import QRCode from 'qrcode';
+import { stickerUrl } from '@/lib/riserStickers';
 import { getDefaultFooterText } from "@/lib/pdfFooter";
 import {
   buildSkipIds,
@@ -102,6 +105,7 @@ export type WordTemplateInput = {
     auto_fit_single_page?: boolean;
   } | null;
   layout?: WordTemplateLayoutInput;
+  riserVisit?: Record<string, any> | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -435,6 +439,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
 export function renderFieldRow(
   field: TemplateField,
   layout: ResolvedTableLayout = DEFAULT_LAYOUT,
+  prefilledValue?: string,
 ): TableRow {
   const isMultiLine = field.type === "textarea" || field.type === "long_text";
   const isSignature = field.type === "signature";
@@ -464,7 +469,7 @@ export function renderFieldRow(
         width: { size: layout.valueCol, type: WidthType.DXA },
         margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
-        children: buildValueCellChildren(field),
+        children: prefilledValue !== undefined ? [new Paragraph({children:[new TextRun({text:prefilledValue,size:18})]})] : buildValueCellChildren(field),
       }),
     ],
   });
@@ -527,7 +532,7 @@ export function renderSectionHeaderRow(
 // ---------------------------------------------------------------------------
 
 /** Build a docx Document for a blank template. */
-export async function buildBlankTemplateDoc(template: WordTemplateInput): Promise<Document> {
+async function buildBlankTemplateSection(template: WordTemplateInput): Promise<ISectionOptions> {
   // Detect the Dry Riser blank template — when matched, every layout
   // dimension is driven by the shared `dryRiserLayout` config so the Word
   // and PDF outputs read from the same numbers. See dryRiserLayoutParity test.
@@ -547,7 +552,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const TBL = layout.tableW;
   const LBL = layout.labelCol;
   const VAL = layout.valueCol;
-  const customLogoUrl = template.branding?.logo_url?.trim();
+  const customLogoUrl = template.riserVisit ? '' : template.branding?.logo_url?.trim();
   // Resolve durable storage refs / legacy signed URLs to a fresh signed URL.
   const resolvedCustomLogo = customLogoUrl
     ? (await (await import("@/lib/durableStorageRef")).resolveToSignedUrl(customLogoUrl, "submissions").catch(() => null)) || customLogoUrl
@@ -684,7 +689,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         }),
       ],
     });
-  const detailValueCell = (w: number) =>
+  const detailValueCell = (w: number, text = ' ') =>
     new TableCell({
       borders: cellBorders,
       width: { size: w, type: WidthType.DXA },
