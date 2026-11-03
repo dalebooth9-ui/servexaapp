@@ -1,7 +1,9 @@
 import {describe,it,expect} from 'vitest';
 import {visitCycle,suggestVisitType,reminderVisible,snoozeUntil,withinLeadTime,visitPrefill} from '@/lib/riserVisits';
+import {isResponseStarted} from '@/lib/reportFieldRules';
 const pressure={last_inspection_at:'2026-01-01',last_inspection_type:'pressure_test'};
 describe('dry riser visits',()=>{
+ it('visit prefill alone is not a started report, but an entered result is',()=>{const ctx={asset_id:'a',riser_location:'East',outlets_count:7,customer:'Customer',site_name:'Site',address:'Address',planned_date:'2026-11-03',job_reference:'VFP-123'};const fields=[{id:'number_of_outlets',label:'Number of outlets',type:'number'},{id:'pass',label:'Pass',type:'checkbox'}];const data=visitPrefill(fields,ctx);expect(isResponseStarted(data,fields)).toBe(false);expect(isResponseStarted({...data,pass:false},fields)).toBe(true);});
  it('visual is due six months after pressure',()=>expect(visitCycle(pressure).due).toBe('2026-07-01'));
  it('pressure is due twelve months after pressure after a visual visit',()=>{const c=visitCycle({last_inspection_at:'2026-07-01',last_inspection_type:'visual'},[{inspection_date:'2026-01-01',inspection_type:'pressure_test'}]);expect(c.due).toBe('2027-01-01');expect(c.type).toBe('pressure');});
  it('a late visual never postpones the annual pressure deadline',()=>expect(visitCycle({last_inspection_at:'2026-10-01',last_inspection_type:'visual'},[{inspection_date:'2026-01-01',inspection_type:'pressure_test'}]).due).toBe('2027-01-01'));
