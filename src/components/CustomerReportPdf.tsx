@@ -180,6 +180,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       // Resolve unified branding profile — header logo and watermark tint
       // both derive from the same source (template branding > customer logo > default).
       const brandProfile = await resolveDocumentBrandingProfile({
+        jobId,
         template: null,
         customer: { name: job.customers?.name, logo_url: job.customers?.logo_url },
       });
@@ -196,7 +197,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         w3wAddress,
       };
 
-      let y = await renderPdfHeader(doc, "CUSTOMER REPORT", branding, headerData);
+      let y = await renderPdfHeader(doc, "CUSTOMER REPORT", branding, headerData,null,null,{printProfile:brandProfile});
 
       // === JOB DETAILS BOX ===
       y += 2;
@@ -315,7 +316,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       if (photoImages.length > 0) {
         addPage();
         indexPageNo = doc.getNumberOfPages();
-        let iy = await renderPdfHeader(doc, "CUSTOMER REPORT", branding, headerData);
+        let iy = await renderPdfHeader(doc, "CUSTOMER REPORT", branding, headerData,null,null,{printProfile:brandProfile});
         iy += 4;
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");

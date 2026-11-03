@@ -403,6 +403,8 @@ export async function generateConformityPdfBase64(
   const { renderBrandingOverlay } = await import("@/lib/pdfBranding");
   const { loadWatermarkSettings } = await import("@/hooks/useWatermarkSettings");
   const { PDF_DIMENSIONS } = await import("@/lib/pdfDimensions");
+  const {resolveDocumentBrandingProfile}=await import('@/lib/documentBrandingProfile');
+  const printProfile=await resolveDocumentBrandingProfile({jobId:/^[0-9a-f-]{36}$/i.test(cert.job_id||'')?cert.job_id:undefined,customer:{name:cert.customer_name}});
 
   // ── Org branding — try stored JSON in test_notes first, then fetch live ──
   let orgCompanyName = "Viva Fire Protection Ltd";
@@ -511,6 +513,7 @@ export async function generateConformityPdfBase64(
           { text: `Certificate Number ${cert.certificate_number || "—"}`, fontSize: 12, fontStyle: "bolditalic" },
         ],
       },
+      printProfile,
     }
   );
   y += 8;
