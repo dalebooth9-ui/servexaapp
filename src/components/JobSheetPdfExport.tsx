@@ -35,6 +35,7 @@ import {
 import { fetchOrientedImage } from "@/lib/exifOrient";
 import { ukDateifyRecord } from "@/lib/dateFormat";
 import { waitForSignatureSaves } from "@/lib/signatureSaveTracker";
+import { drawQr, stickerUrl } from "@/lib/riserStickers";
 
 /**
  * Load a stored signature as an in-memory image. Downloads the bytes through

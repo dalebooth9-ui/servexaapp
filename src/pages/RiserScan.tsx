@@ -29,7 +29,7 @@ export default function RiserScan() {
   const [wrongOpen, setWrongOpen] = useState(false);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
-  const isStaff = !!user && userRole !== "customer_user";
+  const isStaff = !!user && (userRole === "admin" || userRole === "engineer");
 
   useEffect(() => {
     if (!isStaff || !tag) return;
