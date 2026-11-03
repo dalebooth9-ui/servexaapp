@@ -481,7 +481,7 @@ async function buildPdf(payload: WorkerPayload) {
     Promise.all((payload.accreditationLogoUrls || []).map(loadImage)),
   ]);
 
-  const doc = new jsPDF();
+  const doc = new jsPDF(jobInfo?.riserVisit ? { compress: true } : undefined);
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const marginX = isDryRiser ? DRY_RISER_LAYOUT.page.marginLeftMm : 10;

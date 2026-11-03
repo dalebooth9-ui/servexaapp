@@ -718,7 +718,7 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
             detailLabelCell("Customer:", detailLabelColLeft),
             detailValueCell(detailValueColLeft, template.riserVisit?.customer),
             detailLabelCell("DATE:", detailLabelColRight),
-            detailValueCell(detailValueColRight, template.riserVisit?.planned_date),
+            detailValueCell(detailValueColRight, template.riserVisit?.planned_date ? new Date(template.riserVisit.planned_date).toLocaleDateString('en-GB') : undefined),
           ],
         }),
         new TableRow({

@@ -28,8 +28,13 @@ export function isResponseStarted(responses: Record<string, any> | null | undefi
     date: data._riser_visit.planned_date, po_number: data._riser_visit.job_reference,
     number_of_outlets: String(data._riser_visit.outlets_count ?? ''),
   } : {};
+  const matchesPrefill = (key: string, value: unknown) => {
+    if (!(key in visitPrefill)) return false;
+    const normalise = (v: unknown) => key === 'site_details' ? String(v).replace(/[,\s]+/g, ' ').trim() : String(v);
+    return normalise(visitPrefill[key]) === normalise(value);
+  };
   const inputIds = new Set(fields.filter((f) => !NON_INPUT.has(String(f?.type || ""))).map((f) => f.id));
-  return Object.entries(data).some(([k, v]) => !k.startsWith("_") && inputIds.has(k) && !isEmptyValue(v) && !(k in visitPrefill && String(visitPrefill[k]) === String(v)));
+  return Object.entries(data).some(([k, v]) => !k.startsWith("_") && inputIds.has(k) && !isEmptyValue(v) && !matchesPrefill(k, v));
 }
 
 export const SKIP_REASONS = [

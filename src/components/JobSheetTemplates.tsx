@@ -1,6 +1,8 @@
 import ReportSitePhotos from "@/components/jobs/ReportSitePhotos";
 import RiserLocationPicker from "@/components/assets/RiserLocationPicker";
 import SiteRiserStickerList from "@/components/assets/SiteRiserStickerList";
+import { QRCodeSVG } from 'qrcode.react';
+import { stickerUrl } from '@/lib/riserStickers';
 
 function isDryRiserTemplate(t: any): boolean {
   if (!t) return false;
@@ -334,7 +336,11 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
 
     setTemplates(filteredTpls);
     setAllTemplates(mergedAllTpls);
-    setResponses((respRes.data || []) as Response[]);
+    const reportRows = [...(respRes.data || [])];
+    if (reportRows.length && reportRows.every((r:any)=>r.responses?._riser_visit)) {
+      reportRows.sort((a:any,b:any)=>a.responses._riser_visit.order-b.responses._riser_visit.order);
+    }
+    setResponses(reportRows as Response[]);
 
     // Profile + assignment lookups in parallel
     const respUserIds = Array.from(
@@ -1093,7 +1099,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       // Backfill EMPTY saved fields with fresh auto-populated values — but
       // never clobber a value the engineer has already typed.
       const merged: Record<string, any> = { ...saved };
-      Object.entries(prefilled).forEach(([key, val]) => {
+      Object.entries(saved._riser_visit ? {} : prefilled).forEach(([key, val]) => {
         if (val === undefined || val === null || val === "") return;
         const existing = merged[key];
         const isEmpty = existing === undefined || existing === null || existing === "";
@@ -2365,7 +2371,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
             </div>
           </DialogHeader>
           <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
-            {formData._riser_visit && <div className="px-4 py-3 border-b text-sm space-y-1"><p className="font-semibold">{formData._riser_visit.riser_name || formData._riser_visit.riser_location} · Riser ID {formData._riser_visit.asset_tag}</p><p className="text-muted-foreground">Last inspection: {formData._riser_visit.last_inspection_at ? new Date(formData._riser_visit.last_inspection_at).toLocaleDateString('en-GB') : 'Not recorded'} · {formData._riser_visit.last_inspection_type || 'Type not recorded'} · Result: {formData._riser_visit.last_inspection_result || 'Not recorded'}</p>{formData._riser_visit.remedial_notes && <p className="whitespace-pre-wrap">Open remedial work from last visit: {formData._riser_visit.remedial_notes}</p>}</div>}
+            {formData._riser_visit && <div className="px-4 py-3 border-b text-sm space-y-1"><div className="flex items-center justify-between gap-3"><p className="font-semibold">{formData._riser_visit.riser_name || formData._riser_visit.riser_location} · Riser ID {formData._riser_visit.asset_tag}</p>{formData._riser_visit.asset_tag && <QRCodeSVG value={stickerUrl(formData._riser_visit.asset_tag)} size={76} marginSize={4} className="shrink-0"/>}</div><p className="text-muted-foreground">Last inspection: {formData._riser_visit.last_inspection_at ? new Date(formData._riser_visit.last_inspection_at).toLocaleDateString('en-GB') : 'Not recorded'} · {formData._riser_visit.last_inspection_type || 'Type not recorded'} · Result: {formData._riser_visit.last_inspection_result || 'Not recorded'}</p>{formData._riser_visit.remedial_notes && <p className="whitespace-pre-wrap">Open remedial work from last visit: {formData._riser_visit.remedial_notes}</p>}</div>}
             {modePair && (
               <div className={`flex flex-wrap items-center gap-2 border-b px-4 py-2 text-xs ${switchState?.active ? "border-amber-300 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200" : "border-border bg-muted/40"}`}>
                 <span className="flex-1 min-w-[12rem]">
