@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import SiteAccessCard from '@/components/sites/SiteAccessCard';
 
 type Found = {
   id: string; asset_tag: string; riser_location: string | null; outlets_count: number | null; status: string;
@@ -141,6 +142,7 @@ export default function RiserScan() {
         )}
       </div>
       <div className="mt-6 flex flex-col gap-2">
+        {userRole==='engineer'&&asset.site_id&&<SiteAccessCard siteId={asset.site_id}/>}
         {asset.label_status !== "placed" && <Button size="lg" onClick={labelFitted} disabled={busy}>Label fitted</Button>}
         <Button size="lg" variant="outline" onClick={() => setWrongOpen(true)} disabled={busy}>Wrong riser</Button>
         <Button size="lg" variant="secondary" onClick={startService} disabled={busy}>Start service</Button>

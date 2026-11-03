@@ -1,4 +1,5 @@
 import OfficeEmailSettings from "@/components/settings/OfficeEmailSettings";
+import AccessPrintSettings from '@/components/settings/AccessPrintSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -380,6 +381,7 @@ export default function SettingsPage() {
               <FilenameFormatSettings />
               <WordExportSettings />
               <WatermarkSettings />
+              <AccessPrintSettings />
               <AiReportSummarySettings />
 
               <VehicleCheckSettings />

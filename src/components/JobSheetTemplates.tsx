@@ -1,4 +1,6 @@
 import ReportSitePhotos from "@/components/jobs/ReportSitePhotos";
+import SiteAccessCard from '@/components/sites/SiteAccessCard';
+import SaveAccessNote from '@/components/sites/SaveAccessNote';
 import RiserLocationPicker from "@/components/assets/RiserLocationPicker";
 import SiteRiserStickerList from "@/components/assets/SiteRiserStickerList";
 import { QRCodeSVG } from 'qrcode.react';
@@ -2459,6 +2461,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                               </span>
                             )}
                           </Label>
+                          <SaveAccessNote siteId={jobSiteId} label={field.label} value={formData[field.id]}/>
                         </div>
                         <div className="px-2 py-1.5 flex items-center">
                           {field.id === "riser_location" && field.type === "text" && isDryRiserTemplate(activeTemplate) ? (

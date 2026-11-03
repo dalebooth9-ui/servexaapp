@@ -18,6 +18,7 @@ import { CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { isResponseStarted } from "@/lib/reportFieldRules";
+import SiteAccessCard from '@/components/sites/SiteAccessCard';
 
 type Variant = "sticky" | "inline" | "banner" | "dialog";
 
@@ -319,7 +320,7 @@ export default function JobCompleteAction({
     const unfinishedEngineerConfirmation = userRole === "engineer" && unfinishedDrafts.length > 0 && !hasMissing;
     return (
       <AlertDialog open={open} onOpenChange={setOpen}>
-        <AlertDialogContent className="max-w-md">
+        <AlertDialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>
               {unfinishedEngineerConfirmation
@@ -396,6 +397,7 @@ export default function JobCompleteAction({
               </div>
             </AlertDialogDescription>}
           </AlertDialogHeader>
+          {isAssignedEngineer&&<SiteAccessCard jobId={jobId} fieldUpdate title="Access info changed?"/>}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={submitting}>{unfinishedEngineerConfirmation ? "Go back" : "Not yet"}</AlertDialogCancel>
             <AlertDialogAction

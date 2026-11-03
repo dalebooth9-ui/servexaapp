@@ -10,6 +10,7 @@ import { drainSubmitQueue, getReportCompletionSummary, isQueued, markUntouchedRe
 import { useAuth } from "@/hooks/useAuth";
 import SignatureCapture from "@/components/SignatureCapture";
 import { PenLine } from "lucide-react";
+import SiteAccessCard from '@/components/sites/SiteAccessCard';
 
 type Props = { jobId: string; jobStatus?: string; canAct: boolean; onStatusChanged?: (s: string) => void };
 
@@ -109,6 +110,7 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
 
   return (
     <section id="submit-to-office" className="rounded-2xl border bg-card p-4 md:p-5 shadow-sm space-y-3">
+      {canAct&&!showSent&&state!=='queued'&&<SiteAccessCard jobId={jobId} fieldUpdate title="Access info changed?"/>}
       {returned && !showSent && (
         <div className="flex gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
           <Undo2 className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
