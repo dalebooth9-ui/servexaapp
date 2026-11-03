@@ -1,0 +1,21 @@
+import {describe,it,expect} from 'vitest';
+import {visitCycle,suggestVisitType,reminderVisible,snoozeUntil,withinLeadTime,visitPrefill} from '@/lib/riserVisits';
+const pressure={last_inspection_at:'2026-01-01',last_inspection_type:'pressure_test'};
+describe('dry riser visits',()=>{
+ it('visual is due six months after pressure',()=>expect(visitCycle(pressure).due).toBe('2026-07-01'));
+ it('pressure is due twelve months after pressure after a visual visit',()=>{const c=visitCycle({last_inspection_at:'2026-07-01',last_inspection_type:'visual'},[{inspection_date:'2026-01-01',inspection_type:'pressure_test'}]);expect(c.due).toBe('2027-01-01');expect(c.type).toBe('pressure');});
+ it('a late visual never postpones the annual pressure deadline',()=>expect(visitCycle({last_inspection_at:'2026-10-01',last_inspection_type:'visual'},[{inspection_date:'2026-01-01',inspection_type:'pressure_test'}]).due).toBe('2027-01-01'));
+ it('suggests visual under six months after pressure',()=>expect(suggestVisitType(pressure,[],new Date('2026-05-31'))).toBe('visual'));
+ it('suggests pressure over eleven months after pressure',()=>expect(suggestVisitType(pressure,[],new Date('2026-12-02'))).toBe('pressure'));
+ it('does not fabricate missing history',()=>expect(visitCycle({}).due).toBeNull());
+ it('remedial visits do not reset inspections',()=>expect(visitCycle({last_inspection_at:'2026-11-01',last_inspection_type:'remedial'},[{inspection_date:'2026-01-01',inspection_type:'pressure'}]).due).toBe('2026-07-01'));
+ it('uses calendar months at month end',()=>expect(visitCycle({last_inspection_at:'2026-08-31',last_inspection_type:'pressure'}).due).toBe('2027-02-28'));
+ it('handles leap year February',()=>expect(visitCycle({last_inspection_at:'2023-08-31',last_inspection_type:'pressure'}).due).toBe('2024-02-29'));
+ it('defaults reminder attention to six weeks',()=>{expect(withinLeadTime('2026-12-15',undefined,new Date('2026-11-03'))).toBe(true);expect(withinLeadTime('2026-12-16',undefined,new Date('2026-11-03'))).toBe(false);});
+ for(const days of [30,60,90] as const) it(`snoozes ${days} days`,()=>expect(snoozeUntil(days,new Date('2026-11-03'))).toBe(({30:'2026-12-03',60:'2027-01-02',90:'2027-02-01'})[days]));
+ it('lost reminder stays hidden for its cycle and restores',()=>{const cycle=visitCycle(pressure);expect(reminderVisible({due_visit_state:{cycle:cycle.key,status:'lost'}},{},cycle)).toBe(false);expect(reminderVisible({due_visit_state:{}},{},cycle)).toBe(true);});
+ it('new inspection does not inherit lost reminder',()=>expect(reminderVisible({due_visit_state:{cycle:'old',status:'lost'}},{},visitCycle(pressure))).toBe(true));
+ it('no longer serviced riser never reminds',()=>expect(reminderVisible({no_longer_serviced:true},{},visitCycle(pressure))).toBe(false));
+ it('no longer serviced site never reminds',()=>expect(reminderVisible({}, {no_longer_serviced:true},visitCycle(pressure))).toBe(false));
+ it('prefills outlets without results ticks readings or signatures',()=>{const fields=[{id:'number_of_outlets',label:'Number of outlets',type:'number'},{id:'test_pressure_bar',label:'Test pressure',type:'number'},{id:'signature',label:'Signature',type:'signature'},{id:'pass',label:'Pass',type:'checkbox'}];const p=visitPrefill(fields,{asset_id:'a',riser_location:'East',outlets_count:7});expect(p.number_of_outlets).toBe('7');expect(p).not.toHaveProperty('test_pressure_bar');expect(p).not.toHaveProperty('signature');expect(p).not.toHaveProperty('pass');});
+});
