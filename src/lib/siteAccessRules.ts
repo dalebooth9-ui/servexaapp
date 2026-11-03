@@ -7,3 +7,4 @@ export function accessPrintLines(details:AccessDetails,audience:'engineer'|'cust
  for(const [key,label] of Object.entries(ACCESS_FIELDS)){const value=details[key as keyof typeof ACCESS_FIELDS];if(value)lines.push(`${label}: ${key==='access_codes'&&!codes?'see site file':value}`);}return lines;
 }
 export function accessNoteField(label:string){return /^(cabinet\s*(?:keys?|key type)|access(?:\s*(?:info|notes?|details))?)\s*:?$/i.test(label.trim());}
+export function privateAccessField(label:string){return accessNoteField(label)||/^(?:access\s*codes?|entry\s*codes?|keysafe(?:\s*(?:code|location))?|key\s*location|inlet\s*(?:box\s*)?keys?)\s*:?$/i.test(label.trim());}

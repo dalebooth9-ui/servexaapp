@@ -3,7 +3,7 @@ import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { formatRemedialItemsText } from "@/lib/remedialItems";
 import {printPdfProfiles} from '@/lib/printPdfProfile';
 import {isPrintableFinancialField} from '@/lib/printBrandingRules';
-import {accessNoteField} from '@/lib/siteAccessRules';
+import {privateAccessField} from '@/lib/siteAccessRules';
 
 export interface AutoPopulateJobInfo {
   address?: string | null;
@@ -522,7 +522,7 @@ export function buildSkipIds(fields: PdfTemplateField[]): Set<string> {
 
   fields.forEach((f) => {
     if(isPrintableFinancialField(f)){skipIds.add(f.id);return;}
-    if(accessNoteField(f.label)){skipIds.add(f.id);return;}
+    if(privateAccessField(f.label)){skipIds.add(f.id);return;}
     const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
     const normalizedLabel = normalizePdfText(f.label);
 
