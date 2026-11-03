@@ -1483,6 +1483,7 @@ export default function Sites() {
                                              </Button>
                                            </DropdownMenuTrigger>
                                            <DropdownMenuContent align="end" className="w-48">
+                                             <DropdownMenuItem onClick={()=>setAccessSite(site)}>Access info</DropdownMenuItem>
                                              <DropdownMenuItem onClick={() => openEdit(site)}>
                                                <Pencil className="mr-2 h-3.5 w-3.5" /> Edit site
                                              </DropdownMenuItem>

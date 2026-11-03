@@ -1,6 +1,8 @@
 import ReportSitePhotos from "@/components/jobs/ReportSitePhotos";
 import SiteAccessCard from '@/components/sites/SiteAccessCard';
 import SaveAccessNote from '@/components/sites/SaveAccessNote';
+import {loadSiteAccess} from '@/lib/siteAccess';
+import {accessNoteField} from '@/lib/siteAccessRules';
 import RiserLocationPicker from "@/components/assets/RiserLocationPicker";
 import SiteRiserStickerList from "@/components/assets/SiteRiserStickerList";
 import { QRCodeSVG } from 'qrcode.react';
@@ -168,6 +170,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   const [jobAssetId, setJobAssetId] = useState<string | null>(null);
   const [activeResponse, setActiveResponse] = useState<Response | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
+  useEffect(()=>{if(!activeTemplate||!jobSiteId)return;let current=true;loadSiteAccess(jobSiteId).then(row=>{const details=row?.details as any;if(!current||!details)return;const keys=[details.cabinet_key_type,details.cabinet_key_held].filter(Boolean).join(' — ');if(!keys)return;setFormData(data=>{const next={...data};for(const field of activeTemplate.fields){if(accessNoteField(field.label)&&/cabinet/i.test(field.label)&&!next[field.id])next[field.id]=keys;}return next;});}).catch(()=>{});return()=>{current=false;};},[activeTemplate?.id,jobSiteId]);
   const [sitePhotos, setSitePhotos] = useState<{ file: File; preview: string; caption: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [viewingResponse, setViewingResponse] = useState<Response | null>(null);
