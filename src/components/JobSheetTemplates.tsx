@@ -117,6 +117,7 @@ type Response = {
 };
 
 type JobInfo = {
+  id?:string;site_id?:string;
   address: string | null;
   customer: string | null;
   customers?: { name: string; logo_url?: string | null } | null;
