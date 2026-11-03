@@ -2,6 +2,8 @@ import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { getGeneratingOrgFallbackLogoUrl } from "@/lib/generatingOrgBranding";
+import {resolveDocumentBrandingProfile} from "@/lib/documentBrandingProfile";
+import {renderBrandingOverlay} from "@/lib/pdfBranding";
 import { parseHexColor } from "@/lib/documentBrandingProfile";
 import { primaryJobReference, primaryJobReferenceLabel } from "@/lib/jobReference";
 import { resolveToSignedUrl } from "@/lib/durableStorageRef";
@@ -72,7 +74,7 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
   const [{ data: job }, { data: photos }, brand] = await Promise.all([
     supabase.from("jobs").select("id, customer_po, reference_number, site_id, sites(what3words)").eq("id", r.job_id).maybeSingle(),
     supabase.from("site_visit_report_photos").select("storage_ref, caption, display_order").eq("report_id", reportId).order("display_order"),
-    loadOrgBranding(r.org_id),
+    resolveDocumentBrandingProfile({jobId:r.job_id}).then(p=>({accent:p.accentColor,logo:p.logoUrl,name:p.companyName})),
   ]);
   // Customer sign-off on the visit's job sheet (only if actually signed).
   let sheetSig: any = null;
@@ -378,6 +380,7 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
 
   const safe = (s: string) => s.replace(/[^\w-]+/g, "_").replace(/_+/g, "_").slice(0, 60);
   const fileName = `${safe(ref || "Site_Visit_Report")}-${safe(r.title || "Site_Visit_Report")}-v${r.version || 1}.pdf`;
+  await renderBrandingOverlay(doc,{watermark:null,accredLogos:[],accredFooterY:H-10});
   return { blob: doc.output("blob"), fileName, report: r };
 }
 

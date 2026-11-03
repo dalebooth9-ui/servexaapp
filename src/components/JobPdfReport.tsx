@@ -618,7 +618,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
         "JOB REPORT",
         { logo_url: logoDataUrl || "" },
         {
-          customerName: "",
+          customerName: job.customers?.name || job.customer || "",
           siteName: "",
           siteAddress: "",
           refNumber: job.reference_number || "",

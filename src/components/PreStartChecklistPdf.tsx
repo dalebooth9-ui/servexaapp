@@ -80,7 +80,7 @@ export async function generatePreStartChecklistPdf(
     "", // title text unused — replaced by titleBands
     { logo_url: logoUrl },
     {
-      customerName: "",
+      customerName: contractName,
       siteName: "",
       siteAddress: "",
       refNumber: ref,
