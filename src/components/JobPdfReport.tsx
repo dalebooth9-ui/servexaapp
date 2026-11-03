@@ -11,6 +11,7 @@ import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/p
 import { PDF_DIMENSIONS, resolveAccredFooterY } from "@/lib/pdfDimensions";
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
+import {privateAccessField} from '@/lib/siteAccessRules';
 import { fetchOrientedImage } from "@/lib/exifOrient";
 import { collectEmbeddedPhotoPaths, loadJobPhotosForPdf, type JobPhotoForPdf } from "@/lib/jobPhotos";
 import ExportBundlePickerDialog, { type ExportBundleSelection } from "@/components/exports/ExportBundlePickerDialog";
@@ -818,7 +819,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
           checkPage(20);
           y = sectionTitle(doc, `Job Sheet: ${tpl.name}`, y, margin, maxWidth);
 
-          const fields = tpl.fields || [];
+          const fields = (tpl.fields || []).filter((field:any)=>!privateAccessField(field.label||''));
           const responses = resp.responses || {};
           // Identify repeating_table fields containing a photo_gallery column
           // (dwelling access log style) — these are rendered separately with

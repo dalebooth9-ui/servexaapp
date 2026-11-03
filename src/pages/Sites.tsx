@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import SiteDryRisers from "@/components/assets/SiteDryRisers";
+import SiteAccessCard from '@/components/sites/SiteAccessCard';
 import NewVisitDialog from '@/components/riser-visits/NewVisitDialog';
 import ServicingControl from '@/components/riser-visits/ServicingControl';
 import BulkImportSitesDialog from "@/components/BulkImportSitesDialog";
@@ -207,6 +208,7 @@ export default function Sites() {
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [accessSite,setAccessSite]=useState<Site|null>(null);
 
   const [editing, setEditing] = useState<Site | null>(null);
   const [form, setForm] = useState(emptySite);
@@ -1137,6 +1139,7 @@ export default function Sites() {
           </div>
           <Badge variant="secondary" className="text-[10px] capitalize shrink-0">{site.site_type}</Badge>
           {site.postcode && <span className="text-xs text-muted-foreground shrink-0">{site.postcode}</span>}
+          <Button variant="ghost" size="sm" onClick={e=>{e.stopPropagation();setAccessSite(site);}}>Access info</Button>
           {userRole === "admin" && (
             <div className="flex items-center gap-1 shrink-0 ml-2">
               <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:text-primary" onClick={(e) => { e.stopPropagation(); openCreateJob(site); }} title="Create job for this site">
@@ -1480,6 +1483,7 @@ export default function Sites() {
                                              </Button>
                                            </DropdownMenuTrigger>
                                            <DropdownMenuContent align="end" className="w-48">
+                                             <DropdownMenuItem onClick={()=>setAccessSite(site)}>Access info</DropdownMenuItem>
                                              <DropdownMenuItem onClick={() => openEdit(site)}>
                                                <Pencil className="mr-2 h-3.5 w-3.5" /> Edit site
                                              </DropdownMenuItem>
@@ -1746,6 +1750,7 @@ export default function Sites() {
           )}
         </TabsContent>
       </Tabs>
+      <Dialog open={!!accessSite} onOpenChange={open=>{if(!open)setAccessSite(null);}}><DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{accessSite?.name} — Access info</DialogTitle></DialogHeader>{accessSite&&<SiteAccessCard siteId={accessSite.id}/>}</DialogContent></Dialog>
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -1824,7 +1829,7 @@ export default function Sites() {
               <Input value={(form as any).riser_location} onChange={(e) => setForm((f) => ({ ...f, riser_location: e.target.value }))} placeholder="e.g. Floor 2, east stairwell" />
             </div>
           </div>
-          {editing?.id && <><div className="flex flex-wrap gap-4 items-center">{userRole === 'admin' && <><NewVisitDialog siteId={editing.id} siteName={editing.name}/><ServicingControl table="sites" id={editing.id}/></>}</div><SiteDryRisers siteId={editing.id} /></>}
+          {editing?.id && <><SiteAccessCard siteId={editing.id}/><div className="flex flex-wrap gap-4 items-center">{userRole === 'admin' && <><NewVisitDialog siteId={editing.id} siteName={editing.name}/><ServicingControl table="sites" id={editing.id}/></>}</div><SiteDryRisers siteId={editing.id} /></>}
           <div className="space-y-1.5">
             <label className="text-sm font-medium flex items-center gap-1.5">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="#e11f26"><path d="M11.994 0C5.367 0 0 5.367 0 11.994 0 18.622 5.367 24 11.994 24 18.622 24 24 18.622 24 11.994 24 5.367 18.622 0 11.994 0zm-2.6 17.4l-1.5-5.1-1.5 5.1H4.7L2.5 9.6h1.8l1.5 5.4 1.5-5.4h1.8l1.5 5.4 1.5-5.4h1.8l-2.2 7.8h-1.7zm7.8 0l-1.5-5.1-1.5 5.1h-1.7l-2.2-7.8h1.8l1.5 5.4 1.5-5.4h1.8l1.5 5.4 1.5-5.4h1.8l-2.2 7.8h-1.7z"/></svg>

@@ -1,4 +1,5 @@
 import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
+import {engineerAccessForPrint} from '@/lib/siteAccess';
 import { useState, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Eye, Loader2, Printer, PenLine, MoreHorizontal } from "lucide-react";
@@ -67,6 +68,8 @@ const blankCacheKey = (tpl: { id?: string; updated_at?: string; name?: string },
   `${tpl.id ?? tpl.name ?? "?"}::${tpl.updated_at ?? ""}::${handfill ? "hf" : "std"}`;
 
 type JobInfo = {
+  id?:string;site_id?:string;
+  engineerAccess?:import('@/lib/siteAccessPdf').EngineerAccessPrint|null;
   address: string | null;
   customer: string | null;
   customers?: { name: string; logo_url?: string | null } | null;
@@ -378,7 +381,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       console.time(label);
       const { blob: builtBlob, fileName, duration } = await runBlankTemplatePdfWorker({
         template: {...template,branding:{...template.branding,logo_url:profile.logoUrl}},
-        jobInfo:jobInfo?{...jobInfo,customer_po:null}:null,
+        jobInfo:jobInfo?{...jobInfo,customer_po:null,engineerAccess:await engineerAccessForPrint({siteId:jobInfo.site_id,jobId:jobInfo.id})}:null,
         printBranding:{enabled:profile.isCustomerBranded,logoUrl:profile.logoUrl,watermarkUrl:profile.watermarkUrl},
         handfill,
         watermarkOverride:{mode:"untinted",opacity:0.11},

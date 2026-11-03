@@ -9149,6 +9149,79 @@ export type Database = {
           },
         ]
       }
+      site_access_history: {
+        Row: {
+          changed_at: string
+          changed_by: string
+          changes: Json
+          confirmed: boolean
+          id: string
+          org_id: string
+          site_id: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by: string
+          changes: Json
+          confirmed?: boolean
+          id?: string
+          org_id?: string
+          site_id: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string
+          changes?: Json
+          confirmed?: boolean
+          id?: string
+          org_id?: string
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_access_history_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_access_info: {
+        Row: {
+          details: Json
+          last_confirmed_at: string | null
+          last_confirmed_by: string | null
+          org_id: string
+          site_id: string
+          updated_at: string
+        }
+        Insert: {
+          details?: Json
+          last_confirmed_at?: string | null
+          last_confirmed_by?: string | null
+          org_id?: string
+          site_id: string
+          updated_at?: string
+        }
+        Update: {
+          details?: Json
+          last_confirmed_at?: string | null
+          last_confirmed_by?: string | null
+          org_id?: string
+          site_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_access_info_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: true
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_merge_log: {
         Row: {
           batch_id: string
@@ -11259,6 +11332,23 @@ export type Database = {
       }
       riser_type_by_tag: { Args: { _tag: string }; Returns: string }
       riser_visit_customer: { Args: { _site_id: string }; Returns: string }
+      save_site_access_info: {
+        Args: { p_confirm?: boolean; p_details: Json; p_site_id: string }
+        Returns: {
+          details: Json
+          last_confirmed_at: string | null
+          last_confirmed_by: string | null
+          org_id: string
+          site_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "site_access_info"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       seed_org_hazard_modules: { Args: { _org_id: string }; Returns: undefined }
       seed_org_reference_data: {
         Args: { _new_org_id: string; _source_org_id?: string }
@@ -11286,6 +11376,10 @@ export type Database = {
           _signer_name: string
           _token: string
         }
+        Returns: boolean
+      }
+      site_access_staff_allowed: {
+        Args: { p_org_id: string; p_site_id: string }
         Returns: boolean
       }
       site_data_stats: {

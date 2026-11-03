@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, CheckCircle2, Eye } from "lucide-react";
 import EngineerJobHero from "@/components/engineer/EngineerJobHero";
 import SiteVisitReportExtra from "@/components/jobs/SiteVisitReportExtra";
+import SiteAccessCard from '@/components/sites/SiteAccessCard';
 
 const JobDocuments = lazy(() => import("@/components/JobDocuments"));
 const ScanDocumentButton = lazy(() => import("@/components/documents/ScanDocumentButton"));
@@ -254,6 +255,7 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
       </Suspense>
 
       {/* Site documents — RAMS PDFs, access notes, previous reports */}
+      {isAssignedEngineer&&<SiteAccessCard siteId={job?.site_id}/>}
       <section className="rounded-2xl border bg-card p-4 md:p-5 shadow-sm">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="text-base font-semibold">Site documents</h2>

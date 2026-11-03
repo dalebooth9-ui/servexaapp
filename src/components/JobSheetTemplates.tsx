@@ -1,4 +1,8 @@
 import ReportSitePhotos from "@/components/jobs/ReportSitePhotos";
+import SiteAccessCard from '@/components/sites/SiteAccessCard';
+import SaveAccessNote from '@/components/sites/SaveAccessNote';
+import {loadSiteAccess} from '@/lib/siteAccess';
+import {accessNoteField} from '@/lib/siteAccessRules';
 import RiserLocationPicker from "@/components/assets/RiserLocationPicker";
 import SiteRiserStickerList from "@/components/assets/SiteRiserStickerList";
 import { QRCodeSVG } from 'qrcode.react';
@@ -115,6 +119,7 @@ type Response = {
 };
 
 type JobInfo = {
+  id?:string;site_id?:string;
   address: string | null;
   customer: string | null;
   customers?: { name: string; logo_url?: string | null } | null;
@@ -165,6 +170,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   const [jobAssetId, setJobAssetId] = useState<string | null>(null);
   const [activeResponse, setActiveResponse] = useState<Response | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
+  useEffect(()=>{if(!activeTemplate||!jobSiteId)return;let current=true;loadSiteAccess(jobSiteId).then(row=>{const details=row?.details as any;if(!current||!details)return;const keys=[details.cabinet_key_type,details.cabinet_key_held].filter(Boolean).join(' — ');if(!keys)return;setFormData(data=>{const next={...data};for(const field of activeTemplate.fields){if(accessNoteField(field.label)&&/cabinet/i.test(field.label)&&!next[field.id])next[field.id]=keys;}return next;});}).catch(()=>{});return()=>{current=false;};},[activeTemplate?.id,jobSiteId]);
   const [sitePhotos, setSitePhotos] = useState<{ file: File; preview: string; caption: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [viewingResponse, setViewingResponse] = useState<Response | null>(null);
@@ -368,6 +374,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       }
 
       setJobInfo({
+        id:jd.id,site_id:jd.site_id,
         name: jd.name,
         address: jd.address,
         customer: jd.customers?.name || jd.customer,
@@ -2371,6 +2378,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
             </div>
           </DialogHeader>
           <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
+            <SiteAccessCard siteId={jobSiteId}/>
             {formData._riser_visit && <div className="px-4 py-3 border-b text-sm space-y-1"><div className="flex items-center justify-between gap-3"><p className="font-semibold">{formData._riser_visit.riser_name || formData._riser_visit.riser_location} · Riser ID {formData._riser_visit.asset_tag}</p>{formData._riser_visit.asset_tag && <QRCodeSVG value={stickerUrl(formData._riser_visit.asset_tag)} size={76} marginSize={4} className="shrink-0"/>}</div><p className="text-muted-foreground">Last inspection: {formData._riser_visit.last_inspection_at ? new Date(formData._riser_visit.last_inspection_at).toLocaleDateString('en-GB') : 'Not recorded'} · {formData._riser_visit.last_inspection_type || 'Type not recorded'} · Result: {formData._riser_visit.last_inspection_result || 'Not recorded'}</p>{formData._riser_visit.remedial_notes && <p className="whitespace-pre-wrap">Open remedial work from last visit: {formData._riser_visit.remedial_notes}</p>}</div>}
             {modePair && (
               <div className={`flex flex-wrap items-center gap-2 border-b px-4 py-2 text-xs ${switchState?.active ? "border-amber-300 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200" : "border-border bg-muted/40"}`}>
@@ -2459,6 +2467,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                               </span>
                             )}
                           </Label>
+                          <SaveAccessNote siteId={jobSiteId} label={field.label} value={formData[field.id]}/>
                         </div>
                         <div className="px-2 py-1.5 flex items-center">
                           {field.id === "riser_location" && field.type === "text" && isDryRiserTemplate(activeTemplate) ? (

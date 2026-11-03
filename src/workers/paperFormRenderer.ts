@@ -14,6 +14,7 @@
  * generic path in `blankTemplatePdf.worker.ts`.
  */
 import jsPDF from "jspdf";
+import {drawEngineerAccessBox} from '@/lib/siteAccessPdf';
 import type { PdfTemplateField } from "@/lib/pdfBody";
 import { drawQr, stickerUrl } from '@/lib/riserStickers';
 import { DRY_RISER_LAYOUT } from '@/lib/dryRiserLayout';
@@ -26,6 +27,7 @@ export type LoadedImage = {
 };
 
 export type PaperFormJobInfo = {
+  engineerAccess?:import('@/lib/siteAccessPdf').EngineerAccessPrint|null;
   customers?: { name: string } | null;
   customer?: string | null;
   reference_number?: string;
@@ -362,12 +364,14 @@ export function renderPaperFormPage(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.text("CABINET KEYS:", rightX + 2, keysY + 3.2);
+  if(jobInfo?.engineerAccess?.cabinetKeys){doc.setFont('helvetica','normal');doc.setFontSize(7);doc.text(doc.splitTextToSize(jobInfo.engineerAccess.cabinetKeys,rightW-4).slice(0,1),rightX+2,keysY+6);}
   // ruled writing line
   doc.setDrawColor(140);
   doc.setLineWidth(0.2);
   doc.line(rightX + 2, keysY + 6.2, margin + maxWidth - 2, keysY + 6.2);
 
   cursorY = detailsTop + leftBlockH + 1;
+  cursorY=drawEngineerAccessBox(doc,jobInfo?.engineerAccess,cursorY,margin,maxWidth);
   if (visit) {
     if (visit.asset_tag) {
       drawQr(doc, stickerUrl(visit.asset_tag), pageWidth - margin - 23, 10, 20);
@@ -480,6 +484,7 @@ export function renderPaperFormPage(
     return total;
   };
   let fit = { rowH: 4.6, secH: 5, font: fontCandidates[fontCandidates.length - 1] };
+  if(jobInfo?.engineerAccess?.lines.length&&measure(fit.rowH,fit.secH)>availH)throw new Error('Access info leaves too little room for the inspection sheet. Shorten the access notes before printing.');
   outer: for (const font of fontCandidates) {
     for (const rowH of rowCandidates) {
       for (const secH of secCandidates) {
