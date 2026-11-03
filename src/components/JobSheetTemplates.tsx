@@ -1,5 +1,6 @@
 import ReportSitePhotos from "@/components/jobs/ReportSitePhotos";
 import RiserLocationPicker from "@/components/assets/RiserLocationPicker";
+import SiteRiserStickerList from "@/components/assets/SiteRiserStickerList";
 
 function isDryRiserTemplate(t: any): boolean {
   if (!t) return false;
@@ -2621,6 +2622,11 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                 <p className="text-[10px] text-muted-foreground mt-1">{sitePhotos.length} photo(s) — will appear at the bottom of the PDF</p>
               )}
             </div>
+
+            {isDryRiserTemplate(activeTemplate) && jobSiteId && (
+              <SiteRiserStickerList siteId={jobSiteId} />
+            )}
+
 
             {/* Inline sign-off — engineer signs here so the flow is one continuous
                 sequence (answer → sign → submit) without hunting for a separate tab.
