@@ -36,7 +36,7 @@ export default function SiteDryRisers({ siteId, showRisers = true, showSiteHisto
       {showRisers && risers.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Dry risers</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Risers</p>
             <label className="flex items-center gap-1 text-xs text-muted-foreground">
               <input type="checkbox" checked={notPlaced} onChange={(e) => setNotPlaced(e.target.checked)} /> Printed but not placed
             </label>
@@ -45,7 +45,7 @@ export default function SiteDryRisers({ siteId, showRisers = true, showSiteHisto
             {risers.filter((r) => !notPlaced || r.label_status === "printed").map((r) => (
               <li key={r.id}>
                 <Link to={`/assets/${r.id}`} className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-muted/50">
-                  <span className="font-medium">{r.riser_location || "No location"}</span>
+                  <span className="font-medium">{r.riser_location || "No location"}{riserTypeOf(r as any) === "Wet Riser" ? <span className="ml-1 text-xs text-muted-foreground">(wet)</span> : null}</span>
                   <span className="text-xs text-muted-foreground">{r.outlets_count ?? "—"} outlets · {r.last_inspection_result || "no result"} · Sticker: {r.label_status || "none"}</span>
                 </Link>
               </li>

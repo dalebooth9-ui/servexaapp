@@ -86,7 +86,7 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl }:
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Riser sticker pack</DialogTitle>
-          <DialogDescription>Avery L4778 sheets (45.7 × 21.2 mm, 48 per A4). One sticker per dry riser at {siteName || "this site"}.</DialogDescription>
+          <DialogDescription>Avery L4778 sheets (45.7 × 21.2 mm, 48 per A4). One sticker per dry and wet riser at {siteName || "this site"}.</DialogDescription>
         </DialogHeader>
 
         {risers === null ? <p className="text-sm text-muted-foreground">Loading…</p> : risers.length === 0 ? (
