@@ -586,6 +586,10 @@ export type Database = {
           import_batch_id: string | null
           imported_at: string | null
           install_date: string | null
+          label_placed_at: string | null
+          label_placed_by: string | null
+          label_printed_at: string | null
+          label_status: string
           last_inspection_at: string | null
           last_inspection_result: string | null
           last_inspection_type: string | null
@@ -615,6 +619,10 @@ export type Database = {
           import_batch_id?: string | null
           imported_at?: string | null
           install_date?: string | null
+          label_placed_at?: string | null
+          label_placed_by?: string | null
+          label_printed_at?: string | null
+          label_status?: string
           last_inspection_at?: string | null
           last_inspection_result?: string | null
           last_inspection_type?: string | null
@@ -644,6 +652,10 @@ export type Database = {
           import_batch_id?: string | null
           imported_at?: string | null
           install_date?: string | null
+          label_placed_at?: string | null
+          label_placed_by?: string | null
+          label_printed_at?: string | null
+          label_status?: string
           last_inspection_at?: string | null
           last_inspection_result?: string | null
           last_inspection_type?: string | null
@@ -10750,6 +10762,10 @@ export type Database = {
     }
     Functions: {
       _extract_int_from_jsonb: { Args: { v: Json }; Returns: number }
+      add_site_risers: {
+        Args: { _locations: string[]; _site_id: string }
+        Returns: string[]
+      }
       admin_create_customer_portal_token: {
         Args: { _customer_email: string; _customer_id: string }
         Returns: string
@@ -11027,6 +11043,34 @@ export type Database = {
       is_org_active: { Args: { _org_id: string }; Returns: boolean }
       is_org_admin: { Args: { _org_id: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
+      lookup_asset_by_tag: {
+        Args: { _tag: string }
+        Returns: {
+          asset_tag: string
+          customer_id: string
+          customer_name: string
+          id: string
+          label_status: string
+          last_inspection_at: string
+          last_inspection_result: string
+          last_inspection_type: string
+          open_defects: number
+          outlets_count: number
+          riser_location: string
+          site_address: string
+          site_id: string
+          site_name: string
+          status: string
+        }[]
+      }
+      mark_asset_label_placed: {
+        Args: { _asset_id: string }
+        Returns: undefined
+      }
+      mark_assets_label_printed: {
+        Args: { _asset_ids: string[] }
+        Returns: undefined
+      }
       mark_job_message_read: {
         Args: { _message_id: string }
         Returns: undefined
@@ -11110,6 +11154,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      report_wrong_riser: {
+        Args: { _asset_id: string; _note: string }
+        Returns: undefined
       }
       resolve_org_by_intake_email: {
         Args: { _email: string }
