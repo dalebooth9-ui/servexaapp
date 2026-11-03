@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { formatRemedialItemsText } from "@/lib/remedialItems";
 import {printPdfProfiles} from '@/lib/printPdfProfile';
+import {isPrintableFinancialField} from '@/lib/printBrandingRules';
 
 export interface AutoPopulateJobInfo {
   address?: string | null;
@@ -85,6 +86,7 @@ export function getAutoPopulatedValues(
   const dateVal = new Date().toLocaleDateString("en-GB");
 
   fields.forEach((f) => {
+    if(isPrintableFinancialField(f)){skipIds.add(f.id);return;}
     const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
 
     if ((label.includes("site") && label.includes("detail")) || (label.includes("site") && label.includes("info"))) {

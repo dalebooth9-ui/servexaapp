@@ -488,6 +488,7 @@ async function buildPdf(payload: WorkerPayload) {
 
   if(resolvedHeaderLogo&&!logoImage)throw new Error("Header logo could not be loaded. Please retry before printing.");
   const doc = new jsPDF({compress:true});
+  const logoPages=new Set<number>();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const marginX = isDryRiser ? DRY_RISER_LAYOUT.page.marginLeftMm : 10;
@@ -560,6 +561,7 @@ async function buildPdf(payload: WorkerPayload) {
 
   for (let sysIdx = 0; sysIdx < systemQty; sysIdx++) {
     if (sysIdx > 0) doc.addPage();
+    logoPages.add(doc.getCurrentPageInfo().pageNumber);
     const { title: sheetTitle, subtitle: sheetSubtitle } = resolveTemplateDisplayTitle(cleanTemplateName, {
       brandingSubtitle: template.branding?.company_subtitle ?? null,
     });
@@ -787,6 +789,7 @@ async function buildPdf(payload: WorkerPayload) {
 
   if(payload.printBranding?.enabled){for(let p=1;p<=doc.getNumberOfPages();p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(80);doc.text("Serviced by Viva Fire Protection Ltd",pageWidth/2,pageHeight-4,{align:"center"});}}
   const wm = resolveWatermark(payload.watermarkSettings, payload.watermarkOverride);
+  for(let p=1;p<=doc.getNumberOfPages();p++){if(logoPages.has(p)||!logoImage)continue;doc.setPage(p);const w=Math.min(40,10*logoImage.width/logoImage.height);const h=w*logoImage.height/logoImage.width;doc.addImage(logoImage.dataUrl,logoImage.format,pageWidth-w-margin,2,w,h);}
   addWatermark(doc, watermark, accentColor, wm.mode, wm.opacity);
   addAccreditationLogos(doc, accreditationLogos.filter(Boolean) as LoadedImage[], footerYForLogos, LOGO_H, wm.accreditationOpacity);
 
