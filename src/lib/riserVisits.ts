@@ -47,5 +47,6 @@ export function visitPrefill(fields: any[], context: any) {
     else if (f.id === 'date') answers[f.id] = context.planned_date;
     else if (f.id === 'po_number') answers[f.id] = context.job_reference;
   }
+  answers._visit_prefill = Object.fromEntries(Object.entries(answers).filter(([key])=>!key.startsWith('_')));
   return answers;
 }

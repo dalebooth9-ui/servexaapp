@@ -334,7 +334,11 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
 
     setTemplates(filteredTpls);
     setAllTemplates(mergedAllTpls);
-    setResponses((respRes.data || []) as Response[]);
+    const reportRows = [...(respRes.data || [])];
+    if (reportRows.length && reportRows.every((r:any)=>r.responses?._riser_visit)) {
+      reportRows.sort((a:any,b:any)=>a.responses._riser_visit.order-b.responses._riser_visit.order);
+    }
+    setResponses(reportRows as Response[]);
 
     // Profile + assignment lookups in parallel
     const respUserIds = Array.from(
