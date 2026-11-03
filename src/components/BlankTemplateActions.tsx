@@ -58,7 +58,7 @@ export default function BlankTemplateActions({ template, jobInfo = null }: Props
     try {
       const [pdfBlob, wordDoc] = await Promise.all([
         pdfRef.current?.getBlob() ?? Promise.resolve(null),
-        buildBlankTemplateDoc({...template,customerName:jobInfo?.customers?.name||jobInfo?.customer}),
+        buildBlankTemplateDoc({...template,customerName:jobInfo?.customers?.name||jobInfo?.customer,accessJobId:jobInfo?.id,accessSiteId:jobInfo?.site_id}),
       ]);
       const docxBlob = await Packer.toBlob(wordDoc);
       if (pdfBlob) downloadBlob(pdfBlob, `${slug}-blank.pdf`);
@@ -170,7 +170,7 @@ export default function BlankTemplateActions({ template, jobInfo = null }: Props
 
       {/* Headless renderers — provide the actual generation logic via refs */}
       <BlankTemplatePdfExport ref={pdfRef} template={template} jobInfo={jobInfo} headless />
-      <BlankTemplateWordExport ref={wordRef} template={{...template,customerName:jobInfo?.customers?.name||jobInfo?.customer}} headless />
+      <BlankTemplateWordExport ref={wordRef} template={{...template,customerName:jobInfo?.customers?.name||jobInfo?.customer,accessJobId:jobInfo?.id,accessSiteId:jobInfo?.site_id}} headless />
     </div>
   );
 }

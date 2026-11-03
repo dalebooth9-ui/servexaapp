@@ -14,6 +14,7 @@
  * generic path in `blankTemplatePdf.worker.ts`.
  */
 import jsPDF from "jspdf";
+import {drawEngineerAccessBox} from '@/lib/siteAccessPdf';
 import type { PdfTemplateField } from "@/lib/pdfBody";
 import { drawQr, stickerUrl } from '@/lib/riserStickers';
 import { DRY_RISER_LAYOUT } from '@/lib/dryRiserLayout';

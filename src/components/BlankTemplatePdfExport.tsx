@@ -69,6 +69,7 @@ const blankCacheKey = (tpl: { id?: string; updated_at?: string; name?: string },
 
 type JobInfo = {
   id?:string;site_id?:string;
+  engineerAccess?:import('@/lib/siteAccessPdf').EngineerAccessPrint|null;
   address: string | null;
   customer: string | null;
   customers?: { name: string; logo_url?: string | null } | null;

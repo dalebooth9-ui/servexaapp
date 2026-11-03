@@ -22,6 +22,7 @@ import {
   type ISectionOptions,
 } from "docx";
 import QRCode from 'qrcode';
+import {engineerAccessForPrint} from '@/lib/siteAccess';
 import { stickerUrl } from '@/lib/riserStickers';
 import { getDefaultFooterText } from "@/lib/pdfFooter";
 import {
@@ -72,6 +73,7 @@ export type WordTemplateLayoutInput = {
 };
 
 export type WordTemplateInput = {
+  accessJobId?:string;accessSiteId?:string;
   name: string;
   description?: string;
   standard?: string;
@@ -740,6 +742,8 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
   // footer declaration.
 
   // Blank documents must NOT pre-tick the "Scope of Work" option — the engineer
+  const access=await engineerAccessForPrint({jobId:template.accessJobId||template.riserVisit?.job_id,siteId:template.accessSiteId});
+  if(access?.lines.length){children.push(new Table({width:{size:TBL,type:WidthType.DXA},rows:[new TableRow({children:[new TableCell({borders:cellBorders,children:[new Paragraph({children:[new TextRun({text:'ACCESS INFO',bold:true,size:16})]}),...access.lines.map(text=>new Paragraph({spacing:{after:0},children:[new TextRun({text,size:14})]}))]})]})]}));}
   // selects it on site. The PDF renders this row as plain unticked checkboxes
   // and the Word output does the same via renderFieldRow().
   if (template.riserVisit) {
