@@ -121,11 +121,19 @@ const PageFallback = () => (
   </div>
 );
 
+/** Send signed-out users to login, remembering where they were going. */
+function LoginRedirect() {
+  const loc = window.location;
+  const target = loc.pathname + loc.search;
+  const next = target && target !== "/" ? `?next=${encodeURIComponent(target)}` : "";
+  return <Navigate to={`/auth${next}`} replace />;
+}
+
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   useOfflineSync();
   if (loading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!user) return <LoginRedirect />;
   return <AppLayout><Suspense fallback={<PageFallback />}>{children}</Suspense></AppLayout>;
 }
 
@@ -133,7 +141,7 @@ function AdminRoute({ children }: { children: ReactNode }) {
   const { user, userRole, loading } = useAuth();
   useOfflineSync();
   if (loading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!user) return <LoginRedirect />;
   if (userRole !== "admin") return <Navigate to="/" replace />;
   return <AppLayout><Suspense fallback={<PageFallback />}>{children}</Suspense></AppLayout>;
 }
@@ -150,7 +158,7 @@ function AccessRoute({ children, pageSlug }: { children: ReactNode; pageSlug: st
     }
   }, [denied]);
   if (loading || accessLoading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!user) return <LoginRedirect />;
   if (userRole === "admin" || hasAccess(pageSlug)) {
     return <AppLayout><Suspense fallback={<PageFallback />}>{children}</Suspense></AppLayout>;
   }
@@ -179,6 +187,8 @@ function RootRoute() {
   return <Suspense fallback={<PageFallback />}><LandingPage /></Suspense>;
 }
 
+const RiserScan = lazy(() => import("./pages/RiserScan"));
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -189,6 +199,7 @@ const App = () => (
           <AuthProvider>
             <Routes>
               <Route path="/auth" element={<AuthRoute />} />
+              <Route path="/r/:tag" element={<Suspense fallback={<PageFallback />}><RiserScan /></Suspense>} />
               <Route path="/login" element={<AuthRoute />} />
               <Route path="/signup" element={<Suspense fallback={<PageFallback />}><SignupPage /></Suspense>} />
               <Route path="/.lovable/oauth/consent" element={<Suspense fallback={<PageFallback />}><OAuthConsent /></Suspense>} />
