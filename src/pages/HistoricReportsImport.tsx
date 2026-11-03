@@ -153,10 +153,10 @@ export default function HistoricReportsImport() {
   useEffect(() => {
     (async () => {
       const byName = (a: any, b: any) => (a.name || "").localeCompare(b.name || "");
-      const [c, s, { data: cs }, { data: t }] = await Promise.all([
+      const [c, s, cs, { data: t }] = await Promise.all([
         fetchAllRows<any>("customers", "id, name", "id").then((r) => r.sort(byName)),
         fetchAllRows<any>("sites", "id, name, address, postcode", "id").then((r) => r.sort(byName)),
-        supabase.from("customer_sites").select("customer_id, site_id"),
+        fetchAllRows<any>("customer_sites", "id, customer_id, site_id", "id"),
         supabase
           .from("job_sheet_templates")
           .select("id, name, job_category")
