@@ -290,8 +290,6 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         doc.setFont("helvetica", "bold");
         doc.text("Item", margin + 2, y);
         doc.text("Qty", margin + 100, y);
-        doc.text("Unit Cost", margin + 115, y);
-        doc.text("Total", margin + 145, y);
         y += 6;
         doc.setFontSize(11);
         doc.setFont("helvetica", "normal");
@@ -302,13 +300,8 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
           y = checkPage(rowH, y);
           nameLines.forEach((ln, i) => doc.text(ln, margin + 2, y + i * 5));
           doc.text(String(p.quantity), margin + 100, y);
-          doc.text(`£${Number(p.unit_cost).toFixed(2)}`, margin + 115, y);
-          doc.text(`£${Number(p.total_cost).toFixed(2)}`, margin + 145, y);
           y += rowH;
         });
-        const totalParts = parts.reduce((s: number, p: any) => s + Number(p.total_cost || 0), 0);
-        doc.setFont("helvetica", "bold");
-        doc.text(`Total: £${totalParts.toFixed(2)}`, margin + 145, y, { align: "left" });
         y += 8;
       }
 

@@ -177,7 +177,7 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
   y = await renderPdfHeader(
     doc, "Site Visit Report",
     { company_name: brand.name, logo_url: brand.logo },
-    { customerName: "", siteName: "", siteAddress: "", refNumber: "", dateVal: "", riserLocation: "" },
+    { customerName: brand.name || "", siteName: "", siteAddress: "", refNumber: "", dateVal: "", riserLocation: "" },
     null, brand.accent,
     { marginX: M, style: { title: { uppercase: false, fontSize: 18 }, subtitleLine: { text: r.title || "", fontSize: 12, fontStyle: "bold", color: ink }, detailGrid: false } },
   );

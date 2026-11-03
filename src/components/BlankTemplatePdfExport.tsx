@@ -104,6 +104,7 @@ interface Props {
 }
 
 type BlankTemplatePdfWorkerPayload = {
+  printBranding?:{enabled:boolean;logoUrl:string;watermarkUrl:string|null};
   template: Template;
   jobInfo?: JobInfo | null;
   handfill: boolean;

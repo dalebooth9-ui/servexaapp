@@ -473,10 +473,7 @@ export async function generateJobSheetPdf(
   const customerPoRaw = (jobInfo as any)?.customer_po ? String((jobInfo as any).customer_po).trim() : "";
   const internalRefRaw = jobInfo?.reference_number ? String(jobInfo.reference_number).trim() : "";
   const formOverrideRef = findFormVal("po number", "reference", "ref no", "job ref", "order number");
-  const refNumber = formOverrideRef
-    || (customerPoRaw && internalRefRaw && customerPoRaw !== internalRefRaw
-      ? `PO: ${customerPoRaw}  /  Our ref: ${internalRefRaw}`
-      : customerPoRaw || internalRefRaw);
+  const refNumber = internalRefRaw || formOverrideRef;
   const dateVal = resolvedFormData["date"] || resolvedFormData["inspection_date"] || findFormVal("date", "inspection date", "service date", "visit date") || new Date().toLocaleDateString("en-GB");
   const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
   const riserLocValue = riserField && hasValue(resolvedFormData[riserField.id])
@@ -1397,7 +1394,7 @@ export async function generateJobSheetPdf(
   });
 
   const safeSite = siteDisplay.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
-  const filenameRef = (jobInfo as any)?.customer_po || jobInfo?.reference_number || "job-sheet";
+  const filenameRef = jobInfo?.reference_number || "job-sheet";
   const fileName = [filenameRef, safeSite || null, reportName.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
   // Only the main sheet counts towards the single-page check; photo pages are expected extras.
   warnIfUnexpectedPdfPageSpill({ getNumberOfPages: () => mainSheetPages } as unknown as jsPDF, template.name, fileName, {
