@@ -208,6 +208,7 @@ export default function Sites() {
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [accessSite,setAccessSite]=useState<Site|null>(null);
 
   const [editing, setEditing] = useState<Site | null>(null);
   const [form, setForm] = useState(emptySite);
@@ -1138,6 +1139,7 @@ export default function Sites() {
           </div>
           <Badge variant="secondary" className="text-[10px] capitalize shrink-0">{site.site_type}</Badge>
           {site.postcode && <span className="text-xs text-muted-foreground shrink-0">{site.postcode}</span>}
+          <Button variant="ghost" size="sm" onClick={e=>{e.stopPropagation();setAccessSite(site);}}>Access info</Button>
           {userRole === "admin" && (
             <div className="flex items-center gap-1 shrink-0 ml-2">
               <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:text-primary" onClick={(e) => { e.stopPropagation(); openCreateJob(site); }} title="Create job for this site">
@@ -1747,6 +1749,7 @@ export default function Sites() {
           )}
         </TabsContent>
       </Tabs>
+      <Dialog open={!!accessSite} onOpenChange={open=>{if(!open)setAccessSite(null);}}><DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{accessSite?.name} — Access info</DialogTitle></DialogHeader>{accessSite&&<SiteAccessCard siteId={accessSite.id}/>}</DialogContent></Dialog>
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

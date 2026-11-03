@@ -370,6 +370,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       }
 
       setJobInfo({
+        id:jd.id,site_id:jd.site_id,
         name: jd.name,
         address: jd.address,
         customer: jd.customers?.name || jd.customer,
