@@ -34,7 +34,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import SiteDocumentDropZone from "@/components/SiteDocumentDropZone";
 import SiteFireLog from "@/components/SiteFireLog";
-import { Flame } from "lucide-react";
+import { Flame, Combine } from "lucide-react";
+import MergeDuplicateSitesDialog from "@/components/sites/MergeDuplicateSitesDialog";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { format } from "date-fns";
 import { fuzzyMatch, fuzzyFilter } from "@/lib/fuzzyMatch";
@@ -208,6 +209,7 @@ export default function Sites() {
   const [editing, setEditing] = useState<Site | null>(null);
   const [form, setForm] = useState(emptySite);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [customerFolders, setCustomerFolders] = useState<CustomerFolder[]>([]);
@@ -1167,6 +1169,7 @@ export default function Sites() {
             )}
             <Button variant="outline" onClick={() => setFolderImportOpen(true)}><FolderOpen className="mr-2 h-4 w-4" /> Import from Folders</Button>
             <Button variant="outline" onClick={() => setBulkOpen(true)}><FileSpreadsheet className="mr-2 h-4 w-4" /> Bulk Import</Button>
+            <Button variant="outline" onClick={() => setMergeOpen(true)}><Combine className="mr-2 h-4 w-4" /> Merge duplicate sites</Button>
             <Button onClick={() => openCreate(null, "region")} data-setup="add-site"><Plus className="mr-2 h-4 w-4" /> Add Region</Button>
           </div>
         )}
@@ -1993,6 +1996,7 @@ export default function Sites() {
       </Dialog>
 
       <BulkImportSitesDialog open={bulkOpen} onOpenChange={setBulkOpen} onImported={fetchSites} />
+      {userRole === "admin" && <MergeDuplicateSitesDialog open={mergeOpen} onOpenChange={setMergeOpen} onChanged={fetchSites} />}
 
       <FolderSiteImportDialog
         open={folderImportOpen}
