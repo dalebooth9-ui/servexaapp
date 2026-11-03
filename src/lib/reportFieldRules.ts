@@ -22,8 +22,14 @@ export function isEmptyValue(v: unknown): boolean {
 /** A response counts as "started" once any non-internal answer is entered. */
 export function isResponseStarted(responses: Record<string, any> | null | undefined, fields: any[]): boolean {
   const data = responses || {};
+  const visitPrefill = data._riser_visit ? data._visit_prefill || {
+    riser_location: data._riser_visit.riser_location, customer_details: data._riser_visit.customer,
+    site_details: [data._riser_visit.site_name,data._riser_visit.address].filter(Boolean).join('\n'),
+    date: data._riser_visit.planned_date, po_number: data._riser_visit.job_reference,
+    number_of_outlets: String(data._riser_visit.outlets_count ?? ''),
+  } : {};
   const inputIds = new Set(fields.filter((f) => !NON_INPUT.has(String(f?.type || ""))).map((f) => f.id));
-  return Object.entries(data).some(([k, v]) => !k.startsWith("_") && inputIds.has(k) && !isEmptyValue(v));
+  return Object.entries(data).some(([k, v]) => !k.startsWith("_") && inputIds.has(k) && !isEmptyValue(v) && !(k in visitPrefill && String(visitPrefill[k]) === String(v)));
 }
 
 export const SKIP_REASONS = [
