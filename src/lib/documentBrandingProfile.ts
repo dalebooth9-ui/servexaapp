@@ -1,178 +1,31 @@
-/**
- * Single-source-of-truth branding resolver for PDF documents.
- *
- * One profile per document — the header logo, watermark tint, accreditation
- * strip, and footer must all come from the same source. Priority:
- *
- *   1. Template-level branding override (`template.branding.logo_url`)
- *      — set when a template is explicitly customer-branded.
- *   2. Customer record logo (`customer.logo_url`)
- *      — set when the job's customer has uploaded a logo.
- *   3. Default Viva Fire logo.
- *
- * The watermark accent colour prefers the customer's saved `brand_colour`
- * (hex) so we can tint the STANDARD flame graphic per-customer without
- * shipping bespoke watermark images. If no brand_colour is set but the
- * customer is otherwise branded, we fall back to a neutral grey; if the
- * customer isn't branded at all we extract from the org logo as before.
- */
-
-import { getBrandColorFromLogo, extractDominantColor, rgbToHex, type RgbTriple } from "@/lib/extractLogoColors";
-import { getGeneratingOrgFallbackLogoUrl, getGeneratingOrgBranding } from "@/lib/generatingOrgBranding";
-
-export type DocumentBrandingProfile = {
-  /** Logo shown in the PDF header — same source as the accent colour. */
-  logoUrl: string;
-  /** Loaded image element for the resolved logo (null if load failed). */
-  logoImage: HTMLImageElement | null;
-  /** Accent RGB used to tint the watermark. Either the customer's saved
-   *  `brand_colour`, extracted from `logoImage`, or a neutral grey. */
-  accentColor: RgbTriple;
-  /** True when a customer branding profile is in effect (customer had a
-   *  logo_url or brand_colour). Turns off the org's accreditation strip. */
-  isCustomerBranded: boolean;
-  /** Header company name to display (may be undefined for default). */
-  companyName?: string;
-  /** Header subtitle (usually a standard reference). */
-  companySubtitle?: string;
-  /** Footer text override, if branding supplied one. */
-  footerText?: string;
-};
-
-export type BrandingInput = {
-  template?: {
-    branding?: {
-      company_name?: string;
-      company_subtitle?: string;
-      logo_url?: string;
-      footer_text?: string;
-    } | null;
-  } | null;
-  customer?: {
-    name?: string | null;
-    logo_url?: string | null;
-    brand_colour?: string | null;
-  } | null;
-};
-
-/** Neutral grey used when a customer is branded but has no brand_colour. */
-const NEUTRAL_GREY: RgbTriple = [140, 140, 140];
-
-/** Parse `#rrggbb` (or `#rgb`) to an RgbTriple, or null if unparseable. */
-export function parseHexColor(hex?: string | null): RgbTriple | null {
-  if (!hex) return null;
-  let h = hex.trim().replace(/^#/, "");
-  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
-  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
-  return [
-    parseInt(h.slice(0, 2), 16),
-    parseInt(h.slice(2, 4), 16),
-    parseInt(h.slice(4, 6), 16),
-  ];
+import type {RgbTriple} from '@/lib/extractLogoColors';
+import {getGeneratingOrgFallbackLogoUrl,getGeneratingOrgBranding,getGeneratingOrgWatermarkUrl} from '@/lib/generatingOrgBranding';
+import {resolveToSignedUrl} from '@/lib/durableStorageRef';
+import {printBrandingChoice,type PrintCustomer} from './printBrandingRules';
+export type DocumentBrandingProfile={logoUrl:string;logoImage:HTMLImageElement|null;accentColor:RgbTriple;isCustomerBranded:boolean;companyName?:string;companySubtitle?:string;footerText?:string;watermarkUrl:string|null};
+export type BrandingInput={template?:{branding?:{company_name?:string;company_subtitle?:string;logo_url?:string;footer_text?:string}|null}|null;customer?:PrintCustomer|null;jobId?:string|null;siteId?:string|null};
+export function parseHexColor(hex?:string|null):RgbTriple|null{if(!hex)return null;let h=hex.trim().replace(/^#/,'');if(h.length===3)h=h.split('').map(c=>c+c).join('');return /^[a-f0-9]{6}$/i.test(h)?[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]:null;}
+async function image(url:string){if(!url)return null;const img=new Image();img.crossOrigin='anonymous';try{await new Promise<void>((ok,no)=>{img.onload=()=>ok();img.onerror=()=>no();img.src=url;});return img;}catch{return null;}}
+export async function resolvePrintCustomer(input:BrandingInput):Promise<PrintCustomer|null>{
+ const {supabase}=await import('@/integrations/supabase/client');let id=input.customer?.id;let siteId=input.siteId;
+ if(input.jobId){const {data,error}=await supabase.from('jobs').select('customer_id,site_id').eq('id',input.jobId).maybeSingle();if(error)throw error;id=data?.customer_id||id;siteId=data?.site_id||siteId;}
+ if(!id&&siteId){const seen=new Set<string>();while(siteId&&!seen.has(siteId)){seen.add(siteId);const {data,error}=await supabase.from('customer_sites').select('customer_id').eq('site_id',siteId).order('id').limit(1);if(error)throw error;if(data?.[0]){id=data[0].customer_id;break;}const parent=await supabase.from('sites').select('parent_id').eq('id',siteId).maybeSingle();if(parent.error)throw parent.error;siteId=parent.data?.parent_id;}}
+ if(id){const {data,error}=await supabase.from('customers').select('id,name,logo_url,print_logo_url,brand_colour,use_print_branding').eq('id',id).maybeSingle();if(error)throw error;return data||input.customer||null;}
+ if(input.customer?.name){const {data,error}=await supabase.from('customers').select('id,name,logo_url,print_logo_url,brand_colour,use_print_branding').eq('name',input.customer.name).limit(2);if(error)throw error;if(data?.length===1)return data[0];}
+ return input.customer||null;
 }
-
-async function loadImage(url: string): Promise<HTMLImageElement | null> {
-  try {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject();
-      img.src = url;
-    });
-    return img;
-  } catch {
-    return null;
-  }
+/** Produce a single-colour transparent logo watermark, removing white paper pixels. */
+export function tintedPrintWatermark(img:HTMLImageElement,colour:RgbTriple):string{
+ const scale=Math.min(1,1000/Math.max(img.naturalWidth,img.naturalHeight));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.naturalWidth*scale));c.height=Math.max(1,Math.round(img.naturalHeight*scale));const ctx=c.getContext('2d');if(!ctx)return '';ctx.drawImage(img,0,0,c.width,c.height);const pixels=ctx.getImageData(0,0,c.width,c.height);
+ for(let i=0;i<pixels.data.length;i+=4){const d=pixels.data;const ink=1-Math.min(d[i],d[i+1],d[i+2])/255;d[i+3]=Math.round(d[i+3]*ink);d[i]=colour[0];d[i+1]=colour[1];d[i+2]=colour[2];}ctx.putImageData(pixels,0,0);return c.toDataURL('image/png');
 }
-
-export async function resolveDocumentBrandingProfile(
-  input: BrandingInput,
-): Promise<DocumentBrandingProfile> {
-  const templateLogo = input.template?.branding?.logo_url?.trim() || "";
-  let customerLogo = input.customer?.logo_url?.trim() || "";
-  let customerBrandColour = parseHexColor(input.customer?.brand_colour);
-  let customerIdForBackfill: string | null = null;
-  let brandColourAlreadySet = Boolean(customerBrandColour);
-
-  // If caller passed the customer name but not the full branding fields,
-  // hydrate them from the DB so every code path gets the same profile
-  // without having to remember to select brand_colour everywhere.
-  if (input.customer?.name && (!customerLogo || !customerBrandColour)) {
-    try {
-      const { supabase } = await import("@/integrations/supabase/client");
-      const { data } = await supabase
-        .from("customers")
-        .select("id, logo_url, brand_colour")
-        .ilike("name", input.customer.name)
-        .maybeSingle();
-      const row = data as any;
-      if (!customerLogo && row?.logo_url) customerLogo = String(row.logo_url).trim();
-      if (!customerBrandColour) customerBrandColour = parseHexColor(row?.brand_colour);
-      if (row?.id) customerIdForBackfill = String(row.id);
-      brandColourAlreadySet = Boolean(row?.brand_colour) || brandColourAlreadySet;
-    } catch { /* fall through to what we have */ }
-  }
-
-  // Template branding wins so customer-branded templates stay consistent
-  // even when the customer record has its own (differently sized) logo.
-  // Org-level fallback: Viva → Viva logo; any other org → its own uploaded
-  // logo (or blank text-only header). Never leak Viva's logo cross-tenant.
-  const orgFallbackLogo = await getGeneratingOrgFallbackLogoUrl();
-  const resolvedUrl = templateLogo || customerLogo || orgFallbackLogo;
-  const isCustomerBranded =
-    Boolean(templateLogo || customerLogo) || Boolean(customerBrandColour);
-
-  const logoImage = resolvedUrl ? await loadImage(resolvedUrl) : null;
-
-  // Colour resolution: explicit brand_colour wins for customer-branded docs.
-  // For a customer-branded doc with no brand_colour, try to extract from the
-  // logo pixels (backfill for customers that pre-date the brand_colour field);
-  // if extraction can't find a confident colour, fall back to neutral grey.
-  // For the org's own docs we extract from the org logo as before.
-  let accentColor: RgbTriple;
-  if (customerBrandColour) {
-    accentColor = customerBrandColour;
-  } else if (isCustomerBranded) {
-    let extracted: RgbTriple | null = null;
-    if (customerLogo && logoImage) {
-      const rgb = extractDominantColor(logoImage);
-      // extractDominantColor returns DEFAULT_NAVY when nothing colourful was
-      // found — treat that as "no confident pick" and stay on neutral grey.
-      if (!(rgb[0] === 33 && rgb[1] === 61 && rgb[2] === 99)) extracted = rgb;
-    }
-    if (extracted) {
-      accentColor = extracted;
-      // Persist so subsequent PDFs are cheaper and the picker in Settings
-      // reflects the auto-pick. Only when we've never had a value stored
-      // — a manual choice is never overwritten from here.
-      if (customerIdForBackfill && !brandColourAlreadySet) {
-        try {
-          const { supabase } = await import("@/integrations/supabase/client");
-          await supabase
-            .from("customers")
-            .update({ brand_colour: rgbToHex(extracted) } as any)
-            .eq("id", customerIdForBackfill)
-            .is("brand_colour", null);
-        } catch { /* non-fatal — colour still applied to this render */ }
-      }
-    } else {
-      accentColor = NEUTRAL_GREY;
-    }
-  } else {
-    accentColor = getBrandColorFromLogo(logoImage, false);
-  }
-
-  // Company-name fallback for the text-only header (no logo case): show the
-  // generating org's own name so PDFs never appear anonymous.
-  const gen = await getGeneratingOrgBranding();
-  return {
-    logoUrl: resolvedUrl,
-    logoImage,
-    accentColor,
-    isCustomerBranded,
-    companyName: input.template?.branding?.company_name ?? gen.name ?? undefined,
-    companySubtitle: input.template?.branding?.company_subtitle,
-    footerText: input.template?.branding?.footer_text,
-  };
+export async function resolveDocumentBrandingProfile(input:BrandingInput):Promise<DocumentBrandingProfile>{
+ const [customer,orgLogo,org,flame]=await Promise.all([resolvePrintCustomer(input),getGeneratingOrgFallbackLogoUrl(),getGeneratingOrgBranding(),getGeneratingOrgWatermarkUrl()]);const choice=printBrandingChoice(customer,orgLogo);
+ const url=choice.logoUrl?(await resolveToSignedUrl(choice.logoUrl).catch(()=>null))||choice.logoUrl:'';let logoImage=await image(url);let logoUrl=url;
+ if(url&&!logoImage){if(choice.enabled)throw new Error('Customer print logo could not be loaded. Please retry before sending paperwork.');logoImage=await image(orgLogo);logoUrl=orgLogo;if(!logoImage)throw new Error('Header logo could not be loaded. Please retry before printing.');}
+ const accentColor=parseHexColor(choice.colour)||[31,78,121] as RgbTriple;
+ const hasCustomerLogo=Boolean(customer?.print_logo_url||customer?.logo_url);
+ const source=choice.enabled&&hasCustomerLogo?logoImage:await image(flame||'');
+ const watermarkUrl=source?tintedPrintWatermark(source,accentColor):null;
+ return {logoUrl,logoImage,accentColor,isCustomerBranded:choice.enabled,companyName:choice.enabled?customer?.name||org.name||undefined:org.name||undefined,companySubtitle:input.template?.branding?.company_subtitle,footerText:input.template?.branding?.footer_text,watermarkUrl};
 }

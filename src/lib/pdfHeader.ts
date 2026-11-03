@@ -2,6 +2,8 @@ import jsPDF from "jspdf";
 import type { RgbTriple } from "@/lib/extractLogoColors";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { resolveToSignedUrl } from "@/lib/durableStorageRef";
+import {resolveDocumentBrandingProfile,type DocumentBrandingProfile} from '@/lib/documentBrandingProfile';
+import {registerPrintPdf} from '@/lib/printPdfProfile';
 
 export interface PdfHeaderData {
   customerName: string;
@@ -120,6 +122,7 @@ export interface HeaderStyle {
 }
 
 export interface RenderPdfHeaderOpts {
+  printProfile?:DocumentBrandingProfile;
   compact?: boolean;
   style?: HeaderStyle;
   /** Override the internal page side-margin (mm). Defaults to 10mm. */
@@ -159,6 +162,10 @@ export async function renderPdfHeader(
   accentColor?: RgbTriple | null,
   opts?: RenderPdfHeaderOpts
 ): Promise<number> {
+  const profile=opts?.printProfile || await resolveDocumentBrandingProfile({customer:{name:data.customerName}});
+  branding={...branding,logo_url:profile.logoUrl,company_name:profile.companyName};
+  if(profile.isCustomerBranded)accentColor=profile.accentColor;
+  registerPrintPdf(doc,profile);
   const accent = accentColor ?? DEFAULT_ACCENT;
   const compact = !!opts?.compact;
   const style = opts?.style ?? {};
@@ -214,19 +221,10 @@ export async function renderPdfHeader(
       }
       const fmt = detectFormat(logoUrl, logoStyle.format);
       doc.addImage(logoImg, fmt, lx, logoTopY, lw, lh);
+      registerPrintPdf(doc,profile,true);
       logoBottomY = logoTopY + lh + (compact ? 1.5 : 3);
     } catch {
-      if (!logoStyle.noFallbackText && companyName) {
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.text(companyName, pageWidth / 2, logoTopY + 5, { align: "center" });
-        if (companySubtitle) {
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "normal");
-          doc.text(companySubtitle, pageWidth / 2, logoTopY + 9, { align: "center" });
-        }
-        logoBottomY = logoTopY + 12;
-      }
+      throw new Error('Header logo could not be rendered. Please retry before printing.');
     }
   } else if (logoPosition !== "none" && !logoStyle.noFallbackText && companyName) {
     doc.setFontSize(13);
@@ -269,7 +267,7 @@ export async function renderPdfHeader(
   if (style.titleBands && style.titleBands.length > 0) {
     for (const band of style.titleBands) {
       const bandH = band.height ?? 9;
-      const fill = band.fillColor ?? PDF_PALETTE.headerStrip;
+      const fill = band.fillColor ?? (profile.isCustomerBranded?profile.accentColor.map(c=>Math.round(255+(c-255)*0.12)) as RgbTriple:PDF_PALETTE.headerStrip);
       const textColor = band.textColor ?? PDF_PALETTE.ink;
       const fontSize = band.fontSize ?? 12;
       const fontStyle = band.fontStyle ?? "bold";

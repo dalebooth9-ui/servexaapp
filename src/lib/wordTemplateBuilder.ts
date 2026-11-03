@@ -106,6 +106,7 @@ export type WordTemplateInput = {
   } | null;
   layout?: WordTemplateLayoutInput;
   riserVisit?: Record<string, any> | null;
+  customerName?: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -482,8 +483,9 @@ export const SECTION_HEADER_BLUE = "1F4E79";
 export function renderSectionHeaderRow(
   sectionName: string,
   layout: ResolvedTableLayout = DEFAULT_LAYOUT,
+  colour=SECTION_HEADER_BLUE,
 ): TableRow {
-  const headerShading = { fill: SECTION_HEADER_BLUE, type: ShadingType.CLEAR, color: "auto" };
+  const headerShading = { fill: colour, type: ShadingType.CLEAR, color: "auto" };
   return new TableRow({
     tableHeader: true,
     height: { value: 160, rule: HeightRule.ATLEAST },
@@ -552,30 +554,16 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
   const TBL = layout.tableW;
   const LBL = layout.labelCol;
   const VAL = layout.valueCol;
-  const customLogoUrl = template.riserVisit ? '' : template.branding?.logo_url?.trim();
-  // Resolve durable storage refs / legacy signed URLs to a fresh signed URL.
-  const resolvedCustomLogo = customLogoUrl
-    ? (await (await import("@/lib/durableStorageRef")).resolveToSignedUrl(customLogoUrl, "submissions").catch(() => null)) || customLogoUrl
-    : "";
-  // Cross-tenant branding rule: never leak Viva's assets onto other orgs'
-  // Word exports. Fall back only to the generating org's own logo / flame
-  // / accreditations. Non-Viva orgs render text-only headers and no
-  // accreditation strip until they upload their own assets.
-  const { getGeneratingOrgFallbackLogoUrl, getGeneratingOrgWatermarkUrl, getGeneratingOrgFallbackAccreditations } =
-    await import("@/lib/generatingOrgBranding");
-  const [orgFallbackLogo, orgWatermark, orgAccred] = await Promise.all([
-    getGeneratingOrgFallbackLogoUrl(),
-    getGeneratingOrgWatermarkUrl(),
-    getGeneratingOrgFallbackAccreditations(),
+  const {resolveDocumentBrandingProfile}=await import('@/lib/documentBrandingProfile');
+  const profile=await resolveDocumentBrandingProfile({template,customer:{name:template.riserVisit?.customer||template.customerName},jobId:template.riserVisit?.job_id});
+  const {getGeneratingOrgFallbackAccreditations}=await import('@/lib/generatingOrgBranding');
+  const orgAccred=await getGeneratingOrgFallbackAccreditations();
+  const [headerLogo,watermark,...accredLogos]=await Promise.all([
+    profile.logoUrl?fetchImageBytes(profile.logoUrl):Promise.resolve(null),
+    profile.watermarkUrl?fetchImageBytes(profile.watermarkUrl):Promise.resolve(null),
+    ...orgAccred.map(u=>fetchImageBytes(u)),
   ]);
-  const headerLogoUrl = resolvedCustomLogo && resolvedCustomLogo.length > 0
-    ? resolvedCustomLogo
-    : (orgFallbackLogo || "");
-  const [headerLogo, watermark, ...accredLogos] = await Promise.all([
-    headerLogoUrl ? fetchImageBytes(headerLogoUrl) : Promise.resolve(null as any),
-    orgWatermark ? fetchImageBytes(orgWatermark) : Promise.resolve(null as any),
-    ...orgAccred.map((u) => fetchImageBytes(u)),
-  ]);
+  const printColour=profile.isCustomerBranded?profile.accentColor.map(c=>c.toString(16).padStart(2,'0')).join(''):SECTION_HEADER_BLUE;
   // Match the PDF: every Dry/Wet Riser template gets the BS 9990:2015
   // declaration in a bordered box, even if `getDefaultFooterText` would
   // otherwise return empty (it only matches "dry riser visual"). PDF logic
@@ -636,7 +624,7 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
           text: displayTitle.toUpperCase(),
           bold: true,
           size: titleSizeHalfPt,
-          color: SECTION_HEADER_BLUE,
+          color: printColour,
           font: "Helvetica",
         }),
       ],
@@ -652,7 +640,7 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
             text: subtitleText,
             bold: true,
             size: subtitleSizeHalfPt,
-            color: SECTION_HEADER_BLUE,
+            color: printColour,
             font: "Helvetica",
           }),
         ],
@@ -664,7 +652,7 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
     new Paragraph({
       spacing: { before: 0, after: 0 },
       border: {
-        bottom: { style: BorderStyle.SINGLE, size: 16, color: SECTION_HEADER_BLUE, space: 1 },
+        bottom: { style: BorderStyle.SINGLE, size: 16, color: printColour, space: 1 },
       },
       children: [new TextRun({ text: "" })],
     }),
@@ -768,7 +756,7 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
       new Table({
         width: { size: TBL, type: WidthType.DXA },
         columnWidths: [LBL, VAL],
-        rows: [renderSectionHeaderRow(sectionName, layout), ...fields.map((f) => renderRowForField(f))],
+        rows: [renderSectionHeaderRow(sectionName, layout,printColour), ...fields.map((f) => renderRowForField(f))],
       }),
     );
     children.push(
@@ -944,14 +932,14 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
   // through table cells. Header is the only place a floating image will tile
   // across pages in Word.
   if (watermark) {
-    const WM_W_PX = 850; // ≈ 225mm wide
+    const WM_W_PX = 650; // ≈ 225mm wide
     const aspect =
       watermark.width && watermark.height ? watermark.width / watermark.height : 1;
     const WM_H_PX = Math.round(WM_W_PX / aspect);
     // Apply 8% opacity by re-rasterising the watermark through a canvas.
     // docx-js's ImageRun has no native opacity option, so we bake the alpha
     // into the PNG bytes before embedding.
-    const fadedWatermark = await fadeImageBytes(watermark, 0.08);
+    const fadedWatermark = await fadeImageBytes(watermark, 0.11);
     headerChildren.push(
       new Paragraph({
         children: [
@@ -1106,6 +1094,7 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
 
   // --- Footer (accreditation logos row + bordered bold centred declaration) ---
   const footerChildren: Paragraph[] = [];
+  if(profile.isCustomerBranded)footerChildren.push(new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:"Serviced by Viva Fire Protection Ltd",size:14})]}));
   const validAccreds = (accredLogos as (FetchedImage | null)[]).filter(
     (l): l is FetchedImage => !!l,
   );

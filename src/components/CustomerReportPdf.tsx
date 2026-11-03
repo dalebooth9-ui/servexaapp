@@ -180,6 +180,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       // Resolve unified branding profile — header logo and watermark tint
       // both derive from the same source (template branding > customer logo > default).
       const brandProfile = await resolveDocumentBrandingProfile({
+        jobId,
         template: null,
         customer: { name: job.customers?.name, logo_url: job.customers?.logo_url },
       });
@@ -196,7 +197,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         w3wAddress,
       };
 
-      let y = await renderPdfHeader(doc, "CUSTOMER REPORT", branding, headerData);
+      let y = await renderPdfHeader(doc, "CUSTOMER REPORT", branding, headerData,null,null,{printProfile:brandProfile});
 
       // === JOB DETAILS BOX ===
       y += 2;
@@ -290,8 +291,6 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         doc.setFont("helvetica", "bold");
         doc.text("Item", margin + 2, y);
         doc.text("Qty", margin + 100, y);
-        doc.text("Unit Cost", margin + 115, y);
-        doc.text("Total", margin + 145, y);
         y += 6;
         doc.setFontSize(11);
         doc.setFont("helvetica", "normal");
@@ -302,13 +301,8 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
           y = checkPage(rowH, y);
           nameLines.forEach((ln, i) => doc.text(ln, margin + 2, y + i * 5));
           doc.text(String(p.quantity), margin + 100, y);
-          doc.text(`£${Number(p.unit_cost).toFixed(2)}`, margin + 115, y);
-          doc.text(`£${Number(p.total_cost).toFixed(2)}`, margin + 145, y);
           y += rowH;
         });
-        const totalParts = parts.reduce((s: number, p: any) => s + Number(p.total_cost || 0), 0);
-        doc.setFont("helvetica", "bold");
-        doc.text(`Total: £${totalParts.toFixed(2)}`, margin + 145, y, { align: "left" });
         y += 8;
       }
 
@@ -322,7 +316,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       if (photoImages.length > 0) {
         addPage();
         indexPageNo = doc.getNumberOfPages();
-        let iy = await renderPdfHeader(doc, "CUSTOMER REPORT", branding, headerData);
+        let iy = await renderPdfHeader(doc, "CUSTOMER REPORT", branding, headerData,null,null,{printProfile:brandProfile});
         iy += 4;
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");

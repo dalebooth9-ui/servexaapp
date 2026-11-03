@@ -1,3 +1,4 @@
+import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
 import { useState, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Eye, Loader2, Printer, PenLine, MoreHorizontal } from "lucide-react";
@@ -103,6 +104,7 @@ interface Props {
 }
 
 type BlankTemplatePdfWorkerPayload = {
+  printBranding?:{enabled:boolean;logoUrl:string;watermarkUrl:string|null};
   template: Template;
   jobInfo?: JobInfo | null;
   handfill: boolean;
@@ -341,7 +343,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
 
     // 1) In-memory cache (instant within the session)
     if (cacheable && BLANK_PDF_CACHE.has(cacheKey)) {
-      const cachedBlob = BLANK_PDF_CACHE.get(cacheKey)!;
+      const cachedBlob = BLANK_PDF_CACHE.get(cacheKey) as Blob;
       if (mode === "blob") { setGenerating(false); return cachedBlob; }
       serveCached(cachedBlob);
       setGenerating(false);
@@ -367,30 +369,19 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         || (jobInfo?.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
       const customerName = jobInfo?.customers?.name || jobInfo?.customer || "";
 
-      let brandLogoImg: HTMLImageElement | null = null;
-      if (customerLogoUrl) {
-        try {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(); img.src = customerLogoUrl; });
-          brandLogoImg = img;
-        } catch { /* use default colour */ }
-      }
-      const accentColor = (isDryRiser ? DRY_RISER_LAYOUT.header.brandBlueRgb : getBrandColorFromLogo(brandLogoImg, !!customerLogoUrl)) as [number, number, number];
-      const [watermarkSettings, accreditationLogoUrls, orgFallbackLogoUrl, orgWatermarkUrl] = await Promise.all([
-        loadWatermarkSettings(),
-        fetchCustomerAccreditationLogos(customerName),
-        getGeneratingOrgFallbackLogoUrl(),
-        getGeneratingOrgWatermarkUrl(),
-      ]);
+      const profile=await resolveDocumentBrandingProfile({template,customer:{...jobInfo?.customers,name:customerName}});
+      const accentColor=profile.accentColor;
+      const [watermarkSettings,accreditationLogoUrls]=await Promise.all([loadWatermarkSettings(),fetchCustomerAccreditationLogos(customerName)]);
+      const orgFallbackLogoUrl=profile.logoUrl;const orgWatermarkUrl=profile.watermarkUrl;
 
       const label = `BlankTemplatePdfWorker:${template.id || template.name}:${handfill ? "handfill" : "standard"}`;
       console.time(label);
       const { blob: builtBlob, fileName, duration } = await runBlankTemplatePdfWorker({
-        template,
-        jobInfo,
+        template: {...template,branding:{...template.branding,logo_url:profile.logoUrl}},
+        jobInfo:jobInfo?{...jobInfo,customer_po:null}:null,
+        printBranding:{enabled:profile.isCustomerBranded,logoUrl:profile.logoUrl,watermarkUrl:profile.watermarkUrl},
         handfill,
-        watermarkOverride,
+        watermarkOverride:{mode:"untinted",opacity:0.11},
         watermarkSettings,
         categoryName,
         accentColor,

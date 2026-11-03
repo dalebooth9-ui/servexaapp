@@ -2,6 +2,8 @@ import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { getGeneratingOrgFallbackLogoUrl } from "@/lib/generatingOrgBranding";
+import {resolveDocumentBrandingProfile} from "@/lib/documentBrandingProfile";
+import {renderBrandingOverlay} from "@/lib/pdfBranding";
 import { parseHexColor } from "@/lib/documentBrandingProfile";
 import { primaryJobReference, primaryJobReferenceLabel } from "@/lib/jobReference";
 import { resolveToSignedUrl } from "@/lib/durableStorageRef";
@@ -72,7 +74,7 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
   const [{ data: job }, { data: photos }, brand] = await Promise.all([
     supabase.from("jobs").select("id, customer_po, reference_number, site_id, sites(what3words)").eq("id", r.job_id).maybeSingle(),
     supabase.from("site_visit_report_photos").select("storage_ref, caption, display_order").eq("report_id", reportId).order("display_order"),
-    loadOrgBranding(r.org_id),
+    resolveDocumentBrandingProfile({jobId:r.job_id}).then(p=>({accent:p.accentColor,logo:p.logoUrl,name:p.companyName,profile:p})),
   ]);
   // Customer sign-off on the visit's job sheet (only if actually signed).
   let sheetSig: any = null;
@@ -82,8 +84,8 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
     if (data?.[0]?.signer_name) sheetSig = data[0];
   }
   const w3w: string | null = ((job as any)?.sites?.what3words || "").trim() || null;
-  const ref = primaryJobReference(job as any) || (r as any).po_reference || "";
-  const refLabel = primaryJobReferenceLabel(job as any).replace(":", "");
+  const ref = (job as any)?.reference_number || "";
+  const refLabel = "Reference";
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
@@ -175,9 +177,9 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
   y = await renderPdfHeader(
     doc, "Site Visit Report",
     { company_name: brand.name, logo_url: brand.logo },
-    { customerName: "", siteName: "", siteAddress: "", refNumber: "", dateVal: "", riserLocation: "" },
+    { customerName: brand.name || "", siteName: "", siteAddress: "", refNumber: "", dateVal: "", riserLocation: "" },
     null, brand.accent,
-    { marginX: M, style: { title: { uppercase: false, fontSize: 18 }, subtitleLine: { text: r.title || "", fontSize: 12, fontStyle: "bold", color: ink }, detailGrid: false } },
+    { printProfile:brand.profile,marginX: M, style: { title: { uppercase: false, fontSize: 18 }, subtitleLine: { text: r.title || "", fontSize: 12, fontStyle: "bold", color: ink }, detailGrid: false } },
   );
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
@@ -210,7 +212,7 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
   heading("Job details", 30);
   const v = (x: any) => (String(x ?? "").trim() || TBC);
   table([{ label: "", w: 0.3 }, { label: "", w: 0.7 }], [
-    [ref && refLabel === "PO" ? "PO number" : "Reference", v(ref)],
+    ["Reference", v(ref)],
     ["Client", v(r.client_name)],
     ["Site name", v(r.site_name)],
     ["Site address", v(r.site_address)],
@@ -378,6 +380,7 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
 
   const safe = (s: string) => s.replace(/[^\w-]+/g, "_").replace(/_+/g, "_").slice(0, 60);
   const fileName = `${safe(ref || "Site_Visit_Report")}-${safe(r.title || "Site_Visit_Report")}-v${r.version || 1}.pdf`;
+  await renderBrandingOverlay(doc,{watermark:null,accredLogos:[],accredFooterY:H-10});
   return { blob: doc.output("blob"), fileName, report: r };
 }
 

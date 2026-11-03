@@ -1,6 +1,8 @@
 import jsPDF from "jspdf";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { formatRemedialItemsText } from "@/lib/remedialItems";
+import {printPdfProfiles} from '@/lib/printPdfProfile';
+import {isPrintableFinancialField} from '@/lib/printBrandingRules';
 
 export interface AutoPopulateJobInfo {
   address?: string | null;
@@ -518,6 +520,7 @@ export function buildSkipIds(fields: PdfTemplateField[]): Set<string> {
   const normalizedSections = new Set(fields.map((field) => normalizePdfText(field.section || "General")).filter(Boolean));
 
   fields.forEach((f) => {
+    if(isPrintableFinancialField(f)){skipIds.add(f.id);return;}
     const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
     const normalizedLabel = normalizePdfText(f.label);
 
@@ -691,9 +694,11 @@ export function renderSectionHeader(
   }
 
   // Light grey section header bar with black bold text (matches reference DOCX layout)
-  doc.setFillColor(...PDF_PALETTE.headerStrip);
+  const profile=printPdfProfiles.get(doc)?.profile;
+  const colour=profile?.isCustomerBranded?profile.accentColor:null;
+  doc.setFillColor(...(colour?colour.map(c=>Math.round(230+c*0.1)):PDF_PALETTE.headerStrip) as [number,number,number]);
   doc.rect(margin, y, maxWidth, sectionHeaderH, "F");
-  doc.setDrawColor(...PDF_PALETTE.border);
+  doc.setDrawColor(...(colour||PDF_PALETTE.border));
   doc.rect(margin, y, colSplit, sectionHeaderH);
   doc.rect(margin + colSplit, y, maxWidth - colSplit, sectionHeaderH);
   doc.setFontSize(10);

@@ -2125,10 +2125,12 @@ export type Database = {
           name: string
           org_id: string | null
           phone: string | null
+          print_logo_url: string | null
           quickbooks_contact_id: string | null
           renewal_reminders_opt_out: boolean
           sage_contact_id: string | null
           updated_at: string
+          use_print_branding: boolean
           xero_contact_id: string | null
         }
         Insert: {
@@ -2146,10 +2148,12 @@ export type Database = {
           name: string
           org_id?: string | null
           phone?: string | null
+          print_logo_url?: string | null
           quickbooks_contact_id?: string | null
           renewal_reminders_opt_out?: boolean
           sage_contact_id?: string | null
           updated_at?: string
+          use_print_branding?: boolean
           xero_contact_id?: string | null
         }
         Update: {
@@ -2167,10 +2171,12 @@ export type Database = {
           name?: string
           org_id?: string | null
           phone?: string | null
+          print_logo_url?: string | null
           quickbooks_contact_id?: string | null
           renewal_reminders_opt_out?: boolean
           sage_contact_id?: string | null
           updated_at?: string
+          use_print_branding?: boolean
           xero_contact_id?: string | null
         }
         Relationships: [

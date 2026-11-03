@@ -21,6 +21,7 @@ import BulkAiEnrichDialog from "@/components/BulkAiEnrichDialog";
 import TableSkeleton from "@/components/TableSkeleton";
 import { fuzzyFilter } from "@/lib/fuzzyMatch";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import PrintBrandingFields from '@/components/customers/PrintBrandingFields';
 
 type Customer = {
   id: string;
@@ -30,6 +31,9 @@ type Customer = {
   email: string | null;
   created_at: string;
   logo_url: string | null;
+  print_logo_url:string|null;
+  brand_colour:string|null;
+  use_print_branding:boolean;
 };
 
 type CustomerForm = {
@@ -37,9 +41,12 @@ type CustomerForm = {
   address: string;
   phone: string;
   email: string;
+  print_logo_url:string;
+  brand_colour:string;
+  use_print_branding:boolean;
 };
 
-const emptyForm: CustomerForm = { name: "", address: "", phone: "", email: "" };
+const emptyForm: CustomerForm = { name: "", address: "", phone: "", email: "",print_logo_url:'',brand_colour:'#1f4e79',use_print_branding:false };
 
 export default function Customers() {
   const navigate = useNavigate();
@@ -98,6 +105,7 @@ export default function Customers() {
       address: c.address || "",
       phone: c.phone || "",
       email: c.email || "",
+      print_logo_url:c.print_logo_url||'',brand_colour:c.brand_colour||'#1f4e79',use_print_branding:c.use_print_branding===true,
     });
     setDialogOpen(true);
   };
@@ -113,6 +121,7 @@ export default function Customers() {
       address: form.address.trim() || null,
       phone: form.phone.trim() || null,
       email: form.email.trim() || null,
+      print_logo_url:form.print_logo_url||null,brand_colour:form.brand_colour||null,use_print_branding:form.use_print_branding===true,
     };
 
     if (editingId) {
@@ -122,6 +131,7 @@ export default function Customers() {
         address: oldCustomer.address,
         phone: oldCustomer.phone,
         email: oldCustomer.email,
+        print_logo_url:oldCustomer.print_logo_url,brand_colour:oldCustomer.brand_colour,use_print_branding:oldCustomer.use_print_branding,
       } : null;
       const { error } = await supabase.from("customers").update(payload).eq("id", editingId);
       if (error) {
@@ -497,6 +507,7 @@ export default function Customers() {
               <Label htmlFor="cust-address">Address</Label>
               <Textarea id="cust-address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Full address" rows={3} />
             </div>
+            {userRole==='admin'&&<PrintBrandingFields value={{print_logo_url:form.print_logo_url||'',brand_colour:form.brand_colour||'#1f4e79',use_print_branding:form.use_print_branding===true}} onChange={values=>setForm({...form,...values})}/>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
