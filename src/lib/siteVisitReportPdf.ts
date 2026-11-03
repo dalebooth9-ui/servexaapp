@@ -212,7 +212,7 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
   heading("Job details", 30);
   const v = (x: any) => (String(x ?? "").trim() || TBC);
   table([{ label: "", w: 0.3 }, { label: "", w: 0.7 }], [
-    [ref && refLabel === "PO" ? "PO number" : "Reference", v(ref)],
+    ["Reference", v(ref)],
     ["Client", v(r.client_name)],
     ["Site name", v(r.site_name)],
     ["Site address", v(r.site_address)],

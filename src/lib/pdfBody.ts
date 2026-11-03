@@ -86,7 +86,6 @@ export function getAutoPopulatedValues(
   const dateVal = new Date().toLocaleDateString("en-GB");
 
   fields.forEach((f) => {
-    if(isPrintableFinancialField(f)){skipIds.add(f.id);return;}
     const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
 
     if ((label.includes("site") && label.includes("detail")) || (label.includes("site") && label.includes("info"))) {
@@ -521,6 +520,7 @@ export function buildSkipIds(fields: PdfTemplateField[]): Set<string> {
   const normalizedSections = new Set(fields.map((field) => normalizePdfText(field.section || "General")).filter(Boolean));
 
   fields.forEach((f) => {
+    if(isPrintableFinancialField(f)){skipIds.add(f.id);return;}
     const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
     const normalizedLabel = normalizePdfText(f.label);
 
