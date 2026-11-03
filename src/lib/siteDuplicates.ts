@@ -25,7 +25,7 @@ export function normSiteName(name: string, customerNames: string[] = []): string
   for (const c of customerNames) {
     const cn = String(c ?? "").trim();
     if (!cn) continue;
-    const re = new RegExp("^" + cn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*[-–—:|]\\s*", "i");
+    const re = new RegExp("^" + cn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*[-–—:|]?\\s*", "i");
     if (re.test(n)) { n = n.replace(re, ""); break; }
   }
   return n.toLowerCase().replace(/[^a-z0-9]/g, "");
