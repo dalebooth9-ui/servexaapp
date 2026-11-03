@@ -22,12 +22,13 @@ export default function DryRisersTable() {
   const [q, setQ] = useState("");
   const [blankOutlets, setBlankOutlets] = useState(false);
   const [faulty, setFaulty] = useState(false);
+  const [notPlaced, setNotPlaced] = useState(false);
 
   const load = async () => {
     const all: Row[] = [];
     for (let from = 0; ; from += 1000) {
       const { data, error } = await supabase.from("assets")
-        .select("id, asset_tag, riser_location, outlets_count, status, site_id, last_inspection_at, last_inspection_result, sites(name)")
+        .select("id, asset_tag, riser_location, outlets_count, status, site_id, last_inspection_at, last_inspection_result, label_status, sites(name)")
         .or("asset_type.ilike.dry%riser%,category.ilike.dry%riser%")
         .order("riser_location").range(from, from + 999);
       if (error) { toast({ title: "Couldn't load dry risers", description: error.message, variant: "destructive" }); break; }
@@ -48,12 +49,13 @@ export default function DryRisersTable() {
   const shown = useMemo(() => (rows || []).filter((r) => {
     if (blankOutlets && r.outlets_count != null) return false;
     if (faulty && r.status !== "faulty") return false;
+    if (notPlaced && (r as any).label_status !== "printed") return false;
     if (q) {
       const t = `${r.asset_tag || ""} ${r.riser_location || ""} ${r.sites?.name || ""}`.toLowerCase();
       if (!t.includes(q.toLowerCase())) return false;
     }
     return true;
-  }), [rows, q, blankOutlets, faulty]);
+  }), [rows, q, blankOutlets, faulty, notPlaced]);
 
   if (!rows) return <div className="flex items-center gap-2 text-muted-foreground py-8"><Loader2 className="h-4 w-4 animate-spin" /> Loading dry risers…</div>;
 
@@ -63,6 +65,7 @@ export default function DryRisersTable() {
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tag, location or site" className="max-w-xs" />
         <label className="flex items-center gap-2 text-sm"><Checkbox checked={blankOutlets} onCheckedChange={(v) => setBlankOutlets(!!v)} /> Blank outlets</label>
         <label className="flex items-center gap-2 text-sm"><Checkbox checked={faulty} onCheckedChange={(v) => setFaulty(!!v)} /> Faulty</label>
+        <label className="flex items-center gap-2 text-sm"><Checkbox checked={notPlaced} onCheckedChange={(v) => setNotPlaced(!!v)} /> Printed but not placed</label>
         <span className="text-sm text-muted-foreground">{shown.length} of {rows.length}</span>
       </div>
       <div className="border rounded-lg overflow-auto">
@@ -70,11 +73,11 @@ export default function DryRisersTable() {
           <TableHeader>
             <TableRow>
               <TableHead>Tag</TableHead><TableHead>Site</TableHead><TableHead>Riser location</TableHead>
-              <TableHead className="w-28">Outlets</TableHead><TableHead>Status</TableHead><TableHead>Last inspection</TableHead>
+              <TableHead className="w-28">Outlets</TableHead><TableHead>Status</TableHead><TableHead>Last inspection</TableHead><TableHead>Sticker</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {shown.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">No dry risers match.</TableCell></TableRow>}
+            {shown.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">No dry risers match.</TableCell></TableRow>}
             {shown.map((r) => (
               <TableRow key={r.id}>
                 <TableCell><Link to={`/assets/${r.id}`} className="font-mono text-primary hover:underline">{r.asset_tag || "—"}</Link></TableCell>
@@ -92,6 +95,7 @@ export default function DryRisersTable() {
                   {r.last_inspection_at ? format(new Date(r.last_inspection_at), "dd/MM/yyyy") : "—"}
                   {r.last_inspection_result ? ` · ${r.last_inspection_result}` : ""}
                 </TableCell>
+                <TableCell className="text-xs capitalize">{(r as any).label_status || "none"}</TableCell>
               </TableRow>
             ))}
           </TableBody>
