@@ -18,7 +18,7 @@ export default function SiteDryRisers({ siteId, showRisers = true, showSiteHisto
     let off = false;
     (async () => {
       const [{ data: r }, { data: h }] = await Promise.all([
-        supabase.from("assets").select("id, riser_location, outlets_count, last_inspection_result, asset_tag, label_status")
+        supabase.from("assets").select("id, riser_location, outlets_count, last_inspection_result, asset_tag, label_status, asset_type, category")
           .eq("site_id", siteId).or(riserOrFilter()).neq("status", "decommissioned").order("riser_location"),
         supabase.from("asset_service_history").select("id, inspection_date, report_date_text, inspection_type, template_name, result_summary, report_link, report_file")
           .eq("site_id", siteId).is("asset_id", null).order("inspection_date", { ascending: false, nullsFirst: false }).limit(100),

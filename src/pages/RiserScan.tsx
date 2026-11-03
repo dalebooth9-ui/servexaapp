@@ -38,6 +38,11 @@ export default function RiserScan() {
       const { data, error } = await supabase.rpc("lookup_asset_by_tag", { _tag: tag });
       if (cancelled) return;
       const row = !error && Array.isArray(data) ? (data[0] as Found | undefined) : undefined;
+      if (row) {
+        const { data: t } = await supabase.rpc("riser_type_by_tag" as any, { _tag: tag });
+        if (cancelled) return;
+        (row as any).riser_type = (t as unknown as string) || "Dry Riser";
+      }
       setAsset(row ?? null);
       if (row && row.open_defects > 0) {
         const { data: d } = await supabase.from("defects").select("id, title, severity")
@@ -95,9 +100,10 @@ export default function RiserScan() {
   const startService = async () => {
     if (!asset.site_id) { toast.error("This riser isn't linked to a site"); return; }
     setBusy(true);
+    const isWet = (asset as any).riser_type === "Wet Riser";
     const { data, error } = await supabase.from("jobs").insert({
-      name: `Dry riser service – ${asset.riser_location || asset.asset_tag}`,
-      category: "dry_riser_service",
+      name: `${isWet ? "Wet" : "Dry"} riser service – ${asset.riser_location || asset.asset_tag}`,
+      category: isWet ? "wet_riser_annual_service" : "dry_riser_service",
       priority: "medium",
       status: "active",
       site_id: asset.site_id,
