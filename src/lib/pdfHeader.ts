@@ -2,7 +2,7 @@ import jsPDF from "jspdf";
 import type { RgbTriple } from "@/lib/extractLogoColors";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { resolveToSignedUrl } from "@/lib/durableStorageRef";
-import {resolveDocumentBrandingProfile} from '@/lib/documentBrandingProfile';
+import {resolveDocumentBrandingProfile,type DocumentBrandingProfile} from '@/lib/documentBrandingProfile';
 import {registerPrintPdf} from '@/lib/printPdfProfile';
 
 export interface PdfHeaderData {
@@ -122,6 +122,7 @@ export interface HeaderStyle {
 }
 
 export interface RenderPdfHeaderOpts {
+  printProfile?:DocumentBrandingProfile;
   compact?: boolean;
   style?: HeaderStyle;
   /** Override the internal page side-margin (mm). Defaults to 10mm. */
@@ -161,7 +162,7 @@ export async function renderPdfHeader(
   accentColor?: RgbTriple | null,
   opts?: RenderPdfHeaderOpts
 ): Promise<number> {
-  const profile=await resolveDocumentBrandingProfile({customer:{name:data.customerName}});
+  const profile=opts?.printProfile || await resolveDocumentBrandingProfile({customer:{name:data.customerName}});
   branding={...branding,logo_url:profile.logoUrl,company_name:profile.companyName};
   if(profile.isCustomerBranded)accentColor=profile.accentColor;
   registerPrintPdf(doc,profile);

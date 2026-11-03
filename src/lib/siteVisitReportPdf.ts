@@ -74,7 +74,7 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
   const [{ data: job }, { data: photos }, brand] = await Promise.all([
     supabase.from("jobs").select("id, customer_po, reference_number, site_id, sites(what3words)").eq("id", r.job_id).maybeSingle(),
     supabase.from("site_visit_report_photos").select("storage_ref, caption, display_order").eq("report_id", reportId).order("display_order"),
-    resolveDocumentBrandingProfile({jobId:r.job_id}).then(p=>({accent:p.accentColor,logo:p.logoUrl,name:p.companyName})),
+    resolveDocumentBrandingProfile({jobId:r.job_id}).then(p=>({accent:p.accentColor,logo:p.logoUrl,name:p.companyName,profile:p})),
   ]);
   // Customer sign-off on the visit's job sheet (only if actually signed).
   let sheetSig: any = null;
@@ -84,8 +84,8 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
     if (data?.[0]?.signer_name) sheetSig = data[0];
   }
   const w3w: string | null = ((job as any)?.sites?.what3words || "").trim() || null;
-  const ref = primaryJobReference(job as any) || (r as any).po_reference || "";
-  const refLabel = primaryJobReferenceLabel(job as any).replace(":", "");
+  const ref = (job as any)?.reference_number || "";
+  const refLabel = "Reference";
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
@@ -179,7 +179,7 @@ export async function buildSiteVisitReportPdf(reportId: string): Promise<{ blob:
     { company_name: brand.name, logo_url: brand.logo },
     { customerName: brand.name || "", siteName: "", siteAddress: "", refNumber: "", dateVal: "", riserLocation: "" },
     null, brand.accent,
-    { marginX: M, style: { title: { uppercase: false, fontSize: 18 }, subtitleLine: { text: r.title || "", fontSize: 12, fontStyle: "bold", color: ink }, detailGrid: false } },
+    { printProfile:brand.profile,marginX: M, style: { title: { uppercase: false, fontSize: 18 }, subtitleLine: { text: r.title || "", fontSize: 12, fontStyle: "bold", color: ink }, detailGrid: false } },
   );
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
