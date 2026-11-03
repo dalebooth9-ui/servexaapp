@@ -1,10 +1,11 @@
 # Roadmap
 
 ## Site access information
-- [ ] Add staff-only site access storage, confirmation and immutable change history.
-- [ ] Add site card, engineer completion editing, QR visibility and report-field Save to site file.
-- [ ] Add engineer-only PDF/Word access boxes, cabinet key prefill and default-on/masked print setting.
-- [ ] Update Help, add permission/printing rule tests and verify real staff flow.
+- [x] Add staff-only site access storage, confirmation and immutable change history.
+- [x] Add site card, engineer completion editing, QR visibility and report-field Save to site file.
+- [x] Add engineer-only PDF/Word access boxes, cabinet key prefill and default-on/masked print setting.
+- [x] Update Help, add printing/privacy rule tests and verify office saving/history and access PDF.
+- [ ] Pure-engineer completion/QR and physical printing — no pure-engineer session or printer available.
 
 ## Printable logos and customer print branding
 - [x] Restore every-page header logos without changing report fields or boxes.

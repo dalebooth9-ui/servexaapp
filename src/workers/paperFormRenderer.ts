@@ -484,6 +484,7 @@ export function renderPaperFormPage(
     return total;
   };
   let fit = { rowH: 4.6, secH: 5, font: fontCandidates[fontCandidates.length - 1] };
+  if(jobInfo?.engineerAccess?.lines.length&&measure(fit.rowH,fit.secH)>availH)throw new Error('Access info leaves too little room for the inspection sheet. Shorten the access notes before printing.');
   outer: for (const font of fontCandidates) {
     for (const rowH of rowCandidates) {
       for (const secH of secCandidates) {
