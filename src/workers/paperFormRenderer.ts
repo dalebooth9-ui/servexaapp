@@ -288,7 +288,12 @@ export function renderPaperFormPage(
   const rightX = margin + leftW;
   const detailRowH = 7;
   const rightRowCount = 3; // date/po, riser, keys
-  const rightBlockH = rightRowCount * detailRowH;
+  // CABINET KEYS row grows to hold access info (priority order), max ~24mm,
+  // shrinking to 7pt then trimming with "(see site record)". Never fails.
+  const accessLinesIn = jobInfo?.engineerAccess?.lines || [];
+  const accessFit = accessLinesIn.length ? fitAccessLines(doc, accessLinesIn, rightW - 4, 24 - 5) : null;
+  const keysH = accessFit ? Math.max(detailRowH, 5 + accessFit.lines.length * accessFit.lineH + 1) : detailRowH;
+  const rightBlockH = (rightRowCount - 1) * detailRowH + keysH;
 
 
   const custName = printName(jobInfo?.customers?.name || jobInfo?.customer);
@@ -364,11 +369,9 @@ export function renderPaperFormPage(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.text("CABINET KEYS:", rightX + 2, keysY + 3.2);
-  if(jobInfo?.engineerAccess?.cabinetKeys){doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text(doc.splitTextToSize(jobInfo.engineerAccess.cabinetKeys,rightW-4).slice(0,1),rightX+2,keysY+6);}
-  // Leave cabinet-key answer space clean for handwriting.
+  if(accessFit){doc.setFont('helvetica','normal');doc.setFontSize(accessFit.pt);accessFit.lines.forEach((ln,i)=>doc.text(ln,rightX+2,keysY+5+accessFit.lineH*0.8+i*accessFit.lineH));doc.setFontSize(9);}
 
   cursorY = detailsTop + leftBlockH + 1;
-  cursorY=drawEngineerAccessBox(doc,jobInfo?.engineerAccess,cursorY,margin,maxWidth);
   if (visit) {
     if (visit.asset_tag) {
       drawQr(doc, stickerUrl(visit.asset_tag), pageWidth - margin - 23, 10, 20);
@@ -478,7 +481,6 @@ export function renderPaperFormPage(
   };
   const measure = (rowH: number, secH: number) => items.reduce((sum, it) => sum + itemHeight(it, rowH, secH), 0);
   let fit = { rowH: 4.6, secH: 5, font };
-  if(jobInfo?.engineerAccess?.lines.length&&measure(fit.rowH,fit.secH)>availH)throw new Error('Access info leaves too little room for the inspection sheet. Shorten the access notes before printing.');
   outer: for (const rowH of rowCandidates) {
     for (const secH of secCandidates) {
       if (secH < rowH - 0.5) continue;
