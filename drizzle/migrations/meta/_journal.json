@@ -281,6 +281,13 @@
       "when": 1793800075046,
       "tag": "0039_sticker_reprint_records_last_printed",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793800566408,
+      "tag": "0040_job_category_print_template",
+      "breakpoints": true
     }
   ]
 }
