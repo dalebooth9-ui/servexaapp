@@ -1,5 +1,10 @@
 # Roadmap
 
+## Printed paperwork polish
+- [ ] Align PDF/Word body text, print-only name casing and readable last-inspection details.
+- [ ] Remove only blank-answer rules, retain signing lines and wrap dry/wet questions without clipping.
+- [ ] Resolve coloured watermarks and section styling within the generating company; update Help and verify exports.
+
 ## Email Triage and renewal email repairs
 - [x] Diagnose missing extensions.http_post, nonexistent interval relationship and missing renewal template; no test sends.
 - [x] Make triage notifications best-effort/company-scoped via authenticated bridge; renewal admin checks, dry-run and failure logs.
