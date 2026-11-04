@@ -695,16 +695,18 @@ export default function JobDetail() {
 
       <JobStageTimeline jobId={job.id} status={job.status} />
 
-      {/* Tab navigation — sections are lazy-mounted; only the active tab is in the DOM. */}
-      <div className="mb-6 flex flex-wrap gap-1 border-b border-border" role="tablist" aria-label="Job sections">
-        {JOB_TABS.map((tab) => (
+      {/* Tab navigation — sections are lazy-mounted; only the active tab is in the DOM.
+          Everyday tabs stay on the bar; the rest sit behind "More" with a count or
+          "empty" hint so nothing is hidden. The row scrolls sideways on small screens. */}
+      <div className="mb-6 flex flex-nowrap items-center gap-1 overflow-x-auto border-b border-border" role="tablist" aria-label="Job sections">
+        {MAIN_TABS.map((tab) => (
           <button
             key={tab.value}
             type="button"
             role="tab"
             aria-selected={activeTab === tab.value}
             onClick={() => setActiveTab(tab.value)}
-            className={`px-3 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+            className={`shrink-0 px-3 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
               activeTab === tab.value
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
@@ -716,23 +718,87 @@ export default function JobDetail() {
                 {photoCount}
               </span>
             )}
-            {tab.value === "emails" && (job?.has_unread_email || job?.email_review_flag) && (
-              <span
-                className={`ml-1.5 inline-flex h-2 w-2 rounded-full ${
-                  job?.email_review_flag ? "bg-destructive" : "bg-primary"
-                }`}
-                aria-label={job?.email_review_flag ? "Email received on completed job" : "New email"}
-              />
-            )}
-
           </button>
         ))}
+        <Popover open={moreOpen} onOpenChange={setMoreOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={MORE_TABS.some((t) => t.value === activeTab)}
+              className={`shrink-0 px-3 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+                MORE_TABS.some((t) => t.value === activeTab)
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+              }`}
+            >
+              {MORE_TABS.find((t) => t.value === activeTab)?.label ?? "More"}
+              <ChevronDown className="ml-1 inline h-3.5 w-3.5" />
+              {(job?.has_unread_email || job?.email_review_flag) && activeTab !== "emails" && (
+                <span
+                  className={`ml-1.5 inline-flex h-2 w-2 rounded-full ${
+                    job?.email_review_flag ? "bg-destructive" : "bg-primary"
+                  }`}
+                  aria-label={job?.email_review_flag ? "Email received on completed job" : "New email"}
+                />
+              )}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-56 p-1">
+            {MORE_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.value}
+                onClick={() => { setActiveTab(tab.value); setMoreOpen(false); }}
+                className={`flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-sm hover:bg-muted ${
+                  activeTab === tab.value ? "font-semibold text-primary" : ""
+                }`}
+              >
+                <span className="flex items-center">
+                  {tab.label}
+                  {tab.value === "emails" && (job?.has_unread_email || job?.email_review_flag) && (
+                    <span
+                      className={`ml-1.5 inline-flex h-2 w-2 rounded-full ${
+                        job?.email_review_flag ? "bg-destructive" : "bg-primary"
+                      }`}
+                      aria-label={job?.email_review_flag ? "Email received on completed job" : "New email"}
+                    />
+                  )}
+                </span>
+                {tab.value === "parts" && (
+                  <span className="text-xs text-muted-foreground">{partsCount > 0 ? partsCount : "empty"}</span>
+                )}
+                {tab.value === "history" && (
+                  <span className="text-xs text-muted-foreground">{submissions.length > 0 ? submissions.length : "empty"}</span>
+                )}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
       </div>
 
-      {activeTab === "timeline" && id && (
-        <Suspense fallback={<LazyFallback />}>
-          <JobTimeline jobId={id} />
-        </Suspense>
+      {activeTab === "history" && id && (
+        <>
+          <div className="mb-4 flex flex-wrap gap-1" role="group" aria-label="History filter">
+            {([["all", "All"], ["activity", "Activity"], ["timeline", "Timeline"]] as const).map(([v, label]) => (
+              <Button
+                key={v}
+                size="sm"
+                variant={historyFilter === v ? "default" : "outline"}
+                onClick={() => setHistoryFilter(v)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+          {(historyFilter === "all" || historyFilter === "timeline") && (
+            <Suspense fallback={<LazyFallback />}>
+              <JobTimeline jobId={id} />
+            </Suspense>
+          )}
+        </>
       )}
 
       {activeTab === "photos" && id && (
