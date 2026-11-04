@@ -26,8 +26,8 @@ export async function resolveDocumentBrandingProfile(input:BrandingInput):Promis
  const logoImage=loaded.image?.img||null;const logoUrl=loaded.image?.url||'';
  if((choice.logoUrl||orgLogo)&&!logoImage)throw new Error('Header logo could not be loaded. Please retry before printing.');
  const accentColor=parseHexColor(choice.colour)||[31,78,121] as RgbTriple;
- const hasCustomerLogo=Boolean(customer?.print_logo_url||customer?.logo_url);
- const source=choice.enabled&&hasCustomerLogo?logoImage:await image(flame||'');
- const watermarkUrl=source?tintedPrintWatermark(source,accentColor):null;
+ const source=await image(flame||'');
+ const watermarkColour=parseHexColor(customer?.brand_colour)||[128,128,128] as RgbTriple;
+ const watermarkUrl=source?tintedPrintWatermark(source,watermarkColour):null;
  return {logoUrl,logoImage,accentColor,isCustomerBranded:choice.enabled,companyName:choice.enabled?customer?.name||org.name||undefined:org.name||undefined,companySubtitle:input.template?.branding?.company_subtitle,footerText:input.template?.branding?.footer_text,watermarkUrl};
 }
