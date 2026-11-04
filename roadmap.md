@@ -134,3 +134,8 @@
 - [x] PO intake picks job type from company's own job categories (uncertain -> blank "Needs a type"; extra work types as note)
 - [x] Pending job review: type dropdown + "Suggested from PO" / "Needs a type"
 - [x] Job page: change type any time; activity log; "Job type changed. Reprint reports?" prompt if printed
+
+## Printed Customer/Site Details wording
+- [x] Print customer, then site name, then site address on separate lines; an address that only repeats the site name is left out and the postcode prints once — one shared rule in src/lib/siteDetailsPrint.ts used by paper sheets, Word documents and PDF headers.
+- [x] Update Help & guides (job page guide) and the AGENTS print rule; 9 new tests pass, the full suite's 23 pre-existing failures are unchanged, build clean; three sample sheets rendered and inspected.
+- [ ] Physical printing — no printer available.
