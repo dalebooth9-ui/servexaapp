@@ -22,6 +22,7 @@ import {
   type ISectionOptions,
 } from "docx";
 import QRCode from 'qrcode';
+import {printName,printInspectionType,printInspectionDate,printInspectionResult} from '@/lib/printText';
 import {loadHeaderLogo} from '@/lib/loadHeaderLogo';
 import {resolveToSignedUrl} from '@/lib/durableStorageRef';
 import {getGeneratingOrgFallbackLogoUrl} from '@/lib/generatingOrgBranding';
@@ -400,7 +401,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
           new TextRun({
             text: "_______ / _______ / _______",
             size: 18,
-            color: "777777",
+            color: "000000",
           }),
         ],
       }),
@@ -416,7 +417,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
     return [
       new Paragraph({
         children: [
-          new TextRun({ text: `${CHECKBOX_EMPTY} Photo attached`, size: 18, color: "555555" }),
+          new TextRun({ text: `${CHECKBOX_EMPTY} Photo attached`, size: 18, color: "000000" }),
         ],
       }),
     ];
@@ -425,7 +426,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
   if (field.type === "signature") {
     return [
       new Paragraph({ children: [new TextRun({ text: " ", size: 18 })] }),
-      new Paragraph({ children: [new TextRun({ text: "Signature:", size: 18, color: "777777" })] }),
+      new Paragraph({ children: [new TextRun({ text: "Signature:", size: 18, color: "000000" })] }),
     ];
   }
 
@@ -456,6 +457,7 @@ export function renderFieldRow(
   if (isMultiLine) height = { value: 900, rule: HeightRule.ATLEAST };
   else if (isSignature) height = { value: 320, rule: HeightRule.ATLEAST };
   return new TableRow({
+    cantSplit: true,
     height,
     children: [
       new TableCell({
@@ -466,7 +468,7 @@ export function renderFieldRow(
         children: [
           new Paragraph({
             spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: field.label, bold: true, size: 18 })],
+            children: [new TextRun({ text: field.label, bold: true, size: 18,color:"000000",font:"Helvetica" })],
           }),
         ],
       }),
@@ -475,7 +477,7 @@ export function renderFieldRow(
         width: { size: layout.valueCol, type: WidthType.DXA },
         margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
-        children: prefilledValue !== undefined ? [new Paragraph({children:[new TextRun({text:prefilledValue,size:18})]})] : buildValueCellChildren(field),
+        children: prefilledValue !== undefined ? [new Paragraph({children:[new TextRun({text:prefilledValue,size:18,bold:false,color:"000000",font:"Helvetica"})]})] : buildValueCellChildren(field),
       }),
     ],
   });
@@ -572,7 +574,7 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
   ]);
   const headerLogo=loadedHeader.image;
   if((profile.logoUrl||fallback)&&!headerLogo)throw new Error('Header logo could not be loaded. Please retry before printing.');
-  const printColour=profile.isCustomerBranded?profile.accentColor.map(c=>c.toString(16).padStart(2,'0')).join(''):SECTION_HEADER_BLUE;
+  const printColour=profile.accentColor.map(c=>c.toString(16).padStart(2,'0')).join('');
   // Match the PDF: every Dry/Wet Riser template gets the BS 9990:2015
   // declaration in a bordered box, even if `getDefaultFooterText` would
   // otherwise return empty (it only matches "dry riser visual"). PDF logic
@@ -692,7 +694,7 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
       width: { size: w, type: WidthType.DXA },
       margins: { top: 30, bottom: 30, left: 100, right: 60 },
       verticalAlign: VerticalAlign.CENTER,
-      children: [new Paragraph({ children: [new TextRun({ text })] })],
+      children: [new Paragraph({ children: [new TextRun({ text:printName(text), size:18, bold:false, color:"000000", font:"Helvetica" })] })],
     });
   const wideValueCell = (w: number, colSpan = 1, text = ' ') =>
     new TableCell({
@@ -701,7 +703,7 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
       columnSpan: colSpan,
       margins: { top: 60, bottom: 60, left: 100, right: 60 },
       verticalAlign: VerticalAlign.CENTER,
-      children: [new Paragraph({ children: [new TextRun({ text })] })],
+      children: [new Paragraph({ children: [new TextRun({ text:printName(text), size:18, bold:false, color:"000000", font:"Helvetica" })] })],
     });
 
   children.push(
@@ -750,13 +752,13 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
 
   // Blank documents must NOT pre-tick the "Scope of Work" option — the engineer
   const access=await engineerAccessForPrint({jobId:template.accessJobId||template.riserVisit?.job_id,siteId:template.accessSiteId});
-  if(access?.lines.length){children.push(new Table({width:{size:TBL,type:WidthType.DXA},rows:[new TableRow({children:[new TableCell({borders:cellBorders,children:[new Paragraph({children:[new TextRun({text:'ACCESS INFO',bold:true,size:16})]}),...access.lines.map(text=>new Paragraph({spacing:{after:0},children:[new TextRun({text,size:14})]}))]})]})]}));}
+  if(access?.lines.length){children.push(new Table({width:{size:TBL,type:WidthType.DXA},rows:[new TableRow({children:[new TableCell({borders:cellBorders,children:[new Paragraph({children:[new TextRun({text:'ACCESS INFO',bold:true,size:18,color:'000000'})]}),...access.lines.map(text=>new Paragraph({spacing:{after:0},children:[new TextRun({text,size:18,color:"000000",bold:false})]}))]})]})]}));}
   // selects it on site. The PDF renders this row as plain unticked checkboxes
   // and the Word output does the same via renderFieldRow().
   if (template.riserVisit) {
     const v = template.riserVisit;
-    const context = [`Riser: ${v.riser_name || v.riser_location} · Riser ID ${v.asset_tag} · Outlets: ${v.outlets_count ?? 'Not recorded'}`, `Last inspection: ${v.last_inspection_at ? new Date(v.last_inspection_at).toLocaleDateString('en-GB') : 'Not recorded'} · ${v.last_inspection_type || 'Type not recorded'} · Result: ${v.last_inspection_result || 'Not recorded'}`, ...(v.remedial_notes ? [`Open remedial work from last visit: ${v.remedial_notes}`] : [])];
-    context.forEach(text => children.push(new Paragraph({spacing:{after:30},children:[new TextRun({text,size:14})]})));
+    const context = [`Riser: ${printName(v.riser_name || v.riser_location)} · Riser ID ${v.asset_tag} · Outlets: ${v.outlets_count ?? 'Not recorded'}`, `Last inspection: ${printInspectionDate(v.last_inspection_at)} · ${printInspectionType(v.last_inspection_type)} · Result: ${printInspectionResult(v.last_inspection_result)}`, ...(v.remedial_notes ? [`Open remedial work from last visit: ${v.remedial_notes}`] : [])];
+    context.forEach(text => children.push(new Paragraph({spacing:{after:30},children:[new TextRun({text,size:18,color:"000000",bold:false})]})));
   }
   const renderRowForField = (field: TemplateField): TableRow => renderFieldRow(field, layout,
     template.riserVisit && /outlet/i.test(field.label) && field.type === 'number' ? String(template.riserVisit.outlets_count ?? '') : undefined);
@@ -1190,12 +1192,12 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
 }
 
 export async function buildBlankTemplateDoc(template: WordTemplateInput): Promise<Document> {
-  return new Document({styles:{default:{document:{run:{font:{name:'Helvetica',hint:'default'},size:18}}}},sections:[await buildBlankTemplateSection(template)]});
+  return new Document({styles:{default:{document:{run:{font:{name:'Helvetica',hint:'default'},size:18,color:'000000'}}}},sections:[await buildBlankTemplateSection(template)]});
 }
 export async function buildVisitTemplateDoc(templates: WordTemplateInput[]): Promise<Document> {
   const sections: ISectionOptions[] = [];
   for (const template of templates) sections.push(await buildBlankTemplateSection(template));
-  return new Document({styles:{default:{document:{run:{font:{name:'Helvetica',hint:'default'},size:18}}}},sections});
+  return new Document({styles:{default:{document:{run:{font:{name:'Helvetica',hint:'default'},size:18,color:'000000'}}}},sections});
 }
 
 /** Filename-safe slug for a template name. */
