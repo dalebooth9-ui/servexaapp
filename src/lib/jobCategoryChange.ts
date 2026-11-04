@@ -28,7 +28,7 @@ export async function changeJobCategory(job: { id: string; org_id: string; categ
   }
 
   const update: Record<string, unknown> = { category: newSlug, category_suggestion: null, template_mismatch_reason: null };
-  if (interval) update.recurrence_interval = `${interval} months`;
+  if (interval) update.recurrence_interval = interval;
   const { error } = await supabase.from("jobs").update(update as any).eq("id", job.id).eq("org_id", orgId);
   if (error) throw error;
 
@@ -59,7 +59,9 @@ export async function changeJobCategory(job: { id: string; org_id: string; categ
 }
 
 /** Records that Print reports was used, so a later type change can offer a reprint. */
-export async function logReportsPrinted(jobId: string, orgId: string | null | undefined, userId?: string | null) {
+export async function logReportsPrinted(jobId: string, userId?: string | null) {
+  const { data: j } = await supabase.from("jobs").select("org_id").eq("id", jobId).maybeSingle();
+  const orgId = (j as any)?.org_id;
   if (!orgId) return;
   await supabase.from("job_activity_log").insert({ job_id: jobId, org_id: orgId, user_id: userId ?? null, action: "reports_printed", details: "Engineer reports printed" } as any);
 }
