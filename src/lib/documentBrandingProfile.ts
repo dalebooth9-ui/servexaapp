@@ -4,6 +4,7 @@ import {resolveToSignedUrl} from '@/lib/durableStorageRef';
 import {printBrandingChoice,printColourChoice,type PrintCustomer} from './printBrandingRules';
 import {loadHeaderLogo} from './loadHeaderLogo';
 import {requireCurrentOrgId} from './tenantQueries';
+import {watermarkTint} from './watermarkTint';
 export type DocumentBrandingProfile={logoUrl:string;logoImage:HTMLImageElement|null;accentColor:RgbTriple;isCustomerBranded:boolean;companyName?:string;companySubtitle?:string;footerText?:string;servicedBy?:string;watermarkUrl:string|null};
 export type BrandingInput={template?:{branding?:{company_name?:string;company_subtitle?:string;logo_url?:string;footer_text?:string}|null}|null;customer?:PrintCustomer|null;jobId?:string|null;siteId?:string|null};
 export function parseHexColor(hex?:string|null):RgbTriple|null{if(!hex)return null;let h=hex.trim().replace(/^#/,'');if(h.length===3)h=h.split('').map(c=>c+c).join('');return /^[a-f0-9]{6}$/i.test(h)?[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]:null;}
@@ -19,7 +20,7 @@ export async function resolvePrintCustomer(input:BrandingInput):Promise<PrintCus
 /** Produce a single-colour transparent logo watermark, removing white paper pixels. */
 export function tintedPrintWatermark(img:HTMLImageElement,colour:RgbTriple):string{
  const scale=Math.min(1,1000/Math.max(img.naturalWidth,img.naturalHeight));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.naturalWidth*scale));c.height=Math.max(1,Math.round(img.naturalHeight*scale));const ctx=c.getContext('2d');if(!ctx)return '';ctx.drawImage(img,0,0,c.width,c.height);const pixels=ctx.getImageData(0,0,c.width,c.height);
- for(let i=0;i<pixels.data.length;i+=4){const d=pixels.data;const ink=1-Math.min(d[i],d[i+1],d[i+2])/255;d[i+3]=Math.round(d[i+3]*ink);d[i]=colour[0];d[i+1]=colour[1];d[i+2]=colour[2];}ctx.putImageData(pixels,0,0);return c.toDataURL('image/png');
+ for(let i=0;i<pixels.data.length;i+=4){const d=pixels.data;const paper=Math.min(d[i],d[i+1],d[i+2])>235;d[i+3]=paper?0:d[i+3];d[i]=colour[0];d[i+1]=colour[1];d[i+2]=colour[2];}ctx.putImageData(pixels,0,0);return c.toDataURL('image/png');
 }
 export async function resolveDocumentBrandingProfile(input:BrandingInput):Promise<DocumentBrandingProfile>{
  const [customer,orgLogo,org,flame]=await Promise.all([resolvePrintCustomer(input),getGeneratingOrgFallbackLogoUrl(),getGeneratingOrgBranding(),getGeneratingOrgWatermarkUrl()]);const choice=printBrandingChoice(customer,orgLogo);
@@ -30,7 +31,7 @@ export async function resolveDocumentBrandingProfile(input:BrandingInput):Promis
  const accentColor=(choice.enabled?parseHexColor(choice.colour):null)||orgColour;
  const sourceUrl=flame?((await resolveToSignedUrl(flame).catch(()=>null))||flame):'';
  const source=await image(sourceUrl);
- const watermarkColour=parseHexColor(customer?.brand_colour)||orgColour;
+ const watermarkColour=watermarkTint((choice.enabled?parseHexColor(customer?.brand_colour):null)||parseHexColor(org.primaryColor));
  const watermarkUrl=source?tintedPrintWatermark(source,watermarkColour):null;
  return {logoUrl,logoImage,accentColor,isCustomerBranded:choice.enabled,companyName:choice.enabled?customer?.name||org.name||undefined:org.name||undefined,companySubtitle:input.template?.branding?.company_subtitle,footerText:input.template?.branding?.footer_text,servicedBy:choice.enabled?servicedByText(org):undefined,watermarkUrl};
 }

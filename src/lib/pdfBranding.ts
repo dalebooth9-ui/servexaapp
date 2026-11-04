@@ -47,7 +47,7 @@ export async function renderBrandingOverlay(
   if(entry){
     const {profile,logoPages}=entry;
     args.watermark=null;
-    if(profile.watermarkUrl){const img=new Image();img.src=profile.watermarkUrl;await img.decode();args.watermark=img;args.brandColor=null;settings.mode='untinted';settings.opacity=0.11;}
+    if(profile.watermarkUrl){const img=new Image();img.src=profile.watermarkUrl;await img.decode();args.watermark=img;args.brandColor=null;settings.mode='untinted';settings.opacity=0.12;}
     for(let page=1;page<=doc.getNumberOfPages();page++){
       doc.setPage(page);
       if(!logoPages.has(page)&&profile.logoImage){const img=profile.logoImage;const w=Math.min(35,6*img.naturalWidth/img.naturalHeight);const h=w*img.naturalHeight/img.naturalWidth;doc.addImage(img,'PNG',doc.internal.pageSize.getWidth()-w-10,2,w,h);}

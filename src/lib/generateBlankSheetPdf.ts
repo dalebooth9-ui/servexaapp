@@ -115,7 +115,7 @@ export async function generateBlankSheetPdfBlob(
     jobInfo: jobInfo ? {...jobInfo,engineerAccess:await engineerAccessForPrint({siteId:jobInfo.site_id,jobId:jobInfo.id||jobInfo.riserVisit?.job_id,riserKey:jobInfo.riserVisit?.cabinet_key||null,riserSheet:!!jobInfo.riserVisit?.asset_id}).catch(()=>null)} : null,
     printBranding: {enabled:profile.isCustomerBranded,logoUrl:profile.logoUrl,watermarkUrl:profile.watermarkUrl,servicedBy:profile.servicedBy},
     handfill: false,
-    watermarkOverride: {mode:"untinted",opacity:0.11},
+    watermarkOverride: {mode:"untinted",opacity:0.12},
     watermarkSettings,
     categoryName: opts.categoryName || "",
     accentColor,
