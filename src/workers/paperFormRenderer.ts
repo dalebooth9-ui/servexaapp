@@ -18,6 +18,7 @@ import {fitAccessLines} from '@/lib/siteAccessPdf';
 import type { PdfTemplateField } from "@/lib/pdfBody";
 import { drawQr, stickerUrl } from '@/lib/riserStickers';
 import { printName, printInspectionDate, printInspectionType, printInspectionResult } from '@/lib/printText';
+import { siteDetailLines } from '@/lib/siteDetailsPrint';
 
 export type LoadedImage = {
   dataUrl: string;
