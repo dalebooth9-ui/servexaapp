@@ -4,6 +4,7 @@ import {resolveToSignedUrl} from '@/lib/durableStorageRef';
 import {printBrandingChoice,printColourChoice,type PrintCustomer} from './printBrandingRules';
 import {loadHeaderLogo} from './loadHeaderLogo';
 import {requireCurrentOrgId} from './tenantQueries';
+import {watermarkTint} from './watermarkTint';
 export type DocumentBrandingProfile={logoUrl:string;logoImage:HTMLImageElement|null;accentColor:RgbTriple;isCustomerBranded:boolean;companyName?:string;companySubtitle?:string;footerText?:string;servicedBy?:string;watermarkUrl:string|null};
 export type BrandingInput={template?:{branding?:{company_name?:string;company_subtitle?:string;logo_url?:string;footer_text?:string}|null}|null;customer?:PrintCustomer|null;jobId?:string|null;siteId?:string|null};
 export function parseHexColor(hex?:string|null):RgbTriple|null{if(!hex)return null;let h=hex.trim().replace(/^#/,'');if(h.length===3)h=h.split('').map(c=>c+c).join('');return /^[a-f0-9]{6}$/i.test(h)?[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]:null;}
@@ -30,7 +31,7 @@ export async function resolveDocumentBrandingProfile(input:BrandingInput):Promis
  const accentColor=(choice.enabled?parseHexColor(choice.colour):null)||orgColour;
  const sourceUrl=flame?((await resolveToSignedUrl(flame).catch(()=>null))||flame):'';
  const source=await image(sourceUrl);
- const watermarkColour=parseHexColor(customer?.brand_colour)||orgColour;
+ const watermarkColour=watermarkTint((choice.enabled?parseHexColor(customer?.brand_colour):null)||parseHexColor(org.primaryColor));
  const watermarkUrl=source?tintedPrintWatermark(source,watermarkColour):null;
  return {logoUrl,logoImage,accentColor,isCustomerBranded:choice.enabled,companyName:choice.enabled?customer?.name||org.name||undefined:org.name||undefined,companySubtitle:input.template?.branding?.company_subtitle,footerText:input.template?.branding?.footer_text,servicedBy:choice.enabled?servicedByText(org):undefined,watermarkUrl};
 }
