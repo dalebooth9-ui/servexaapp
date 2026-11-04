@@ -601,7 +601,7 @@ export type Database = {
           name: string
           no_longer_serviced: boolean
           notes: string | null
-          org_id: string | null
+          org_id: string
           outlets_count: number | null
           riser_location: string | null
           serial_number: string | null
@@ -636,7 +636,7 @@ export type Database = {
           name: string
           no_longer_serviced?: boolean
           notes?: string | null
-          org_id?: string | null
+          org_id: string
           outlets_count?: number | null
           riser_location?: string | null
           serial_number?: string | null
@@ -671,7 +671,7 @@ export type Database = {
           name?: string
           no_longer_serviced?: boolean
           notes?: string | null
-          org_id?: string | null
+          org_id?: string
           outlets_count?: number | null
           riser_location?: string | null
           serial_number?: string | null
@@ -11076,6 +11076,7 @@ export type Database = {
         Args: { _name: string }
         Returns: boolean
       }
+      customer_logo_path_in_org: { Args: { _name: string }; Returns: boolean }
       customer_user_can_see_job: {
         Args: { _job_id: string; _uid: string }
         Returns: boolean
@@ -11120,7 +11121,9 @@ export type Database = {
           similarity: number
         }[]
       }
-      generate_asset_tag: { Args: never; Returns: string }
+      generate_asset_tag:
+        | { Args: never; Returns: string }
+        | { Args: { _org_id: string }; Returns: string }
       generate_contract_reference: { Args: never; Returns: string }
       generate_intake_email: { Args: { _slug: string }; Returns: string }
       generate_scan_intake_email: { Args: { _slug: string }; Returns: string }
