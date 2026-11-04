@@ -707,10 +707,9 @@ async function buildPdf(payload: WorkerPayload) {
               doc.rect(ox2 + 10, y + 1, 3, 3); doc.text("F", ox2 + 14, y + 3.5);
               doc.rect(ox2 + 20, y + 1, 3, 3); doc.text("N/A", ox2 + 24, y + 3.5);
             } else if (field.type === "number") {
-              doc.line(ox2, y + 3.5, ox2 + 10, y + 3.5);
               if (field.allow_na) { doc.rect(ox2 + 13, y + 1, 3, 3); doc.text("N/A", ox2 + 17, y + 3.5); }
             } else if (["text", "short_text", "textarea", "date"].includes(field.type)) {
-              doc.line(ox2, y + 3.5, ox2 + 18, y + 3.5);
+              if (field.type === 'date') doc.text('___ / ___ / ___',ox2,y+3.5);
               if (field.allow_na) { doc.rect(ox2 + 21, y + 1, 3, 3); doc.text("N/A", ox2 + 25, y + 3.5); }
             } else if (field.type === "select" && field.options) {
               const hasNa = field.options.some((opt) => opt.toLowerCase() === "n/a" || opt.toLowerCase() === "na");

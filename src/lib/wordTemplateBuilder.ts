@@ -2,7 +2,7 @@ import {
   Document,
   ImageRun,
   Paragraph,
-  TextRun,
+  TextRun as DocxTextRun,
   HeadingLevel,
   Table,
   TableRow,
@@ -23,6 +23,15 @@ import {
 } from "docx";
 import QRCode from 'qrcode';
 import {printName,printInspectionType,printInspectionDate,printInspectionResult} from '@/lib/printText';
+
+/** Explicit defaults for every run, including cells that Word does not style by inheritance. */
+class TextRun extends DocxTextRun {
+  constructor(options: ConstructorParameters<typeof DocxTextRun>[0]) {
+    super(typeof options === 'string'
+      ? {text:options,font:'Helvetica',size:18,color:'000000'}
+      : {font:'Helvetica',size:18,color:'000000',...options});
+  }
+}
 import {loadHeaderLogo} from '@/lib/loadHeaderLogo';
 import {resolveToSignedUrl} from '@/lib/durableStorageRef';
 import {getGeneratingOrgFallbackLogoUrl} from '@/lib/generatingOrgBranding';

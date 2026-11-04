@@ -233,14 +233,14 @@ export function renderPdfSignatures(
   const engCaption = [engTs && `Signed ${engTs}`, engW3W && `Location: ${engW3W}`].filter(Boolean).join("  •  ");
   if (engCaption) {
     doc.setFontSize(5.5);
-    doc.setTextColor(90, 90, 90);
+    doc.setTextColor(0, 0, 0);
     doc.text(engCaption, margin, sigY + 21);
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
   } else if (data.technicianSourceNote) {
     doc.setFontSize(5.5);
     doc.setFont("helvetica", "italic");
-    doc.setTextColor(110, 110, 110);
+    doc.setTextColor(0, 0, 0);
     doc.text(data.technicianSourceNote, margin, sigY + 21);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
@@ -266,14 +266,14 @@ export function renderPdfSignatures(
   const custTs = formatSigTimestamp(data.customerSig?.created_at);
   if (custTs) {
     doc.setFontSize(5.5);
-    doc.setTextColor(90, 90, 90);
+    doc.setTextColor(0, 0, 0);
     doc.text(`Signed ${custTs}`, cx, sigY + 21);
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
   } else if (data.customerSourceNote) {
     doc.setFontSize(5.5);
     doc.setFont("helvetica", "italic");
-    doc.setTextColor(110, 110, 110);
+    doc.setTextColor(0, 0, 0);
     doc.text(data.customerSourceNote, cx, sigY + 21);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
