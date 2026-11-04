@@ -7,6 +7,8 @@ import RiserLocationPicker from "@/components/assets/RiserLocationPicker";
 import SiteRiserStickerList from "@/components/assets/SiteRiserStickerList";
 import { QRCodeSVG } from 'qrcode.react';
 import { stickerUrl } from '@/lib/riserStickers';
+import {useSearchParams} from 'react-router-dom';
+import {isScanPrivateField} from '@/lib/riserScanFlow';
 
 function isDryRiserTemplate(t: any): boolean {
   if (!t) return false;
@@ -1621,6 +1623,8 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       }
 
       clearTemplateFormDraft();
+      try{localStorage.removeItem(openFormKey);}catch{/* optional cache */}
+      window.dispatchEvent(new CustomEvent('job-sheet:submitted',{detail:{jobId,responseId:savedResponseId}}));
       setActiveTemplate(null);
       setActiveResponse(null);
       setFormData({});

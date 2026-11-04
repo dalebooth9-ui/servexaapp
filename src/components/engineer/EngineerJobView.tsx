@@ -17,7 +17,7 @@
  * hero so the event has a listener without exposing the admin sheet list.
  */
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -170,10 +170,34 @@ function getCustomerName(job: any): string | null {
 }
 
 export default function EngineerJobView({ jobId, job, engineers, currentUserId, isAssignedEngineer }: Props) {
+  const [scanParams,setScanParams]=useSearchParams();
+  const isRiserScan=scanParams.get('riserScan')==='1';
+  const targetResponse=scanParams.get('response');
+  const targetTemplate=scanParams.get('template');
+  useEffect(()=>{
+    if(!isRiserScan||!targetResponse||!targetTemplate)return;
+    let attempts=0;
+    const nonce=`scan-${jobId}-${targetResponse}`;
+    const timer=window.setInterval(()=>{
+      const detail:Record<string,unknown>={jobId,responseId:targetResponse,templateId:targetTemplate,mode:'continue',nonce};
+      window.dispatchEvent(new CustomEvent('job-sheet:fill-online',{detail}));
+      if(detail.handled||++attempts>=60)window.clearInterval(timer);
+    },250);
+    return()=>window.clearInterval(timer);
+  },[isRiserScan,targetResponse,targetTemplate,jobId]);
+  useEffect(()=>{
+    const submitted=(event:Event)=>{
+      if((event as CustomEvent).detail?.jobId!==jobId||!isRiserScan)return;
+      setScanParams({riserScan:'1'},{replace:true});
+      setTimeout(()=>document.getElementById('engineer-job-hero')?.scrollIntoView({block:'start',behavior:'smooth'}),100);
+    };
+    window.addEventListener('job-sheet:submitted',submitted);
+    return()=>window.removeEventListener('job-sheet:submitted',submitted);
+  },[jobId,isRiserScan,setScanParams]);
   const custName = getCustomerName(job);
   const siteName = job?.sites?.name as string | undefined;
   const address = (job?.address as string | undefined) || undefined;
-  const poRef = (job as any)?.customer_po
+  const poRef = !isRiserScan && (job as any)?.customer_po
     ? `PO ${(job as any).customer_po}`
     : job?.reference_number;
   // Bumped after a paper scan saves so the documents list picks it up.

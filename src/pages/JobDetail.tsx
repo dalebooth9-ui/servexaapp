@@ -4,7 +4,7 @@ import ComplianceRecord from "@/components/jobs/ComplianceRecord";
 import PossibleDuplicates from "@/components/jobs/PossibleDuplicates";
 import ChunkErrorBoundary from "@/components/ChunkErrorBoundary";
 import { useAutoSave } from "@/hooks/useAutoSave";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -137,6 +137,7 @@ function getCustomerName(job: any): string | null {
 }
 
 export default function JobDetail() {
+  const [scanParams]=useSearchParams();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { userRole, user } = useAuth();
@@ -455,12 +456,12 @@ export default function JobDetail() {
 
   // Engineers (and admins previewing as engineer) get the simplified,
   // field-first view: report(s), site docs, defects, photos. No admin tabs.
-  if (userRole === "engineer") {
+  if (userRole === "engineer" || (userRole === 'admin' && scanParams.get('riserScan')==='1')) {
     return (
       <ChunkErrorBoundary>
         <Suspense fallback={<LazyFallback />}>
           <EngineerJobView
-            jobId={id!}
+            jobId={id || ''}
             job={job}
             engineers={engineers}
             currentUserId={user?.id}
