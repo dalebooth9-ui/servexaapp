@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import CabinetKeySelect from "@/components/assets/CabinetKeySelect";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -177,7 +178,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
           <DialogHeader><DialogTitle>Edit {(riserTypeOf(a) ?? "Dry Riser").toLowerCase()}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1"><label className="text-sm font-medium">Riser location</label><Input value={form.riser_location} onChange={(e) => setForm({ ...form, riser_location: e.target.value })} /></div>
-            <div className="space-y-1"><label className="text-sm font-medium">Cabinet / inlet key type</label><Input placeholder="e.g. FB11, padlock" value={form.cabinet_key_type} onChange={(e) => setForm({ ...form, cabinet_key_type: e.target.value })} /></div>
+            <div className="space-y-1"><label className="text-sm font-medium">Cabinet / inlet box key type</label><CabinetKeySelect value={form.cabinet_key_type} onChange={(v) => setForm({ ...form, cabinet_key_type: v })} /></div>
             <div className="space-y-1"><label className="text-sm font-medium">Number of outlets</label><Input type="number" min={0} value={form.outlets_count} onChange={(e) => setForm({ ...form, outlets_count: e.target.value })} /></div>
             <div className="space-y-1"><label className="text-sm font-medium">Status</label>
               <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>

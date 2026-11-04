@@ -4,7 +4,7 @@ import { renderPaperFormPage } from '@/workers/paperFormRenderer';
 import templates from './fixtures/riserSheetTemplates.json';
 
 const longText = 'Very long riser location name at the rear stairwell beside the plant room '.repeat(3);
-const access = { lines: ['Key: FB11, held at Reception', 'Notes: ' + 'long access note about permits and induction '.repeat(40)], cabinetKeys: 'FB11' };
+const access = { lines: ['Cabinet key: FB11, held at Reception', 'Notes: ' + 'long access note about permits and induction '.repeat(40)], cabinetKeys: 'FB11' };
 const job = (long: boolean) => ({
   customer: 'Craven House Management Ltd', reference_number: 'VFP-00001', customer_po: 'PO-1',
   engineerAccess: long ? access : null,
