@@ -266,6 +266,8 @@ export function renderPaperFormPage(
   } else {
     cursorY = logoTop + 12;
   }
+  // Keep room above the details box for the riser QR + "Riser ID" caption.
+  if (visit?.asset_tag) cursorY = Math.max(cursorY, 28);
 
   // Bold underlined SCOPE OF WORK line.
   const scopeText = derivedScopeLine(template.name);
