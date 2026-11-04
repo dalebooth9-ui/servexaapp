@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +16,19 @@ export default function JobCategorySettings() {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+
+  const [templates, setTemplates] = useState<{ id: string; name: string; org_id: string | null }[]>([]);
+  useEffect(() => {
+    supabase.from("job_sheet_templates").select("id,name,org_id").eq("status", "published").order("name")
+      .then(({ data }) => setTemplates((data as any[]) || []));
+  }, []);
+
+  const setPrintTemplate = async (id: string, templateId: string) => {
+    const { error } = await supabase.from("job_categories" as any)
+      .update({ print_template_id: templateId === "auto" ? null : templateId } as any).eq("id", id);
+    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    else { toast({ title: "Print template saved" }); refetch(); }
+  };
 
   const toSlug = (name: string) =>
     name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
@@ -114,6 +128,7 @@ export default function JobCategorySettings() {
                 <TableHead className="w-10">#</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Slug</TableHead>
+                <TableHead>Print template</TableHead>
                 <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
@@ -139,6 +154,17 @@ export default function JobCategorySettings() {
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs font-mono">
                     {editingId === cat.id ? toSlug(editingName || cat.name) : cat.slug}
+                  </TableCell>
+                  <TableCell>
+                    <Select value={(cat as any).print_template_id || "auto"} onValueChange={(v) => setPrintTemplate(cat.id, v)}>
+                      <SelectTrigger className="h-8 w-56 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">Automatic (first template for this type)</SelectItem>
+                        {templates.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>{t.name}{t.org_id ? "" : " (shared)"}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5">

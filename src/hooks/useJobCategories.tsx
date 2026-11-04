@@ -6,6 +6,7 @@ export interface JobCategory {
   name: string;
   slug: string;
   sort_order: number;
+  print_template_id?: string | null;
 }
 
 export function useJobCategories() {
