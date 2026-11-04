@@ -20,6 +20,7 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl }:
   const [includePlaced, setIncludePlaced] = useState(false);
   const [offsets, setOffsets] = useState<StickerOffsets>(loadOffsets());
   const [busy, setBusy] = useState(false);
+  const [startPosition,setStartPosition]=useState(1);
   const [addCount, setAddCount] = useState(1);
   const [addLocs, setAddLocs] = useState<string[]>([""]);
 
@@ -34,7 +35,7 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl }:
   const resolveLogo = async (): Promise<string | null> => {
     if (customerLogoUrl && customerLogoUrl.trim()) return null; // customer branding → QR + ID only
     const g = await getGeneratingOrgBranding();
-    if (g.logoUrl) return (await resolveToSignedUrl(g.logoUrl, "submissions").catch(() => null)) || g.logoUrl;
+    if (!g.isViva && g.logoUrl) return (await resolveToSignedUrl(g.logoUrl, "submissions").catch(() => null)) || g.logoUrl;
     return (await getGeneratingOrgFallbackLogoUrl()) || null;
   };
 
@@ -44,10 +45,11 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl }:
     try {
       saveOffsets(offsets);
       const doc = await buildStickerPackPdf({
-        items: test ? [] : selected.map((r) => ({ asset_tag: r.asset_tag! })),
+        items: test ? [] : selected.flatMap((r) => r.asset_tag ? [{ asset_tag: r.asset_tag }] : []),
         logoUrl: test ? null : await resolveLogo(),
         offsets,
         testPage: test,
+        startPosition,
       });
       const safe = (siteName || "site").replace(/[^a-z0-9]+/gi, "-");
       doc.save(test ? "sticker-test-page.pdf" : `riser-stickers-${safe}.pdf`);
@@ -121,6 +123,10 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl }:
               Include risers that already have a placed sticker
             </label>
             <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <Label htmlFor="sticker-start">First free label position</Label>
+                <Input id="sticker-start" type="number" min={1} max={48} value={startPosition} onChange={e=>setStartPosition(Math.max(1,Math.min(48,Number(e.target.value)||1)))}/>
+              </div>
               <div>
                 <Label className="text-xs">Nudge down (mm)</Label>
                 <Input type="number" step="0.5" value={offsets.top} onChange={(e) => setOffsets({ ...offsets, top: parseFloat(e.target.value) || 0 })} />

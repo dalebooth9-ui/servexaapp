@@ -7,6 +7,9 @@ import RiserLocationPicker from "@/components/assets/RiserLocationPicker";
 import SiteRiserStickerList from "@/components/assets/SiteRiserStickerList";
 import { QRCodeSVG } from 'qrcode.react';
 import { stickerUrl } from '@/lib/riserStickers';
+import {useSearchParams} from 'react-router-dom';
+import {isScanPrivateField} from '@/lib/riserScanFlow';
+import {printInspectionType,printInspectionResult} from '@/lib/printText';
 
 function isDryRiserTemplate(t: any): boolean {
   if (!t) return false;
@@ -152,6 +155,8 @@ function completedReportDetail(resp: Response, template?: Template): string | nu
 }
 
 export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }: { jobId: string; hideSiteVisitExtra?: boolean }) {
+  const [scanParams]=useSearchParams();
+  const scanMode=scanParams.get('riserScan')==='1';
   const { user, userRole, profile } = useAuth();
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
@@ -1132,6 +1137,16 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
             if (!(f.id in saved) && !(localDraft && f.id in localDraft)) delete merged[f.id];
           }
         });
+        if(scanMode){
+          const visit=saved._riser_visit;
+          for(const f of template.fields){
+            if(/scope.*work/i.test(f.label)&&!merged[f.id]){
+              const needle=visit.visit_type==='pressure'?'pressure':'visual';
+              const choice=f.options?.find(option=>option.toLowerCase().includes(needle));
+              if(choice)merged[f.id]=choice;
+            }
+          }
+        }
       }
       // Alias: if the template field id is "site" but saved data only has
       // "site_name" (or vice versa), copy the value across so the input pre-fills.
@@ -1621,6 +1636,8 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       }
 
       clearTemplateFormDraft();
+      try{localStorage.removeItem(openFormKey);}catch{/* optional cache */}
+      window.dispatchEvent(new CustomEvent('job-sheet:submitted',{detail:{jobId,responseId:savedResponseId}}));
       setActiveTemplate(null);
       setActiveResponse(null);
       setFormData({});
@@ -1653,7 +1670,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   };
 
   const sections = activeTemplate
-    ? [...new Set(activeTemplate.fields.filter((f) => !hiddenFieldIds(formData).includes(String(f.id))).map((f) => f.section || "General"))]
+    ? [...new Set(activeTemplate.fields.filter((f) => !hiddenFieldIds(formData).includes(String(f.id)) && (!scanMode||!isScanPrivateField(f))).map((f) => f.section || "General"))]
     : [];
   const hiddenIds = hiddenFieldIds(formData);
 
@@ -2379,7 +2396,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
           </DialogHeader>
           <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
             <SiteAccessCard siteId={jobSiteId}/>
-            {formData._riser_visit && <div className="px-4 py-3 border-b text-sm space-y-1"><div className="flex items-center justify-between gap-3"><p className="font-semibold">{formData._riser_visit.riser_name || formData._riser_visit.riser_location} · Riser ID {formData._riser_visit.asset_tag}</p>{formData._riser_visit.asset_tag && <QRCodeSVG value={stickerUrl(formData._riser_visit.asset_tag)} size={76} marginSize={4} className="shrink-0"/>}</div><p className="text-muted-foreground">Last inspection: {formData._riser_visit.last_inspection_at ? new Date(formData._riser_visit.last_inspection_at).toLocaleDateString('en-GB') : 'Not recorded'} · {formData._riser_visit.last_inspection_type || 'Type not recorded'} · Result: {formData._riser_visit.last_inspection_result || 'Not recorded'}</p>{formData._riser_visit.remedial_notes && <p className="whitespace-pre-wrap">Open remedial work from last visit: {formData._riser_visit.remedial_notes}</p>}</div>}
+            {formData._riser_visit && <div className="px-4 py-3 border-b text-sm space-y-1"><div className="flex items-center justify-between gap-3"><p className="font-semibold">{formData._riser_visit.riser_name || formData._riser_visit.riser_location} · Riser ID {formData._riser_visit.asset_tag}</p>{formData._riser_visit.asset_tag && <QRCodeSVG value={stickerUrl(formData._riser_visit.asset_tag)} size={76} marginSize={4} className="shrink-0"/>}</div><p className="text-muted-foreground">Last inspection: {formData._riser_visit.last_inspection_at ? new Date(formData._riser_visit.last_inspection_at).toLocaleDateString('en-GB') : 'Not recorded'} · {scanMode ? printInspectionType(formData._riser_visit.last_inspection_type) : formData._riser_visit.last_inspection_type || 'Type not recorded'} · Result: {scanMode ? printInspectionResult(formData._riser_visit.last_inspection_result) : formData._riser_visit.last_inspection_result || 'Not recorded'}</p>{formData._riser_visit.remedial_notes && <p className="whitespace-pre-wrap">Open remedial work from last visit: {formData._riser_visit.remedial_notes}</p>}</div>}
             {modePair && (
               <div className={`flex flex-wrap items-center gap-2 border-b px-4 py-2 text-xs ${switchState?.active ? "border-amber-300 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200" : "border-border bg-muted/40"}`}>
                 <span className="flex-1 min-w-[12rem]">
@@ -2449,7 +2466,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                   </button>
                 </div>
                 {!omitted && activeTemplate?.fields
-                  .filter((f) => (f.section || "General") === section && !hiddenIds.includes(String(f.id)))
+                  .filter((f) => (f.section || "General") === section && !hiddenIds.includes(String(f.id)) && (!scanMode||!isScanPrivateField(f)))
                   .map((field) => (
                     <div
                       key={field.id}

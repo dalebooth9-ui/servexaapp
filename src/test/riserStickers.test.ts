@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { labelPosition, LABELS_PER_SHEET, L4778, stickerUrl } from "@/lib/riserStickers";
+import { labelPosition, LABELS_PER_SHEET, L4778, stickerUrl,STICKER_CONTENT,stickerLogoSize,buildStickerPackPdf } from "@/lib/riserStickers";
 
 describe("riser sticker layout (Avery L4778)", () => {
   it("is 4 across x 12 down of 45.7 x 21.2 mm labels", () => {
@@ -20,5 +20,14 @@ describe("riser sticker layout (Avery L4778)", () => {
   });
   it("links to servexaapp.com/r/<tag>", () => {
     expect(stickerUrl("ABC234")).toBe("https://servexaapp.com/r/ABC234");
+  });
+  it('pins the full logo to 20mm and QR above 16mm',()=>{
+    expect(stickerLogoSize(400,100).width).toBe(20);
+    expect(STICKER_CONTENT.qrSize).toBeGreaterThanOrEqual(16);
+    expect(1.5+18.2+1.5+20+1.5).toBeLessThan(L4778.labelW);
+  });
+  it('starts on the first free label and carries onto the next sheet',async()=>{
+    const pdf=await buildStickerPackPdf({items:[{asset_tag:'S7TW49'},{asset_tag:'ABC234'}],logoUrl:null,offsets:{top:0,left:0},startPosition:48});
+    expect(pdf.getNumberOfPages()).toBe(2);
   });
 });

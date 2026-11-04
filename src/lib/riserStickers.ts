@@ -21,6 +21,13 @@ export const L4778 = {
 } as const;
 
 export const LABELS_PER_SHEET = L4778.cols * L4778.rows;
+/** Fixed print geometry inside each label; never derive logo size from source-image whitespace. */
+export const STICKER_CONTENT = { padding: 1.5, qrSize: 16.2, quiet: 1, logoWidth: 20, logoMaxHeight: 8, idFontSize: 13 } as const;
+
+export function stickerLogoSize(width:number,height:number){
+  const scale=Math.min(STICKER_CONTENT.logoWidth/width,STICKER_CONTENT.logoMaxHeight/height);
+  return {width:width*scale,height:height*scale};
+}
 
 export type StickerOffsets = { top: number; left: number };
 
@@ -58,10 +65,22 @@ async function loadImage(url: string): Promise<{ data: string; w: number; h: num
     await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(); img.src = url; });
     const canvas = document.createElement("canvas");
     canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-    const ctx = canvas.getContext("2d")!;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
     ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0);
-    return { data: canvas.toDataURL("image/png"), w: img.naturalWidth, h: img.naturalHeight };
+    // Remove blank margins around the full logo, preserving its strapline.
+    const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+    let left=canvas.width,top=canvas.height,right=-1,bottom=-1;
+    for(let y=0;y<canvas.height;y++)for(let x=0;x<canvas.width;x++){
+      const i=(y*canvas.width+x)*4;
+      if(Math.min(pixels[i],pixels[i+1],pixels[i+2])<235){left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y);}
+    }
+    if(right<left||bottom<top)return null;
+    const cropped=document.createElement('canvas');cropped.width=right-left+1;cropped.height=bottom-top+1;
+    const croppedCtx=cropped.getContext('2d');if(!croppedCtx)return null;
+    croppedCtx.drawImage(canvas,left,top,cropped.width,cropped.height,0,0,cropped.width,cropped.height);
+    return { data: cropped.toDataURL("image/png"), w: cropped.width, h: cropped.height };
   } catch { return null; }
 }
 
@@ -76,6 +95,7 @@ export async function buildStickerPackPdf(opts: {
   logoUrl: string | null;
   offsets: StickerOffsets;
   testPage?: boolean;
+  startPosition?: number;
 }): Promise<jsPDF> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const logo = opts.logoUrl ? await loadImage(opts.logoUrl) : null;
@@ -94,26 +114,25 @@ export async function buildStickerPackPdf(opts: {
 
   let currentSheet = 0;
   items.forEach((item, idx) => {
-    const p = labelPosition(idx, opts.offsets);
+    const start=Math.max(1,Math.min(LABELS_PER_SHEET,Math.floor(opts.startPosition||1)))-1;
+    const p = labelPosition(idx+start, opts.offsets);
     if (p.sheet > currentSheet) {
       doc.addPage();
       currentSheet = p.sheet;
     }
-    const pad = 1.5;
+    const pad = STICKER_CONTENT.padding;
     const qrSize = L4778.labelH - pad * 2; // ~18.2mm, includes quiet zone below
-    const quiet = 1;
-    drawQr(doc, stickerUrl(item.asset_tag), p.x + pad + quiet, p.y + pad + quiet, qrSize - quiet * 2);
+    const quiet = STICKER_CONTENT.quiet;
+    drawQr(doc, stickerUrl(item.asset_tag), p.x + pad + quiet, p.y + pad + quiet, STICKER_CONTENT.qrSize);
     const textX = p.x + pad + qrSize + 1.5;
     const textW = L4778.labelW - (textX - p.x) - pad;
     doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(15);
+    doc.setFontSize(STICKER_CONTENT.idFontSize);
     const tagY = logo ? p.y + 9 : p.y + L4778.labelH / 2 + 2;
     doc.text(item.asset_tag, textX + textW / 2, tagY, { align: "center" });
     if (logo) {
-      const maxW = textW, maxH = 8;
-      const ratio = Math.min(maxW / logo.w, maxH / logo.h);
-      const w = logo.w * ratio, h = logo.h * ratio;
+      const {width:w,height:h}=stickerLogoSize(logo.w,logo.h);
       doc.addImage(logo.data, "PNG", textX + (textW - w) / 2, p.y + L4778.labelH - pad - h, w, h);
     }
   });

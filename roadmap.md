@@ -1,5 +1,13 @@
 # Roadmap
 
+## Riser sticker and scan service fixes
+- [x] Pin full cropped sticker logo at 20mm/8mm maximum height and QR at 16.2mm; preserve label grid, plain stickers and first-free start position.
+- [x] Reuse eligible riser visits or one site/day scan job transactionally; select existing/default report and record attendance in the org-scoped job activity log.
+- [x] Open the exact riser response in engineer view; persisted signed submission returns to its refreshed report list; scan fields exclude finance/PO and bypass template auto-attach.
+- [x] Update Help and rules; 37 tests pass and preview builds cleanly. Assigned Dale account/tablet scans repeatedly reuse VFP-00264 and response 3b5c696f-c0a5-4d54-a126-1f815168023d; no new job created; sticker PDF inspected.
+- [ ] Submit a real report, concurrent fallback job creation and physical label scan/print — not exercised to avoid fabricating live report/signatures; no physical label sheet/scanner available. Account used also has admin rights; pure engineer server permissions not independently exercised.
+- [ ] Wet visual fallback — this company has no published Wet Riser visual template; action fails clearly without creating a partial job rather than inventing a safety template.
+
 ## Printed paperwork polish
 - [x] Align shared PDF/Word body text, print-only name casing and readable last-inspection details.
 - [x] Remove blank-answer rules, retain signing lines and wrap dry/wet questions without clipping.

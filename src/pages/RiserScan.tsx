@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,6 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { format } from "date-fns";
 import SiteAccessCard from '@/components/sites/SiteAccessCard';
+import {suggestVisitType,type VisitType} from '@/lib/riserVisits';
+import {printInspectionType,printInspectionResult} from '@/lib/printText';
+import {riserReportUrl,type ScanJobChoice} from '@/lib/riserScanFlow';
+import {ToggleGroup,ToggleGroupItem} from '@/components/ui/toggle-group';
 
 type Found = {
   id: string; asset_tag: string; riser_location: string | null; outlets_count: number | null; status: string;
@@ -30,6 +34,11 @@ export default function RiserScan() {
   const [wrongOpen, setWrongOpen] = useState(false);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const starting=useRef(false);
+  const [choices,setChoices]=useState<ScanJobChoice[]>([]);
+  const [typeOpen,setTypeOpen]=useState(false);
+  const [visitType,setVisitType]=useState<VisitType>('visual');
+  const [chosenJob,setChosenJob]=useState<string|null>(null);
   const isStaff = !!user && (userRole === "admin" || userRole === "engineer");
 
   useEffect(() => {
@@ -98,26 +107,25 @@ export default function RiserScan() {
     toast.success("Office told – sent to Asset review");
   };
 
-  const startService = async () => {
+  const startService = async (jobId:string|null=null,type:VisitType|null=null) => {
     if (!asset.site_id) { toast.error("This riser isn't linked to a site"); return; }
+    if(starting.current)return;
+    starting.current=true;
     setBusy(true);
-    const isWet = (asset as any).riser_type === "Wet Riser";
-    const { data, error } = await supabase.from("jobs").insert({
-      name: `${isWet ? "Wet" : "Dry"} riser service – ${asset.riser_location || asset.asset_tag}`,
-      category: isWet ? "wet_riser_annual_service" : "dry_riser_service",
-      priority: "medium",
-      status: "active",
-      site_id: asset.site_id,
-      address: asset.site_address,
-      customer_id: asset.customer_id,
-      customer: asset.customer_name,
-      asset_id: asset.id,
-      created_by: user!.id,
-    } as any).select("id").single();
-    setBusy(false);
-    if (error || !data) { toast.error("Couldn't start the job: " + (error?.message || "unknown error")); return; }
-    toast.success("Job created");
-    navigate(`/jobs/${data.id}`);
+    try {
+      const {data,error}=await supabase.rpc('start_riser_scan_service',{_asset_id:asset.id,_job_id:jobId,_type:type});
+      if(error)throw error;
+      const result=data as {choices?:ScanJobChoice[];needs_type?:boolean;job_id?:string;response_id?:string;template_id?:string};
+      if(result.choices?.length){setChoices(result.choices);return;}
+      if(result.needs_type){
+        setChosenJob(jobId);setVisitType(suggestVisitType(asset,[])||'visual');setTypeOpen(true);return;
+      }
+      if(!result.job_id||!result.response_id||!result.template_id)throw new Error('No report was returned');
+      setChoices([]);setTypeOpen(false);
+      toast.success('On site — report ready');
+      navigate(riserReportUrl(result.job_id,result.response_id,result.template_id));
+    }catch(e:any){toast.error("Couldn't start service",{description:e.message});}
+    finally{starting.current=false;setBusy(false);}
   };
 
   return (
@@ -129,7 +137,7 @@ export default function RiserScan() {
         <Info label="Outlets" value={asset.outlets_count ?? "—"} />
         <Info label="Status" value={asset.status} />
         <Info label="Last inspection" value={asset.last_inspection_at
-          ? `${format(new Date(asset.last_inspection_at), "dd/MM/yyyy")}${asset.last_inspection_type ? ` · ${asset.last_inspection_type}` : ""}${asset.last_inspection_result ? ` · ${asset.last_inspection_result}` : ""}`
+          ? `${format(new Date(asset.last_inspection_at), "dd/MM/yyyy")}${asset.last_inspection_type ? ` · ${printInspectionType(asset.last_inspection_type)}` : ""}${asset.last_inspection_result ? ` · ${printInspectionResult(asset.last_inspection_result)}` : ""}`
           : "None recorded"} />
         <Info label="Sticker" value={asset.label_status} />
       </div>
@@ -145,13 +153,26 @@ export default function RiserScan() {
         {userRole==='engineer'&&asset.site_id&&<SiteAccessCard siteId={asset.site_id}/>}
         {asset.label_status !== "placed" && <Button size="lg" onClick={labelFitted} disabled={busy}>Label fitted</Button>}
         <Button size="lg" variant="outline" onClick={() => setWrongOpen(true)} disabled={busy}>Wrong riser</Button>
-        <Button size="lg" variant="secondary" onClick={startService} disabled={busy}>Start service</Button>
+        <Button size="lg" variant="secondary" onClick={()=>void startService()} disabled={busy}>Start service</Button>
       </div>
       <Dialog open={wrongOpen} onOpenChange={setWrongOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Wrong riser</DialogTitle></DialogHeader>
           <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="What's wrong? e.g. this sticker is on the east stairwell riser" />
           <DialogFooter><Button onClick={wrongRiser} disabled={busy}>Send to office</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={choices.length>0} onOpenChange={open=>{if(!open)setChoices([]);}}>
+        <DialogContent><DialogHeader><DialogTitle>Choose the visit</DialogTitle></DialogHeader>
+          <div className="space-y-2">{choices.map(choice=><Button key={choice.id} variant="outline" className="w-full h-auto py-3 text-left justify-start whitespace-normal" disabled={busy} onClick={()=>{setChoices([]);void startService(choice.id);}}>{choice.reference} · {choice.name}{choice.date?` · ${format(new Date(choice.date),'dd/MM/yyyy')}`:''}</Button>)}</div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={typeOpen} onOpenChange={setTypeOpen}>
+        <DialogContent><DialogHeader><DialogTitle>Service type</DialogTitle></DialogHeader>
+          <ToggleGroup type="single" value={visitType} onValueChange={value=>{if(value==='visual'||value==='pressure')setVisitType(value);}} className="flex-wrap">
+            <ToggleGroupItem value="visual">Visual inspection</ToggleGroupItem><ToggleGroupItem value="pressure">Pressure test</ToggleGroupItem>
+          </ToggleGroup>
+          <DialogFooter><Button disabled={busy} onClick={()=>void startService(chosenJob,visitType)}>Open report</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </Shell>
