@@ -309,9 +309,9 @@ export function renderPaperFormPage(
   const nk = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "");
   const seenParts = new Set<string>([nk(custName || ""), nk(siteName || "")].filter(Boolean));
   const addrParts = (siteAddr || "").split(/,|\n/).map((t) => t.trim()).filter((t) => {
-    const k = nk(t); if (!k || seenParts.has(k)) return false; seenParts.add(k); return true;
+    const k = nk(t); if (!k || [...seenParts].some((x) => x === k || (x.includes(k) && k.length >= 4))) return false; seenParts.add(k); return true;
   });
-  if (sitePc && !seenParts.has(nk(sitePc))) addrParts.push(sitePc);
+  if (sitePc && ![...seenParts].some((x) => x.includes(nk(sitePc)))) addrParts.push(sitePc);
   const siteLines = [nk(siteName || "") && nk(siteName || "") !== nk(custName || "") ? siteName : "", addrParts.join(", ")].filter(Boolean);
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
   const contentLines = [custName,...siteLines].filter(Boolean).flatMap(text=>doc.splitTextToSize(text,leftW-4) as string[]);

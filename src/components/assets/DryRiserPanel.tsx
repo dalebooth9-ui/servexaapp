@@ -40,7 +40,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
   const [editOpen, setEditOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
-  const [form, setForm] = useState({ riser_location: "", outlets_count: "", status: "operational", notes: "" });
+  const [form, setForm] = useState({ riser_location: "", outlets_count: "", status: "operational", notes: "", cabinet_key_type: "" });
   const [sites, setSites] = useState<{ id: string; name: string }[]>([]);
   const [targetSite, setTargetSite] = useState("");
   const [others, setOthers] = useState<{ id: string; asset_tag: string | null; riser_location: string | null }[]>([]);
@@ -49,7 +49,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
 
   const load = async () => {
     const [{ data: asset }, { data: h }, { data: d }] = await Promise.all([
-      supabase.from("assets").select("id, asset_tag, riser_location, outlets_count, status, notes, site_id, last_inspection_at, last_inspection_type, last_inspection_result, asset_type, category").eq("id", assetId).maybeSingle(),
+      supabase.from("assets").select("id, asset_tag, riser_location, outlets_count, status, notes, cabinet_key_type, site_id, last_inspection_at, last_inspection_type, last_inspection_result, asset_type, category").eq("id", assetId).maybeSingle(),
       supabase.from("asset_service_history").select("id, inspection_date, report_date_text, inspection_type, template_name, result_summary, report_link, report_file, job_id").eq("asset_id", assetId).order("inspection_date", { ascending: false, nullsFirst: false }),
       supabase.from("defects").select("id, title, severity, status, created_at").eq("asset_id", assetId).neq("status", "resolved").order("created_at", { ascending: false }),
     ]);
@@ -60,7 +60,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
   if (!a) return null;
 
   const openEdit = () => {
-    setForm({ riser_location: a.riser_location || "", outlets_count: a.outlets_count?.toString() ?? "", status: a.status, notes: a.notes || "" });
+    setForm({ riser_location: a.riser_location || "", outlets_count: a.outlets_count?.toString() ?? "", status: a.status, notes: a.notes || "", cabinet_key_type: (a as any).cabinet_key_type || "" });
     setEditOpen(true);
   };
   const saveEdit = async () => {
@@ -68,7 +68,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
     const outlets = form.outlets_count.trim() === "" ? null : parseInt(form.outlets_count, 10);
     if (outlets != null && (isNaN(outlets) || outlets < 0)) { setBusy(false); toast({ title: "Outlets must be a whole number", variant: "destructive" }); return; }
     const { error } = await supabase.from("assets").update({
-      riser_location: form.riser_location.trim() || null, outlets_count: outlets, status: form.status, notes: form.notes.trim() || null, updated_at: new Date().toISOString(),
+      riser_location: form.riser_location.trim() || null, outlets_count: outlets, status: form.status, notes: form.notes.trim() || null, cabinet_key_type: form.cabinet_key_type.trim() || null, updated_at: new Date().toISOString(),
     }).eq("id", a.id);
     setBusy(false);
     if (error) { toast({ title: "Not saved", description: error.message, variant: "destructive" }); return; }
@@ -177,6 +177,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
           <DialogHeader><DialogTitle>Edit {(riserTypeOf(a) ?? "Dry Riser").toLowerCase()}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1"><label className="text-sm font-medium">Riser location</label><Input value={form.riser_location} onChange={(e) => setForm({ ...form, riser_location: e.target.value })} /></div>
+            <div className="space-y-1"><label className="text-sm font-medium">Cabinet / inlet key type</label><Input placeholder="e.g. FB11, padlock" value={form.cabinet_key_type} onChange={(e) => setForm({ ...form, cabinet_key_type: e.target.value })} /></div>
             <div className="space-y-1"><label className="text-sm font-medium">Number of outlets</label><Input type="number" min={0} value={form.outlets_count} onChange={(e) => setForm({ ...form, outlets_count: e.target.value })} /></div>
             <div className="space-y-1"><label className="text-sm font-medium">Status</label>
               <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
