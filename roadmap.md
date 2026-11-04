@@ -1,10 +1,12 @@
 # Roadmap
 
 ## Email Triage and renewal email repairs
-- [ ] Diagnose live trigger failure, renewal crash and company settings without sending emails.
-- [ ] Make triage notifications best-effort/company-scoped and renewal sends safe with dry-run/error health tracking.
-- [ ] Add admin email health note, update Help and run focused tests plus signed-in dry-run checks.
-- [ ] List failed triage emails for manual creation; preserve automation settings and confirm no test sends.
+- [x] Diagnose missing extensions.http_post, nonexistent interval relationship and missing renewal template; no test sends.
+- [x] Make triage notifications best-effort/company-scoped via authenticated bridge; renewal admin checks, dry-run and failure logs.
+- [x] Add Settings email health, update Help; four focused tests pass; signed-in renewal manual/automatic dry runs and anonymous rejection verified.
+- [x] Preserve all automation settings; send/reminder logs remain zero after tests.
+- [ ] Failed Email Triage sender/subject/date list — no triage inbox or inbound email rows exist in Servexa and no accessible Email Triage connection was found; source mailbox records needed.
+- [ ] Real queue delivery and job creation with failed notification — intentionally not exercised against live data to avoid real emails; sender DNS verification has timed out.
 
 ## Recent-feature company isolation audit
 - [x] Audit site access, due/new visits, logo storage, site merge/undo, import matching, asset tags and printable branding against live permissions.
