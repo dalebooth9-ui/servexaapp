@@ -225,6 +225,13 @@
       "when": 1793778285767,
       "tag": "0031_recent_feature_tenant_isolation",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793778524979,
+      "tag": "0032_close_related_feature_company_boundaries",
+      "breakpoints": true
     }
   ]
 }
