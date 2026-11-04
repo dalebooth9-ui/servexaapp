@@ -11,7 +11,9 @@ import { getDefaultFooterText } from "@/lib/pdfFooter";
 import { useToast } from "@/hooks/use-toast";
 import { getCachedLogo } from "@/lib/logoCache";
 import { getWordExportConfig } from "@/lib/wordExportConfig";
-import { fetchImageBytes, DEFAULT_ACCREDITATION_LOGOS, BRAND_NAVY_HEX, type FetchedImage } from "@/lib/wordTemplateBuilder";
+import { fetchImageBytes, BRAND_NAVY_HEX, type FetchedImage } from "@/lib/wordTemplateBuilder";
+import {resolveDocumentBrandingProfile} from '@/lib/documentBrandingProfile';
+import {fetchCustomerAccreditationLogos} from '@/lib/pdfAccreditations';
 import { AlignmentType } from "docx";
 
 type CompletedJob = {
@@ -328,9 +330,8 @@ ${imageEmbeds}
 
       // Load the Viva Fire logo (or customer override) so the Word doc matches the PDF header.
       // Cached in-memory so repeated exports in the same session don't re-download it.
-      const logoUrl = fullJob.customers?.logo_url && String(fullJob.customers.logo_url).trim() !== ""
-        ? String(fullJob.customers.logo_url)
-        : "/images/vivafire-logo-new.jpg";
+      const printProfile=await resolveDocumentBrandingProfile({jobId:job.id});
+      const logoUrl = printProfile.logoUrl;
       const [cached, wordCfg] = await Promise.all([getCachedLogo(logoUrl), getWordExportConfig()]);
       const logoBuf: Uint8Array | null = cached?.buf ?? null;
       const logoType: "png" | "jpeg" = cached?.type ?? "jpeg";
@@ -396,9 +397,8 @@ ${imageEmbeds}
       })();
 
       // Accreditation logos for the footer (mirrors PDF).
-      const accredFetched: (FetchedImage | null)[] = await Promise.all(
-        DEFAULT_ACCREDITATION_LOGOS.map((u) => fetchImageBytes(u)),
-      );
+      const accredUrls=await fetchCustomerAccreditationLogos(customerName);
+      const accredFetched: (FetchedImage | null)[] = await Promise.all(accredUrls.map((u) => fetchImageBytes(u)));
       const validAccreds = accredFetched.filter((l): l is FetchedImage => !!l);
       const ACCRED_H = 22;
       const accredRuns = validAccreds.flatMap((logo, i) => {
