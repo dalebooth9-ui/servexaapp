@@ -1,0 +1,2 @@
+ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS cabinet_key_type text;
+COMMENT ON COLUMN public.assets.cabinet_key_type IS 'Riser cabinet / inlet box key type; printed in CABINET KEYS before site-level key info.';

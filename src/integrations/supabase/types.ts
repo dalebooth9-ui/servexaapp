@@ -579,6 +579,7 @@ export type Database = {
           asset_tag: string | null
           asset_type: string | null
           attributes: Json
+          cabinet_key_type: string | null
           category: string
           created_at: string
           created_by: string | null
@@ -614,6 +615,7 @@ export type Database = {
           asset_tag?: string | null
           asset_type?: string | null
           attributes?: Json
+          cabinet_key_type?: string | null
           category?: string
           created_at?: string
           created_by?: string | null
@@ -649,6 +651,7 @@ export type Database = {
           asset_tag?: string | null
           asset_type?: string | null
           attributes?: Json
+          cabinet_key_type?: string | null
           category?: string
           created_at?: string
           created_by?: string | null
