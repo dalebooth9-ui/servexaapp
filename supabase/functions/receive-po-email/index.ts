@@ -279,7 +279,7 @@ serve(async (req) => {
     const brief = briefParts.join("\n\n").trim() || null;
 
     const typeMatch = await suggestOrgCategory(admin, orgId, [
-      extracted.email_subject, extracted.job_description, extracted.notes, extracted.other_service_type,
+      extracted.job_description, extracted.notes, extracted.other_service_type,
     ]);
 
     const jobInsert: Record<string, unknown> = {
