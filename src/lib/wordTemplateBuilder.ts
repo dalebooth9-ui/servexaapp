@@ -734,7 +734,7 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
           height: detailRowH,
           children: [
             detailLabelCell("Site:", detailLabelColLeft),
-            detailValueCell(detailValueColLeft, template.riserVisit ? `${template.riserVisit.site_name}\n${template.riserVisit.address}` : undefined),
+            detailValueCell(detailValueColLeft, template.riserVisit ? siteDetailsText({ siteName: template.riserVisit.site_name, address: template.riserVisit.address }, '\n') : undefined),
             detailLabelCell("PO/REF:", detailLabelColRight),
             detailValueCell(detailValueColRight, template.riserVisit?.job_reference),
           ],
