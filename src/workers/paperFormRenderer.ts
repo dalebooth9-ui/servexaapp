@@ -244,14 +244,16 @@ export function renderPaperFormPage(
   const { template, jobInfo, logo, accreditationLogos, handfill } = opts;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 10;
+  // Long templates get tighter margins so the sheet stays on one A4 page.
+  const bodyCount = template.fields.filter((f) => !skipInBody(f)).length;
+  const margin = bodyCount > 30 ? 6 : bodyCount > 24 ? 8 : 10;
   const maxWidth = pageWidth - margin * 2;
   const visit = jobInfo?.riserVisit;
 
   // ─── HEADER ────────────────────────────────────────────────────────
   // Logo centred; the Viva logo image already carries the strapline.
   const logoTop = margin;
-  const logoMaxH = 22;
+  const logoMaxH = bodyCount > 30 ? 16 : bodyCount > 24 ? 19 : 22;
   const logoMaxW = 70;
   let cursorY = logoTop;
   if (logo) {
@@ -264,6 +266,8 @@ export function renderPaperFormPage(
   } else {
     cursorY = logoTop + 12;
   }
+  // Keep room above the details box for the riser QR + "Riser ID" caption.
+  if (visit?.asset_tag) cursorY = Math.max(cursorY, 28);
 
   // Bold underlined SCOPE OF WORK line.
   const scopeText = derivedScopeLine(template.name);
@@ -300,7 +304,15 @@ export function renderPaperFormPage(
   const siteName = printName(jobInfo?.site?.name);
   const siteAddr = printName(jobInfo?.site?.address || jobInfo?.address);
   const sitePc = jobInfo?.site?.postcode || "";
-  const siteLines = [siteName, siteAddr, sitePc].filter(Boolean);
+  // Show the address once: drop address parts that repeat the site name,
+  // an earlier part or the postcode already contained in the address.
+  const nk = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const seenParts = new Set<string>([nk(custName || ""), nk(siteName || "")].filter(Boolean));
+  const addrParts = (siteAddr || "").split(/,|\n/).map((t) => t.trim()).filter((t) => {
+    const k = nk(t); if (!k || seenParts.has(k)) return false; seenParts.add(k); return true;
+  });
+  if (sitePc && !seenParts.has(nk(sitePc))) addrParts.push(sitePc);
+  const siteLines = [nk(siteName || "") && nk(siteName || "") !== nk(custName || "") ? siteName : "", addrParts.join(", ")].filter(Boolean);
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
   const contentLines = [custName,...siteLines].filter(Boolean).flatMap(text=>doc.splitTextToSize(text,leftW-4) as string[]);
   const leftBlockH = Math.max(rightBlockH, visit ? 30 : 26, 10 + contentLines.length*4.2);
@@ -380,9 +392,19 @@ export function renderPaperFormPage(
     }
     doc.setTextColor(0); doc.setFontSize(9); doc.setFont('helvetica','normal');
     const previous = printInspectionDate(visit.last_inspection_at);
-    const contextLines = [`Riser: ${printName(visit.riser_name || visit.riser_location)} | Outlets: ${visit.outlets_count ?? 'Not recorded'} | Job: ${visit.job_reference}`, `Last inspection: ${previous} | ${printInspectionType(visit.last_inspection_type)} | Result: ${printInspectionResult(visit.last_inspection_result)}`, ...(visit.remedial_notes ? [`Open remedial work from last visit: ${visit.remedial_notes}`] : [])];
+    // One combined line; anything not recorded is simply left out.
+    const riserName = printName(visit.riser_name || visit.riser_location);
+    const ctx = [
+      riserName && `Riser: ${riserName}`,
+      visit.outlets_count != null && `Outlets: ${visit.outlets_count}`,
+      visit.job_reference && `Job: ${visit.job_reference}`,
+      visit.last_inspection_at && `Last inspection: ${previous}`,
+      visit.last_inspection_type && printInspectionType(visit.last_inspection_type),
+      visit.last_inspection_result && `Result: ${printInspectionResult(visit.last_inspection_result)}`,
+    ].filter(Boolean).join(' | ');
+    const contextLines = [ctx, ...(visit.remedial_notes ? [`Open remedial work from last visit: ${visit.remedial_notes}`] : [])].filter(Boolean);
     for (const text of contextLines) {
-      const lines = doc.splitTextToSize(text,maxWidth-4) as string[];
+      const lines = (doc.splitTextToSize(text,maxWidth-4) as string[]).slice(0,2);
       doc.text(lines,margin+2,cursorY+3); cursorY += lines.length*3.6;
     }
     cursorY += 2;
@@ -467,26 +489,33 @@ export function renderPaperFormPage(
   const colSplit = margin + maxWidth * 0.70;
   const availH = bodyBottom - cursorY;
 
-  // Adaptive fit — search largest row height that lets all items fit,
-  // also probing shrunk section header height.
-  const rowCandidates = [7, 6.5, 6, 5.5, 5, 4.6];
-  const secCandidates = [6.5, 6, 5.5, 5];
-  const font = { label: 9, ans: 9, sec: 9 };
-  const itemHeight = (it: BodyItem, rowH: number, secH: number) => {
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+  // Adaptive fit — always one A4 page per sheet. Try the largest row
+  // height and font that fit; shrink font/rows/spacing; last resort divides
+  // the space evenly and clips labels to the lines that fit.
+  const rowCandidates = [7, 6.5, 6, 5.5, 5, 4.6, 4.2, 3.8, 3.5];
+  const ptCandidates = [9, 8.5, 8, 7.5, 7, 6.5, 6];
+  const itemHeightAt = (it: BodyItem, rowH: number, secH: number, pt: number) => {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(pt);
     const text = it.kind === 'section' ? it.label : it.field.label;
     const width = it.kind === 'section' ? maxWidth - 4 : colSplit - margin - 4;
     const lines = doc.splitTextToSize(text, width) as string[];
-    return Math.max(it.kind === 'section' ? secH : rowH, lines.length * 3.6 + 1.5);
+    return Math.max(it.kind === 'section' ? secH : rowH, lines.length * pt * 0.4 + 1.2);
   };
-  const measure = (rowH: number, secH: number) => items.reduce((sum, it) => sum + itemHeight(it, rowH, secH), 0);
-  let fit = { rowH: 4.6, secH: 5, font };
-  outer: for (const rowH of rowCandidates) {
-    for (const secH of secCandidates) {
-      if (secH < rowH - 0.5) continue;
-      if (measure(rowH, secH) <= availH) { fit = { rowH, secH, font }; break outer; }
+  let fit = { rowH: 3.5, secH: 3.5, font: { label: 6, ans: 6, sec: 6 }, forced: 0 };
+  outer: for (const pt of ptCandidates) {
+    for (const rowH of rowCandidates) {
+      const secH = Math.max(rowH, Math.min(6.5, rowH + 0.5));
+      if (items.reduce((sum, it) => sum + itemHeightAt(it, rowH, secH, pt), 0) <= availH) {
+        fit = { rowH, secH, font: { label: pt, ans: pt, sec: pt }, forced: 0 }; break outer;
+      }
     }
   }
+  if (!fit.forced && items.reduce((sum, it) => sum + itemHeightAt(it, fit.rowH, fit.secH, fit.font.label), 0) > availH) {
+    fit.forced = Math.max(2.5, availH / Math.max(1, items.length));
+    fit.rowH = fit.secH = fit.forced;
+  }
+  const itemHeight = (it: BodyItem, rowH: number, secH: number) =>
+    fit.forced ? fit.forced : itemHeightAt(it, rowH, secH, fit.font.label);
 
   // Render body table.
   const tableTop = cursorY;
@@ -511,7 +540,8 @@ export function renderPaperFormPage(
       doc.setFont("helvetica", "bold");
       doc.setFontSize(fit.font.sec);
       doc.setTextColor(0, 0, 0);
-      (doc.splitTextToSize(label,maxWidth-4) as string[]).forEach((ln,i)=>doc.text(ln,margin+2,yy+3.3+i*3.6));
+      const sLineH = fit.font.sec * 0.4;
+      (doc.splitTextToSize(label,maxWidth-4) as string[]).slice(0, Math.max(1, Math.floor((rowH - 0.6) / sLineH))).forEach((ln,i)=>doc.text(ln,margin+2,yy+sLineH*(i+0.85)+0.2));
     } else {
       // Body cells — transparent (no white fill) so the watermark shows
       // through uniformly per the current z-order/transparent-cells rules.
@@ -525,7 +555,7 @@ export function renderPaperFormPage(
       const labelMaxW = colSplit - margin - 4;
       const lineH = fit.font.label * 0.4;
       const maxLines = Math.max(1, Math.floor((rowH - 1) / lineH));
-      const lines = doc.splitTextToSize(label, labelMaxW) as string[];
+      const lines = (doc.splitTextToSize(label, labelMaxW) as string[]).slice(0, maxLines);
       lines.forEach((ln, i) => doc.text(ln, margin + 2, yy + lineH * (i + 0.85)));
       // Answer cell — options to circle, or a ruled writing line for
       // free-text/number/date fields. Never leave the cell blank; an empty
@@ -534,9 +564,10 @@ export function renderPaperFormPage(
       const ansMaxW = margin + maxWidth - colSplit - 4;
       if (ans) {
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        const answerLines = doc.splitTextToSize(ans, ansMaxW) as string[];
-        answerLines.forEach((ln,i)=>doc.text(ln, ansX, yy + 3.3 + i*3.6));
+        doc.setFontSize(fit.font.ans);
+        const aLineH = fit.font.ans * 0.4;
+        const answerLines = (doc.splitTextToSize(ans, ansMaxW) as string[]).slice(0, maxLines);
+        answerLines.forEach((ln,i)=>doc.text(ln, ansX, yy + aLineH * (i + 0.85)));
       }
     }
   };
@@ -546,18 +577,10 @@ export function renderPaperFormPage(
     if (it.kind === "section") {
       // Continuation to next page if we've run out.
       const sectionH = itemHeight(it,fit.rowH,fit.secH);
-      if (y + sectionH > bodyBottom) {
-        doc.addPage();
-        y = margin;
-      }
       drawCell(it.label, "", y, sectionH, true);
       y += sectionH;
     } else {
       const fieldH = itemHeight(it,fit.rowH,fit.secH);
-      if (y + fieldH > bodyBottom) {
-        doc.addPage();
-        y = margin;
-      }
       const label = it.field.label;
       const ans = visit && /outlet/i.test(it.field.label) && it.field.type === 'number'
         ? String(visit.outlets_count ?? '') : handfill ? "" : answerCellText(it.field);
