@@ -2,6 +2,7 @@ import type {RgbTriple} from '@/lib/extractLogoColors';
 import {getGeneratingOrgFallbackLogoUrl,getGeneratingOrgBranding,getGeneratingOrgWatermarkUrl} from '@/lib/generatingOrgBranding';
 import {resolveToSignedUrl} from '@/lib/durableStorageRef';
 import {printBrandingChoice,type PrintCustomer} from './printBrandingRules';
+import {loadHeaderLogo} from './loadHeaderLogo';
 export type DocumentBrandingProfile={logoUrl:string;logoImage:HTMLImageElement|null;accentColor:RgbTriple;isCustomerBranded:boolean;companyName?:string;companySubtitle?:string;footerText?:string;watermarkUrl:string|null};
 export type BrandingInput={template?:{branding?:{company_name?:string;company_subtitle?:string;logo_url?:string;footer_text?:string}|null}|null;customer?:PrintCustomer|null;jobId?:string|null;siteId?:string|null};
 export function parseHexColor(hex?:string|null):RgbTriple|null{if(!hex)return null;let h=hex.trim().replace(/^#/,'');if(h.length===3)h=h.split('').map(c=>c+c).join('');return /^[a-f0-9]{6}$/i.test(h)?[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]:null;}
@@ -21,11 +22,12 @@ export function tintedPrintWatermark(img:HTMLImageElement,colour:RgbTriple):stri
 }
 export async function resolveDocumentBrandingProfile(input:BrandingInput):Promise<DocumentBrandingProfile>{
  const [customer,orgLogo,org,flame]=await Promise.all([resolvePrintCustomer(input),getGeneratingOrgFallbackLogoUrl(),getGeneratingOrgBranding(),getGeneratingOrgWatermarkUrl()]);const choice=printBrandingChoice(customer,orgLogo);
- const url=choice.logoUrl?(await resolveToSignedUrl(choice.logoUrl).catch(()=>null))||choice.logoUrl:'';let logoImage=await image(url);let logoUrl=url;
- if(url&&!logoImage){if(choice.enabled)throw new Error('Customer print logo could not be loaded. Please retry before sending paperwork.');logoImage=await image(orgLogo);logoUrl=orgLogo;if(!logoImage)throw new Error('Header logo could not be loaded. Please retry before printing.');}
+ const loaded=await loadHeaderLogo(choice.logoUrl,orgLogo,async raw=>{const url=(await resolveToSignedUrl(raw).catch(()=>null))||raw;const img=await image(url);return img?{url,img}:null;});
+ const logoImage=loaded.image?.img||null;const logoUrl=loaded.image?.url||'';
+ if((choice.logoUrl||orgLogo)&&!logoImage)throw new Error('Header logo could not be loaded. Please retry before printing.');
  const accentColor=parseHexColor(choice.colour)||[31,78,121] as RgbTriple;
- const hasCustomerLogo=Boolean(customer?.print_logo_url||customer?.logo_url);
- const source=choice.enabled&&hasCustomerLogo?logoImage:await image(flame||'');
- const watermarkUrl=source?tintedPrintWatermark(source,accentColor):null;
+ const source=await image(flame||'');
+ const watermarkColour=parseHexColor(customer?.brand_colour)||[128,128,128] as RgbTriple;
+ const watermarkUrl=source?tintedPrintWatermark(source,watermarkColour):null;
  return {logoUrl,logoImage,accentColor,isCustomerBranded:choice.enabled,companyName:choice.enabled?customer?.name||org.name||undefined:org.name||undefined,companySubtitle:input.template?.branding?.company_subtitle,footerText:input.template?.branding?.footer_text,watermarkUrl};
 }

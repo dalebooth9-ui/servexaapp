@@ -1,4 +1,5 @@
 import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
+import {resolveToSignedUrl} from '@/lib/durableStorageRef';
 import {engineerAccessForPrint} from '@/lib/siteAccess';
 import { useState, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
@@ -375,7 +376,8 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       const profile=await resolveDocumentBrandingProfile({template,customer:{...jobInfo?.customers,name:customerName}});
       const accentColor=profile.accentColor;
       const [watermarkSettings,accreditationLogoUrls]=await Promise.all([loadWatermarkSettings(),fetchCustomerAccreditationLogos(customerName)]);
-      const orgFallbackLogoUrl=profile.logoUrl;const orgWatermarkUrl=profile.watermarkUrl;
+      const orgLogo=await getGeneratingOrgFallbackLogoUrl();
+      const orgFallbackLogoUrl=(await resolveToSignedUrl(orgLogo).catch(()=>null))||orgLogo;const orgWatermarkUrl=profile.watermarkUrl;
 
       const label = `BlankTemplatePdfWorker:${template.id || template.name}:${handfill ? "handfill" : "standard"}`;
       console.time(label);
