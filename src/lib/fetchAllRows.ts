@@ -13,12 +13,15 @@ export async function fetchAllRows<T = any>(
   columns: string,
   orderColumn: string = "id",
   client: any = supabase,
+  orgId?: string,
 ): Promise<T[]> {
   const out: T[] = [];
   for (let from = 0; ; from += FETCH_PAGE_SIZE) {
-    const { data, error } = await client
+    let query = client
       .from(table)
-      .select(columns)
+      .select(columns);
+    if (orgId) query = query.eq('org_id', orgId);
+    const { data, error } = await query
       .order(orderColumn, { ascending: true })
       .range(from, from + FETCH_PAGE_SIZE - 1);
     if (error) throw error;

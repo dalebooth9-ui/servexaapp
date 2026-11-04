@@ -1,8 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
-import { fetchAllRows } from '@/lib/fetchAllRows';
+import {fetchOrgRows,requireCurrentOrgId} from './tenantQueries';
 import { isDryRiserAsset } from '@/lib/dryRisers';
 import { visitCycle } from './riserVisits';
 export async function loadRiserVisitData() {
+  const orgId=await requireCurrentOrgId();
+  const fetchAllRows=<T=any>(table:string,columns:string)=>fetchOrgRows<T>(table,columns,'id',supabase,orgId);
   const [assets,sites,customers,links,history,defects,sheets,jobs] = await Promise.all([
     fetchAllRows<any>('assets','id,name,asset_type,category,asset_tag,site_id,riser_location,outlets_count,status,last_inspection_at,last_inspection_type,last_inspection_result,last_job_id,no_longer_serviced,due_visit_state'),
     fetchAllRows<any>('sites','id,name,parent_id,address,postcode,no_longer_serviced'), fetchAllRows<any>('customers','id,name'),

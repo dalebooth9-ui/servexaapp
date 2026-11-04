@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllRows } from "@/lib/fetchAllRows";
+import {fetchOrgRows,requireCurrentOrgId} from '@/lib/tenantQueries';
 import { loadSiteStats, pickSiteWithMostData, type SiteStat } from "@/lib/siteDuplicates";
 import { ImportEntity, ENTITY_SCHEMAS } from "./schemas";
 import { transformRows } from "@/lib/importMapping";
@@ -49,6 +49,8 @@ export default function StepReview({
     let cancelled = false;
     (async () => {
       setLoading(true);
+      const orgId=await requireCurrentOrgId();
+      const fetchAllRows=<T=any>(table:string,columns:string,order='id')=>fetchOrgRows<T>(table,columns,order,supabase,orgId);
       // Fetch existing records of this entity for duplicate detection.
       const cols = entity === "sites" ? "id,name,postcode,address" : entity === "assets" ? "id,name,asset_tag" : "id,name";
       const existingData = await fetchAllRows<any>(entity, cols, "id");

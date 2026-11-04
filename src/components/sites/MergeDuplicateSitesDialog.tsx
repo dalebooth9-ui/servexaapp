@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllRows } from "@/lib/fetchAllRows";
+import {fetchOrgRows,requireCurrentOrgId} from '@/lib/tenantQueries';
 import { findDuplicateGroups, loadSiteStats, pickSiteWithMostData, type DupGroup, type SiteStat } from "@/lib/siteDuplicates";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -29,12 +29,14 @@ export default function MergeDuplicateSitesDialog({ open, onOpenChange, onChange
   async function load() {
     setLoading(true);
     try {
+      const orgId=await requireCurrentOrgId();
+      const fetchAllRows=<T=any>(table:string,columns:string,order='id')=>fetchOrgRows<T>(table,columns,order,supabase,orgId);
       const [s, links, custs, st, log] = await Promise.all([
         fetchAllRows<SiteRow>("sites", "id,name,address,postcode,site_type", "id"),
         fetchAllRows<any>("customer_sites", "id,customer_id,site_id", "id"),
         fetchAllRows<any>("customers", "id,name", "id"),
         loadSiteStats(supabase),
-        supabase.from("site_merge_log" as any).select("id").is("undone_at", null).limit(1),
+        supabase.from("site_merge_log" as any).select("id").eq('org_id',orgId).is("undone_at", null).limit(1),
       ]);
       const cn = new Map<string, string>(custs.map((c: any) => [c.id, c.name]));
       const byS = new Map<string, string[]>();
