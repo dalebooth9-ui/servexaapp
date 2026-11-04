@@ -60,19 +60,30 @@ serve(async (req) => {
     if (!caller) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
-    const { data: isAdmin } = await admin.rpc("has_role", { _user_id: caller.id, _role: "admin" });
-    if (!isAdmin) return new Response(JSON.stringify({ error: "Admin access required" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
-    const { data: orgRow } = await admin.from("organisation_members").select("org_id").eq("user_id", caller.id).limit(1).maybeSingle();
-    const orgId = orgRow?.org_id as string | undefined;
+    const { data: orgId, error: orgError } = await callerClient.rpc('get_user_org_id');
+    if(orgError)throw orgError;
     if (!orgId) return new Response(JSON.stringify({ error: "No organisation for user" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const [{data:isAdmin},{data:isActive}]=await Promise.all([
+      callerClient.rpc('has_role_in_org',{_user_id:caller.id,_org_id:orgId,_role:'admin'}),
+      callerClient.rpc('is_org_active',{_org_id:orgId}),
+    ]);
+    if(!isAdmin||!isActive)return new Response(JSON.stringify({error:'Active company admin access required'}),{status:403,headers:{...corsHeaders,'Content-Type':'application/json'}});
 
     const body = (await req.json()) as CommitBody;
-    if (!body?.entity || !Array.isArray(body.rows)) {
+    if (!['customers','sites','assets'].includes(body?.entity) || !Array.isArray(body.rows)) {
       return new Response(JSON.stringify({ error: "entity and rows required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     if (body.rows.length > 5000) {
       return new Response(JSON.stringify({ error: "Max 5000 rows per import" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Service-role writes must validate every supplied parent against the caller's company.
+    const parentTable=body.entity==='sites'?'customers':'sites';
+    const parentIds=[...new Set(body.rows.filter(r=>r.action!=='skip').map(r=>r.parentMatchId).filter(Boolean))];
+    for(const ids of chunk(parentIds,500)){
+      const {data,error}=await admin.from(parentTable).select('id').eq('org_id',orgId).in('id',ids);
+      if(error)throw error;
+      if(data?.length!==ids.length)return new Response(JSON.stringify({error:'Selected parent belongs to another company or is unavailable'}),{status:403,headers:{...corsHeaders,'Content-Type':'application/json'}});
     }
 
     // Create the batch
@@ -190,7 +201,7 @@ serve(async (req) => {
         for (let i = 0; i < inserted.length; i++) {
           const newId = inserted[i].id;
           const parent = group[i]?.source.parentMatchId;
-          if (newId && parent) links.push({ customer_id: parent, site_id: newId });
+          if (newId && parent) links.push({ customer_id: parent, site_id: newId,org_id:orgId });
         }
         if (links.length) {
           const { error: linkErr } = await admin.from("customer_sites").insert(links);

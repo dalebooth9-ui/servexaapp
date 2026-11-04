@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useAssetCategories } from "@/hooks/useAssetCategories";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import {requireCurrentOrgId} from '@/lib/tenantQueries';
 
 type Row = {
   name: string;
@@ -99,6 +100,7 @@ export default function ScanAssetsDialog({ open, onOpenChange, onImported, sites
 
   const handleImport = async () => {
     if (!user || rows.length === 0) return;
+    const orgId=await requireCurrentOrgId();
     setImporting(true);
 
     // Upload the original scan for the record
@@ -113,6 +115,7 @@ export default function ScanAssetsDialog({ open, onOpenChange, onImported, sites
 
     const payload = rows.map((r) => ({
       name: r.name.trim(),
+      org_id:orgId,
       asset_tag: r.asset_tag.trim() || null,
       category: r.category.trim() || "general",
       make: r.make.trim() || null,

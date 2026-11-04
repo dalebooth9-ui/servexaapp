@@ -4,6 +4,7 @@ import { WATERMARK_OPACITY } from "@/lib/pdfWatermark";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { getGeneratingOrgFallbackAccreditations } from "@/lib/generatingOrgBranding";
 import {requireCurrentOrgId} from './tenantQueries';
+import {resolveManyToSignedUrls} from './durableStorageRef';
 
 /**
  * Fetch accreditation logo URLs for a customer's PDF pack.
@@ -31,7 +32,7 @@ export async function fetchCustomerAccreditationLogos(
     const row = data as any;
     const logos = (row?.accreditation_logos as string[] | undefined) || [];
     const isCustomerBranded = Boolean(row?.logo_url) || Boolean(row?.brand_colour) || logos.length > 0;
-    if (isCustomerBranded) return logos; // may be []; suppress org accreditations
+    if (isCustomerBranded) return (await resolveManyToSignedUrls(logos,'customer-logos')).filter((url):url is string=>Boolean(url));
     return getGeneratingOrgFallbackAccreditations();
   } catch {
     return getGeneratingOrgFallbackAccreditations();
