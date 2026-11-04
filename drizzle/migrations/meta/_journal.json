@@ -211,6 +211,13 @@
       "when": 1793742506655,
       "tag": "0029_site_access_office_role_compatibility",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1793777876837,
+      "tag": "0030_restore_customer_logo_reads_and_admin_writes",
+      "breakpoints": true
     }
   ]
 }
