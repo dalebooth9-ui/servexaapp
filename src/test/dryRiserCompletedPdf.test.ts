@@ -93,7 +93,7 @@ const dryRiserPressureTemplate = {
     { id: "custom_field_1771871167826", type: "checkbox", label: "BS9990:2015 7.4.3.1 Are the instantaneous washers in good condition?", section: "Internal Equipment", required: true, allow_notes: true },
     { id: "landing_valve_padlock_strap", type: "checkbox", label: "BS9990:2015 4.1.5 Does the landing valve have a padlock & strap?", section: "Internal Equipment", required: true, allow_notes: true },
     { id: "custom_field_1771517561119", type: "checkbox", label: "BS9990:2015 7.4.3.1 Outlet cabinets in good condition?", section: "Internal Equipment", required: true, allow_notes: true },
-    { id: "air_release_valve_installed_vertical_point", type: "checkbox", label: "BS9990:2015 4.1.3.34 Is an air release valve installed at the most vertical point of the riser stack?", section: "Air Release Valve", required: true, allow_notes: true },
+    { id: "air_release_valve_installed_vertical_point", type: "checkbox", label: "BS9990:2015 4.1.3.4 Is an air release valve installed at the most vertical point of the riser stack?", section: "Air Release Valve", required: true, allow_notes: true },
     { id: "air_release_valve_installed_top_main_good_condition", type: "checkbox", label: "BS9990:2015 4.1.3.4 Is the air release valve in good condition?", section: "Air Release Valve", required: true, allow_notes: true },
     { id: "pressure_test_result_pass", type: "pass_fail", label: "Pressure test result:", section: "Pressure Test Results", required: true, allow_notes: true },
     { id: "test_pressure_bar", type: "number", label: "Test Pressure (bar):", section: "Pressure Test Results", required: true, allow_notes: true },
