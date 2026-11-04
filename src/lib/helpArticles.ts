@@ -60,7 +60,9 @@ const RULES: SlugRule[] = [
   { test: (p) => p === "/settings/import", slug: "settings.import" },
   { test: (p) => p === '/settings/company-isolation', slug: 'settings.company-isolation' },
   { test: (p) => p === "/settings/integrations", slug: "integrations.quickbooks" },
+  // Settings guide covers the Documents tab, incl. the Print template column on job types (settings.print-template).
   { test: (p) => p === "/settings", slug: "settings" },
+
   { test: (p) => p === "/fleet", slug: "fleet" },
   { test: (p) => p === "/my-profile", slug: "vehicle-checks" },
   { test: (p) => p === "/my-timesheet", slug: "my-timesheet" },

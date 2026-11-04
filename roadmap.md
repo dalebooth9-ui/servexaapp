@@ -128,4 +128,4 @@
 
 
 ## Print template linked to job type
-- [ ] Run Print reports and Print sticker pack as Test Fire Co on its own site/risers/job; confirm its own branding and no Viva content.
+- [x] Run Print reports and Print sticker pack as Test Fire Co on its own site/risers/job: two-page service sheet (one per riser) and a two-sticker sheet, both showing only Test Fire Co wording with no logo (none saved), no Viva text, flame watermark or accreditation badges; Settings > Documents shows its job type linked to its own template; Last printed note appears after printing.
