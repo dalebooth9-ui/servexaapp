@@ -16,10 +16,16 @@ describe('Print reports riser rules', () => {
   });
   it("riser's own key beats site key", () => {
     const l = accessPriorityLines({ cabinet_key_type: 'FB11', cabinet_key_held: 'Reception' }, true, 'Padlock 42');
-    expect(l[0]).toBe('Riser key: Padlock 42');
+    expect(l[0]).toBe('Cabinet key: Padlock 42');
     expect(l.join(' ')).not.toContain('FB11');
   });
   it('falls back to site key when riser has none', () => {
-    expect(accessPriorityLines({ cabinet_key_type: 'FB11' }, true, null)[0]).toBe('Key: FB11');
+    expect(accessPriorityLines({ cabinet_key_type: 'FB11' }, true, null)[0]).toBe('Cabinet key: FB11');
+  });
+});
+describe('cabinet key wording', () => {
+  it('prints pick-list value as "Cabinet key: …"', () => {
+    expect(accessPriorityLines({}, true, 'JD key')[0]).toBe('Cabinet key: JD key');
+    expect(accessPriorityLines({ cabinet_key_type: 'Site keys' }, true, 'Both (JD key or site keys)')).toEqual(['Cabinet key: Both (JD key or site keys)']);
   });
 });

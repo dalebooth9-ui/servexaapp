@@ -1,4 +1,5 @@
 export const ACCESS_FIELDS = {key_location:'Keysafe or key location',access_codes:'Access code(s)',cabinet_key_type:'Cabinet / inlet box key type',cabinet_key_held:'Where the key is held',contact_name:'Contact name',contact_phone:'Contact phone',opening_hours:'Opening hours',parking:'Parking',restrictions:'Hazards or restrictions',notes:'Notes'} as const;
+export const CABINET_KEY_OPTIONS=['JD key','Site keys','Both (JD key or site keys)'] as const;
 export const ENTRY_METHODS=['Reception','Keysafe','Intercom','Fob','Call ahead','Escorted'];
 export type AccessDetails=Partial<Record<keyof typeof ACCESS_FIELDS,string>> & {entry_methods?:string[]};
 export function accessPrintLines(details:AccessDetails,audience:'engineer'|'customer',codes=true):string[]{
@@ -13,8 +14,8 @@ export function accessPriorityLines(details:AccessDetails,codes=true,riserKey?:s
  const seen:string[]=[];const has=(s?:string|null)=>!!s&&seen.some(x=>x.includes(norm(s)));
  const add=(line:string,...src:(string|null|undefined)[])=>{out.push(line);src.forEach(s=>s&&seen.push(norm(s)));};
  // Key first, on one line: "Key: FB11, held at Reception"
- if(riserKey)add(`Riser key: ${riserKey}`,riserKey);
- else if(d.cabinet_key_type||d.cabinet_key_held)add(`Key: ${[d.cabinet_key_type,d.cabinet_key_held&&`held at ${d.cabinet_key_held}`].filter(Boolean).join(', ')}`,d.cabinet_key_type,d.cabinet_key_held);
+ if(riserKey)add(`Cabinet key: ${riserKey}`,riserKey);
+ else if(d.cabinet_key_type||d.cabinet_key_held)add(`Cabinet key: ${[d.cabinet_key_type,d.cabinet_key_held&&`held at ${d.cabinet_key_held}`].filter(Boolean).join(', ')}`,d.cabinet_key_type,d.cabinet_key_held);
  const code=d.access_codes?(codes?d.access_codes:'see site file'):'';
  const loc=d.key_location&&!has(d.key_location)?d.key_location:'';
  if(loc||code)add([loc&&`Keysafe/key: ${loc}`,code&&`Code: ${code}`].filter(Boolean).join(' · '),loc);
