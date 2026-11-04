@@ -383,7 +383,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       console.time(label);
       const { blob: builtBlob, fileName, duration } = await runBlankTemplatePdfWorker({
         template: {...template,branding:{...template.branding,logo_url:profile.logoUrl}},
-        jobInfo:jobInfo?{...jobInfo,customer_po:null,engineerAccess:await engineerAccessForPrint({siteId:jobInfo.site_id,jobId:jobInfo.id})}:null,
+        jobInfo:jobInfo?{...jobInfo,engineerAccess:await engineerAccessForPrint({siteId:jobInfo.site_id,jobId:jobInfo.id}).catch(()=>null)}:null,
         printBranding:{enabled:profile.isCustomerBranded,logoUrl:profile.logoUrl,watermarkUrl:profile.watermarkUrl,servicedBy:profile.servicedBy},
         handfill,
         watermarkOverride:{mode:"untinted",opacity:0.11},
