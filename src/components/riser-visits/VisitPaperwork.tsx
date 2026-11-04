@@ -4,25 +4,24 @@ import {Button} from '@/components/ui/button';
 import {Printer,Download,FileText,Loader2} from 'lucide-react';
 import {toast} from 'sonner';
 import {fetchSiteRisers} from '@/components/assets/siteRisers';
+import {resolveJobPrintTemplate} from '@/lib/printTemplate';
 export async function loadVisitSheets(jobId:string){
  const rows:any[]=[];for(let from=0;;from+=1000){const {data,error}=await supabase.from('job_sheet_responses').select('id,responses,job_sheet_templates(id,name,description,fields,footer_text,branding)').eq('job_id',jobId).is('archived_at',null).order('created_at').order('id').range(from,from+999);if(error)throw error;rows.push(...data);if(data.length<1000)break;}
  return rows.filter(r=>r.responses?._riser_visit).map(r=>({...r,responses:{...r.responses,_riser_visit:{...r.responses._riser_visit,job_id:jobId}}})).sort((a,b)=>a.responses._riser_visit.order-b.responses._riser_visit.order);
 }
-const isVisual=(name?:string|null)=>/visual/i.test(name||'')&&/dry/i.test(name||'');
-/** Engineer paper sheets for "Print reports": visit sheets (one per riser) plus the job's Dry Riser Visual Inspection sheet. Never stickers. */
+/** Engineer paper sheets for "Print reports": visit sheets (one per riser) plus the job type's default print template. Never stickers. */
 export async function loadPrintReportRows(jobId:string){
  const visit=await loadVisitSheets(jobId);
- const {data:job}=await supabase.from('jobs').select('id,org_id,site_id,reference_number,due_date,customers(name),sites(name,address,postcode)').eq('id',jobId).maybeSingle();
- const {data:all}=await supabase.from('job_sheet_responses').select('id,responses,job_sheet_templates(id,name,description,fields,footer_text,branding)').eq('job_id',jobId).is('archived_at',null).order('created_at').limit(200);
+ const {data:job}=await supabase.from('jobs').select('id,org_id,site_id,category,detected_work_types,reference_number,due_date,customers(name),sites(name,address,postcode)').eq('id',jobId).maybeSingle();
  const site:any=(job as any)?.sites;const base={job_id:jobId,customer:(job as any)?.customers?.name||null,site_name:site?.name||null,address:[site?.address,site?.postcode].filter(Boolean).join(', ')||null,job_reference:(job as any)?.reference_number||null,planned_date:(job as any)?.due_date||null};
- let visualTemplate:any=(all||[]).find((r:any)=>isVisual(r.job_sheet_templates?.name))?.job_sheet_templates||null;
+ const printTemplate:any=job?await resolveJobPrintTemplate(job as any):null;
  const rows=[...visit];
- if(!rows.length&&job?.site_id){
-  if(!visualTemplate){const {data:t}=await supabase.from('job_sheet_templates').select('id,name,description,fields,footer_text,branding,org_id').ilike('name','%riser%visual%').eq('status','published').order('org_id',{ascending:true,nullsFirst:false}).limit(5);const orgId=(job as any)?.org_id;visualTemplate=(t||[]).find((x:any)=>x.org_id&&x.org_id===orgId)||(t||[]).find((x:any)=>!x.org_id)||null;}
-  if(visualTemplate){const risers=(await fetchSiteRisers(job.site_id).catch(()=>[])).filter(r=>!/wet/i.test(r.asset_type||''));risers.forEach((r,i)=>rows.push({id:`riser-${r.id}`,job_sheet_templates:visualTemplate,responses:{_riser_visit:{...base,order:i,asset_id:r.id,asset_tag:r.asset_tag,riser_location:r.riser_location,outlets_count:r.outlets_count}}}));}
+ if(!rows.length&&job?.site_id&&printTemplate){
+  const cat=String(printTemplate.job_category||'').toLowerCase();
+  const risers=(await fetchSiteRisers(job.site_id).catch(()=>[])).filter(r=>/wet/.test(cat)?/wet/i.test(r.asset_type||''):/dry/.test(cat)?!/wet/i.test(r.asset_type||''):true);
+  risers.forEach((r,i)=>rows.push({id:`riser-${r.id}`,job_sheet_templates:printTemplate,responses:{_riser_visit:{...base,order:i,asset_id:r.id,asset_tag:r.asset_tag,riser_location:r.riser_location,outlets_count:r.outlets_count}}}));
  }
- const hasVisual=rows.some(r=>isVisual(r.job_sheet_templates?.name));
- if(!hasVisual&&visualTemplate)rows.push({id:'visual',job_sheet_templates:visualTemplate,responses:{_riser_visit:{...base,order:rows.length,riser_location:null}}});
+ if(printTemplate&&!rows.some(r=>r.job_sheet_templates?.id===printTemplate.id))rows.push({id:'print-template',job_sheet_templates:printTemplate,responses:{_riser_visit:{...base,order:rows.length,riser_location:null}}});
  return rows;
 }
 export async function buildVisitPdf(rows:any[]){
