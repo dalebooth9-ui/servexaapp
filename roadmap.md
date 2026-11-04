@@ -1,10 +1,12 @@
 # Roadmap
 
 ## Customer logo loading repair
-- [ ] Audit all saved customer logos without altering customer records.
-- [ ] Restore logo reads and company-admin writes; public bucket blocked by workspace privacy setting.
-- [ ] Repair signed-in displays and PDF/Word header fallback without changing watermarks.
-- [ ] Update Help and verify logo loads, fallback and printed headers.
+- [x] Audit all nine saved customer logos without altering customer records; all signed links return usable images.
+- [x] Restore logo read policy and company-admin writes, including print-logo uploads.
+- [x] Repair signed-in displays and shared PDF/Word header fallback; retain flame watermark with saved colour or neutral grey.
+- [x] Update Help; 38 tests pass and Besseges logo verified on its customer page and both shared-header PDF sample pages.
+- [ ] Restore legacy public links — workspace blocks public buckets; owner/admin must permit them in Settings > Privacy & Security.
+- [ ] Physical printing and every live printable variant — no printer available; shared header sample and existing parity tests verified.
 
 ## Site access information
 - [x] Add staff-only site access storage, confirmation and immutable change history.
