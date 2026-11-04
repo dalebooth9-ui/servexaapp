@@ -4524,6 +4524,7 @@ export type Database = {
           id: string
           name: string
           org_id: string
+          print_template_id: string | null
           rams_required: boolean
           slug: string
           sort_order: number
@@ -4533,6 +4534,7 @@ export type Database = {
           id?: string
           name: string
           org_id?: string
+          print_template_id?: string | null
           rams_required?: boolean
           slug: string
           sort_order?: number
@@ -4542,6 +4544,7 @@ export type Database = {
           id?: string
           name?: string
           org_id?: string
+          print_template_id?: string | null
           rams_required?: boolean
           slug?: string
           sort_order?: number
@@ -4560,6 +4563,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organisations_safe"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_categories_print_template_id_fkey"
+            columns: ["print_template_id"]
+            isOneToOne: false
+            referencedRelation: "job_sheet_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_categories_print_template_id_fkey"
+            columns: ["print_template_id"]
+            isOneToOne: false
+            referencedRelation: "v_job_type_template_map"
+            referencedColumns: ["template_id"]
           },
         ]
       }
