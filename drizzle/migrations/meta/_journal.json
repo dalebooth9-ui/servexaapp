@@ -288,6 +288,13 @@
       "when": 1793800566408,
       "tag": "0040_job_category_print_template",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793807720370,
+      "tag": "0041_job_category_suggestion",
+      "breakpoints": true
     }
   ]
 }
