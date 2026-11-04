@@ -27,7 +27,7 @@ describe("matchJobCategory (company's own job types)", () => {
     expect(m.status).toBe("needs_type");
   });
   it("uses only the given company's list", () => {
-    expect(matchJobCategory([{ name: "Hydrant Flow Test", slug: "hft" }], ["hydrant service"]).slug).toBe("hft");
+    expect(matchJobCategory([{ name: "Hydrant Flow Test", slug: "hft" }, { name: "Boiler Service", slug: "b" }], ["hydrant flow test"]).slug).toBe("hft");
     expect(matchJobCategory([{ name: "Boiler Service", slug: "b" }], ["hydrant service"]).slug).toBeNull();
   });
   it("service plus remedial picks main and notes the other", () => {
