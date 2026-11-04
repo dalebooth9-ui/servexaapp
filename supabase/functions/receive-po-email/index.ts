@@ -24,6 +24,7 @@
 // so Michelle can confirm before it goes live.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { suggestOrgCategory } from "../_shared/matchJobCategory.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -277,6 +278,10 @@ serve(async (req) => {
     }
     const brief = briefParts.join("\n\n").trim() || null;
 
+    const typeMatch = await suggestOrgCategory(admin, orgId, [
+      extracted.job_description, extracted.notes, extracted.other_service_type,
+    ]);
+
     const jobInsert: Record<string, unknown> = {
       name: safeName,
       org_id: orgId,
@@ -284,7 +289,7 @@ serve(async (req) => {
       customer: customerName,
       address: (extracted.address || "").trim() || null,
       priority,
-      category: "general",
+      ...typeMatch.jobFields,
       due_date: extracted.due_date && /^\d{4}-\d{2}-\d{2}$/.test(extracted.due_date) ? extracted.due_date : null,
       status: "pending_review",
       source: "email-intake",

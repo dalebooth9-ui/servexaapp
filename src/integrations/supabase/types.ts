@@ -6038,6 +6038,8 @@ export type Database = {
           asset_id: string | null
           brief: string | null
           category: string
+          category_other_types: string[] | null
+          category_suggestion: string | null
           completed_at: string | null
           completed_by: string | null
           completion_override_reason: string | null
@@ -6096,6 +6098,8 @@ export type Database = {
           asset_id?: string | null
           brief?: string | null
           category?: string
+          category_other_types?: string[] | null
+          category_suggestion?: string | null
           completed_at?: string | null
           completed_by?: string | null
           completion_override_reason?: string | null
@@ -6154,6 +6158,8 @@ export type Database = {
           asset_id?: string | null
           brief?: string | null
           category?: string
+          category_other_types?: string[] | null
+          category_suggestion?: string | null
           completed_at?: string | null
           completed_by?: string | null
           completion_override_reason?: string | null

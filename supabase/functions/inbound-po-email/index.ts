@@ -16,6 +16,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { suggestOrgCategory } from "../_shared/matchJobCategory.ts";
 import { inferJobScope, resolveTemplatesForWorkTypes } from "../_shared/inferJobScope.ts";
 import { buildThreadHeaders, findExistingThreadJob, extractSenderEmail } from "../_shared/threadDedup.ts";
 
@@ -907,6 +908,8 @@ serve(async (req) => {
     }
   }
 
+  const typeMatch = await suggestOrgCategory(admin, orgId!, [email.subject, desc, forwardedBody]);
+
   const jobInsert: Record<string, unknown> = {
     name: jobName,
     org_id: orgId,
@@ -914,7 +917,7 @@ serve(async (req) => {
     customer: customerName,
     address: siteAddress || null,
     priority,
-    category: inferred.categorySlug || "general",
+    ...typeMatch.jobFields,
     is_remedial: inferred.isRemedial,
     due_date: extracted.due_date && /^\d{4}-\d{2}-\d{2}$/.test(extracted.due_date) ? extracted.due_date : null,
     status: "pending_review",

@@ -19,6 +19,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { inferJobScope } from "../_shared/inferJobScope.ts";
+import { suggestOrgCategory } from "../_shared/matchJobCategory.ts";
 import { findJobByPoKeys, normalisePoKey } from "../_shared/threadDedup.ts";
 
 
@@ -179,6 +180,8 @@ serve(async (req) => {
     body: email_body,
   });
 
+  const typeMatch = await suggestOrgCategory(admin, orgId!, [email_subject, job_description, email_body]);
+
   const briefParts: string[] = [];
   if (email_subject) briefParts.push(`Subject: ${email_subject}`);
   if (sender_email) briefParts.push(`From: ${sender_email}`);
@@ -234,7 +237,7 @@ serve(async (req) => {
     customer_id: customerId,
     address: (site_address || "").trim() || null,
     priority: validPriority,
-    category: inferred.categorySlug || "general",
+    ...typeMatch.jobFields,
     status: "pending_review",
     source: "email_po",
     brief,

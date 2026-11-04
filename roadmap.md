@@ -129,3 +129,8 @@
 
 ## Print template linked to job type
 - [x] Run Print reports and Print sticker pack as Test Fire Co on its own site/risers/job: two-page service sheet (one per riser) and a two-sticker sheet, both showing only Test Fire Co wording with no logo (none saved), no Viva text, flame watermark or accreditation badges; Settings > Documents shows its job type linked to its own template; Last printed note appears after printing.
+
+## PO job type detection
+- [x] PO intake picks job type from company's own job categories (uncertain -> blank "Needs a type"; extra work types as note)
+- [x] Pending job review: type dropdown + "Suggested from PO" / "Needs a type"
+- [x] Job page: change type any time; activity log; "Job type changed. Reprint reports?" prompt if printed
