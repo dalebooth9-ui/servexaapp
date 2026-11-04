@@ -30,6 +30,17 @@ describe("matchJobCategory (company's own job types)", () => {
     expect(matchJobCategory([{ name: "Hydrant Flow Test", slug: "hft" }, { name: "Boiler Service", slug: "b" }], ["hydrant flow test"]).slug).toBe("hft");
     expect(matchJobCategory([{ name: "Boiler Service", slug: "b" }], ["hydrant service"]).slug).toBeNull();
   });
+  it("dry riser work never falls back to a generic dry riser type", () => {
+    const m = matchJobCategory(viva, ["Dry riser service at block A"]);
+    expect(m.slug).toBeNull();
+    expect(m.status).toBe("needs_type");
+    expect(matchJobCategory(viva, ["dry riser testing"]).slug).toBeNull();
+  });
+  it("dry riser annual → Pressure test, 6-monthly → Visual", () => {
+    expect(matchJobCategory(viva, ["Annual dry riser service"]).slug).toBe("dry_riser_pressure_test");
+    expect(matchJobCategory(viva, ["6 monthly dry riser check"]).slug).toBe("dry_riser_visual");
+    expect(matchJobCategory(viva, ["dry riser visual inspection"]).slug).toBe("dry_riser_visual");
+  });
   it("service plus remedial picks main and notes the other", () => {
     const m = matchJobCategory(viva, ["Dry riser pressure test, plus dry riser remedial works to outlet"]);
     expect(m.slug).toBe("dry_riser_pressure_test");
