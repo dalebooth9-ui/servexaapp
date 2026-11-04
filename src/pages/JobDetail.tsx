@@ -106,19 +106,30 @@ import { UKDateInput } from "@/components/ui/uk-date-input";
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
-const JOB_TABS = [
+// Everyday tabs stay on the bar; rarely-used ones live behind "More".
+const MAIN_TABS = [
   { value: "overview", label: "Overview" },
-  { value: "photos", label: "Photos" },
   { value: "documents", label: "Documents" },
+  { value: "photos", label: "Photos" },
+] as const;
+
+const MORE_TABS = [
   { value: "emails", label: "Emails" },
   { value: "parts", label: "Parts" },
   { value: "survey", label: "Survey & Snags" },
-  { value: "signoff", label: "Sign-off" },
-  { value: "activity", label: "Activity" },
-  { value: "timeline", label: "Timeline" },
+  { value: "history", label: "History" },
 ] as const;
 
+const JOB_TABS = [...MAIN_TABS, ...MORE_TABS] as const;
+
 type JobTab = (typeof JOB_TABS)[number]["value"];
+
+// Tab values from before the layout tidy-up, mapped to their new homes.
+const LEGACY_TAB_MAP: Record<string, JobTab> = {
+  signoff: "documents",
+  activity: "history",
+  timeline: "history",
+};
 
 // Helper to get customer name from job with joined customers
 function getCustomerName(job: any): string | null {
