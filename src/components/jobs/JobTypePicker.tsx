@@ -58,7 +58,7 @@ export default function JobTypePicker({ job, onChanged, compact }: Props) {
       {reprint && (
         <div role="status" className="flex flex-wrap items-center gap-2 rounded-md border bg-muted px-2 py-1.5 text-xs">
           <span>Job type changed. Reprint reports?</span>
-          <Button size="sm" className="h-6 px-2 text-xs" onClick={() => { window.dispatchEvent(new CustomEvent("job:reprint-reports", { detail: { jobId: job.id } })); setReprint(false); }}>Reprint</Button>
+          <Button size="sm" className="h-6 px-2 text-xs" onClick={() => { const detail: any = { jobId: job.id }; window.dispatchEvent(new CustomEvent("job:reprint-reports", { detail })); if (!detail.handled) toast.info("Open the Documents tab and press Print reports."); setReprint(false); }}>Reprint</Button>
           <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => setReprint(false)}>Not now</Button>
         </div>
       )}
