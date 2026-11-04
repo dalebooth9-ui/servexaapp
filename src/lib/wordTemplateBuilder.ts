@@ -1105,7 +1105,7 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
 
   // --- Footer (accreditation logos row + bordered bold centred declaration) ---
   const footerChildren: Paragraph[] = [];
-  if(profile.isCustomerBranded)footerChildren.push(new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:"Serviced by Viva Fire Protection Ltd",size:14})]}));
+  if(profile.servicedBy)footerChildren.push(new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:profile.servicedBy,size:14})]}));
   const validAccreds = (accredLogos as (FetchedImage | null)[]).filter(
     (l): l is FetchedImage => !!l,
   );

@@ -218,6 +218,27 @@
       "when": 1793777876837,
       "tag": "0030_restore_customer_logo_reads_and_admin_writes",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1793778285767,
+      "tag": "0031_recent_feature_tenant_isolation",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793778524979,
+      "tag": "0032_close_related_feature_company_boundaries",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1793778599745,
+      "tag": "0033_reject_foreign_report_sync_before_draft_check",
+      "breakpoints": true
     }
   ]
 }

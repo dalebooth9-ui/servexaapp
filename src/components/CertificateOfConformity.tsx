@@ -21,6 +21,7 @@ import { PDF_PALETTE } from "@/lib/pdfPalette";
 import type { WatermarkOverride } from "@/lib/pdfBranding";
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { UKDateInput } from "@/components/ui/uk-date-input";
+import {getGeneratingOrgIssuerDetails,getGeneratingOrgBranding} from '@/lib/generatingOrgBranding';
 
 export type ConformityCert = {
   id: string;
@@ -301,28 +302,8 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
   const today = new Date().toISOString().split("T")[0];
 
   // Fetch org branding for company name auto-fill
-  let orgCompanyName = "Viva Fire Protection Ltd";
-  let orgAddress = "Unit 1 Lady Road, St Johns Industrial Estate, Lees, Oldham OL4 3DZ";
-  let orgPhone = "0845 269 8482";
-  let orgEmail = "sales@vivafire.co.uk";
-  let orgWebsite = "www.vivafire.co.uk";
-  let orgRegNo = "06464084";
-  try {
-    const { data: brandingSetting } = await supabase
-      .from("app_settings")
-      .select("value")
-      .eq("key", "org_branding")
-      .maybeSingle();
-    if (brandingSetting?.value && typeof brandingSetting.value === "object") {
-      const b = brandingSetting.value as any;
-      if (b.company_name) orgCompanyName = b.company_name;
-      if (b.address) orgAddress = b.address;
-      if (b.phone) orgPhone = b.phone;
-      if (b.email) orgEmail = b.email;
-      if (b.website) orgWebsite = b.website;
-      if (b.reg_no) orgRegNo = b.reg_no;
-    }
-  } catch {}
+  const issuer=await getGeneratingOrgIssuerDetails();
+  const orgCompanyName=issuer.company_name,orgAddress=issuer.address,orgPhone=issuer.phone,orgEmail=issuer.email,orgWebsite=issuer.website,orgRegNo=issuer.reg_no;
 
   // Derive system type from job category
   const cat = (jobInfo.category || "").toLowerCase();
@@ -407,12 +388,9 @@ export async function generateConformityPdfBase64(
   const printProfile=await resolveDocumentBrandingProfile({jobId:/^[0-9a-f-]{36}$/i.test(cert.job_id||'')?cert.job_id:undefined,customer:{name:cert.customer_name}});
 
   // ── Org branding — try stored JSON in test_notes first, then fetch live ──
-  let orgCompanyName = "Viva Fire Protection Ltd";
-  let orgAddress = "Unit 1 Lady Road, St Johns Industrial Estate, Lees, Oldham OL4 3DZ";
-  let orgPhone = "0845 269 8482";
-  let orgEmail = "sales@vivafire.co.uk";
-  let orgWebsite = "www.vivafire.co.uk";
-  let orgRegNo = "06464084";
+  const issuer=await getGeneratingOrgIssuerDetails();
+  const generatingOrg=await getGeneratingOrgBranding();
+  let orgCompanyName=issuer.company_name,orgAddress=issuer.address,orgPhone=issuer.phone,orgEmail=issuer.email,orgWebsite=issuer.website,orgRegNo=issuer.reg_no;
 
   // Try to parse stored JSON from test_notes
   let extraNotes = "";
@@ -420,12 +398,15 @@ export async function generateConformityPdfBase64(
     try {
       const parsed = JSON.parse(cert.test_notes);
       if (parsed && typeof parsed === "object" && parsed.orgCompanyName) {
-        orgCompanyName = parsed.orgCompanyName || orgCompanyName;
-        orgAddress = parsed.orgAddress || orgAddress;
-        orgPhone = parsed.orgPhone || orgPhone;
-        orgEmail = parsed.orgEmail || orgEmail;
-        orgWebsite = parsed.orgWebsite || orgWebsite;
-        orgRegNo = parsed.orgRegNo || orgRegNo;
+        // Preserve legacy Viva issuer details only within Viva's own account.
+        if(generatingOrg.isViva){
+          orgCompanyName = parsed.orgCompanyName || orgCompanyName;
+          orgAddress = parsed.orgAddress || orgAddress;
+          orgPhone = parsed.orgPhone || orgPhone;
+          orgEmail = parsed.orgEmail || orgEmail;
+          orgWebsite = parsed.orgWebsite || orgWebsite;
+          orgRegNo = parsed.orgRegNo || orgRegNo;
+        }
       } else {
         extraNotes = cert.test_notes;
       }
@@ -441,6 +422,7 @@ export async function generateConformityPdfBase64(
       .from("app_settings")
       .select("value")
       .eq("key", "org_branding")
+      .eq('org_id',generatingOrg.orgId || '')
       .maybeSingle();
     if (brandingSetting?.value && typeof brandingSetting.value === "object") {
       const b = brandingSetting.value as any;

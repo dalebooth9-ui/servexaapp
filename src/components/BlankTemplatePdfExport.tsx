@@ -108,7 +108,7 @@ interface Props {
 }
 
 type BlankTemplatePdfWorkerPayload = {
-  printBranding?:{enabled:boolean;logoUrl:string;watermarkUrl:string|null};
+  printBranding?:{enabled:boolean;logoUrl:string;watermarkUrl:string|null;servicedBy?:string};
   template: Template;
   jobInfo?: JobInfo | null;
   handfill: boolean;
@@ -384,7 +384,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       const { blob: builtBlob, fileName, duration } = await runBlankTemplatePdfWorker({
         template: {...template,branding:{...template.branding,logo_url:profile.logoUrl}},
         jobInfo:jobInfo?{...jobInfo,customer_po:null,engineerAccess:await engineerAccessForPrint({siteId:jobInfo.site_id,jobId:jobInfo.id})}:null,
-        printBranding:{enabled:profile.isCustomerBranded,logoUrl:profile.logoUrl,watermarkUrl:profile.watermarkUrl},
+        printBranding:{enabled:profile.isCustomerBranded,logoUrl:profile.logoUrl,watermarkUrl:profile.watermarkUrl,servicedBy:profile.servicedBy},
         handfill,
         watermarkOverride:{mode:"untinted",opacity:0.11},
         watermarkSettings,

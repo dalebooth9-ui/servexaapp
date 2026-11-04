@@ -12,6 +12,7 @@
  * accreditation strip) until it configures its own branding.
  */
 import { supabase } from "@/integrations/supabase/client";
+import {requireCurrentOrgId} from './tenantQueries';
 
 export const VIVA_ORG_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -22,25 +23,18 @@ export type GeneratingOrgBranding = {
   logoUrl: string | null;
 };
 
-let cached: Promise<GeneratingOrgBranding> | null = null;
-
 const NEUTRAL: GeneratingOrgBranding = {
   orgId: null, isViva: false, name: null, logoUrl: null,
 };
 
-export function resetGeneratingOrgBrandingCache() { cached = null; }
+export function resetGeneratingOrgBrandingCache() { /* Branding is resolved per export/session. */ }
 
-export function getGeneratingOrgBranding(): Promise<GeneratingOrgBranding> {
-  if (cached) return cached;
-  cached = (async (): Promise<GeneratingOrgBranding> => {
+export async function getGeneratingOrgBranding(): Promise<GeneratingOrgBranding> {
     try {
       const { data: sess } = await supabase.auth.getUser();
       const uid = sess.user?.id;
       if (!uid) return NEUTRAL;
-      const { data: profile } = await supabase
-        .from("profiles").select("org_id").eq("user_id", uid).maybeSingle();
-      const orgId = (profile as any)?.org_id as string | undefined;
-      if (!orgId) return NEUTRAL;
+      const orgId = await requireCurrentOrgId();
       const { data: org } = await supabase
         .from("organisations").select("id, name, logo_url").eq("id", orgId).maybeSingle();
       const row = org as any;
@@ -53,8 +47,6 @@ export function getGeneratingOrgBranding(): Promise<GeneratingOrgBranding> {
     } catch {
       return NEUTRAL;
     }
-  })();
-  return cached;
 }
 
 /** Header logo URL to use when the doc has no template/customer logo.
@@ -81,5 +73,20 @@ export async function getGeneratingOrgFallbackAccreditations(): Promise<string[]
 /** Watermark image URL for the current generating org. Viva → flame; other → null. */
 export async function getGeneratingOrgWatermarkUrl(): Promise<string | null> {
   const g = await getGeneratingOrgBranding();
-  return g.isViva ? "/images/viva-watermark.png?v=4" : null;
+  return g.isViva ? "/images/viva-watermark.png?v=4" : g.logoUrl;
+}
+
+export function servicedByText(org: Pick<GeneratingOrgBranding,'isViva'|'name'>): string | undefined {
+  const name=org.isViva?'Viva Fire Protection Ltd':org.name;
+  return name?`Serviced by ${name}`:undefined;
+}
+
+export async function getGeneratingOrgIssuerDetails() {
+  const org=await getGeneratingOrgBranding();
+  const empty={company_name:org.name||'',address:'',phone:'',email:'',website:'',reg_no:''};
+  if(!org.orgId)return empty;
+  const {data,error}=await supabase.from('app_settings').select('value').eq('org_id',org.orgId).eq('key','org_branding').maybeSingle();
+  if(error)throw error;
+  const b=data?.value && typeof data.value==='object' && !Array.isArray(data.value)?data.value as Record<string,unknown>:{};
+  return Object.fromEntries(Object.entries(empty).map(([k,v])=>[k,typeof b[k]==='string'?b[k]:v])) as typeof empty;
 }

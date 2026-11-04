@@ -7,6 +7,7 @@
 // Keep this in sync with the payload builder inside BlankTemplatePdfExport.tsx.
 
 import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
+import {resolveToSignedUrl} from '@/lib/durableStorageRef';
 import {engineerAccessForPrint} from '@/lib/siteAccess';
 import type {EngineerAccessPrint} from '@/lib/siteAccessPdf';
 import { loadWatermarkSettings } from "@/hooks/useWatermarkSettings";
@@ -107,11 +108,12 @@ export async function generateBlankSheetPdfBlob(
   const profile=await resolveDocumentBrandingProfile({template,customer:{...jobInfo?.customers,name:jobInfo?.customers?.name||jobInfo?.customer},jobId:jobInfo?.riserVisit?.job_id});
   const customerName=jobInfo?.customers?.name||jobInfo?.customer||'';
   const [watermarkSettings,accreditationLogoUrls]=await Promise.all([loadWatermarkSettings(),fetchCustomerAccreditationLogos(customerName)]);
-  const accentColor=profile.accentColor;const orgFallbackLogoUrl=profile.logoUrl;const orgWatermarkUrl=profile.watermarkUrl;
+  const orgLogo=await getGeneratingOrgFallbackLogoUrl();
+  const accentColor=profile.accentColor;const orgFallbackLogoUrl=(await resolveToSignedUrl(orgLogo).catch(()=>null))||orgLogo;const orgWatermarkUrl=profile.watermarkUrl;
   const { blob } = await runWorker({
     template: {...template,branding:{...template.branding,logo_url:profile.logoUrl}},
     jobInfo: jobInfo ? {...jobInfo,customer_po:null,engineerAccess:await engineerAccessForPrint({siteId:jobInfo.site_id,jobId:jobInfo.id||jobInfo.riserVisit?.job_id})} : null,
-    printBranding: {enabled:profile.isCustomerBranded,logoUrl:profile.logoUrl,watermarkUrl:profile.watermarkUrl},
+    printBranding: {enabled:profile.isCustomerBranded,logoUrl:profile.logoUrl,watermarkUrl:profile.watermarkUrl,servicedBy:profile.servicedBy},
     handfill: false,
     watermarkOverride: {mode:"untinted",opacity:0.11},
     watermarkSettings,

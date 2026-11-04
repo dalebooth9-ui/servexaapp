@@ -2,6 +2,7 @@ import { useState, useEffect, createContext, useContext, ReactNode, useCallback 
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { primeOrgIdCache } from "@/lib/orgStoragePath";
+import {resetGeneratingOrgBrandingCache} from '@/lib/generatingOrgBranding';
 
 type Role = "admin" | "engineer" | null;
 
@@ -75,6 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        resetGeneratingOrgBrandingCache();
+        primeOrgIdCache(null);
         setSession(session);
         setUser(session?.user ?? null);
 

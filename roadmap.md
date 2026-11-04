@@ -1,11 +1,18 @@
 # Roadmap
 
+## Recent-feature company isolation audit
+- [x] Audit site access, due/new visits, logo storage, site merge/undo, import matching, asset tags and printable branding against live permissions.
+- [x] Fix company-boundary gaps: linked-record guards, child merge/undo scoping, per-company sticker uniqueness, staff-only imported history, private logo reads, server-validated import parents and session-safe print branding.
+- [x] Verify live foreign-company reads return zero and access save, merge, report sync and import reject foreign IDs; 57 tests pass; Due visits and Besseges logo verified; update Help.
+- [x] Summarise findings, fixes and verification limits; no decisions required to enforce company isolation.
+- [ ] Independent engineer/customer sessions, successful merge/undo and new visits in two companies, duplicate-tag insert and physical prints — no approved independent test sessions/printer; do not create, delete or alter live customer data for testing.
+
 ## Customer logo loading repair
 - [x] Audit all nine saved customer logos without altering customer records; all signed links return usable images.
 - [x] Restore logo read policy and company-admin writes, including print-logo uploads.
 - [x] Repair signed-in displays and shared PDF/Word header fallback; retain flame watermark with saved colour or neutral grey.
 - [x] Update Help; 38 tests pass and Besseges logo verified on its customer page and both shared-header PDF sample pages.
-- [ ] Restore legacy public links — workspace blocks public buckets; owner/admin must permit them in Settings > Privacy & Security.
+- [x] Keep legacy public links unavailable — superseded by the company-isolation requirement; private signed-in logo loading is retained.
 - [ ] Physical printing and every live printable variant — no printer available; shared header sample and existing parity tests verified.
 
 ## Site access information

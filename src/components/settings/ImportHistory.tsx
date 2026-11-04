@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { History, Loader2, Upload, CheckCircle2 } from "lucide-react";
 import { parseReportDateText, priorityToSeverity, remedialStatus } from "@/lib/dryRisers";
-import { fetchAllRows } from "@/lib/fetchAllRows";
+import {fetchOrgRows,requireCurrentOrgId} from '@/lib/tenantQueries';
 import { loadSiteStats, pickSiteWithMostData, type SiteStat } from "@/lib/siteDuplicates";
 
 type Kind = "history" | "remedial";
@@ -43,12 +43,12 @@ async function fetchAll<T>(build: (from: number) => any): Promise<T[]> {
 }
 
 async function loadLookups(): Promise<Lookups> {
-  const { data: orgId } = await supabase.rpc("get_user_org_id");
+  const orgId = await requireCurrentOrgId();
   const [sites, customers, assets, links, siteStats] = await Promise.all([
-    fetchAll<any>(() => supabase.from("sites").select("id, name").order("id")),
-    fetchAll<any>(() => supabase.from("customers").select("id, name").order("id")),
-    fetchAll<any>(() => supabase.from("assets").select("id, asset_tag, site_id").not("asset_tag", "is", null).order("id")),
-    fetchAllRows<any>("customer_sites", "id,customer_id,site_id", "id"),
+    fetchOrgRows<any>('sites','id,name','id',supabase,orgId),
+    fetchOrgRows<any>('customers','id,name','id',supabase,orgId),
+    fetchAll<any>(() => supabase.from("assets").select("id, asset_tag, site_id").eq('org_id',orgId).not("asset_tag", "is", null).order("id")),
+    fetchOrgRows<any>("customer_sites", "id,customer_id,site_id", "id",supabase,orgId),
     loadSiteStats(supabase).catch(() => new Map<string, SiteStat>()),
   ]);
   const siteMap = new Map<string, { id: string; name: string }[]>();
@@ -111,10 +111,10 @@ function Importer({ kind, title, description, cols }: { kind: Kind; title: strin
       // Existing (site + report_file) keys for de-dup
       const existingKeys = new Set<string>();
       if (kind === "history") {
-        const hist = await fetchAll<any>(() => supabase.from("asset_service_history").select("site_id, report_file").not("report_file", "is", null).order("id"));
+        const hist = await fetchAll<any>(() => supabase.from("asset_service_history").select("site_id, report_file").eq('org_id',lk.orgId).not("report_file", "is", null).order("id"));
         hist.forEach((h) => existingKeys.add(`${h.site_id}|${norm(h.report_file)}`));
       } else {
-        const defs = await fetchAll<any>(() => supabase.from("defects").select("site_id, description, title").like("description", "Imported from %").order("id"));
+        const defs = await fetchAll<any>(() => supabase.from("defects").select("site_id, description, title").eq('org_id',lk.orgId).like("description", "Imported from %").order("id"));
         defs.forEach((d) => existingKeys.add(`${d.site_id}|${norm(d.description)}|${norm(d.title)}`));
       }
       const seen = new Set<string>();
@@ -171,16 +171,17 @@ function Importer({ kind, title, description, cols }: { kind: Kind; title: strin
     const errors: string[] = [];
     let sitesCreated = 0, imported = 0, skipped = 0;
     try {
+      if(await requireCurrentOrgId()!==lookups.orgId)throw new Error('Company changed. Upload the file again before importing.');
       // Optionally create the missing sites (exact names, linked to an exact-name customer if one exists)
       const siteIdByName = new Map<string, string>();
       if (createSites && missingSites.length) {
         for (const name of missingSites) {
-          const { data, error } = await supabase.from("sites").insert({ name, site_type: "site" } as any).select("id").single();
+          const { data, error } = await supabase.from("sites").insert({ name, site_type: "site",org_id:lookups.orgId } as any).select("id").single();
           if (error || !data) { errors.push(`Site "${name}": ${error?.message}`); continue; }
           sitesCreated++; siteIdByName.set(norm(name), data.id);
           const custName = rows.find((r) => norm(r.siteName) === norm(name))?.raw.customer;
           const custId = custName ? lookups.customers.get(norm(custName)) : undefined;
-          if (custId) await supabase.from("customer_sites").insert({ customer_id: custId, site_id: data.id } as any);
+          if (custId) await supabase.from("customer_sites").insert({ customer_id: custId, site_id: data.id,org_id:lookups.orgId } as any);
         }
       }
       const toImport = rows.map((r) => {
@@ -205,6 +206,7 @@ function Importer({ kind, title, description, cols }: { kind: Kind; title: strin
         const when = r.date ? new Date(`${r.date}T12:00:00Z`).toISOString() : new Date().toISOString();
         return {
           title: r.raw.work_needed.trim(),
+          org_id:lookups.orgId,
           description: `Imported from ${r.raw.report_file || fileName}`,
           resolution_notes: r.raw.work_done || null,
           severity: priorityToSeverity(r.raw.priority),
@@ -225,7 +227,7 @@ function Importer({ kind, title, description, cols }: { kind: Kind; title: strin
       }
       setDone({ imported, skipped, sitesCreated, errors });
       setRows(null);
-    } finally { setBusy(false); }
+    } catch(e:any){toast({title:'Import failed',description:e.message,variant:'destructive'});} finally { setBusy(false); }
   };
 
   return (

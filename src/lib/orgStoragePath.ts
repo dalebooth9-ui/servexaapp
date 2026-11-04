@@ -45,7 +45,8 @@ let inflight: Promise<string | null> | null = null;
 
 /** Prime the cache from AuthContext so lib helpers can skip the round-trip. */
 export function primeOrgIdCache(orgId: string | null | undefined) {
-  if (orgId) cachedOrgId = orgId;
+  cachedOrgId = orgId || null;
+  inflight = null;
 }
 
 /**
@@ -53,31 +54,16 @@ export function primeOrgIdCache(orgId: string | null | undefined) {
  * first call. Returns null if there is no authenticated user or profile row.
  */
 export async function getCurrentOrgId(): Promise<string | null> {
-  if (cachedOrgId) return cachedOrgId;
-  if (inflight) return inflight;
-  inflight = (async () => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const uid = sessionData.session?.user?.id;
-    if (!uid) return null;
-    const { data } = await supabase
-      .from("profiles")
-      .select("org_id")
-      .eq("user_id", uid)
-      .maybeSingle();
-    const org = (data as any)?.org_id ?? null;
-    if (org) cachedOrgId = org;
-    return org;
-  })();
-  try {
-    return await inflight;
-  } finally {
-    inflight = null;
-  }
+  const {data,error}=await supabase.rpc('get_user_org_id');
+  if(error)throw error;
+  cachedOrgId=data||null;
+  return cachedOrgId;
 }
 
 /** Async convenience: resolve orgId then build the path. */
 export async function buildOrgPathAsync(path: string): Promise<string> {
   const org = await getCurrentOrgId();
+  if(!org)throw new Error('Sign in to a company before uploading.');
   return buildOrgPath(org, path);
 }
 

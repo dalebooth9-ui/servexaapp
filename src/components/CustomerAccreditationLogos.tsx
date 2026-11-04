@@ -7,6 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, Loader2, Trash2, Award, Palette } from "lucide-react";
+import {buildOrgPathAsync} from '@/lib/orgStoragePath';
+import CustomerLogo from '@/components/customers/CustomerLogo';
 
 interface Props {
   customerId: string;
@@ -49,7 +51,7 @@ export default function CustomerAccreditationLogos({ customerId }: Props) {
       return;
     }
     setUploading(true);
-    const path = `${customerId}/accreditation/${Date.now()}${ext}`;
+    const path = await buildOrgPathAsync(`${customerId}/accreditation/${Date.now()}${ext}`);
     const { error: upErr } = await supabase.storage.from("customer-logos").upload(path, file, { upsert: true });
     if (upErr) {
       toast({ title: "Upload failed", description: upErr.message, variant: "destructive" });
@@ -178,7 +180,7 @@ export default function CustomerAccreditationLogos({ customerId }: Props) {
             <div className="flex flex-wrap gap-3">
               {logos.map((url) => (
                 <div key={url} className="relative group">
-                  <img
+                  <CustomerLogo
                     src={url}
                     alt="Accreditation"
                     className="h-14 w-auto rounded border bg-white p-1 object-contain"

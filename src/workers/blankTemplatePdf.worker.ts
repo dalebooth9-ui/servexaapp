@@ -134,7 +134,7 @@ type JobInfo = {
 
 
 type WorkerPayload = {
-  printBranding?:{enabled:boolean;logoUrl:string;watermarkUrl:string|null};
+  printBranding?:{enabled:boolean;logoUrl:string;watermarkUrl:string|null;servicedBy?:string};
   template: Template;
   jobInfo?: JobInfo | null;
   handfill: boolean;
@@ -552,7 +552,7 @@ async function buildPdf(payload: WorkerPayload) {
     // opaque white fills so the watermark shows through uniformly).
     const wmPaper = resolveWatermark(payload.watermarkSettings, payload.watermarkOverride);
     addWatermark(doc, watermark, accentColor, wmPaper.mode, wmPaper.opacity);
-    if(payload.printBranding?.enabled){for(let p=1;p<=doc.getNumberOfPages();p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(80);doc.text("Serviced by Viva Fire Protection Ltd",pageWidth/2,pageHeight-4,{align:"center"});}}
+    if(payload.printBranding?.servicedBy){for(let p=1;p<=doc.getNumberOfPages();p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(80);doc.text(payload.printBranding.servicedBy,pageWidth/2,pageHeight-4,{align:"center"});}}
     const fileName = [
       jobInfo?.customer_po || jobInfo?.reference_number || "blank",
       template.name.replace(/\s+/g, "-").toLowerCase(),
@@ -792,7 +792,7 @@ async function buildPdf(payload: WorkerPayload) {
     }
   }
 
-  if(payload.printBranding?.enabled){for(let p=1;p<=doc.getNumberOfPages();p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(80);doc.text("Serviced by Viva Fire Protection Ltd",pageWidth/2,pageHeight-4,{align:"center"});}}
+  if(payload.printBranding?.servicedBy){for(let p=1;p<=doc.getNumberOfPages();p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(80);doc.text(payload.printBranding.servicedBy,pageWidth/2,pageHeight-4,{align:"center"});}}
   const wm = resolveWatermark(payload.watermarkSettings, payload.watermarkOverride);
   for(let p=1;p<=doc.getNumberOfPages();p++){if(logoPages.has(p)||!logoImage)continue;doc.setPage(p);const w=Math.min(40,10*logoImage.width/logoImage.height);const h=w*logoImage.height/logoImage.width;doc.addImage(logoImage.dataUrl,logoImage.format,pageWidth-w-margin,2,w,h);}
   addWatermark(doc, watermark, accentColor, wm.mode, wm.opacity);

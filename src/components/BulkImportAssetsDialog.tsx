@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useAssetCategories } from "@/hooks/useAssetCategories";
 import { readExcelFile } from "@/lib/excelUtils";
+import {requireCurrentOrgId} from '@/lib/tenantQueries';
 
 type ParsedAsset = {
   name: string;
@@ -175,9 +176,11 @@ export default function BulkImportAssetsDialog({ open, onOpenChange, onImported 
 
   const handleImport = async () => {
     if (!user || parsed.length === 0) return;
+    const orgId=await requireCurrentOrgId();
     setImporting(true);
     const rows = parsed.map((a) => ({
       name: a.name.trim(),
+      org_id:orgId,
       asset_tag: a.asset_tag.trim() || null,
       category: a.category.trim() || "general",
       make: a.make.trim() || null,
