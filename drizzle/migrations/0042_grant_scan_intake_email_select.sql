@@ -1,0 +1,1 @@
+GRANT SELECT (scan_intake_email) ON public.organisations TO authenticated;
