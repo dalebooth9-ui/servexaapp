@@ -13,10 +13,10 @@ export async function loadVisitSheets(jobId:string){
 /** Engineer paper sheets for "Print reports": visit sheets (one per riser) plus the job type's default print template. Never stickers. */
 export async function loadPrintReportRows(jobId:string){
  const visit=await loadVisitSheets(jobId);
- const {data:job}=await supabase.from('jobs').select('id,org_id,site_id,category,detected_work_types,reference_number,due_date,customers(name),sites(name,address,postcode)').eq('id',jobId).maybeSingle();
- const site:any=(job as any)?.sites;const base={job_id:jobId,customer:(job as any)?.customers?.name||null,site_name:site?.name||null,address:[site?.address,site?.postcode].filter(Boolean).join(', ')||null,job_reference:(job as any)?.reference_number||null,planned_date:(job as any)?.due_date||null};
+ const {data:job}=await supabase.from('jobs').select('id,org_id,site_id,category,detected_work_types,reference_number,customer_po,due_date,customers(name),sites(name,address,postcode)').eq('id',jobId).maybeSingle();
+ const site:any=(job as any)?.sites;const base={job_id:jobId,customer:(job as any)?.customers?.name||null,site_name:site?.name||null,address:[site?.address,site?.postcode].filter(Boolean).join(', ')||null,job_reference:(job as any)?.reference_number||null,customer_po:(job as any)?.customer_po||null,site_id:(job as any)?.site_id||null,planned_date:(job as any)?.due_date||null};
  const printTemplate:any=job?await resolveJobPrintTemplate(job as any):null;
- const rows=[...visit];
+ const rows=visit.map(r=>({...r,responses:{...r.responses,_riser_visit:{...base,...Object.fromEntries(Object.entries(r.responses._riser_visit).filter(([,v])=>v!==null&&v!==undefined&&v!=='')),customer_po:base.customer_po}}}));
  if(!rows.length&&job?.site_id&&printTemplate){
   const cat=String(printTemplate.job_category||'').toLowerCase();
   const risers=(await fetchSiteRisers(job.site_id).catch(()=>[])).filter(r=>/wet/.test(cat)?/wet/i.test(r.asset_type||''):/dry/.test(cat)?!/wet/i.test(r.asset_type||''):true);
@@ -27,7 +27,7 @@ export async function loadPrintReportRows(jobId:string){
 }
 export async function buildVisitPdf(rows:any[]){
  const [{PDFDocument},{generateBlankSheetPdfBlob}]=await Promise.all([import('pdf-lib'),import('@/lib/generateBlankSheetPdf')]);const merged=await PDFDocument.create();
- for(const row of rows){const ctx=row.responses._riser_visit;const template=row.job_sheet_templates;if(!template)throw new Error('Job sheet template unavailable');const blob=await generateBlankSheetPdfBlob(template,{address:ctx.address,customer:ctx.customer,reference_number:ctx.job_reference,due_date:ctx.planned_date,site:{name:ctx.site_name,address:ctx.address,postcode:null,contact_name:null,contact_phone:null,contact_email:null,riser_location:ctx.riser_location},riserVisit:ctx},{copiesOverride:1,watermarkOverride:{mode:'untinted',opacity:0.11}});const source=await PDFDocument.load(await blob.arrayBuffer());if(source.getPageCount()!==1)throw new Error(`${ctx.riser_location||template.name}: paperwork does not fit on one page. Shorten the visit context before printing.`);const pages=await merged.copyPages(source,[0]);pages.forEach(p=>merged.addPage(p));}
+ for(const row of rows){const ctx=row.responses._riser_visit;const template=row.job_sheet_templates;if(!template)throw new Error('Job sheet template unavailable');const blob=await generateBlankSheetPdfBlob(template,{id:ctx.job_id,site_id:ctx.site_id,address:ctx.address,customer:ctx.customer,customer_po:ctx.customer_po,reference_number:ctx.job_reference,due_date:ctx.planned_date,site:{name:ctx.site_name||ctx.site||null,address:ctx.address,postcode:null,contact_name:null,contact_phone:null,contact_email:null,riser_location:ctx.riser_location},riserVisit:ctx},{copiesOverride:1,watermarkOverride:{mode:'untinted',opacity:0.11}});const source=await PDFDocument.load(await blob.arrayBuffer());const pages=await merged.copyPages(source,source.getPageIndices());pages.forEach(p=>merged.addPage(p));}
  return new Blob([await merged.save() as BlobPart],{type:'application/pdf'});
 }
 export default function VisitPaperwork({jobId,children}:{jobId:string;children?:React.ReactNode}){const [busy,setBusy]=useState(false);const runRef=useRef<(m:'print')=>void>(()=>{});useEffect(()=>{const h=(e:Event)=>{const d=(e as CustomEvent).detail;if(d?.jobId===jobId){d.handled=true;runRef.current('print');}};window.addEventListener('job:reprint-reports',h);return()=>window.removeEventListener('job:reprint-reports',h);},[jobId]);
