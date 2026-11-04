@@ -239,6 +239,13 @@
       "when": 1793778599745,
       "tag": "0033_reject_foreign_report_sync_before_draft_check",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793780852775,
+      "tag": "0034_company_email_health_best_effort",
+      "breakpoints": true
     }
   ]
 }
