@@ -13,24 +13,37 @@ import { getGeneratingOrgBranding, getGeneratingOrgFallbackLogoUrl } from "@/lib
 import { resolveToSignedUrl } from "@/lib/durableStorageRef";
 
 export default function StickerPackDialog({ siteId, siteName, customerLogoUrl }: {
-  siteId: string; siteName: string | null; customerLogoUrl: string | null;
+  siteId: string | null; siteName: string | null; customerLogoUrl: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [risers, setRisers] = useState<SiteRiser[] | null>(null);
-  const [includePlaced, setIncludePlaced] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [lastPrinted, setLastPrinted] = useState<string | null>(null);
   const [offsets, setOffsets] = useState<StickerOffsets>(loadOffsets());
   const [busy, setBusy] = useState(false);
   const [startPosition,setStartPosition]=useState(1);
   const [addCount, setAddCount] = useState(1);
   const [addLocs, setAddLocs] = useState<string[]>([""]);
 
-  const load = () => fetchSiteRisers(siteId).then(setRisers).catch(() => { setRisers([]); toast.error("Couldn't load risers"); });
-  useEffect(() => { if (open) load(); }, [open, siteId]);
+  const noteLast = (list: SiteRiser[]) => {
+    const d = list.map((r) => r.label_printed_at).filter(Boolean).sort().pop() || null;
+    setLastPrinted(d);
+  };
+  const load = (resetPick = false) => {
+    if (!siteId) { setRisers([]); return Promise.resolve(); }
+    return fetchSiteRisers(siteId).then((list) => {
+      setRisers(list); noteLast(list);
+      if (resetPick) setPicked(new Set(list.filter((r) => r.asset_tag).map((r) => r.id)));
+    }).catch(() => { setRisers([]); toast.error("Couldn't load risers"); });
+  };
+  useEffect(() => { if (open) load(true); }, [open, siteId]);
+  useEffect(() => { if (siteId) fetchSiteRisers(siteId).then(noteLast).catch(() => {}); }, [siteId]);
 
   const selected = useMemo(
-    () => (risers || []).filter((r) => r.asset_tag && (includePlaced || r.label_status !== "placed")),
-    [risers, includePlaced],
+    () => (risers || []).filter((r) => r.asset_tag && picked.has(r.id)),
+    [risers, picked],
   );
+  const toggle = (id: string, on: boolean) => setPicked((p) => { const n = new Set(p); on ? n.add(id) : n.delete(id); return n; });
 
   const resolveLogo = async (): Promise<string | null> => {
     if (customerLogoUrl && customerLogoUrl.trim()) return null; // customer branding → QR + ID only
@@ -67,7 +80,7 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl }:
     const locs = addLocs.map((s) => s.trim()).filter(Boolean);
     if (locs.length !== addCount) { toast.error("Enter a riser location for each riser"); return; }
     setBusy(true);
-    const { error } = await supabase.rpc("add_site_risers", { _site_id: siteId, _locations: locs });
+    const { error } = await supabase.rpc("add_site_risers", { _site_id: siteId!, _locations: locs });
     setBusy(false);
     if (error) { toast.error("Couldn't add risers: " + error.message); return; }
     toast.success(`${locs.length} riser(s) added`);
@@ -82,16 +95,19 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl }:
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm"><Printer className="h-4 w-4 mr-2" />Print sticker pack</Button>
-      </DialogTrigger>
+      <span className="inline-flex items-center gap-2">
+        <DialogTrigger asChild>
+          <Button variant="outline"><Printer className="h-4 w-4 mr-2" />Print sticker pack</Button>
+        </DialogTrigger>
+        {lastPrinted && <span className="text-xs text-muted-foreground">Last printed {new Date(lastPrinted).toLocaleDateString("en-GB")}</span>}
+      </span>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Riser sticker pack</DialogTitle>
           <DialogDescription>Avery L4778 sheets (45.7 × 21.2 mm, 48 per A4). One sticker per dry and wet riser at {siteName || "this site"}.</DialogDescription>
         </DialogHeader>
 
-        {risers === null ? <p className="text-sm text-muted-foreground">Loading…</p> : risers.length === 0 ? (
+        {!siteId ? <p className="text-sm text-muted-foreground">This job has no site, so there are no risers to print stickers for.</p> : risers === null ? <p className="text-sm text-muted-foreground">Loading…</p> : risers.length === 0 ? (
           <div className="space-y-3">
             <p className="text-sm font-semibold">Add risers to this site</p>
             <div className="flex items-center gap-2">
@@ -106,22 +122,23 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl }:
           </div>
         ) : (
           <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setPicked(new Set(risers.filter((r) => r.asset_tag).map((r) => r.id)))}>Select all</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setPicked(new Set())}>Select none</Button>
+            </div>
             <div className="rounded-md border divide-y max-h-60 overflow-y-auto">
               {risers.map((r) => {
-                const on = selected.some((s) => s.id === r.id);
+                const on = picked.has(r.id);
                 return (
-                  <div key={r.id} className={`flex items-center gap-3 px-3 py-1.5 text-sm ${on ? "" : "opacity-50"}`}>
+                  <label key={r.id} className="flex items-center gap-3 px-3 py-1.5 text-sm cursor-pointer">
+                    <Checkbox checked={on} disabled={!r.asset_tag} onCheckedChange={(v) => toggle(r.id, !!v)} />
                     <span className="flex-1 truncate">{r.riser_location || "Unnamed riser"}</span>
                     <span className="font-mono font-bold">{r.asset_tag}</span>
                     <span className="text-xs text-muted-foreground w-14 text-right">{LABEL_STATUS_LABEL[r.label_status] || r.label_status}</span>
-                  </div>
+                  </label>
                 );
               })}
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={includePlaced} onCheckedChange={(v) => setIncludePlaced(!!v)} />
-              Include risers that already have a placed sticker
-            </label>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <Label htmlFor="sticker-start">First free label position</Label>

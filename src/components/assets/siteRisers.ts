@@ -8,13 +8,14 @@ export interface SiteRiser {
   outlets_count: number | null;
   label_status: string;
   label_placed_at: string | null;
+  label_printed_at?: string | null;
   asset_type: string | null;
 }
 
 /** Site's riser assets (dry and wet, or one type) in the riser picker order. */
 export async function fetchSiteRisers(siteId: string, type?: RiserType | null): Promise<SiteRiser[]> {
   const { data, error } = await supabase.from("assets")
-    .select("id, asset_tag, riser_location, outlets_count, label_status, label_placed_at, asset_type")
+    .select("id, asset_tag, riser_location, outlets_count, label_status, label_placed_at, label_printed_at, asset_type")
     .eq("site_id", siteId)
     .or(riserOrFilter(type))
     .neq("status", "decommissioned")
