@@ -1,5 +1,12 @@
 # Roadmap
 
+## Printed paperwork polish
+- [x] Align shared PDF/Word body text, print-only name casing and readable last-inspection details.
+- [x] Remove blank-answer rules, retain signing lines and wrap dry/wet questions without clipping.
+- [x] Resolve coloured watermarks and section styling within the generating company; update Help; 94 focused tests pass and preview builds cleanly.
+- [x] Signed-in VFP-00264 PDF and Word downloads verified: four risers/four pages, full air-release question, readable history, clean boxes, logo/QR/badges retained; Word also rendered through LibreOffice.
+- [ ] Physical printing and Microsoft Word rendering — no printer or Microsoft Word available; LibreOffice's importer emits compatibility warnings, so its font substitution is not proof of Microsoft Word appearance.
+
 ## Email Triage and renewal email repairs
 - [x] Diagnose missing extensions.http_post, nonexistent interval relationship and missing renewal template; no test sends.
 - [x] Make triage notifications best-effort/company-scoped via authenticated bridge; renewal admin checks, dry-run and failure logs.

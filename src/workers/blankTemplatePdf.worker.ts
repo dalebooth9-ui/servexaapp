@@ -288,7 +288,7 @@ function renderHeader(
   doc.setLineWidth(opts.isDryRiser ? DRY_RISER_LAYOUT.header.ruleThicknessPt * 0.3527777778 : 0.5);
   doc.line(margin, y, pageWidth - margin, y);
   y += 4;
-  doc.setTextColor(30, 30, 30);
+  doc.setTextColor(0, 0, 0);
 
   const headerRowH = 6;
   const engineerVal = (data.engineer || "").trim();
@@ -544,7 +544,7 @@ async function buildPdf(payload: WorkerPayload) {
         logo: logoImage,
         accreditationLogos: (accreditationLogos.filter(Boolean) as LoadedImage[]),
         handfill,
-        brandColor:payload.printBranding?.enabled?accentColor:undefined,
+        brandColor:accentColor,
       });
     }
     // Faint Viva flame watermark — matches the branded report set and the
@@ -552,7 +552,7 @@ async function buildPdf(payload: WorkerPayload) {
     // opaque white fills so the watermark shows through uniformly).
     const wmPaper = resolveWatermark(payload.watermarkSettings, payload.watermarkOverride);
     addWatermark(doc, watermark, accentColor, wmPaper.mode, wmPaper.opacity);
-    if(payload.printBranding?.servicedBy){for(let p=1;p<=doc.getNumberOfPages();p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(80);doc.text(payload.printBranding.servicedBy,pageWidth/2,pageHeight-4,{align:"center"});}}
+    if(payload.printBranding?.servicedBy){for(let p=1;p<=doc.getNumberOfPages();p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(0);doc.text(payload.printBranding.servicedBy,pageWidth/2,pageHeight-4,{align:"center"});}}
     const fileName = [
       jobInfo?.customer_po || jobInfo?.reference_number || "blank",
       template.name.replace(/\s+/g, "-").toLowerCase(),
@@ -580,7 +580,7 @@ async function buildPdf(payload: WorkerPayload) {
       engineer: engineerList,
       systemLabel,
       notes: (jobInfo?.printNotes || "").toString(),
-    }, template.standard || sheetSubtitle, isDryRiser ? DRY_RISER_LAYOUT.header.brandBlueRgb : accentColor, {
+    }, template.standard || sheetSubtitle, accentColor, {
       compact: false,
       marginX,
       logo: logoImage,
@@ -707,10 +707,9 @@ async function buildPdf(payload: WorkerPayload) {
               doc.rect(ox2 + 10, y + 1, 3, 3); doc.text("F", ox2 + 14, y + 3.5);
               doc.rect(ox2 + 20, y + 1, 3, 3); doc.text("N/A", ox2 + 24, y + 3.5);
             } else if (field.type === "number") {
-              doc.line(ox2, y + 3.5, ox2 + 10, y + 3.5);
               if (field.allow_na) { doc.rect(ox2 + 13, y + 1, 3, 3); doc.text("N/A", ox2 + 17, y + 3.5); }
             } else if (["text", "short_text", "textarea", "date"].includes(field.type)) {
-              doc.line(ox2, y + 3.5, ox2 + 18, y + 3.5);
+              if (field.type === 'date') doc.text('___ / ___ / ___',ox2,y+3.5);
               if (field.allow_na) { doc.rect(ox2 + 21, y + 1, 3, 3); doc.text("N/A", ox2 + 25, y + 3.5); }
             } else if (field.type === "select" && field.options) {
               const hasNa = field.options.some((opt) => opt.toLowerCase() === "n/a" || opt.toLowerCase() === "na");
@@ -792,7 +791,7 @@ async function buildPdf(payload: WorkerPayload) {
     }
   }
 
-  if(payload.printBranding?.servicedBy){for(let p=1;p<=doc.getNumberOfPages();p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(80);doc.text(payload.printBranding.servicedBy,pageWidth/2,pageHeight-4,{align:"center"});}}
+  if(payload.printBranding?.servicedBy){for(let p=1;p<=doc.getNumberOfPages();p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(0);doc.text(payload.printBranding.servicedBy,pageWidth/2,pageHeight-4,{align:"center"});}}
   const wm = resolveWatermark(payload.watermarkSettings, payload.watermarkOverride);
   for(let p=1;p<=doc.getNumberOfPages();p++){if(logoPages.has(p)||!logoImage)continue;doc.setPage(p);const w=Math.min(40,10*logoImage.width/logoImage.height);const h=w*logoImage.height/logoImage.width;doc.addImage(logoImage.dataUrl,logoImage.format,pageWidth-w-margin,2,w,h);}
   addWatermark(doc, watermark, accentColor, wm.mode, wm.opacity);

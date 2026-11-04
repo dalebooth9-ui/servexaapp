@@ -17,7 +17,7 @@ import jsPDF from "jspdf";
 import {drawEngineerAccessBox} from '@/lib/siteAccessPdf';
 import type { PdfTemplateField } from "@/lib/pdfBody";
 import { drawQr, stickerUrl } from '@/lib/riserStickers';
-import { DRY_RISER_LAYOUT } from '@/lib/dryRiserLayout';
+import { printName, printInspectionDate, printInspectionType, printInspectionResult } from '@/lib/printText';
 
 export type LoadedImage = {
   dataUrl: string;
@@ -269,7 +269,7 @@ export function renderPaperFormPage(
   const scopeText = derivedScopeLine(template.name);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.setTextColor(...(visit ? DRY_RISER_LAYOUT.header.brandBlueRgb : [0, 0, 0]) as [number, number, number]);
+  doc.setTextColor(0, 0, 0);
   const scopeW = doc.getTextWidth(scopeText);
   const scopeX = (pageWidth - scopeW) / 2;
   const scopeY = cursorY + 5;
@@ -289,13 +289,16 @@ export function renderPaperFormPage(
   const detailRowH = 7;
   const rightRowCount = 3; // date/po, riser, keys
   const rightBlockH = rightRowCount * detailRowH;
-  const leftBlockH = Math.max(rightBlockH, visit ? 30 : 26);
 
-  const custName = jobInfo?.customers?.name || jobInfo?.customer || "";
-  const siteName = jobInfo?.site?.name || "";
-  const siteAddr = jobInfo?.site?.address || jobInfo?.address || "";
+
+  const custName = printName(jobInfo?.customers?.name || jobInfo?.customer);
+  const siteName = printName(jobInfo?.site?.name);
+  const siteAddr = printName(jobInfo?.site?.address || jobInfo?.address);
   const sitePc = jobInfo?.site?.postcode || "";
   const siteLines = [siteName, siteAddr, sitePc].filter(Boolean);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  const contentLines = [custName,...siteLines].filter(Boolean).flatMap(text=>doc.splitTextToSize(text,leftW-4) as string[]);
+  const leftBlockH = Math.max(rightBlockH, visit ? 30 : 26, 10 + contentLines.length*4.2);
 
   doc.setDrawColor(0);
   doc.setLineWidth(0.3);
@@ -309,6 +312,7 @@ export function renderPaperFormPage(
   const rightSplitX = rightX + rightW * 0.42;
   doc.line(rightSplitX, detailsTop, rightSplitX, detailsTop + detailRowH);
 
+  doc.setTextColor(0,0,0);
   // LEFT — Customer/Site Details
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
@@ -317,11 +321,7 @@ export function renderPaperFormPage(
   doc.setFontSize(9);
   const detailY = detailsTop + 9;
   const detailX = margin + 2;
-  const contentLines = [custName, ...siteLines].filter(Boolean);
-  contentLines.slice(0, visit ? 5 : 4).forEach((ln, i) => {
-    const clipped = doc.splitTextToSize(ln, leftW - 4).slice(0, 1)[0] || "";
-    doc.text(clipped, detailX, detailY + i * 4.2);
-  });
+  contentLines.forEach((ln, i) => doc.text(ln, detailX, detailY + i * 4.2));
 
   // RIGHT top row: DATE | PO NUMBER (or REF when there is no customer PO)
   // Print the label honestly: the internal VFP-/TM- reference must never
@@ -332,7 +332,7 @@ export function renderPaperFormPage(
   const poLabel = showAsPo ? "PO NUMBER:" : "REF:";
   const poVal = showAsPo ? custPoRaw : intRefRaw;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.text("DATE:", rightX + 2, detailsTop + 3.2);
   doc.text(poLabel, rightSplitX + 2, detailsTop + 3.2);
   doc.setFont("helvetica", "normal");
@@ -352,38 +352,35 @@ export function renderPaperFormPage(
   // RIGHT row 2: RISER LOCATION
   const riserY = detailsTop + detailRowH;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.text("RISER LOCATION:", rightX + 2, riserY + 3.2);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  const riserLoc = jobInfo?.site?.riser_location || "";
+  const riserLoc = printName(jobInfo?.site?.riser_location);
   doc.text(doc.splitTextToSize(riserLoc, rightW - 4).slice(0, 1)[0] || "", rightX + 2, riserY + 6.2);
 
   // RIGHT row 3: CABINET KEYS (blank line to write on)
   const keysY = detailsTop + detailRowH * 2;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.text("CABINET KEYS:", rightX + 2, keysY + 3.2);
-  if(jobInfo?.engineerAccess?.cabinetKeys){doc.setFont('helvetica','normal');doc.setFontSize(7);doc.text(doc.splitTextToSize(jobInfo.engineerAccess.cabinetKeys,rightW-4).slice(0,1),rightX+2,keysY+6);}
-  // ruled writing line
-  doc.setDrawColor(140);
-  doc.setLineWidth(0.2);
-  doc.line(rightX + 2, keysY + 6.2, margin + maxWidth - 2, keysY + 6.2);
+  if(jobInfo?.engineerAccess?.cabinetKeys){doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text(doc.splitTextToSize(jobInfo.engineerAccess.cabinetKeys,rightW-4).slice(0,1),rightX+2,keysY+6);}
+  // Leave cabinet-key answer space clean for handwriting.
 
   cursorY = detailsTop + leftBlockH + 1;
   cursorY=drawEngineerAccessBox(doc,jobInfo?.engineerAccess,cursorY,margin,maxWidth);
   if (visit) {
     if (visit.asset_tag) {
       drawQr(doc, stickerUrl(visit.asset_tag), pageWidth - margin - 23, 10, 20);
-      doc.setTextColor(0); doc.setFontSize(8); doc.setFont('helvetica','bold');
+      doc.setTextColor(0); doc.setFontSize(9); doc.setFont('helvetica','bold');
       doc.text(`Riser ID ${visit.asset_tag}`, pageWidth-margin-13, 34, {align:'center'});
     }
-    doc.setTextColor(0); doc.setFontSize(8); doc.setFont('helvetica','normal');
-    const previous = visit.last_inspection_at ? new Date(visit.last_inspection_at).toLocaleDateString('en-GB') : 'Not recorded';
-    const contextLines = [`Riser: ${visit.riser_name || visit.riser_location} | Outlets: ${visit.outlets_count ?? 'Not recorded'} | Job: ${visit.job_reference}`, `Last inspection: ${previous} | ${visit.last_inspection_type || 'Type not recorded'} | Result: ${visit.last_inspection_result || 'Not recorded'}`, ...(visit.remedial_notes ? [`Open remedial work from last visit: ${visit.remedial_notes}`] : [])];
+    doc.setTextColor(0); doc.setFontSize(9); doc.setFont('helvetica','normal');
+    const previous = printInspectionDate(visit.last_inspection_at);
+    const contextLines = [`Riser: ${printName(visit.riser_name || visit.riser_location)} | Outlets: ${visit.outlets_count ?? 'Not recorded'} | Job: ${visit.job_reference}`, `Last inspection: ${previous} | ${printInspectionType(visit.last_inspection_type)} | Result: ${printInspectionResult(visit.last_inspection_result)}`, ...(visit.remedial_notes ? [`Open remedial work from last visit: ${visit.remedial_notes}`] : [])];
     for (const text of contextLines) {
       const lines = doc.splitTextToSize(text,maxWidth-4) as string[];
-      doc.text(lines,margin+2,cursorY+3); cursorY += lines.length*3.4;
+      doc.text(lines,margin+2,cursorY+3); cursorY += lines.length*3.6;
     }
     cursorY += 2;
   }
@@ -393,10 +390,10 @@ export function renderPaperFormPage(
   if (notesText) {
     doc.setDrawColor(0);
     doc.setLineWidth(0.2);
-    doc.setFontSize(8);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     const labelW = doc.getTextWidth("SITE NOTES: ") + 2;
-    doc.setFont("helvetica", "italic");
+    doc.setFont("helvetica", "normal");
     const wrapW = maxWidth - labelW - 3;
     const wrapped = (doc.splitTextToSize(notesText, wrapW) as string[]).slice(0, 2);
     const lineH = 3.6;
@@ -404,7 +401,7 @@ export function renderPaperFormPage(
     doc.rect(margin, cursorY, maxWidth, boxH);
     doc.setFont("helvetica", "bold");
     doc.text("SITE NOTES:", margin + 2, cursorY + 4);
-    doc.setFont("helvetica", "italic");
+    doc.setFont("helvetica", "normal");
     wrapped.forEach((ln, i) => doc.text(ln, margin + labelW, cursorY + 4 + i * lineH));
     doc.setFont("helvetica", "normal");
     cursorY += boxH + 1;
@@ -443,7 +440,7 @@ export function renderPaperFormPage(
   for (const f of bodyFields) {
     const sec = f.section || "General";
     if (!bySection.has(sec)) { bySection.set(sec, []); sectionOrder.push(sec); }
-    bySection.get(sec)!.push(f);
+    bySection.get(sec)?.push(f);
   }
 
   // Build render list of section-header + field rows so the fitter can
@@ -454,7 +451,7 @@ export function renderPaperFormPage(
   const items: BodyItem[] = [];
 
   for (const sec of sectionOrder) {
-    const fields = bySection.get(sec)!;
+    const fields = bySection.get(sec) || [];
     if (fields.length === 0) continue;
     // Uppercase, formatted section header (e.g. "EXTERNAL EQUIPMENT: VISUAL").
     const secLabel = sec.toUpperCase() + (/visual|pressure test|test/i.test(template.name) && !/:/.test(sec) ? `: ${/pressure/i.test(template.name) ? "PRESSURE TEST" : "VISUAL"}` : "");
@@ -471,29 +468,21 @@ export function renderPaperFormPage(
   // also probing shrunk section header height.
   const rowCandidates = [7, 6.5, 6, 5.5, 5, 4.6];
   const secCandidates = [6.5, 6, 5.5, 5];
-  const fontCandidates: Array<{ label: number; ans: number; sec: number }> = [
-    { label: 9.5, ans: 9.5, sec: 9.5 },
-    { label: 9, ans: 9, sec: 9 },
-    { label: 8.5, ans: 8.5, sec: 9 },
-    { label: 8, ans: 8, sec: 8.5 },
-    { label: 7.5, ans: 7.5, sec: 8 },
-  ];
-  const measure = (rowH: number, secH: number) => {
-    let total = 0;
-    for (const it of items) total += it.kind === "section" ? secH : rowH;
-    return total;
+  const font = { label: 9, ans: 9, sec: 9 };
+  const itemHeight = (it: BodyItem, rowH: number, secH: number) => {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+    const text = it.kind === 'section' ? it.label : it.field.label;
+    const width = it.kind === 'section' ? maxWidth - 4 : colSplit - margin - 4;
+    const lines = doc.splitTextToSize(text, width) as string[];
+    return Math.max(it.kind === 'section' ? secH : rowH, lines.length * 3.6 + 1.5);
   };
-  let fit = { rowH: 4.6, secH: 5, font: fontCandidates[fontCandidates.length - 1] };
+  const measure = (rowH: number, secH: number) => items.reduce((sum, it) => sum + itemHeight(it, rowH, secH), 0);
+  let fit = { rowH: 4.6, secH: 5, font };
   if(jobInfo?.engineerAccess?.lines.length&&measure(fit.rowH,fit.secH)>availH)throw new Error('Access info leaves too little room for the inspection sheet. Shorten the access notes before printing.');
-  outer: for (const font of fontCandidates) {
-    for (const rowH of rowCandidates) {
-      for (const secH of secCandidates) {
-        if (secH < rowH - 0.5) continue; // section shouldn't be shorter than a row
-        if (measure(rowH, secH) <= availH) {
-          fit = { rowH, secH, font };
-          break outer;
-        }
-      }
+  outer: for (const rowH of rowCandidates) {
+    for (const secH of secCandidates) {
+      if (secH < rowH - 0.5) continue;
+      if (measure(rowH, secH) <= availH) { fit = { rowH, secH, font }; break outer; }
     }
   }
 
@@ -520,21 +509,21 @@ export function renderPaperFormPage(
       doc.setFont("helvetica", "bold");
       doc.setFontSize(fit.font.sec);
       doc.setTextColor(0, 0, 0);
-      doc.text(label, margin + 2, yy + rowH * 0.7);
+      (doc.splitTextToSize(label,maxWidth-4) as string[]).forEach((ln,i)=>doc.text(ln,margin+2,yy+3.3+i*3.6));
     } else {
       // Body cells — transparent (no white fill) so the watermark shows
       // through uniformly per the current z-order/transparent-cells rules.
       doc.setDrawColor(120);
       doc.rect(margin, yy, colSplit - margin, rowH);
       doc.rect(colSplit, yy, margin + maxWidth - colSplit, rowH);
-      doc.setFont("helvetica", "normal");
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(fit.font.label);
       doc.setTextColor(0, 0, 0);
       // Full question text — clip to first two visible lines within cell height.
       const labelMaxW = colSplit - margin - 4;
       const lineH = fit.font.label * 0.4;
       const maxLines = Math.max(1, Math.floor((rowH - 1) / lineH));
-      const lines = (doc.splitTextToSize(label, labelMaxW) as string[]).slice(0, maxLines);
+      const lines = doc.splitTextToSize(label, labelMaxW) as string[];
       lines.forEach((ln, i) => doc.text(ln, margin + 2, yy + lineH * (i + 0.85)));
       // Answer cell — options to circle, or a ruled writing line for
       // free-text/number/date fields. Never leave the cell blank; an empty
@@ -542,20 +531,10 @@ export function renderPaperFormPage(
       const ansX = colSplit + 2;
       const ansMaxW = margin + maxWidth - colSplit - 4;
       if (ans) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(fit.font.ans);
-        // Shrink options text if it would overflow the answer cell width.
-        let ansSize = fit.font.ans;
-        while (ansSize > 6 && doc.getTextWidth(ans) > ansMaxW) {
-          ansSize -= 0.5;
-          doc.setFontSize(ansSize);
-        }
-        doc.text(ans, ansX, yy + rowH * 0.7);
-      } else if (field && isWritingLineField(field)) {
-        // Ruled writing line for text/number/date fields.
-        doc.setDrawColor(160);
-        doc.setLineWidth(0.15);
-        doc.line(ansX, yy + rowH * 0.75, colSplit + (margin + maxWidth - colSplit) - 2, yy + rowH * 0.75);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        const answerLines = doc.splitTextToSize(ans, ansMaxW) as string[];
+        answerLines.forEach((ln,i)=>doc.text(ln, ansX, yy + 3.3 + i*3.6));
       }
     }
   };
@@ -564,22 +543,24 @@ export function renderPaperFormPage(
   for (const it of items) {
     if (it.kind === "section") {
       // Continuation to next page if we've run out.
-      if (y + fit.secH > bodyBottom) {
+      const sectionH = itemHeight(it,fit.rowH,fit.secH);
+      if (y + sectionH > bodyBottom) {
         doc.addPage();
         y = margin;
       }
-      drawCell(it.label, "", y, fit.secH, true);
-      y += fit.secH;
+      drawCell(it.label, "", y, sectionH, true);
+      y += sectionH;
     } else {
-      if (y + fit.rowH > bodyBottom) {
+      const fieldH = itemHeight(it,fit.rowH,fit.secH);
+      if (y + fieldH > bodyBottom) {
         doc.addPage();
         y = margin;
       }
       const label = it.field.label;
       const ans = visit && /outlet/i.test(it.field.label) && it.field.type === 'number'
         ? String(visit.outlets_count ?? '') : handfill ? "" : answerCellText(it.field);
-      drawCell(label, ans, y, fit.rowH, false, it.field);
-      y += fit.rowH;
+      drawCell(label, ans, y, fieldH, false, it.field);
+      y += fieldH;
     }
   }
 
@@ -601,20 +582,7 @@ export function renderPaperFormPage(
   doc.text("ISSUES FOUND:", margin + 2, issuesTop + thirds * 0.55);
   doc.text("RECOMMENDATION:", margin + 2, issuesTop + thirds * 1.55);
   doc.text("PRIORITY:", margin + 2, issuesTop + thirds * 2.55);
-  // Ruled writing lines inside the right side of each row.
-  doc.setDrawColor(180);
-  doc.setLineWidth(0.15);
-  const rulX1 = margin + labelW + 2;
-  const rulX2 = margin + maxWidth - 2;
-  for (let band = 0; band < 3; band++) {
-    const bandTop = issuesTop + thirds * band;
-    const bandBottom = issuesTop + thirds * (band + 1);
-    const rules = Math.max(1, Math.floor((bandBottom - bandTop - 2) / 4));
-    for (let r = 1; r <= rules; r++) {
-      const ly = bandTop + (bandBottom - bandTop) * (r / (rules + 1));
-      doc.line(rulX1, ly, rulX2, ly);
-    }
-  }
+  // Answer boxes intentionally have no internal rules; retain borders and signing lines.
 
   // ─── SIGNATURE ROWS ────────────────────────────────────────────────
   const drawSigRow = (yy: number, hh: number, who: "Technician Name" | "Customer Name") => {
@@ -627,7 +595,7 @@ export function renderPaperFormPage(
     doc.line(margin + cellDateW, yy, margin + cellDateW, yy + hh);
     doc.line(margin + cellDateW + cellNameW, yy, margin + cellDateW + cellNameW, yy + hh);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
+    doc.setFontSize(9);
     doc.text("Date:", margin + 2, yy + 3.5);
     doc.text(`${who}:`, margin + cellDateW + 2, yy + 3.5);
     doc.text("Signature:", margin + cellDateW + cellNameW + 2, yy + 3.5);

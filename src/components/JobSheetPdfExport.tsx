@@ -518,7 +518,7 @@ export async function generateJobSheetPdf(
     { brandingSubtitle: branding.company_subtitle ?? null },
   );
 
-  const headerAccent = isDryRiser && !brandProfile.isCustomerBranded ? DRY_RISER_LAYOUT.header.brandBlueRgb : accentColor;
+  const headerAccent = brandProfile.accentColor;
   const ptToMm = (pt: number) => pt * 0.3527777778;
 
   let y = await renderPdfHeader(doc, sheetTitle, branding, {
@@ -602,7 +602,7 @@ export async function generateJobSheetPdf(
     doc.text("SUMMARY", margin + 4, y + 4);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
-    doc.setTextColor(40, 40, 40);
+    doc.setTextColor(0, 0, 0);
     let sy = y + 8;
     lines.forEach((ln) => {
       doc.text(ln, margin + 4, sy);
@@ -712,7 +712,7 @@ export async function generateJobSheetPdf(
     doc.setTextColor(headerAccent[0], headerAccent[1], headerAccent[2]);
     doc.text(`${sheetTitle} (continued)`, margin, topY + 4);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(80, 80, 80);
+    doc.setTextColor(0, 0, 0);
     doc.setFontSize(8);
     const right = [customerName, siteDisplay].filter(Boolean).join(" — ");
     if (right) {

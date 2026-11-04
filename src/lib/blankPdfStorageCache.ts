@@ -11,7 +11,7 @@ export function blankPdfStoragePath(
   const id = tpl.id || tpl.name || "unknown";
   const v = (tpl.updated_at || "v0").replace(/[^0-9a-zA-Z_-]/g, "");
   const variant = handfill ? "handfill" : "standard";
-  return `${id}/print-branding-v2-${v}-${variant}.pdf`;
+  return `${id}/print-polish-v3-${v}-${variant}.pdf`;
 }
 
 /** Returns the cached Blob if present, else null. Network errors → null. */

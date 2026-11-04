@@ -105,7 +105,7 @@ export async function generateBlankSheetPdfBlob(
     copiesOverride?: number | null;
   } = {},
 ): Promise<Blob> {
-  const profile=await resolveDocumentBrandingProfile({template,customer:{...jobInfo?.customers,name:jobInfo?.customers?.name||jobInfo?.customer},jobId:jobInfo?.riserVisit?.job_id});
+  const profile=await resolveDocumentBrandingProfile({template,customer:{...jobInfo?.customers,name:jobInfo?.customers?.name||jobInfo?.customer},jobId:jobInfo?.id||jobInfo?.riserVisit?.job_id,siteId:jobInfo?.site_id});
   const customerName=jobInfo?.customers?.name||jobInfo?.customer||'';
   const [watermarkSettings,accreditationLogoUrls]=await Promise.all([loadWatermarkSettings(),fetchCustomerAccreditationLogos(customerName)]);
   const orgLogo=await getGeneratingOrgFallbackLogoUrl();

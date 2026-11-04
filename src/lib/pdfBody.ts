@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { printName } from "@/lib/printText";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { formatRemedialItemsText } from "@/lib/remedialItems";
 import {printPdfProfiles} from '@/lib/printPdfProfile';
@@ -152,6 +153,9 @@ export function getAutoPopulatedValues(
     }
   });
 
+  for (const f of fields) {
+    if (/customer|client|site|riser location|contact name|engineer|technician/i.test(f.label) && vals[f.id]) vals[f.id]=printName(vals[f.id]);
+  }
   return vals;
 }
 
@@ -322,10 +326,8 @@ export function renderRepeatingTableBlock(
         const text = raw == null || raw === "" ? "—" : String(raw);
         const lower = text.toLowerCase().trim();
         if (col?.type === "yn_na" || /^(yes|no|n\/?a|pass|fail)$/i.test(text)) {
-          if (/^(yes|pass)$/i.test(text)) doc.setTextColor(0, 128, 0);
-          else if (/^(no|fail)$/i.test(text)) doc.setTextColor(200, 0, 0);
-          else if (/^n\/?a$/i.test(lower)) doc.setTextColor(100, 100, 100);
-          doc.setFont("helvetica", "bold");
+          doc.setTextColor(0, 0, 0);
+          doc.setFont("helvetica", "normal");
         }
         lines.forEach((ln: string, li: number) => {
           doc.text(ln, colXs[i] + cellPadX, y + 3.3 + li * lineH);
@@ -766,9 +768,9 @@ export function renderFilledFieldRow(
   const baseRowH = field.type === "signature" ? Math.max(opts.rowH * 2, 10) : opts.rowH;
   const resultCellWidth = maxWidth - colSplit - 2;
 
-  doc.setFont("helvetica", "normal");
+  doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
-  doc.setFontSize(9.5);
+  doc.setFontSize(9);
   const labelLines = doc.splitTextToSize(field.label, colSplit - 3);
 
   // ── Descriptive-text early exit ──
@@ -817,6 +819,7 @@ export function renderFilledFieldRow(
     doc.text(ln, margin + 1, y + 3 + i * lineH);
   });
 
+  doc.setFont("helvetica", "normal");
   if (descriptiveLines) {
     descriptiveLines.forEach((ln, i) => {
       doc.text(ln, margin + colSplit + 1, y + 3 + i * lineH);
@@ -835,9 +838,7 @@ export function renderFilledFieldRow(
       : resultKind === "custom"
       ? rawValue
       : "—";
-    if (displayVal === "PASS") { doc.setTextColor(0, 128, 0); doc.setFont("helvetica", "bold"); }
-    else if (displayVal === "FAIL") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
-    else if (displayVal === "N/A") { doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "bold"); }
+    doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "normal");
     doc.text(displayVal, margin + colSplit + 1, y + 3);
   } else if (field.type === "checkbox") {
     // Default drain / drop-leg checkboxes to YES when value is missing/falsy
@@ -865,7 +866,7 @@ export function renderFilledFieldRow(
     }
   } else if (field.type === "yes_no" || (field.options && field.options.length <= 3 && field.options.some((o) => o.toLowerCase() === "yes"))) {
     const displayVal = getYesNoFieldDisplayValue(field, value);
-    if (displayVal === "NO") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
+    doc.setTextColor(0, 0, 0);
     doc.text(displayVal, margin + colSplit + 1, y + 3);
   } else if (field.type === "photo") {
     doc.text(value ? "✓ Captured" : "—", margin + colSplit + 1, y + 3);
@@ -893,7 +894,7 @@ export function renderFilledFieldRow(
   // Inline note — placed in the result column, immediately after the YES/NO answer
   if (noteValue && !descriptiveLines) {
     // Find roughly where the answer text ended in the result column
-    doc.setFontSize(9.5);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     const answerWidths: Record<string, number> = {
       YES: doc.getTextWidth("YES"),
@@ -903,14 +904,14 @@ export function renderFilledFieldRow(
     };
     // Approximate: assume the rendered answer was YES/NO/N/A — leave a small gap
     const startX = margin + colSplit + 1 + (answerWidths.YES + 2);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "italic");
-    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(0, 0, 0);
     const maxNoteW = (margin + maxWidth) - startX - 1;
     const lines = doc.splitTextToSize(`(${noteValue})`, Math.max(20, maxNoteW));
     doc.text(lines[0], startX, y + 3);
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(9.5);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
   }
 
@@ -938,7 +939,11 @@ export function renderBlankFieldRow(
   // Compute the actual row height — select fields with many/long options
   // wrap onto multiple lines and grow the row so nothing is clipped.
   const resultCellWidth = maxWidth - colSplit - 4;
-  const actualRowH = estimateBlankFieldRowH(doc, field, rowH, resultCellWidth);
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(0,0,0);
+  const labelLines = doc.splitTextToSize(field.label,colSplit-4) as string[];
+  doc.setFont('helvetica','normal');
+  const valueLines = autoVal ? doc.splitTextToSize(autoVal,resultCellWidth) as string[] : [];
+  const actualRowH = Math.max(estimateBlankFieldRowH(doc, field, rowH, resultCellWidth),Math.max(labelLines.length,valueLines.length)*3.6+1.5);
 
   // Always draw the row borders so each field reads as a discrete box on the
   // printed sheet. Use a lighter grey for the handfill version so the lines
@@ -948,9 +953,8 @@ export function renderBlankFieldRow(
   doc.rect(margin + colSplit, y, maxWidth - colSplit, actualRowH);
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(9.5);
-  const label = doc.splitTextToSize(field.label, colSplit - 3).slice(0, 1)[0];
-  doc.text(label, margin + 2, y + 3.5);
+  doc.setFontSize(9);
+  labelLines.forEach((ln,i)=>doc.text(ln, margin + 2, y + 3.5 + i*3.6));
   doc.setFont("helvetica", "normal");
 
   const labelLower = field.label.toLowerCase();
@@ -979,8 +983,7 @@ export function renderBlankFieldRow(
   } else if (autoVal) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    const truncVal = doc.splitTextToSize(autoVal, maxWidth - colSplit - 4).slice(0, 1).join("");
-    doc.text(truncVal, margin + colSplit + 2, y + 3.5);
+    valueLines.forEach((ln,i)=>doc.text(ln, margin + colSplit + 2, y + 3.5 + i*3.6));
     doc.setFontSize(9.5);
     if (field.allow_na) renderBlankNaBox(doc, margin + maxWidth - 12, y);
   } else if (isDateField) {
@@ -990,33 +993,9 @@ export function renderBlankFieldRow(
     doc.text("_______ / _______ / _______", margin + colSplit + 2, y + 3.5);
     if (field.allow_na) renderBlankNaBox(doc, margin + maxWidth - 12, y);
   } else {
-    // Plain writable text / number / textarea / short_text field. Draw a
-    // ruled writing line (like the Comments block) inside the result cell
-    // so it's obviously a write-here space. Textareas get multiple lines
-    // stacked within the taller row.
-    const naReserve = field.allow_na ? 14 : 2;
-    const lineStartX = margin + colSplit + 2;
-    const lineEndX = margin + maxWidth - naReserve;
-    doc.setDrawColor(handfill ? 180 : 150);
-    doc.setLineWidth(0.2);
-    const isMultiline = field.type === "textarea" || field.type === "long_text";
-    const lineSpacing = 5;
-    // First writing line sits near the baseline so it reads as a rule to
-    // write ON (not a strike-through above the text).
-    const firstLineY = y + actualRowH - 1.5;
-    doc.line(lineStartX, firstLineY, lineEndX, firstLineY);
-    if (isMultiline) {
-      // Stack additional lines going upward until we run out of row height.
-      let ly = firstLineY - lineSpacing;
-      while (ly > y + 2) {
-        doc.line(lineStartX, ly, lineEndX, ly);
-        ly -= lineSpacing;
-      }
-    }
+    // Clean empty answer cell for handwriting; keep the surrounding borders.
     if (field.allow_na) renderBlankNaBox(doc, margin + maxWidth - 12, y);
   }
-  // For text/number/textarea/short_text fields the ruled writing line above
-  // ensures the answer cell is obviously a write-here space.
 
   return y + actualRowH;
 }
