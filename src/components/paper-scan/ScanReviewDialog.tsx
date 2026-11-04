@@ -64,6 +64,7 @@ import CustomerCombobox, {
   type CustomerOption,
 } from "@/components/CustomerCombobox";
 import SiteCombobox, { type SiteOption } from "@/components/SiteCombobox";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { archiveScanConfirm } from "@/lib/archiveScanConfirm";
 import { confirmScanQueueAsJob } from "@/lib/confirmScanQueueAsJob";
 import { fuzzyMatchEngineer } from "@/lib/fuzzyEngineerMatch";
@@ -838,6 +839,24 @@ export default function ScanReviewDialog({
         po_ref: poNumber.trim() || (item.header as any)?.po_ref || null,
         additional_notes: additionalNotes.trim() || null,
       };
+      // Link the sheet to the site's riser so its last-service date (and
+      // 12-month pressure / 6-month visual renewal) updates on filing.
+      let responsesToSave: Record<string, any> = answers as any;
+      const tplName = `${item.templateName || ""}`.toLowerCase();
+      const riserType = tplName.includes("wet riser") ? "Wet Riser" : tplName.includes("dry riser") ? "Dry Riser" : null;
+      if (riserType && !(answers as any)?.riser_asset_id) {
+        const { data: risers } = await (supabase as any)
+          .from("assets").select("id, riser_location, asset_type, category")
+          .eq("site_id", effectiveSiteId);
+        const sameType = ((risers as any[]) || []).filter(
+          (a) => `${a.asset_type || a.category || ""}`.toLowerCase() === riserType.toLowerCase(),
+        );
+        const loc = `${(answers as any)?.riser_location || ""}`.trim().toLowerCase();
+        const pick = sameType.length === 1
+          ? sameType[0]
+          : loc ? sameType.find((a) => `${a.riser_location || ""}`.trim().toLowerCase() === loc) : null;
+        if (pick) responsesToSave = { ...(answers as any), riser_asset_id: pick.id };
+      }
       const result = await confirmScanQueueAsJob({
         userId: user.id,
         itemId: item.itemId,
@@ -850,7 +869,7 @@ export default function ScanReviewDialog({
         existingJobId: chosenExistingJobId,
         completionDate: ukDate || null,
         dateKnown,
-        responses: answers,
+        responses: responsesToSave,
         header: headerWithPo,
         imagePaths: item.imagePaths || [],
         customerSignatureBlob: customerSig?.blob || null,
