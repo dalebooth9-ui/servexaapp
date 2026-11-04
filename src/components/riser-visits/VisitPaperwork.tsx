@@ -18,7 +18,7 @@ export async function loadPrintReportRows(jobId:string){
  let visualTemplate:any=(all||[]).find((r:any)=>isVisual(r.job_sheet_templates?.name))?.job_sheet_templates||null;
  const rows=[...visit];
  if(!rows.length&&job?.site_id){
-  if(!visualTemplate){const {data:t}=await supabase.from('job_sheet_templates').select('id,name,description,fields,footer_text,branding').ilike('name','%dry riser%visual%').eq('is_published',true).limit(1);visualTemplate=t?.[0]||null;}
+  if(!visualTemplate){const {data:t}=await supabase.from('job_sheet_templates').select('id,name,description,fields,footer_text,branding').ilike('name','%dry riser%visual%').eq('status','published').limit(1);visualTemplate=t?.[0]||null;}
   if(visualTemplate){const risers=(await fetchSiteRisers(job.site_id).catch(()=>[])).filter(r=>!/wet/i.test(r.asset_type||''));risers.forEach((r,i)=>rows.push({id:`riser-${r.id}`,job_sheet_templates:visualTemplate,responses:{_riser_visit:{...base,order:i,asset_id:r.id,asset_tag:r.asset_tag,riser_location:r.riser_location,outlets_count:r.outlets_count}}}));}
  }
  const hasVisual=rows.some(r=>isVisual(r.job_sheet_templates?.name));
