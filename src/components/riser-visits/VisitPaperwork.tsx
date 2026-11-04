@@ -12,9 +12,9 @@ const isVisual=(name?:string|null)=>/visual/i.test(name||'')&&/dry/i.test(name||
 /** Engineer paper sheets for "Print reports": visit sheets (one per riser) plus the job's Dry Riser Visual Inspection sheet. Never stickers. */
 export async function loadPrintReportRows(jobId:string){
  const visit=await loadVisitSheets(jobId);
- const {data:job}=await supabase.from('jobs').select('id,site_id,reference_number,scheduled_date,customers(name),sites(name,address,postcode)').eq('id',jobId).maybeSingle();
+ const {data:job}=await supabase.from('jobs').select('id,site_id,reference_number,due_date,customers(name),sites(name,address,postcode)').eq('id',jobId).maybeSingle();
  const {data:all}=await supabase.from('job_sheet_responses').select('id,responses,job_sheet_templates(id,name,description,fields,footer_text,branding)').eq('job_id',jobId).is('archived_at',null).order('created_at').limit(200);
- const site:any=(job as any)?.sites;const base={job_id:jobId,customer:(job as any)?.customers?.name||null,site_name:site?.name||null,address:[site?.address,site?.postcode].filter(Boolean).join(', ')||null,job_reference:(job as any)?.reference_number||null,planned_date:(job as any)?.scheduled_date||null};
+ const site:any=(job as any)?.sites;const base={job_id:jobId,customer:(job as any)?.customers?.name||null,site_name:site?.name||null,address:[site?.address,site?.postcode].filter(Boolean).join(', ')||null,job_reference:(job as any)?.reference_number||null,planned_date:(job as any)?.due_date||null};
  let visualTemplate:any=(all||[]).find((r:any)=>isVisual(r.job_sheet_templates?.name))?.job_sheet_templates||null;
  const rows=[...visit];
  if(!rows.length&&job?.site_id){
