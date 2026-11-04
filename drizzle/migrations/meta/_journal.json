@@ -232,6 +232,13 @@
       "when": 1793778524979,
       "tag": "0032_close_related_feature_company_boundaries",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1793778599745,
+      "tag": "0033_reject_foreign_report_sync_before_draft_check",
+      "breakpoints": true
     }
   ]
 }
