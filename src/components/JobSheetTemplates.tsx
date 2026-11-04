@@ -9,6 +9,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { stickerUrl } from '@/lib/riserStickers';
 import {useSearchParams} from 'react-router-dom';
 import {isScanPrivateField} from '@/lib/riserScanFlow';
+import {printInspectionType,printInspectionResult} from '@/lib/printText';
 
 function isDryRiserTemplate(t: any): boolean {
   if (!t) return false;
@@ -1136,6 +1137,16 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
             if (!(f.id in saved) && !(localDraft && f.id in localDraft)) delete merged[f.id];
           }
         });
+        if(scanMode){
+          const visit=saved._riser_visit;
+          for(const f of template.fields){
+            if(/scope.*work/i.test(f.label)&&!merged[f.id]){
+              const needle=visit.visit_type==='pressure'?'pressure':'visual';
+              const choice=f.options?.find(option=>option.toLowerCase().includes(needle));
+              if(choice)merged[f.id]=choice;
+            }
+          }
+        }
       }
       // Alias: if the template field id is "site" but saved data only has
       // "site_name" (or vice versa), copy the value across so the input pre-fills.
