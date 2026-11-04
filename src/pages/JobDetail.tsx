@@ -285,6 +285,7 @@ export default function JobDetail() {
   // with no forms at all in the engineer view.
   useEffect(() => {
     if (!id || !job || !user) return;
+    if(scanParams.get('riserScan')==='1')return; // The scan RPC has already attached exactly this riser's sheet.
     if (job?.status === "completed" || job?.status === "cancelled") return;
     const ptQ = Number(job?.pressure_test_qty || 0);
     const visQ = Number(job?.visual_qty || 0);

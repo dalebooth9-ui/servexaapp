@@ -154,6 +154,8 @@ function completedReportDetail(resp: Response, template?: Template): string | nu
 }
 
 export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }: { jobId: string; hideSiteVisitExtra?: boolean }) {
+  const [scanParams]=useSearchParams();
+  const scanMode=scanParams.get('riserScan')==='1';
   const { user, userRole, profile } = useAuth();
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
@@ -1657,7 +1659,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   };
 
   const sections = activeTemplate
-    ? [...new Set(activeTemplate.fields.filter((f) => !hiddenFieldIds(formData).includes(String(f.id))).map((f) => f.section || "General"))]
+    ? [...new Set(activeTemplate.fields.filter((f) => !hiddenFieldIds(formData).includes(String(f.id)) && (!scanMode||!isScanPrivateField(f))).map((f) => f.section || "General"))]
     : [];
   const hiddenIds = hiddenFieldIds(formData);
 
@@ -2453,7 +2455,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                   </button>
                 </div>
                 {!omitted && activeTemplate?.fields
-                  .filter((f) => (f.section || "General") === section && !hiddenIds.includes(String(f.id)))
+                  .filter((f) => (f.section || "General") === section && !hiddenIds.includes(String(f.id)) && (!scanMode||!isScanPrivateField(f)))
                   .map((field) => (
                     <div
                       key={field.id}

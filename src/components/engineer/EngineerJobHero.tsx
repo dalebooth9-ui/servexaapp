@@ -127,6 +127,8 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
 
   useEffect(() => {
     load();
+    const onSubmitted=(event:Event)=>{if((event as CustomEvent).detail?.jobId===jobId)void load();};
+    window.addEventListener('job-sheet:submitted',onSubmitted);
     const channel = supabase
       .channel(`hero-sheets-${jobId}`)
       .on(
@@ -135,7 +137,7 @@ export default function EngineerJobHero({ jobId, jobOrgId, isRemedial, onNavigat
         () => load(),
       )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { supabase.removeChannel(channel); window.removeEventListener('job-sheet:submitted',onSubmitted); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 
