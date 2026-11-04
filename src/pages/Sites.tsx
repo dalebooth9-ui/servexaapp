@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import SiteDryRisers from "@/components/assets/SiteDryRisers";
 import SiteAccessCard from '@/components/sites/SiteAccessCard';
+const StickerPackDialog = lazy(() => import('@/components/assets/StickerPackDialog'));
 import NewVisitDialog from '@/components/riser-visits/NewVisitDialog';
 import ServicingControl from '@/components/riser-visits/ServicingControl';
 import BulkImportSitesDialog from "@/components/BulkImportSitesDialog";
@@ -1829,7 +1830,7 @@ export default function Sites() {
               <Input value={(form as any).riser_location} onChange={(e) => setForm((f) => ({ ...f, riser_location: e.target.value }))} placeholder="e.g. Floor 2, east stairwell" />
             </div>
           </div>
-          {editing?.id && <><SiteAccessCard siteId={editing.id}/><div className="flex flex-wrap gap-4 items-center">{userRole === 'admin' && <><NewVisitDialog siteId={editing.id} siteName={editing.name}/><ServicingControl table="sites" id={editing.id}/></>}</div><SiteDryRisers siteId={editing.id} /></>}
+          {editing?.id && <><SiteAccessCard siteId={editing.id}/><div className="flex flex-wrap gap-4 items-center">{userRole === 'admin' && <><NewVisitDialog siteId={editing.id} siteName={editing.name}/><Suspense fallback={null}><StickerPackDialog siteId={editing.id} siteName={editing.name||null} customerLogoUrl={(editing as any)?.customers?.logo_url||null}/></Suspense><ServicingControl table="sites" id={editing.id}/></>}</div><SiteDryRisers siteId={editing.id} /></>}
           <div className="space-y-1.5">
             <label className="text-sm font-medium flex items-center gap-1.5">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="#e11f26"><path d="M11.994 0C5.367 0 0 5.367 0 11.994 0 18.622 5.367 24 11.994 24 18.622 24 24 18.622 24 11.994 24 5.367 18.622 0 11.994 0zm-2.6 17.4l-1.5-5.1-1.5 5.1H4.7L2.5 9.6h1.8l1.5 5.4 1.5-5.4h1.8l1.5 5.4 1.5-5.4h1.8l-2.2 7.8h-1.7zm7.8 0l-1.5-5.1-1.5 5.1h-1.7l-2.2-7.8h1.8l1.5 5.4 1.5-5.4h1.8l1.5 5.4 1.5-5.4h1.8l-2.2 7.8h-1.7z"/></svg>

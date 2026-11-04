@@ -1293,9 +1293,9 @@ export default function JobDetail() {
       </Collapsible>
 
       {id && <Suspense fallback={null}><VisitPaperwork jobId={id}>
-        {userRole === "admin" && job?.site_id && (
+        {userRole === "admin" && (
             <StickerPackDialog
-              siteId={job.site_id}
+              siteId={job?.site_id || null}
               siteName={(job as any)?.sites?.name || null}
               customerLogoUrl={(job as any)?.customers?.logo_url || null}
             />
