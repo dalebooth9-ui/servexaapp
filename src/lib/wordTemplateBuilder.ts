@@ -36,6 +36,7 @@ import {loadHeaderLogo} from '@/lib/loadHeaderLogo';
 import {resolveToSignedUrl} from '@/lib/durableStorageRef';
 import {getGeneratingOrgFallbackLogoUrl} from '@/lib/generatingOrgBranding';
 import {engineerAccessForPrint} from '@/lib/siteAccess';
+import {siteDetailsText} from '@/lib/siteDetailsPrint';
 import { stickerUrl } from '@/lib/riserStickers';
 import { getDefaultFooterText } from "@/lib/pdfFooter";
 import {
