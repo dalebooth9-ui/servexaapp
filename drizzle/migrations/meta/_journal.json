@@ -253,6 +253,13 @@
       "when": 1793780927227,
       "tag": "0035_per_job_ops_notification_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793780942779,
+      "tag": "0036_ops_request_company_read_policy",
+      "breakpoints": true
     }
   ]
 }
