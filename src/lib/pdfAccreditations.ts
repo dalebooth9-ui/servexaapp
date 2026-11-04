@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { WATERMARK_OPACITY } from "@/lib/pdfWatermark";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { getGeneratingOrgFallbackAccreditations } from "@/lib/generatingOrgBranding";
+import {requireCurrentOrgId} from './tenantQueries';
 
 /**
  * Fetch accreditation logo URLs for a customer's PDF pack.
@@ -20,9 +21,11 @@ export async function fetchCustomerAccreditationLogos(
 ): Promise<string[]> {
   if (!customerName) return getGeneratingOrgFallbackAccreditations();
   try {
+    const orgId=await requireCurrentOrgId();
     const { data } = await supabase
       .from("customers")
       .select("accreditation_logos, logo_url, brand_colour")
+      .eq('org_id',orgId)
       .ilike("name", customerName)
       .maybeSingle();
     const row = data as any;

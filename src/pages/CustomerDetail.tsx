@@ -197,7 +197,7 @@ export default function CustomerDetail() {
     }
     setLogoUploading(true);
     // Retain previous files: printed branding may still reference them.
-    const path = `${id}/${Date.now()}-logo${ext}`;
+    const path = await buildOrgPathAsync(`${id}/${Date.now()}-logo${ext}`);
     const { error: upErr } = await supabase.storage.from("customer-logos").upload(path, file, { upsert: true });
     if (upErr) {
       toast({ title: "Upload failed", description: upErr.message, variant: "destructive" });
