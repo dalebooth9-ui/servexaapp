@@ -179,16 +179,30 @@ export default function JobDetail() {
     }
   };
 
-  // Tab state — persisted per-job in sessionStorage so navigating away & back
-  // keeps the same active section for the current browser session.
-  const [activeTab, setActiveTab] = useState<JobTab>(() => {
-    if (typeof window === "undefined" || !id) return "overview";
-    const stored = sessionStorage.getItem(`job-detail-tab-${id}`);
-    return JOB_TABS.some((t) => t.value === stored) ? (stored as JobTab) : "overview";
-  });
+  // Tab state — remembered per user (localStorage) so each person returns to
+  // the tab they last used, on any job. Legacy tab values are mapped to their
+  // new homes (sign-off → documents, activity/timeline → history).
+  const tabStorageKey = `job-detail-tab-${user?.id ?? "anon"}`;
+  const readStoredTab = (key: string): JobTab => {
+    if (typeof window === "undefined") return "overview";
+    const stored = localStorage.getItem(key);
+    if (!stored) return "overview";
+    if (JOB_TABS.some((t) => t.value === stored)) return stored as JobTab;
+    return LEGACY_TAB_MAP[stored] ?? "overview";
+  };
+  const [activeTab, setActiveTab] = useState<JobTab>(() => readStoredTab(tabStorageKey));
   useEffect(() => {
-    if (id) sessionStorage.setItem(`job-detail-tab-${id}`, activeTab);
-  }, [activeTab, id]);
+    setActiveTab(readStoredTab(tabStorageKey));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabStorageKey]);
+  useEffect(() => {
+    localStorage.setItem(tabStorageKey, activeTab);
+  }, [activeTab, tabStorageKey]);
+
+  // History tab filter (all / activity / timeline) and More menu state.
+  const [historyFilter, setHistoryFilter] = useState<"all" | "activity" | "timeline">("all");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [partsCount, setPartsCount] = useState(0);
 
   // Bumped after a paper scan saves so the documents list picks it up.
   const [scanDocsKey, setScanDocsKey] = useState(0);
