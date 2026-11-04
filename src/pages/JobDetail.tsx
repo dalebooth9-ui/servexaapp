@@ -578,7 +578,10 @@ export default function JobDetail() {
                     variant="ghost"
                     size="sm"
                     className="justify-start"
-                    onClick={() => document.getElementById("sign-off-signatures-section")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                    onClick={() => {
+                      setActiveTab("documents");
+                      setTimeout(() => document.getElementById("sign-off-signatures-section")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+                    }}
                   >
                     <PenLine className="mr-2 h-3.5 w-3.5" /> Jump to sign-off
                   </Button>
@@ -625,9 +628,10 @@ export default function JobDetail() {
           </div>
         )}
 
-        {/* Row 3: compact controls — status / priority / result */}
+        {/* Row 3: Details — status / priority / result grouped in one tidy row */}
         {userRole === "admin" && (
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Details</span>
             <Select value={job.status} onValueChange={handleStatusChange}>
               <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue>{getStatusLabel(job.status)}</SelectValue></SelectTrigger>
               <SelectContent>
