@@ -1452,7 +1452,7 @@ export default function JobDetail() {
       )}
 
 
-      {activeTab === "activity" && userRole === "admin" && (
+      {activeTab === "history" && (historyFilter === "all" || historyFilter === "activity") && userRole === "admin" && (
         <Collapsible defaultOpen className="mb-6">
           <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
             Servexa Reports
@@ -1463,58 +1463,6 @@ export default function JobDetail() {
           </CollapsibleContent>
         </Collapsible>
       )}
-
-      {activeTab === "signoff" && (<>
-      <JobCompleteAction
-        jobId={id!}
-        jobStatus={job.status}
-        jobRef={job.reference_number}
-        isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
-        variant="banner"
-        className="mb-4"
-        onCompleted={fetchData}
-      />
-      <Collapsible defaultOpen className="mb-6" id="sign-off-signatures-section">
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
-          Engineer & Customer Sign-Off Signatures
-          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-3 space-y-4">
-          <SignatureCapture jobId={id!} signerRole="engineer" heading="Engineer sign-off" filterByRole />
-          <div className="border-t pt-3">
-            <SignatureCapture
-              jobId={id!}
-              signerRole="customer"
-              heading="Customer sign-off (in person)"
-              defaultSignerName={custName || ""}
-              filterByRole
-            />
-          </div>
-          <div className="border-t pt-3 space-y-4">
-            <div>
-              <p className="text-sm font-medium mb-2">Customer handover sign-off (remote link)</p>
-              <JobHandoverLink jobId={id!} customerId={(job as any).customer_id} customerName={custName || ""} />
-            </div>
-            <div className="border-t pt-3">
-              <p className="text-sm text-muted-foreground mb-2">Need the customer to sign off remotely (legacy)?</p>
-              <CustomerSignOffLink jobId={id!} customerName={custName || ""} />
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-      {userRole === "admin" && (
-        <Collapsible defaultOpen className="mb-6">
-          <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
-            Engineer Certificates
-            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-3">
-            <EngineerCertificates jobId={id!} engineers={engineers} />
-          </CollapsibleContent>
-        </Collapsible>
-      )}
-      {id && <JobDefects jobId={id} siteId={job?.site_id || null} />}
-      </>)}
 
       {activeTab === "parts" && !(job?.category === "installation" || job?.category?.includes("install")) && id && (
         <Suspense fallback={null}><JobPartsUsed jobId={id} /></Suspense>
