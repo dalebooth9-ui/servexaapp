@@ -53,3 +53,17 @@ export function matchJobCategory(categories: OrgCategory[], texts: (string | nul
     ? { slug: best.c.slug, status: "suggested", others }
     : { slug: null, status: "needs_type", others: [] };
 }
+
+/** Loads the company's own job types and matches. Never reads another org's list. */
+export async function suggestOrgCategory(admin: any, orgId: string, texts: (string | null | undefined)[]) {
+  const { data } = await admin.from("job_categories").select("slug, name").eq("org_id", orgId);
+  const m = matchJobCategory((data || []) as OrgCategory[], texts);
+  return {
+    ...m,
+    jobFields: {
+      category: m.slug || "general",
+      category_suggestion: m.status,
+      category_other_types: m.others.length ? m.others : null,
+    },
+  };
+}
