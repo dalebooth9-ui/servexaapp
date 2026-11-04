@@ -260,6 +260,13 @@
       "when": 1793780942779,
       "tag": "0036_ops_request_company_read_policy",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1793781106325,
+      "tag": "0037_authenticated_ops_notification_bridge",
+      "breakpoints": true
     }
   ]
 }
