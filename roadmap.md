@@ -1,5 +1,11 @@
 # Roadmap
 
+## Email Triage and renewal email repairs
+- [ ] Diagnose live trigger failure, renewal crash and company settings without sending emails.
+- [ ] Make triage notifications best-effort/company-scoped and renewal sends safe with dry-run/error health tracking.
+- [ ] Add admin email health note, update Help and run focused tests plus signed-in dry-run checks.
+- [ ] List failed triage emails for manual creation; preserve automation settings and confirm no test sends.
+
 ## Recent-feature company isolation audit
 - [x] Audit site access, due/new visits, logo storage, site merge/undo, import matching, asset tags and printable branding against live permissions.
 - [x] Fix company-boundary gaps: linked-record guards, child merge/undo scoping, per-company sticker uniqueness, staff-only imported history, private logo reads, server-validated import parents and session-safe print branding.
