@@ -1292,7 +1292,7 @@ export default function JobDetail() {
         </CollapsibleContent>
       </Collapsible>
 
-      {id && <Suspense fallback={null}><VisitPaperwork jobId={id}>
+      {id && userRole === "admin" && <Suspense fallback={null}><VisitPaperwork jobId={id}>
         {userRole === "admin" && (
             <StickerPackDialog
               siteId={job?.site_id || null}
