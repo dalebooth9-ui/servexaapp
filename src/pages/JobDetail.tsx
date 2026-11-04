@@ -1233,48 +1233,49 @@ export default function JobDetail() {
 
 
       {activeTab === "documents" && (<>
-      {id && <Suspense fallback={null}><VisitPaperwork jobId={id}/></Suspense>}
-      {userRole === "admin" && job?.site_id && (
-        <div className="mb-4">
-          <Suspense fallback={null}>
-            <StickerPackDialog
-              siteId={job.site_id}
-              siteName={(job as any)?.sites?.name || null}
-              customerLogoUrl={(job as any)?.customers?.logo_url || null}
-            />
-          </Suspense>
-        </div>
-      )}
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Documents
           <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
-          <div className="mb-3 flex flex-wrap justify-end gap-2">
-            <Suspense fallback={null}>
-              <ScanPaperReportButton jobId={id!} onSaved={() => setScanDocsKey((k) => k + 1)} />
-            </Suspense>
-            <Suspense fallback={null}><ScanDocumentButton jobId={id!} /></Suspense>
-            <Suspense fallback={null}><SiteVisitReportButton jobId={id!} /></Suspense>
+          {/* One "Add" menu holds the scan / report / RAMS actions — same
+              actions and permissions as before, just tucked into a dropdown. */}
+          <div className="mb-3 flex justify-end">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  Add <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-64 p-2">
+                <div className="flex flex-col gap-1 [&>*]:w-full [&_button]:w-full [&_button]:justify-start">
+                  <Suspense fallback={null}>
+                    <ScanPaperReportButton jobId={id!} onSaved={() => setScanDocsKey((k) => k + 1)} />
+                  </Suspense>
+                  <Suspense fallback={null}><ScanDocumentButton jobId={id!} /></Suspense>
+                  <Suspense fallback={null}><SiteVisitReportButton jobId={id!} /></Suspense>
+                  {userRole === "admin" && (
+                    <>
+                      <Button
+                        variant="ghost" size="sm" className="justify-start"
+                        onClick={() => navigate(`/rams/start?job=${id}`)}
+                      >
+                        <ClipboardList className="mr-2 h-3.5 w-3.5" /> Generate RAMS (AI)
+                      </Button>
+                      <Button
+                        variant="ghost" size="sm" className="justify-start"
+                        onClick={() => navigate(`/jobs/${id}/rams`)}
+                      >
+                        <ClipboardList className="mr-2 h-3.5 w-3.5" /> Edit / Create RAMS
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
           <Suspense fallback={null}><SiteVisitReportList jobId={id!} /></Suspense>
-          {userRole === "admin" && (
-            <div className="mb-3 flex justify-end gap-2">
-              <Button
-                variant="outline" size="sm" className="gap-1.5 text-xs"
-                onClick={() => navigate(`/rams/start?job=${id}`)}
-              >
-                <ClipboardList className="h-3.5 w-3.5" /> Generate RAMS (AI)
-              </Button>
-              <Button
-                variant="outline" size="sm" className="gap-1.5 text-xs"
-                onClick={() => navigate(`/jobs/${id}/rams`)}
-              >
-                <ClipboardList className="h-3.5 w-3.5" /> Edit / Create RAMS
-              </Button>
-            </div>
-          )}
           <JobDocuments key={scanDocsKey} jobId={id!} job={job} engineers={engineers} />
         </CollapsibleContent>
       </Collapsible>
@@ -1288,6 +1289,73 @@ export default function JobDetail() {
           <JobSheet jobId={id!} job={job} />
         </CollapsibleContent>
       </Collapsible>
+
+      {id && <Suspense fallback={null}><VisitPaperwork jobId={id}/></Suspense>}
+      {userRole === "admin" && job?.site_id && (
+        <div className="mb-4">
+          <Suspense fallback={null}>
+            <StickerPackDialog
+              siteId={job.site_id}
+              siteName={(job as any)?.sites?.name || null}
+              customerLogoUrl={(job as any)?.customers?.logo_url || null}
+            />
+          </Suspense>
+        </div>
+      )}
+
+      {/* Sign-off — folded in from the old separate tab, underneath the documents. */}
+      <div className="mt-8 border-t pt-4">
+        <h2 className="mb-4 text-lg font-semibold">Sign-off</h2>
+        <JobCompleteAction
+          jobId={id!}
+          jobStatus={job.status}
+          jobRef={job.reference_number}
+          isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+          variant="banner"
+          className="mb-4"
+          onCompleted={fetchData}
+        />
+        <Collapsible defaultOpen className="mb-6" id="sign-off-signatures-section">
+          <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+            Engineer & Customer Sign-Off Signatures
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3 space-y-4">
+            <SignatureCapture jobId={id!} signerRole="engineer" heading="Engineer sign-off" filterByRole />
+            <div className="border-t pt-3">
+              <SignatureCapture
+                jobId={id!}
+                signerRole="customer"
+                heading="Customer sign-off (in person)"
+                defaultSignerName={custName || ""}
+                filterByRole
+              />
+            </div>
+            <div className="border-t pt-3 space-y-4">
+              <div>
+                <p className="text-sm font-medium mb-2">Customer handover sign-off (remote link)</p>
+                <JobHandoverLink jobId={id!} customerId={(job as any).customer_id} customerName={custName || ""} />
+              </div>
+              <div className="border-t pt-3">
+                <p className="text-sm text-muted-foreground mb-2">Need the customer to sign off remotely (legacy)?</p>
+                <CustomerSignOffLink jobId={id!} customerName={custName || ""} />
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+        {userRole === "admin" && (
+          <Collapsible defaultOpen className="mb-6">
+            <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+              Engineer Certificates
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-3">
+              <EngineerCertificates jobId={id!} engineers={engineers} />
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+        {id && <JobDefects jobId={id} siteId={job?.site_id || null} />}
+      </div>
       </>)}
 
 
