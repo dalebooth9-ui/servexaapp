@@ -9,6 +9,7 @@ import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useJobCategories } from "@/hooks/useJobCategories";
+import JobTypePicker from "@/components/jobs/JobTypePicker";
 import { useWhat3Words } from "@/hooks/useWhat3Words";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -536,8 +537,13 @@ export default function JobDetail() {
             {custName && <> · <span className="font-medium text-foreground">{custName}</span></>}
             {job.sites?.name && <> · <span className="font-medium text-foreground">{job.sites.name}</span></>}
             {!job.sites?.name && job.address && <> · <span className="text-foreground">{job.address}</span></>}
-            {categoryDisplayName && <> · <span className="text-muted-foreground">{categoryDisplayName}</span></>}
+            {categoryDisplayName && userRole !== "admin" && <> · <span className="text-muted-foreground">{categoryDisplayName}</span></>}
           </p>
+          {userRole === "admin" && job.org_id && (
+            <div className="mt-1.5">
+              <JobTypePicker job={job} onChanged={(slug) => setJob((j: any) => (j ? { ...j, category: slug, category_suggestion: null } : j))} />
+            </div>
+          )}
           {jobW3W && (
             <a
               href={`https://what3words.com/${jobW3W.replace(/^\/\/\//, "")}`}
