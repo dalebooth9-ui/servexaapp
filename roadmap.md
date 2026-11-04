@@ -1,5 +1,11 @@
 # Roadmap
 
+## Riser sticker and scan service fixes
+- [ ] Pin sticker logo at approximately 20mm and QR at least 16mm; preserve label grid, plain stickers and start position.
+- [ ] Reuse eligible riser visits or one site/day scan job transactionally; select existing/default report and record attendance.
+- [ ] Open the engineer's riser report directly and return to the riser progress list after submission; no finance or template chooser.
+- [ ] Update Help, regression tests and verify signed-in scan/repeat scan and sticker PDF.
+
 ## Printed paperwork polish
 - [x] Align shared PDF/Word body text, print-only name casing and readable last-inspection details.
 - [x] Remove blank-answer rules, retain signing lines and wrap dry/wet questions without clipping.
