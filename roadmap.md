@@ -1,5 +1,11 @@
 # Roadmap
 
+## Recent-feature company isolation audit
+- [ ] Audit site access, due/new visits, logo storage, site merge/undo, import matching, asset tags and printable branding against live permissions.
+- [ ] Fix confirmed company-boundary gaps without changing screens or deleting data.
+- [ ] Verify database policies/functions and focused cross-company regression tests; update Help.
+- [ ] Summarise findings, fixes, remaining verification limits and any decisions.
+
 ## Customer logo loading repair
 - [x] Audit all nine saved customer logos without altering customer records; all signed links return usable images.
 - [x] Restore logo read policy and company-admin writes, including print-logo uploads.
