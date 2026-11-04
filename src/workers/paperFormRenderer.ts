@@ -18,6 +18,7 @@ import {fitAccessLines} from '@/lib/siteAccessPdf';
 import type { PdfTemplateField } from "@/lib/pdfBody";
 import { drawQr, stickerUrl } from '@/lib/riserStickers';
 import { printName, printInspectionDate, printInspectionType, printInspectionResult } from '@/lib/printText';
+import { siteDetailLines } from '@/lib/siteDetailsPrint';
 
 export type LoadedImage = {
   dataUrl: string;
@@ -304,17 +305,11 @@ export function renderPaperFormPage(
   const siteName = printName(jobInfo?.site?.name);
   const siteAddr = printName(jobInfo?.site?.address || jobInfo?.address);
   const sitePc = jobInfo?.site?.postcode || "";
-  // Show the address once: drop address parts that repeat the site name,
-  // an earlier part or the postcode already contained in the address.
-  const nk = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "");
-  const seenParts = new Set<string>([nk(custName || ""), nk(siteName || "")].filter(Boolean));
-  const addrParts = (siteAddr || "").split(/,|\n/).map((t) => t.trim()).filter((t) => {
-    const k = nk(t); if (!k || [...seenParts].some((x) => x === k || (x.includes(k) && k.length >= 4))) return false; seenParts.add(k); return true;
-  });
-  if (sitePc && ![...seenParts].some((x) => x.includes(nk(sitePc)))) addrParts.push(sitePc);
-  const siteLines = [nk(siteName || "") && nk(siteName || "") !== nk(custName || "") ? siteName : "", addrParts.join(", ")].filter(Boolean);
+  // Customer, then site name, then site address — a line that only repeats
+  // something already printed is skipped, and the postcode prints once.
+  const detailLines = siteDetailLines({ customer: custName, siteName, address: siteAddr, postcode: sitePc });
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
-  const contentLines = [custName,...siteLines].filter(Boolean).flatMap(text=>doc.splitTextToSize(text,leftW-4) as string[]);
+  const contentLines = detailLines.flatMap(text=>doc.splitTextToSize(text,leftW-4) as string[]);
   const leftBlockH = Math.max(rightBlockH, visit ? 30 : 26, 10 + contentLines.length*4.2);
 
   doc.setDrawColor(0);

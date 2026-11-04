@@ -5,6 +5,7 @@ import { resolveToSignedUrl } from "@/lib/durableStorageRef";
 import {resolveDocumentBrandingProfile,type DocumentBrandingProfile} from '@/lib/documentBrandingProfile';
 import {registerPrintPdf} from '@/lib/printPdfProfile';
 import {printName} from '@/lib/printText';
+import {siteDetailsText} from '@/lib/siteDetailsPrint';
 
 export interface PdfHeaderData {
   customerName: string;
@@ -384,7 +385,7 @@ export async function renderPdfHeader(
     const x3 = x2 + c3;
     const x4 = margin + maxWidth;
 
-    const siteStr = [data.siteName, data.siteAddress].filter(Boolean).join(", ");
+    const siteStr = siteDetailsText({ siteName: data.siteName, address: data.siteAddress });
     const custFit = wrapValue(data.customerName || "", c2 - 4, { maxLines: 2 });
     const siteFit = wrapValue(siteStr, c2 - 4, { maxLines: 4 });
     const row1H = Math.max(baseRowH, custFit.lines.length * custFit.lineH + 2.4);
@@ -459,7 +460,7 @@ export async function renderPdfHeader(
     const splitX = margin + maxWidth * 0.7;
 
     doc.setFontSize(9);
-    const siteStr = [data.siteName, data.siteAddress].filter(Boolean).join(", ");
+    const siteStr = siteDetailsText({ siteName: data.siteName, address: data.siteAddress });
     const custFit = wrapValue(data.customerName || "", maxWidth * 0.7 - 22, { maxLines: 2 });
     const siteFit = wrapValue(siteStr, maxWidth * 0.7 - 12, { maxLines: 4 });
     const row1H = Math.max(baseRowH, custFit.lines.length * custFit.lineH + 2.4);
