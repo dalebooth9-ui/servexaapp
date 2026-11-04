@@ -126,3 +126,6 @@
 - [x] Update Help & guides.
 - [ ] Verify office and engineer layouts.
 
+
+## Print template linked to job type
+- [ ] Run Print reports and Print sticker pack as Test Fire Co on its own site/risers/job; confirm its own branding and no Viva content.
