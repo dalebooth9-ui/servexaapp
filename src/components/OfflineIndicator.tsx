@@ -39,6 +39,15 @@ export default function OfflineIndicator() {
     return () => { u1(); u2(); u3(); };
   }, []);
 
+  // While a bottom pill is showing, pad the page bottom so the pill never
+  // covers buttons at the end of a page (e.g. export buttons on a job).
+  useEffect(() => {
+    const pillVisible = isOnline && (showBack || pending > 0);
+    if (!pillVisible) return;
+    document.body.style.paddingBottom = "96px";
+    return () => { document.body.style.paddingBottom = ""; };
+  }, [isOnline, showBack, pending]);
+
   const lastSync = getOfflineCache<string>(CACHE_KEYS.LAST_SYNC);
 
   const waitingLabel = `${pending} item${pending === 1 ? "" : "s"} waiting for signal`;
