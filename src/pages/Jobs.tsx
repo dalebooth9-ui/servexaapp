@@ -512,7 +512,7 @@ export default function Jobs() {
   const handleApproveJob = async (jobId: string) => {
     const job = jobs.find((j) => j.id === jobId) as any;
     if (job?.category_suggestion === "needs_type") {
-      toast.error("Pick a job type first", { description: "This PO doesn't make the job type clear. Choose one from the dropdown, then approve." });
+      toast({ variant: "destructive", title: "Pick a job type first", description: "This PO doesn't make the job type clear. Choose one from the dropdown, then approve." });
       return;
     }
     if ((pendingSheetCounts[jobId] ?? 0) === 0) {
