@@ -1,5 +1,8 @@
 # Roadmap
 
+## Restore job report printing
+- [x] Restore Print reports beside Print sticker pack using the unchanged per-riser paperwork generator; update Help. 20 focused tests pass and preview builds cleanly; isolated visit-data rendering verified without writes. No actual visit-sheet rows are available in this preview, so real visit printing remains unverified.
+
 ## Riser sticker and scan service fixes
 - [x] Pin full cropped sticker logo at 20mm/8mm maximum height and QR at 16.2mm; preserve label grid, plain stickers and first-free start position.
 - [x] Reuse eligible riser visits or one site/day scan job transactionally; select existing/default report and record attendance in the org-scoped job activity log.

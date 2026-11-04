@@ -1292,18 +1292,15 @@ export default function JobDetail() {
         </CollapsibleContent>
       </Collapsible>
 
-      {id && <Suspense fallback={null}><VisitPaperwork jobId={id}/></Suspense>}
-      {userRole === "admin" && job?.site_id && (
-        <div className="mb-4">
-          <Suspense fallback={null}>
+      {id && <Suspense fallback={null}><VisitPaperwork jobId={id}>
+        {userRole === "admin" && job?.site_id && (
             <StickerPackDialog
               siteId={job.site_id}
               siteName={(job as any)?.sites?.name || null}
               customerLogoUrl={(job as any)?.customers?.logo_url || null}
             />
-          </Suspense>
-        </div>
-      )}
+        )}
+      </VisitPaperwork></Suspense>}
 
       {/* Sign-off — folded in from the old separate tab, underneath the documents. */}
       <div className="mt-8 border-t pt-4">

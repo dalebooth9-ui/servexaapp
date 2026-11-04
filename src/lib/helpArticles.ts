@@ -16,6 +16,7 @@ const RULES: SlugRule[] = [
   { test: (p) => p === "/jobs", slug: "jobs" },
   { test: (p) => p === '/due-visits', slug: 'riser-visits' },
   { test: (p) => p === '/printed-paperwork', slug: 'printed-paperwork' },
+  // Job guide includes Print reports beside Print sticker pack for per-riser engineer sheets.
   { test: (p) => /^\/jobs\/[^/]+$/.test(p), slug: "jobs.detail" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/rams"), slug: "rams" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/site-visit-report"), slug: "site-visit-report" },
