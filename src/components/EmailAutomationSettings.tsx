@@ -87,6 +87,8 @@ export default function EmailAutomationSettings() {
   const [saving, setSaving] = useState<string | null>(null);
   const [seed, setSeed] = useState<SeedCount>({ seed_jobs: 0, seed_visits: 0 });
   const [confirm, setConfirm] = useState<{ job: JobMeta } | null>(null);
+  const [health, setHealth] = useState<Array<{ step: string; status: string; error_message: string | null }>>([]);
+  const [healthError, setHealthError] = useState<string | null>(null);
 
   const loadSeed = async () => {
     const { data, error } = await supabase.rpc("count_seed_test_jobs" as any);
@@ -107,6 +109,9 @@ export default function EmailAutomationSettings() {
       setRows(map);
     }
     await loadSeed();
+    const healthResult = await supabase.rpc('get_email_step_health');
+    setHealth(healthResult.data || []);
+    setHealthError(healthResult.error ? 'Email health could not be checked.' : null);
     setLoading(false);
   };
 
@@ -167,6 +172,16 @@ export default function EmailAutomationSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
+          {!loading && (
+            <div className="rounded-md border border-border p-3 text-xs space-y-1" role="status">
+              <p className="font-semibold">Email health</p>
+              {healthError ? <p className="text-destructive">{healthError}</p> : health.length ? health.map(h => (
+                <p key={h.step} className={h.status === 'failed' ? 'text-destructive' : 'text-muted-foreground'}>
+                  {h.step === 'email_triage_ops' ? 'Email Triage ops alert' : 'Renewal reminders'}: {h.status === 'queued' ? 'Queued — delivery not yet confirmed' : h.status === 'pending' ? 'Waiting for email service' : h.status}{h.error_message ? ` — ${h.error_message}` : ''}
+                </p>
+              )) : <p className="text-muted-foreground">No email-step results recorded yet. This does not confirm delivery.</p>}
+            </div>
+          )}
           {!loading && hasSeed && (
             <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
               <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />

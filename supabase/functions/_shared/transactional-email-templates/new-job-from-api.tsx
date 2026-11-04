@@ -11,6 +11,7 @@ interface NewJobFromApiProps {
   customer?: string
   priority?: string
   source?: string
+  company_name?: string
 }
 
 const NewJobFromApiEmail = ({
@@ -18,6 +19,7 @@ const NewJobFromApiEmail = ({
   customer = 'Unknown customer',
   priority = 'medium',
   source = 'Email Triage',
+  company_name = 'Servexa',
 }: NewJobFromApiProps) => (
   <Html lang="en" dir="ltr">
     <Head />
@@ -25,6 +27,7 @@ const NewJobFromApiEmail = ({
     <Body style={main}>
       <Container style={container}>
         <Heading style={h1}>New job created via {source}</Heading>
+        <Text style={text}>{company_name}</Text>
         <Section style={card}>
           <Text style={line}><strong>Job:</strong> {jobName}</Text>
           <Text style={line}><strong>Customer:</strong> {customer}</Text>
