@@ -908,8 +908,6 @@ serve(async (req) => {
     }
   }
 
-  const typeMatch = await suggestOrgCategory(admin, orgId, [email.subject, desc, forwardedBody]);
-
   const typeMatch = await suggestOrgCategory(admin, orgId!, [email.subject, desc, forwardedBody]);
 
   const jobInsert: Record<string, unknown> = {
