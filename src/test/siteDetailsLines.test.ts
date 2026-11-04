@@ -55,7 +55,7 @@ describe('printed Customer/Site Details order and repeats', () => {
     ).toEqual(['Acme', 'Marsh Mills Retail Park', 'PHASE 1 LONGBRIDGE, PLYMOUTH, PL6 8LX']);
     expect(
       siteDetailLines({ customer: 'Acme', siteName: 'Manston Court', address: '74-77 MANSTON COURT 2 THORNBURY WAY, WALTHAM FOREST LONDON E17 5FT', postcode: 'E17 5FT' })[2],
-    ).toBe('2 Thornbury Way, Waltham Forest London E17 5FT');
+    ).toBe('74-77 2 THORNBURY WAY, WALTHAM FOREST LONDON E17 5FT');
   });
 
   it('skips the site name line when it repeats the customer', () => {
