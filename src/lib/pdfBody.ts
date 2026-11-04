@@ -326,10 +326,8 @@ export function renderRepeatingTableBlock(
         const text = raw == null || raw === "" ? "—" : String(raw);
         const lower = text.toLowerCase().trim();
         if (col?.type === "yn_na" || /^(yes|no|n\/?a|pass|fail)$/i.test(text)) {
-          if (/^(yes|pass)$/i.test(text)) doc.setTextColor(0, 128, 0);
-          else if (/^(no|fail)$/i.test(text)) doc.setTextColor(200, 0, 0);
-          else if (/^n\/?a$/i.test(lower)) doc.setTextColor(100, 100, 100);
-          doc.setFont("helvetica", "bold");
+          doc.setTextColor(0, 0, 0);
+          doc.setFont("helvetica", "normal");
         }
         lines.forEach((ln: string, li: number) => {
           doc.text(ln, colXs[i] + cellPadX, y + 3.3 + li * lineH);

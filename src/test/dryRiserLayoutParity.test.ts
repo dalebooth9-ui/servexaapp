@@ -3,7 +3,8 @@
  * from the SAME `dryRiserLayout` shared config. If a future change hard-codes
  * different numbers in either renderer, this test fails.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+vi.mock('@/lib/tenantQueries',()=>({requireCurrentOrgId:async()=> '11111111-1111-1111-1111-111111111111'}));
 import { Packer } from "docx";
 import JSZip from "jszip";
 
