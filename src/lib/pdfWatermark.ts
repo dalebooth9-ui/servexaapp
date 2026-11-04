@@ -40,15 +40,14 @@ function hslToRgb(h: number, s: number, l: number): RgbTriple {
   ];
 }
 
-let cachedWatermark: HTMLImageElement | null = null;
-
 export async function loadWatermarkImage(): Promise<HTMLImageElement | null> {
-  if (cachedWatermark) return cachedWatermark;
   // The flame is Viva Fire's brand mark — never render it on another org's
   // documents. Non-Viva orgs get NO watermark image (their PDFs are simply
   // watermark-free until they upload their own brand assets).
-  const url = await getGeneratingOrgWatermarkUrl();
-  if (!url) return null;
+  const raw = await getGeneratingOrgWatermarkUrl();
+  if (!raw) return null;
+  const {resolveToSignedUrl}=await import('@/lib/durableStorageRef');
+  const url=(await resolveToSignedUrl(raw).catch(()=>null))||raw;
   try {
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -57,7 +56,6 @@ export async function loadWatermarkImage(): Promise<HTMLImageElement | null> {
       img.onerror = () => reject();
       img.src = url;
     });
-    cachedWatermark = img;
     return img;
   } catch {
     return null;
