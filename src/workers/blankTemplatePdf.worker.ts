@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import {isPrintableFinancialField} from "@/lib/printBrandingRules";
+import {loadHeaderLogo} from '@/lib/loadHeaderLogo';
 import {
   PdfTemplateField,
   buildSkipIds,
@@ -482,13 +483,14 @@ async function buildPdf(payload: WorkerPayload) {
   const riserLocValue = jobInfo?.site?.riser_location || (riserField ? (autoVals[riserField.id] || "") : "");
   const engineerList = (jobInfo?.engineers || []).join(", ");
 
-  const [logoImage, watermark, accreditationLogos] = await Promise.all([
-    loadImage(resolvedHeaderLogo || null),
+  const [headerLogo, watermark, accreditationLogos] = await Promise.all([
+    loadHeaderLogo(resolvedHeaderLogo || '',payload.orgFallbackLogoUrl || '',loadImage),
     loadImage(payload.printBranding?.watermarkUrl || payload.orgWatermarkUrl || null),
     Promise.all((payload.accreditationLogoUrls || []).map(loadImage)),
   ]);
 
-  if(resolvedHeaderLogo&&!logoImage)throw new Error("Header logo could not be loaded. Please retry before printing.");
+  const logoImage=headerLogo.image;
+  if((resolvedHeaderLogo||payload.orgFallbackLogoUrl)&&!logoImage)throw new Error("Header logo could not be loaded. Please retry before printing.");
   const doc = new jsPDF({compress:true});
   const logoPages=new Set<number>();
   const pageWidth = doc.internal.pageSize.getWidth();

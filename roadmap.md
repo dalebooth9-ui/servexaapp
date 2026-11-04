@@ -1,5 +1,11 @@
 # Roadmap
 
+## Customer logo loading repair
+- [ ] Audit all saved customer logos without altering customer records.
+- [ ] Restore logo reads and company-admin writes; public bucket blocked by workspace privacy setting.
+- [ ] Repair signed-in displays and PDF/Word header fallback without changing watermarks.
+- [ ] Update Help and verify logo loads, fallback and printed headers.
+
 ## Site access information
 - [x] Add staff-only site access storage, confirmation and immutable change history.
 - [x] Add site card, engineer completion editing, QR visibility and report-field Save to site file.

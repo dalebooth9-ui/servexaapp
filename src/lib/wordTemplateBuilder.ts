@@ -22,6 +22,9 @@ import {
   type ISectionOptions,
 } from "docx";
 import QRCode from 'qrcode';
+import {loadHeaderLogo} from '@/lib/loadHeaderLogo';
+import {resolveToSignedUrl} from '@/lib/durableStorageRef';
+import {getGeneratingOrgFallbackLogoUrl} from '@/lib/generatingOrgBranding';
 import {engineerAccessForPrint} from '@/lib/siteAccess';
 import { stickerUrl } from '@/lib/riserStickers';
 import { getDefaultFooterText } from "@/lib/pdfFooter";
@@ -560,11 +563,15 @@ async function buildBlankTemplateSection(template: WordTemplateInput): Promise<I
   const profile=await resolveDocumentBrandingProfile({template,customer:{name:template.riserVisit?.customer||template.customerName},jobId:template.riserVisit?.job_id});
   const {getGeneratingOrgFallbackAccreditations}=await import('@/lib/generatingOrgBranding');
   const orgAccred=await getGeneratingOrgFallbackAccreditations();
-  const [headerLogo,watermark,...accredLogos]=await Promise.all([
-    profile.logoUrl?fetchImageBytes(profile.logoUrl):Promise.resolve(null),
+  const rawFallback=await getGeneratingOrgFallbackLogoUrl();
+  const fallback=(await resolveToSignedUrl(rawFallback).catch(()=>null))||rawFallback;
+  const [loadedHeader,watermark,...accredLogos]=await Promise.all([
+    loadHeaderLogo(profile.logoUrl,fallback,fetchImageBytes),
     profile.watermarkUrl?fetchImageBytes(profile.watermarkUrl):Promise.resolve(null),
     ...orgAccred.map(u=>fetchImageBytes(u)),
   ]);
+  const headerLogo=loadedHeader.image;
+  if((profile.logoUrl||fallback)&&!headerLogo)throw new Error('Header logo could not be loaded. Please retry before printing.');
   const printColour=profile.isCustomerBranded?profile.accentColor.map(c=>c.toString(16).padStart(2,'0')).join(''):SECTION_HEADER_BLUE;
   // Match the PDF: every Dry/Wet Riser template gets the BS 9990:2015
   // declaration in a bordered box, even if `getDefaultFooterText` would

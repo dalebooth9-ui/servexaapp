@@ -17,6 +17,7 @@ import CustomerArchivedDocumentsCard from "@/components/customers/CustomerArchiv
 import CustomerDefectsCard from "@/components/customers/CustomerDefectsCard";
 import CustomerAgreementsCard from "@/components/CustomerAgreementsCard";
 import CustomerAccreditationLogos from "@/components/CustomerAccreditationLogos";
+import CustomerLogo from '@/components/customers/CustomerLogo';
 import { CustomerAtAGlance } from "@/components/AtAGlanceStrip";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -195,11 +196,7 @@ export default function CustomerDetail() {
       return;
     }
     setLogoUploading(true);
-    // Remove old logo if exists
-    if (customer?.logo_url) {
-      const oldPath = customer.logo_url.split("/customer-logos/").pop();
-      if (oldPath) await supabase.storage.from("customer-logos").remove([decodeURIComponent(oldPath)]);
-    }
+    // Retain previous files: printed branding may still reference them.
     const path = `${id}/${Date.now()}-logo${ext}`;
     const { error: upErr } = await supabase.storage.from("customer-logos").upload(path, file, { upsert: true });
     if (upErr) {
@@ -208,7 +205,8 @@ export default function CustomerDetail() {
       return;
     }
     const { data: { publicUrl } } = supabase.storage.from("customer-logos").getPublicUrl(path);
-    await supabase.from("customers").update({ logo_url: publicUrl } as any).eq("id", id);
+    const {error: saveError} = await supabase.from("customers").update({ logo_url: publicUrl } as any).eq("id", id);
+    if (saveError) {toast({title:"Logo not saved",description:saveError.message,variant:"destructive"});setLogoUploading(false);return;}
     setCustomer((prev) => prev ? { ...prev, logo_url: publicUrl } : prev);
 
     // Auto-pick brand colour from the new logo. A new logo means the brand
@@ -817,10 +815,11 @@ export default function CustomerDetail() {
           <div className="relative group flex-shrink-0">
             {customer.logo_url ? (
               <div className="relative">
-                <img
+                <CustomerLogo
                   src={customer.logo_url}
                   alt={`${customer.name} logo`}
                   className="h-16 w-16 rounded-lg object-contain border bg-muted/30 p-1"
+                  showMissing
                 />
                 {isAdmin && (
                   <div className="absolute inset-0 flex items-center justify-center gap-1 rounded-lg bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
