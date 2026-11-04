@@ -217,14 +217,16 @@ export default function JobDetail() {
 
   const fetchData = async () => {
     if (!id) return;
-    const [jobRes, subsRes, sitesRes, assignmentsRes] = await Promise.all([
+    const [jobRes, subsRes, sitesRes, assignmentsRes, partsRes] = await Promise.all([
       supabase.from("jobs").select("*, customers(id, name, email, logo_url), sites(id, name, address, postcode, what3words)").eq("id", id).single(),
       supabase.from("submissions").select("*").eq("job_id", id).order("created_at", { ascending: false }),
       supabase.from("sites").select("id, name, address, postcode").order("name"),
       supabase.from("job_assignments").select("engineer_id").eq("job_id", id),
+      supabase.from("job_parts" as any).select("id", { count: "exact", head: true }).eq("job_id", id),
     ]);
     setJob(jobRes.data);
     setSites(sitesRes.data || []);
+    setPartsCount(partsRes.count ?? 0);
     const subs = subsRes.data || [];
     setSubmissions(subs);
 
