@@ -84,7 +84,7 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl }:
     setBusy(false);
     if (error) { toast.error("Couldn't add risers: " + error.message); return; }
     toast.success(`${locs.length} riser(s) added`);
-    load();
+    load(true);
   };
 
   const setCount = (n: number) => {
