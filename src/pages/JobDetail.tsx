@@ -1469,7 +1469,7 @@ export default function JobDetail() {
       )}
 
 
-      {activeTab === "activity" && (<>
+      {activeTab === "history" && (historyFilter === "all" || historyFilter === "activity") && (<>
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Messages
