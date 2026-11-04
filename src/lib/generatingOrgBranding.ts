@@ -21,6 +21,7 @@ export type GeneratingOrgBranding = {
   isViva: boolean;
   name: string | null;
   logoUrl: string | null;
+  primaryColor?: string | null;
 };
 
 const NEUTRAL: GeneratingOrgBranding = {
@@ -36,13 +37,14 @@ export async function getGeneratingOrgBranding(): Promise<GeneratingOrgBranding>
       if (!uid) return NEUTRAL;
       const orgId = await requireCurrentOrgId();
       const { data: org } = await supabase
-        .from("organisations").select("id, name, logo_url").eq("id", orgId).maybeSingle();
+        .from("organisations").select("id, name, logo_url, primary_color").eq("id", orgId).maybeSingle();
       const row = org as any;
       return {
         orgId,
         isViva: orgId === VIVA_ORG_ID,
         name: row?.name ?? null,
         logoUrl: (row?.logo_url && String(row.logo_url).trim()) || null,
+        primaryColor: row?.primary_color || null,
       };
     } catch {
       return NEUTRAL;

@@ -4,6 +4,7 @@ import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { resolveToSignedUrl } from "@/lib/durableStorageRef";
 import {resolveDocumentBrandingProfile,type DocumentBrandingProfile} from '@/lib/documentBrandingProfile';
 import {registerPrintPdf} from '@/lib/printPdfProfile';
+import {printName} from '@/lib/printText';
 
 export interface PdfHeaderData {
   customerName: string;
@@ -163,8 +164,9 @@ export async function renderPdfHeader(
   opts?: RenderPdfHeaderOpts
 ): Promise<number> {
   const profile=opts?.printProfile || await resolveDocumentBrandingProfile({customer:{name:data.customerName}});
+  data={...data,customerName:printName(data.customerName),siteName:printName(data.siteName),siteAddress:printName(data.siteAddress),riserLocation:printName(data.riserLocation)};
   branding={...branding,logo_url:profile.logoUrl,company_name:profile.companyName};
-  if(profile.isCustomerBranded)accentColor=profile.accentColor;
+  accentColor=profile.accentColor;
   registerPrintPdf(doc,profile);
   const accent = accentColor ?? DEFAULT_ACCENT;
   const compact = !!opts?.compact;
@@ -341,7 +343,7 @@ export async function renderPdfHeader(
     y += 4;
   }
 
-  doc.setTextColor(30, 30, 30);
+  doc.setTextColor(0, 0, 0);
 
   // ── Standard 3–4 row detail grid ───────────────────────────────────
   // Shared helper: fit a value into `maxW` at font size 9, wrapping to
@@ -354,6 +356,7 @@ export async function renderPdfHeader(
     { minSize = 7.5, maxLines = 4 }: { minSize?: number; maxLines?: number } = {},
   ): { lines: string[]; size: number; lineH: number } => {
     doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
     let size = 9;
     let lines = doc.splitTextToSize(text || "", maxW) as string[];
     while (lines.length > maxLines && size > minSize) {
@@ -439,11 +442,11 @@ export async function renderPdfHeader(
 
     if (hasW3W) {
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(225, 31, 38);
+      doc.setTextColor(0, 0, 0);
       doc.text("///what3words:", x0 + 2, yRow4 + 4);
       doc.setFont("helvetica", "normal");
-      doc.text(data.w3wAddress!.replace(/^\/\/\//, ""), x1 + 2, yRow4 + 4);
-      doc.setTextColor(30, 30, 30);
+      doc.text((data.w3wAddress || '').replace(/^\/\/\//, ""), x1 + 2, yRow4 + 4);
+      doc.setTextColor(0, 0, 0);
     }
 
     y = y + detailH + 8;
@@ -516,11 +519,11 @@ export async function renderPdfHeader(
     // Row 4 (optional): what3words location in W3W red
     if (hasW3W) {
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(225, 31, 38); // W3W red
+      doc.setTextColor(0, 0, 0);
       doc.text("///what3words:", margin + 1, yRow4 + 4);
       doc.setFont("helvetica", "normal");
-      doc.text(data.w3wAddress!.replace(/^\/\/\//, ""), margin + 30, yRow4 + 4);
-      doc.setTextColor(30, 30, 30);
+      doc.text((data.w3wAddress || '').replace(/^\/\/\//, ""), margin + 30, yRow4 + 4);
+      doc.setTextColor(0, 0, 0);
     }
 
     y = y + detailH + 2;

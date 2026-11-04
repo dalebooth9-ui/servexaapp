@@ -1,7 +1,7 @@
 import type {RgbTriple} from '@/lib/extractLogoColors';
 import {getGeneratingOrgFallbackLogoUrl,getGeneratingOrgBranding,getGeneratingOrgWatermarkUrl,servicedByText} from '@/lib/generatingOrgBranding';
 import {resolveToSignedUrl} from '@/lib/durableStorageRef';
-import {printBrandingChoice,type PrintCustomer} from './printBrandingRules';
+import {printBrandingChoice,printColourChoice,type PrintCustomer} from './printBrandingRules';
 import {loadHeaderLogo} from './loadHeaderLogo';
 import {requireCurrentOrgId} from './tenantQueries';
 export type DocumentBrandingProfile={logoUrl:string;logoImage:HTMLImageElement|null;accentColor:RgbTriple;isCustomerBranded:boolean;companyName?:string;companySubtitle?:string;footerText?:string;servicedBy?:string;watermarkUrl:string|null};
@@ -26,10 +26,11 @@ export async function resolveDocumentBrandingProfile(input:BrandingInput):Promis
  const loaded=await loadHeaderLogo(choice.logoUrl,orgLogo,async raw=>{const url=(await resolveToSignedUrl(raw).catch(()=>null))||raw;const img=await image(url);return img?{url,img}:null;});
  const logoImage=loaded.image?.img||null;const logoUrl=loaded.image?.url||'';
  if((choice.logoUrl||orgLogo)&&!logoImage)throw new Error('Header logo could not be loaded. Please retry before printing.');
- const accentColor=parseHexColor(choice.colour)||[31,78,121] as RgbTriple;
+ const orgColour=parseHexColor(printColourChoice(null,org))||[128,128,128] as RgbTriple;
+ const accentColor=(choice.enabled?parseHexColor(choice.colour):null)||orgColour;
  const sourceUrl=flame?((await resolveToSignedUrl(flame).catch(()=>null))||flame):'';
  const source=await image(sourceUrl);
- const watermarkColour=parseHexColor(customer?.brand_colour)||[128,128,128] as RgbTriple;
+ const watermarkColour=parseHexColor(customer?.brand_colour)||orgColour;
  const watermarkUrl=source?tintedPrintWatermark(source,watermarkColour):null;
  return {logoUrl,logoImage,accentColor,isCustomerBranded:choice.enabled,companyName:choice.enabled?customer?.name||org.name||undefined:org.name||undefined,companySubtitle:input.template?.branding?.company_subtitle,footerText:input.template?.branding?.footer_text,servicedBy:choice.enabled?servicedByText(org):undefined,watermarkUrl};
 }

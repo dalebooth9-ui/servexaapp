@@ -373,7 +373,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         || (jobInfo?.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
       const customerName = jobInfo?.customers?.name || jobInfo?.customer || "";
 
-      const profile=await resolveDocumentBrandingProfile({template,customer:{...jobInfo?.customers,name:customerName}});
+      const profile=await resolveDocumentBrandingProfile({template,customer:{...jobInfo?.customers,name:customerName},jobId:jobInfo?.id,siteId:jobInfo?.site_id});
       const accentColor=profile.accentColor;
       const [watermarkSettings,accreditationLogoUrls]=await Promise.all([loadWatermarkSettings(),fetchCustomerAccreditationLogos(customerName)]);
       const orgLogo=await getGeneratingOrgFallbackLogoUrl();
