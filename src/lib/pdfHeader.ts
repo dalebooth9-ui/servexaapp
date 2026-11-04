@@ -5,6 +5,7 @@ import { resolveToSignedUrl } from "@/lib/durableStorageRef";
 import {resolveDocumentBrandingProfile,type DocumentBrandingProfile} from '@/lib/documentBrandingProfile';
 import {registerPrintPdf} from '@/lib/printPdfProfile';
 import {printName} from '@/lib/printText';
+import {siteDetailsText} from '@/lib/siteDetailsPrint';
 
 export interface PdfHeaderData {
   customerName: string;
