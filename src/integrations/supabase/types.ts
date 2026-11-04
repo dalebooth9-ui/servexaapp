@@ -6387,6 +6387,56 @@ export type Database = {
           },
         ]
       }
+      ops_notification_requests: {
+        Row: {
+          created_at: string
+          job_id: string
+          org_id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          job_id: string
+          org_id: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          job_id?: string
+          org_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_notification_requests_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_notification_requests_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_notification_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_notification_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_intake_secrets: {
         Row: {
           created_at: string
