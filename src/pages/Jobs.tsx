@@ -511,6 +511,10 @@ export default function Jobs() {
 
   const handleApproveJob = async (jobId: string) => {
     const job = jobs.find((j) => j.id === jobId) as any;
+    if (job?.category_suggestion === "needs_type") {
+      toast({ variant: "destructive", title: "Pick a job type first", description: "This PO doesn't make the job type clear. Choose one from the dropdown, then approve." });
+      return;
+    }
     if ((pendingSheetCounts[jobId] ?? 0) === 0) {
       const ok = window.confirm(
         "This job has no job sheets attached. The engineer will arrive on site with nothing to fill in.\n\nApprove anyway?"

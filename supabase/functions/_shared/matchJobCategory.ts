@@ -25,8 +25,22 @@ export const tokens = (s: string): string[] =>
     .filter((t) => t && !STOP.has(t)).map((t) => SYN[t] ?? t);
 
 export function matchJobCategory(categories: OrgCategory[], texts: (string | null | undefined)[]): CategoryMatch {
-  const cats = categories.filter((c) => c.slug && c.slug !== "general");
+  let cats = categories.filter((c) => c.slug && c.slug !== "general");
   const hay = new Set(tokens(texts.filter(Boolean).join(" ")));
+  // Dry riser work: only ever a specific dry riser type (pressure test, visual,
+  // remedial, install). Never a generic dry riser category, never a wet riser.
+  const isDry = (n: string) => { const t = tokens(n); return t.includes("dry") && t.includes("riser"); };
+  const SPECIFIC = ["pressure", "visual", "remedial", "install", "commission"];
+  if (hay.has("dry") && hay.has("riser")) {
+    cats = cats.filter((c) => isDry(c.name) && tokens(c.name).some((t) => SPECIFIC.includes(t)));
+    const raw = texts.filter(Boolean).join(" ").toLowerCase();
+    if (hay.has("hydraulic")) hay.add("pressure");
+    if (!hay.has("pressure")) hay.delete("test"); // "testing" alone doesn't say which
+    if (/\bannual\b|12[\s-]?month|yearly/.test(raw) && !hay.has("visual")) hay.add("pressure");
+    if (/\b(6|six)[\s-]?month|half[\s-]?year|interim/.test(raw) && !hay.has("pressure")) hay.add("visual");
+  } else {
+    cats = cats.filter((c) => !(isDry(c.name) && !tokens(c.name).some((t) => SPECIFIC.includes(t))));
+  }
   if (!cats.length || !hay.size) return { slug: null, status: "needs_type", others: [] };
 
   const df = new Map<string, number>();
