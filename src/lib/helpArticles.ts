@@ -38,6 +38,8 @@ const RULES: SlugRule[] = [
   { test: (p) => p === "/defects", slug: "defects" },
   { test: (p) => p === "/defects/review", slug: "defects.review" },
   { test: (p) => p === "/compliance", slug: "compliance" },
+  { test: (p) => p === '/renewals', slug: 'renewals' },
+  { test: (p) => p === '/settings/email-health', slug: 'settings' },
   { test: (p) => p === "/audits", slug: "audits" },
   { test: (p) => p === "/quotes", slug: "quotes" },
   { test: (p) => p === "/reports-to-check", slug: "reports-to-check" },

@@ -2,6 +2,7 @@ import * as React from 'https://esm.sh/react@18.3.1'
 import { renderAsync } from 'https://esm.sh/@react-email/components@0.0.22?deps=react@18.3.1'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
+import { getEmailBranding } from '../_shared/customerEmail.ts'
 
 // Configuration baked in at scaffold time — do NOT change these manually.
 // To update, re-run the email domain setup flow.
@@ -69,8 +70,10 @@ Deno.serve(async (req) => {
   let idempotencyKey: string
   let messageId: string
   let templateData: Record<string, any> = {}
+  let sourceBody: Record<string, any> = {}
   try {
     const body = await req.json()
+    sourceBody = body
     templateName = body.templateName || body.template_name
     recipientEmail = body.recipientEmail || body.recipient_email
     messageId = crypto.randomUUID()
@@ -117,7 +120,7 @@ Deno.serve(async (req) => {
   // Resolve effective recipient: template-level `to` takes precedence over
   // the caller-provided recipientEmail. This allows notification templates
   // to always send to a fixed address (e.g., site owner from env var).
-  const effectiveRecipient = template.to || recipientEmail
+  let effectiveRecipient = template.to || recipientEmail
 
   if (!effectiveRecipient) {
     return new Response(
@@ -133,6 +136,56 @@ Deno.serve(async (req) => {
 
   // Create Supabase client with service role (bypasses RLS)
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  let senderName = SITE_NAME
+  let emailReplyTo: string | undefined
+  if (templateName === 'renewal-reminder' || templateName === 'new-job-from-api') {
+    const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '')
+    const serviceCaller = !!token && token === supabaseServiceKey
+    let callerOrg: string | null = null
+    let callerAdmin = false
+    if (token && !serviceCaller) {
+      const { data: auth } = await supabase.auth.getUser(token)
+      if (auth.user) {
+        const caller = createClient(supabaseUrl, supabaseServiceKey, { global: { headers: { Authorization: `Bearer ${token}` } } })
+        const { data: org } = await caller.rpc('get_user_org_id')
+        const { data: allowed } = await caller.rpc('has_role', { _user_id: auth.user.id, _role: 'admin' })
+        callerOrg = org
+        callerAdmin = allowed === true
+      }
+    }
+    let orgId: string | undefined
+    if (templateName === 'renewal-reminder') {
+      if (!serviceCaller && !callerAdmin) return new Response(JSON.stringify({ error: 'Company admin required' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      const { data: schedule } = await supabase.from('site_service_schedules').select('org_id,customer_id').eq('id', sourceBody.schedule_id).maybeSingle()
+      if (!schedule || (!serviceCaller && schedule.org_id !== callerOrg)) return new Response(JSON.stringify({ error: 'Renewal not found in your company' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      const { data: customer } = await supabase.from('customers').select('email,renewal_reminders_opt_out').eq('id', schedule.customer_id).eq('org_id', schedule.org_id).maybeSingle()
+      if (!customer?.email || customer.renewal_reminders_opt_out) return new Response(JSON.stringify({ error: 'Customer email unavailable or reminders opted out' }), { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      orgId = schedule.org_id
+      effectiveRecipient = customer.email
+    } else {
+      const { data: job } = await supabase.from('jobs').select('id,org_id,name,reference_number,customer,customer_id,priority,source').eq('id', sourceBody.job_id).eq('source', 'Email Triage').maybeSingle()
+      let requestAllowed = false
+      if (job && sourceBody.notification_token) {
+        const { data: request } = await supabase.from('ops_notification_requests').select('job_id').eq('org_id', job.org_id).eq('job_id', job.id).eq('token', sourceBody.notification_token).maybeSingle()
+        requestAllowed = !!request
+      }
+      if (!job || (!serviceCaller && !(callerAdmin && job.org_id === callerOrg) && !requestAllowed)) return new Response(JSON.stringify({ error: 'Job notification is not authorised' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      orgId = job.org_id
+      const { data: ops } = await supabase.from('email_branding').select('reply_to,from_address').eq('org_id', orgId).maybeSingle()
+      const address = ops?.reply_to?.trim() || ops?.from_address?.trim()
+      if (!address) return new Response(JSON.stringify({ error: 'Company ops address is not configured' }), { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      effectiveRecipient = address
+      idempotencyKey = `new-job-${job.id}`
+      const { data: customer } = await supabase.from('customers').select('name').eq('id', job.customer_id).eq('org_id', orgId).maybeSingle()
+      templateData = { jobName: job.name || job.reference_number, customer: customer?.name || job.customer, priority: job.priority, source: job.source }
+    }
+    const branding = await getEmailBranding(orgId, supabase)
+    senderName = branding.from_name || branding.company_name
+    emailReplyTo = branding.reply_to
+    templateData = { ...templateData, company_name: branding.company_name, logo_url: branding.logo_url, brand_color: branding.brand_color }
+    // An organisation without a configured sender must not use Viva's transport identity.
+    if (orgId !== '11111111-1111-1111-1111-111111111111') return new Response(JSON.stringify({ error: 'Email sending for this company requires its own verified sender configuration' }), { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
 
   // 2. Check suppression list (fail-closed: if we can't verify, don't send)
   const { data: suppressed, error: suppressionError } = await supabase
@@ -242,7 +295,8 @@ Deno.serve(async (req) => {
     payload: {
       message_id: messageId,
       to: effectiveRecipient,
-      from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
+      from: `${senderName} <noreply@${FROM_DOMAIN}>`,
+      ...(emailReplyTo ? { reply_to: emailReplyTo } : {}),
       sender_domain: SENDER_DOMAIN,
       subject: resolvedSubject,
       html,

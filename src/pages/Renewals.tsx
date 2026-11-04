@@ -155,7 +155,13 @@ export default function Renewals() {
     const { data, error } = await supabase.functions.invoke("send-renewal-reminders", {
       body: { schedule_id: r.id, manual: true },
     });
-    if (error) { toast({ title: "Reminder failed", description: error.message, variant: "destructive" }); return; }
+    if (error || !data?.queued) {
+      let message = data?.error || error?.message || 'The email service did not queue this reminder.';
+      if (error && 'context' in error && error.context instanceof Response) {
+        try { message = (await error.context.json()).error || message; } catch { /* retain error */ }
+      }
+      toast({ title: "Reminder failed", description: message, variant: "destructive" }); return;
+    }
     toast({ title: "Reminder queued", description: (data as any)?.recipient || r.customer?.email || "" });
     void load();
   }

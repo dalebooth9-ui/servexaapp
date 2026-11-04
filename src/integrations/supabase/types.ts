@@ -2704,6 +2704,54 @@ export type Database = {
         }
         Relationships: []
       }
+      email_step_health: {
+        Row: {
+          checked_at: string
+          error_message: string | null
+          job_id: string | null
+          notification_token: string | null
+          org_id: string
+          request_id: number | null
+          status: string
+          step: string
+        }
+        Insert: {
+          checked_at?: string
+          error_message?: string | null
+          job_id?: string | null
+          notification_token?: string | null
+          org_id: string
+          request_id?: number | null
+          status: string
+          step: string
+        }
+        Update: {
+          checked_at?: string
+          error_message?: string | null
+          job_id?: string | null
+          notification_token?: string | null
+          org_id?: string
+          request_id?: number | null
+          status?: string
+          step?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_step_health_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_step_health_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_unsubscribe_tokens: {
         Row: {
           created_at: string
@@ -6332,6 +6380,56 @@ export type Database = {
           },
           {
             foreignKeyName: "notifications_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_notification_requests: {
+        Row: {
+          created_at: string
+          job_id: string
+          org_id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          job_id: string
+          org_id: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          job_id?: string
+          org_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_notification_requests_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_notification_requests_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_notification_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_notification_requests_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organisations_safe"
@@ -11134,6 +11232,15 @@ export type Database = {
           active: boolean
           jobname: string
           schedule: string
+        }[]
+      }
+      get_email_step_health: {
+        Args: never
+        Returns: {
+          checked_at: string
+          error_message: string
+          status: string
+          step: string
         }[]
       }
       get_fire_log_token_by_value: {
