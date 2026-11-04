@@ -64,6 +64,7 @@ import CustomerCombobox, {
   type CustomerOption,
 } from "@/components/CustomerCombobox";
 import SiteCombobox, { type SiteOption } from "@/components/SiteCombobox";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { archiveScanConfirm } from "@/lib/archiveScanConfirm";
 import { confirmScanQueueAsJob } from "@/lib/confirmScanQueueAsJob";
 import { fuzzyMatchEngineer } from "@/lib/fuzzyEngineerMatch";
@@ -357,22 +358,41 @@ export default function ScanReviewDialog({
       return;
     }
     (async () => {
-      const { data: ss } = await (supabase as any)
-        .from("sites")
-        .select("id, name, address, postcode")
+      // Sites link to customers through customer_sites (incl. "Assign Site").
+      // RLS keeps this to the signed-in company.
+      const { data: links } = await (supabase as any)
+        .from("customer_sites")
+        .select("sites!inner(id, name, address, postcode, deleted_at)")
         .eq("customer_id", customerId)
-        .order("name");
-      const list = (ss as any as SiteOption[]) || [];
-      setSites(list);
+        .range(0, 999);
+      const seen = new Set<string>();
+      let list: SiteOption[] = [];
+      for (const l of (links as any[]) || []) {
+        const s = l.sites;
+        if (!s || s.deleted_at || seen.has(s.id)) continue;
+        seen.add(s.id);
+        list.push({ id: s.id, name: s.name, address: s.address, postcode: s.postcode });
+      }
+      list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
       if (!siteId && item) {
         const headerSite = String((item.header as any)?.site || "").trim();
         if (headerSite) {
           const result = matchSiteFromHeader(list, headerSite);
           if (result.confidence === "exact" && result.best) {
             setSiteId(result.best.id);
+          } else {
+            const orgSites = (await fetchAllRows<any>("sites", "id, name, address, postcode, deleted_at"))
+              .filter((s) => !s.deleted_at);
+            const orgResult = matchSiteFromHeader(orgSites, headerSite);
+            if (orgResult.confidence === "exact" && orgResult.best) {
+              const b = orgResult.best as any;
+              list = [...list, { id: b.id, name: b.name, address: b.address, postcode: b.postcode }];
+              setSiteId(b.id);
+            }
           }
         }
       }
+      setSites(list);
     })();
   }, [open, customerId, item, siteId]);
 
@@ -687,6 +707,21 @@ export default function ScanReviewDialog({
       // filed", so blocking here contradicts the UI.
       let effectiveSiteId = siteId;
       if (!effectiveSiteId) {
+        // Never create a new site when one in this company already matches.
+        const orgSites = (await fetchAllRows<any>("sites", "id, name, address, postcode, deleted_at"))
+          .filter((s) => !s.deleted_at);
+        const m = matchSiteFromHeader(orgSites, freeTextSite);
+        if (m.confidence === "exact" && m.best) effectiveSiteId = (m.best as any).id;
+      }
+      if (effectiveSiteId) {
+        const { data: link } = await (supabase as any)
+          .from("customer_sites").select("id")
+          .eq("customer_id", customerId).eq("site_id", effectiveSiteId).maybeSingle();
+        if (!link) {
+          await (supabase as any).from("customer_sites").insert({ customer_id: customerId, site_id: effectiveSiteId });
+        }
+      }
+      if (!effectiveSiteId) {
         const parts = splitSiteHeaderForCreate(freeTextSite);
         const nameForSite =
           (siteName.trim() || parts.name || freeTextSite).slice(0, 200);
@@ -804,6 +839,24 @@ export default function ScanReviewDialog({
         po_ref: poNumber.trim() || (item.header as any)?.po_ref || null,
         additional_notes: additionalNotes.trim() || null,
       };
+      // Link the sheet to the site's riser so its last-service date (and
+      // 12-month pressure / 6-month visual renewal) updates on filing.
+      let responsesToSave: Record<string, any> = answers as any;
+      const tplName = `${item.templateName || ""}`.toLowerCase();
+      const riserType = tplName.includes("wet riser") ? "Wet Riser" : tplName.includes("dry riser") ? "Dry Riser" : null;
+      if (riserType && !(answers as any)?.riser_asset_id) {
+        const { data: risers } = await (supabase as any)
+          .from("assets").select("id, riser_location, asset_type, category")
+          .eq("site_id", effectiveSiteId);
+        const sameType = ((risers as any[]) || []).filter(
+          (a) => `${a.asset_type || a.category || ""}`.toLowerCase() === riserType.toLowerCase(),
+        );
+        const loc = `${(answers as any)?.riser_location || ""}`.trim().toLowerCase();
+        const pick = sameType.length === 1
+          ? sameType[0]
+          : loc ? sameType.find((a) => `${a.riser_location || ""}`.trim().toLowerCase() === loc) : null;
+        if (pick) responsesToSave = { ...(answers as any), riser_asset_id: pick.id };
+      }
       const result = await confirmScanQueueAsJob({
         userId: user.id,
         itemId: item.itemId,
@@ -816,7 +869,7 @@ export default function ScanReviewDialog({
         existingJobId: chosenExistingJobId,
         completionDate: ukDate || null,
         dateKnown,
-        responses: answers,
+        responses: responsesToSave,
         header: headerWithPo,
         imagePaths: item.imagePaths || [],
         customerSignatureBlob: customerSig?.blob || null,

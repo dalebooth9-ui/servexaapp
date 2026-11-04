@@ -309,6 +309,13 @@
       "when": 1793819156978,
       "tag": "0043_asset_cabinet_key_type",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1793823696181,
+      "tag": "0044_paper_scan_org_site_check",
+      "breakpoints": true
     }
   ]
 }
