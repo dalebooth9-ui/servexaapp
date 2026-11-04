@@ -11440,6 +11440,7 @@ export type Database = {
           status: string
         }[]
       }
+      riser_scan_jobs: { Args: { _asset_id: string }; Returns: Json }
       riser_type_by_tag: { Args: { _tag: string }; Returns: string }
       riser_visit_customer: { Args: { _site_id: string }; Returns: string }
       save_site_access_info: {
@@ -11506,6 +11507,10 @@ export type Database = {
           site_id: string
           total: number
         }[]
+      }
+      start_riser_scan_service: {
+        Args: { _asset_id: string; _job_id?: string; _type?: string }
+        Returns: Json
       }
       starter_hazard_modules: {
         Args: never

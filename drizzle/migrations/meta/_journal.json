@@ -267,6 +267,13 @@
       "when": 1793781106325,
       "tag": "0037_authenticated_ops_notification_bridge",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1793789475532,
+      "tag": "0038_riser_scan_service_reuse",
+      "breakpoints": true
     }
   ]
 }
