@@ -19,7 +19,8 @@
  * (e.g. someone reverts the Word builder back to its old bespoke filter)
  * is caught immediately.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+vi.mock('@/lib/tenantQueries',()=>({requireCurrentOrgId:async()=> '11111111-1111-1111-1111-111111111111'}));
 import { Packer } from "docx";
 import JSZip from "jszip";
 
