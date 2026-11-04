@@ -9,16 +9,22 @@ export function accessPrintLines(details:AccessDetails,audience:'engineer'|'cust
 /** Engineer print lines in importance order: key type, key held, key location + code, contact, hazards, notes, then the rest. */
 export function accessPriorityLines(details:AccessDetails,codes=true,riserKey?:string|null):string[]{
  const d=details||{};const out:string[]=[];
- if(riserKey)out.push(`Riser key: ${riserKey}`);
- else{if(d.cabinet_key_type)out.push(`Key type: ${d.cabinet_key_type}`);if(d.cabinet_key_held)out.push(`Key held: ${d.cabinet_key_held}`);}
+ const norm=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+ const seen:string[]=[];const has=(s?:string|null)=>!!s&&seen.some(x=>x.includes(norm(s)));
+ const add=(line:string,...src:(string|null|undefined)[])=>{out.push(line);src.forEach(s=>s&&seen.push(norm(s)));};
+ // Key first, on one line: "Key: FB11, held at Reception"
+ if(riserKey)add(`Riser key: ${riserKey}`,riserKey);
+ else if(d.cabinet_key_type||d.cabinet_key_held)add(`Key: ${[d.cabinet_key_type,d.cabinet_key_held&&`held at ${d.cabinet_key_held}`].filter(Boolean).join(', ')}`,d.cabinet_key_type,d.cabinet_key_held);
  const code=d.access_codes?(codes?d.access_codes:'see site file'):'';
- if(d.key_location||code)out.push([d.key_location&&`Keysafe/key: ${d.key_location}`,code&&`Code: ${code}`].filter(Boolean).join(' · '));
- if(d.contact_name||d.contact_phone)out.push(`Contact: ${[d.contact_name,d.contact_phone].filter(Boolean).join(' ')}`);
- if(d.restrictions)out.push(`Hazards: ${d.restrictions}`);
- if(d.notes)out.push(`Notes: ${d.notes}`);
- if(d.entry_methods?.length)out.push(`Entry: ${d.entry_methods.join(', ')}`);
- if(d.opening_hours)out.push(`Hours: ${d.opening_hours}`);
- if(d.parking)out.push(`Parking: ${d.parking}`);
+ const loc=d.key_location&&!has(d.key_location)?d.key_location:'';
+ if(loc||code)add([loc&&`Keysafe/key: ${loc}`,code&&`Code: ${code}`].filter(Boolean).join(' · '),loc);
+ if(d.contact_name||d.contact_phone)add(`Contact: ${[d.contact_name,d.contact_phone].filter(Boolean).join(' ')}`);
+ if(d.restrictions)add(`Hazards: ${d.restrictions}`,d.restrictions);
+ if(d.notes)add(`Notes: ${d.notes}`,d.notes);
+ // Entry methods already mentioned elsewhere (e.g. "Pick keys up at reception") are dropped.
+ const entry=(d.entry_methods||[]).filter(m=>!has(m));
+ const tail=[entry.length&&`Entry: ${entry.join(', ')}`,d.opening_hours&&`Hours: ${d.opening_hours}`,d.parking&&`Parking: ${d.parking}`].filter(Boolean) as string[];
+ if(tail.length)out.push(tail.join(' · '));
  return out;
 }
 export function accessNoteField(label:string){return /^(cabinet\s*(?:keys?|key type)|access(?:\s*(?:info|notes?|details))?)\s*:?$/i.test(label.trim());}
