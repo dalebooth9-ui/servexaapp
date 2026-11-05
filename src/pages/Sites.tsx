@@ -246,6 +246,34 @@ export default function Sites() {
   const [deleteUnlinkedConfirm, setDeleteUnlinkedConfirm] = useState("");
   const [deleteCustomerId, setDeleteCustomerId] = useState<string | null>(null);
   const [deleteCustomerLoading, setDeleteCustomerLoading] = useState(false);
+  const [pickedCustomers, setPickedCustomers] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeKeepId, setMergeKeepId] = useState<string>("");
+  const [customerActionBusy, setCustomerActionBusy] = useState(false);
+  const togglePickedCustomer = (id: string) =>
+    setPickedCustomers((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const runBulkDeleteCustomers = async () => {
+    setCustomerActionBusy(true);
+    const { data, error } = await supabase.rpc("delete_empty_customers" as any, { _customer_ids: [...pickedCustomers] });
+    setCustomerActionBusy(false);
+    if (error) { toast({ title: "Couldn't delete", description: error.message, variant: "destructive" }); return; }
+    const res = data as any;
+    const kept = (res?.kept || []).length;
+    toast({ title: `Deleted ${(res?.deleted || []).length} customer(s)`, description: kept ? `${kept} kept because they still have jobs, documents or other records.` : undefined });
+    setBulkDeleteOpen(false); setPickedCustomers(new Set());
+    fetchCustomerFolders({ background: true, preserveCustomerScroll: true, preserveUnlinkedScroll: true });
+  };
+  const runMergeCustomers = async () => {
+    if (!mergeKeepId) return;
+    setCustomerActionBusy(true);
+    const { data, error } = await supabase.rpc("merge_customers" as any, { _target_id: mergeKeepId, _source_ids: [...pickedCustomers].filter((id) => id !== mergeKeepId) });
+    setCustomerActionBusy(false);
+    if (error) { toast({ title: "Couldn't merge", description: error.message, variant: "destructive" }); return; }
+    toast({ title: `Merged ${(data as any)?.merged ?? 0} duplicate(s)`, description: "Sites, jobs and documents now sit under the kept customer." });
+    setMergeOpen(false); setPickedCustomers(new Set());
+    fetchCustomerFolders({ background: true, preserveCustomerScroll: true, preserveUnlinkedScroll: true, ensureOpenFolderIds: [mergeKeepId] });
+  };
   const customerFoldersScrollRef = useRef<HTMLDivElement | null>(null);
   const unlinkedSitesScrollRef = useRef<HTMLDivElement | null>(null);
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
@@ -1253,6 +1281,30 @@ export default function Sites() {
                     <SelectItem value="sites-asc">Fewest sites</SelectItem>
                   </SelectContent>
                 </Select>
+                {userRole === "admin" && (
+                  <>
+                    <Button variant="outline" size="sm" className="h-7 text-xs"
+                      onClick={() => setPickedCustomers(new Set(customerFolders.filter((f) => f.sites.length === 0).map((f) => f.id)))}>
+                      Tick all with 0 sites
+                    </Button>
+                    {pickedCustomers.size > 0 && (
+                      <>
+                        <Button variant="destructive" size="sm" className="h-7 text-xs" onClick={() => setBulkDeleteOpen(true)}>
+                          <Trash2 className="mr-1 h-3 w-3" /> Delete ticked ({pickedCustomers.size})
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-7 text-xs" disabled={pickedCustomers.size < 2}
+                          onClick={() => {
+                            const picked = customerFolders.filter((f) => pickedCustomers.has(f.id));
+                            setMergeKeepId([...picked].sort((a, b) => b.sites.length - a.sites.length)[0]?.id || "");
+                            setMergeOpen(true);
+                          }}>
+                          <Combine className="mr-1 h-3 w-3" /> Merge customers
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setPickedCustomers(new Set())}>Clear ticks</Button>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
               <Button
                 variant="ghost"
@@ -1324,6 +1376,12 @@ export default function Sites() {
                             <AccordionItem value={folder.id} className={`rounded-lg border bg-card transition-all duration-200 ${focusedFolderIndex === idx ? "ring-2 ring-primary/50" : ""} ${exitingFolderIds.has(folder.id) ? "animate-folder-exit" : ""}`}>
                               <AccordionTrigger className="px-4 hover:no-underline">
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  {userRole === "admin" && (
+                                    <input type="checkbox" aria-label={`Tick ${folder.name}`} className="h-4 w-4 shrink-0 accent-primary"
+                                      checked={pickedCustomers.has(folder.id)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      onChange={() => togglePickedCustomer(folder.id)} />
+                                  )}
                                   {userRole === "admin" && <DraggableFolderHandle folderId={folder.id} folderName={folder.name} />}
                                   <FolderOpen className="h-4 w-4 text-primary shrink-0" />
                                   <span className="font-semibold truncate">{folder.name}</span>
@@ -2035,6 +2093,47 @@ export default function Sites() {
           </Dialog>
         );
       })()}
+
+      <Dialog open={bulkDeleteOpen} onOpenChange={(o) => !customerActionBusy && setBulkDeleteOpen(o)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Delete {pickedCustomers.size} customer(s)?</DialogTitle></DialogHeader>
+          <div className="max-h-48 overflow-y-auto text-sm space-y-0.5">
+            {customerFolders.filter((f) => pickedCustomers.has(f.id)).map((f) => (
+              <div key={f.id}>{f.name} <span className="text-muted-foreground">· {f.sites.length} site(s)</span></div>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground">Any customer that still has sites, jobs, documents, contracts or portal users will be kept, not deleted.</p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" disabled={customerActionBusy} onClick={() => setBulkDeleteOpen(false)}>Cancel</Button>
+            <Button variant="destructive" disabled={customerActionBusy} onClick={runBulkDeleteCustomers}>
+              <Trash2 className="mr-2 h-4 w-4" /> {customerActionBusy ? "Deleting…" : "Delete"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={mergeOpen} onOpenChange={(o) => !customerActionBusy && setMergeOpen(o)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Merge {pickedCustomers.size} customers into one</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Choose the customer to keep. Sites, jobs, documents, contracts and portal access from the others move to it, missing contact details are copied across, then the duplicates are removed.</p>
+          <div className="max-h-56 overflow-y-auto space-y-1">
+            {customerFolders.filter((f) => pickedCustomers.has(f.id)).map((f) => (
+              <label key={f.id} className="flex items-center gap-2 text-sm rounded border px-2 py-1.5 cursor-pointer">
+                <input type="radio" name="merge-keep" className="accent-primary" checked={mergeKeepId === f.id} onChange={() => setMergeKeepId(f.id)} />
+                <span className="flex-1 truncate">{f.name}</span>
+                <span className="text-xs text-muted-foreground">{f.sites.length} site(s)</span>
+                {mergeKeepId === f.id && <Badge variant="secondary" className="text-xs">Keep</Badge>}
+              </label>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" disabled={customerActionBusy} onClick={() => setMergeOpen(false)}>Cancel</Button>
+            <Button disabled={customerActionBusy || !mergeKeepId} onClick={runMergeCustomers}>
+              <Combine className="mr-2 h-4 w-4" /> {customerActionBusy ? "Merging…" : "Merge"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete customer confirmation dialog */}
       {deleteCustomerId && (() => {
