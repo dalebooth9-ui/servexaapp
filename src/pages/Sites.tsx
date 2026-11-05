@@ -248,7 +248,7 @@ export default function Sites() {
   const [deleteCustomerLoading, setDeleteCustomerLoading] = useState(false);
   const [pickedCustomers, setPickedCustomers] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const [mergeOpen, setMergeOpen] = useState(false);
+  const [custMergeOpen, setCustMergeOpen] = useState(false);
   const [mergeKeepId, setMergeKeepId] = useState<string>("");
   const [customerActionBusy, setCustomerActionBusy] = useState(false);
   const togglePickedCustomer = (id: string) =>
@@ -271,7 +271,7 @@ export default function Sites() {
     setCustomerActionBusy(false);
     if (error) { toast({ title: "Couldn't merge", description: error.message, variant: "destructive" }); return; }
     toast({ title: `Merged ${(data as any)?.merged ?? 0} duplicate(s)`, description: "Sites, jobs and documents now sit under the kept customer." });
-    setMergeOpen(false); setPickedCustomers(new Set());
+    setCustMergeOpen(false); setPickedCustomers(new Set());
     fetchCustomerFolders({ background: true, preserveCustomerScroll: true, preserveUnlinkedScroll: true, ensureOpenFolderIds: [mergeKeepId] });
   };
   const customerFoldersScrollRef = useRef<HTMLDivElement | null>(null);
@@ -1296,7 +1296,7 @@ export default function Sites() {
                           onClick={() => {
                             const picked = customerFolders.filter((f) => pickedCustomers.has(f.id));
                             setMergeKeepId([...picked].sort((a, b) => b.sites.length - a.sites.length)[0]?.id || "");
-                            setMergeOpen(true);
+                            setCustMergeOpen(true);
                           }}>
                           <Combine className="mr-1 h-3 w-3" /> Merge customers
                         </Button>
@@ -2112,7 +2112,7 @@ export default function Sites() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={mergeOpen} onOpenChange={(o) => !customerActionBusy && setMergeOpen(o)}>
+      <Dialog open={custMergeOpen} onOpenChange={(o) => !customerActionBusy && setCustMergeOpen(o)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Merge {pickedCustomers.size} customers into one</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">Choose the customer to keep. Sites, jobs, documents, contracts and portal access from the others move to it, missing contact details are copied across, then the duplicates are removed.</p>
@@ -2127,7 +2127,7 @@ export default function Sites() {
             ))}
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" disabled={customerActionBusy} onClick={() => setMergeOpen(false)}>Cancel</Button>
+            <Button variant="outline" disabled={customerActionBusy} onClick={() => setCustMergeOpen(false)}>Cancel</Button>
             <Button disabled={customerActionBusy || !mergeKeepId} onClick={runMergeCustomers}>
               <Combine className="mr-2 h-4 w-4" /> {customerActionBusy ? "Merging…" : "Merge"}
             </Button>
