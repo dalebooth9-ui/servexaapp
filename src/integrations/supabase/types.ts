@@ -11216,6 +11216,10 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
+      delete_empty_customers: {
+        Args: { _customer_ids: string[] }
+        Returns: Json
+      }
       draft_quote_from_defects: {
         Args: { _defect_ids: string[] }
         Returns: string
@@ -11375,6 +11379,10 @@ export type Database = {
       merge_assets: {
         Args: { _keep_id: string; _remove_id: string }
         Returns: undefined
+      }
+      merge_customers: {
+        Args: { _source_ids: string[]; _target_id: string }
+        Returns: Json
       }
       merge_sites: { Args: { _groups: Json }; Returns: string }
       move_asset_site: {

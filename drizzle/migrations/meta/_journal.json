@@ -316,6 +316,13 @@
       "when": 1793823696181,
       "tag": "0044_paper_scan_org_site_check",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1793866766826,
+      "tag": "0045_customer_bulk_delete_and_merge",
+      "breakpoints": true
     }
   ]
 }
