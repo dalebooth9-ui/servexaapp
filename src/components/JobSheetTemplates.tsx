@@ -4,7 +4,6 @@ import SaveAccessNote from '@/components/sites/SaveAccessNote';
 import {loadSiteAccess} from '@/lib/siteAccess';
 import {accessNoteField} from '@/lib/siteAccessRules';
 import RiserLocationPicker from "@/components/assets/RiserLocationPicker";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import OutletChecksPanel from "@/components/assets/OutletChecksPanel";
 import { readOutletChecks, unresolvedOutlets, countChecked, OUTLET_REASONS } from "@/lib/outletChecks";
 import SiteRiserStickerList from "@/components/assets/SiteRiserStickerList";
