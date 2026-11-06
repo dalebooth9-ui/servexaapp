@@ -2770,6 +2770,35 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
               {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
               Save Draft
             </Button>
+            <Dialog open={!!outletGate} onOpenChange={(o) => !o && setOutletGate(null)}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Outlets not checked</DialogTitle>
+                </DialogHeader>
+                {outletGate && (outletGate.step === "warn" ? (
+                  <div className="space-y-3">
+                    <p className="text-sm">You've scanned {countChecked(outletTotal, readOutletChecks(formData))} of {outletTotal} outlets. Outlet{outletGate.missing.length > 1 ? "s" : ""} {outletGate.missing.join(", ")} {outletGate.missing.length > 1 ? "are" : "is"} missing.</p>
+                    <Button className="w-full h-12" onClick={() => setOutletGate(null)}>Go back and scan it</Button>
+                    <Button variant="outline" className="w-full h-12" onClick={() => setOutletGate({ ...outletGate, step: "reasons" })}>Submit with a reason</Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+                    {outletGate.missing.map((n) => (
+                      <div key={n} className="space-y-1">
+                        <p className="text-sm font-medium">Outlet {n}</p>
+                        <div className="grid gap-1">
+                          {OUTLET_REASONS.map((r) => (
+                            <Button key={r} type="button" variant={outletGate.reasons[n] === r ? "default" : "outline"} className="h-11 justify-start"
+                              onClick={() => setOutletGate({ ...outletGate, reasons: { ...outletGate.reasons, [n]: r } })}>{r}</Button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    <Button className="w-full h-12" disabled={outletGate.missing.some((n) => !outletGate.reasons[n])} onClick={submitWithReasons}>Submit report</Button>
+                  </div>
+                ))}
+              </DialogContent>
+            </Dialog>
             <Button size="sm" onClick={requestSubmit} disabled={submitting}>
               <Send className="h-3.5 w-3.5 mr-1" />
               Submit
