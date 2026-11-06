@@ -323,6 +323,13 @@
       "when": 1793866766826,
       "tag": "0045_customer_bulk_delete_and_merge",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793975544983,
+      "tag": "0046_riser_outlet_stickers",
+      "breakpoints": true
     }
   ]
 }

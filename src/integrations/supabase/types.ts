@@ -8750,6 +8750,113 @@ export type Database = {
           },
         ]
       }
+      riser_outlet_scans: {
+        Row: {
+          asset_id: string
+          id: string
+          org_id: string
+          outlet_tag_id: string
+          scanned_at: string
+          scanned_by: string
+        }
+        Insert: {
+          asset_id: string
+          id?: string
+          org_id: string
+          outlet_tag_id: string
+          scanned_at?: string
+          scanned_by: string
+        }
+        Update: {
+          asset_id?: string
+          id?: string
+          org_id?: string
+          outlet_tag_id?: string
+          scanned_at?: string
+          scanned_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "riser_outlet_scans_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "riser_outlet_scans_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "riser_outlet_scans_outlet_tag_id_fkey"
+            columns: ["outlet_tag_id"]
+            isOneToOne: false
+            referencedRelation: "riser_outlet_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      riser_outlet_tags: {
+        Row: {
+          asset_id: string
+          created_at: string
+          id: string
+          label_printed_at: string | null
+          last_scanned_at: string | null
+          last_scanned_by: string | null
+          org_id: string
+          outlet_number: number
+          outlet_tag: string
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          id?: string
+          label_printed_at?: string | null
+          last_scanned_at?: string | null
+          last_scanned_by?: string | null
+          org_id: string
+          outlet_number: number
+          outlet_tag: string
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          id?: string
+          label_printed_at?: string | null
+          last_scanned_at?: string | null
+          last_scanned_by?: string | null
+          org_id?: string
+          outlet_number?: number
+          outlet_tag?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "riser_outlet_tags_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "riser_outlet_tags_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "riser_outlet_tags_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sage_connections: {
         Row: {
           access_token: string
@@ -11241,6 +11348,16 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      ensure_riser_outlet_tags: {
+        Args: { _asset_ids: string[] }
+        Returns: {
+          asset_id: string
+          id: string
+          label_printed_at: string
+          outlet_number: number
+          outlet_tag: string
+        }[]
+      }
       find_similar_customer: {
         Args: { _name: string; _threshold?: number }
         Returns: {
@@ -11376,6 +11493,10 @@ export type Database = {
         Args: { _message_id: string }
         Returns: undefined
       }
+      mark_outlet_labels_printed: {
+        Args: { _ids: string[] }
+        Returns: undefined
+      }
       merge_assets: {
         Args: { _keep_id: string; _remove_id: string }
         Returns: undefined
@@ -11459,6 +11580,13 @@ export type Database = {
           message: Json
           msg_id: number
           read_ct: number
+        }[]
+      }
+      record_outlet_scan: {
+        Args: { _tag: string }
+        Returns: {
+          asset_tag: string
+          outlet_number: number
         }[]
       }
       report_wrong_riser: {
