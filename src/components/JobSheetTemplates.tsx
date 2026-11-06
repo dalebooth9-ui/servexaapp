@@ -4,6 +4,8 @@ import SaveAccessNote from '@/components/sites/SaveAccessNote';
 import {loadSiteAccess} from '@/lib/siteAccess';
 import {accessNoteField} from '@/lib/siteAccessRules';
 import RiserLocationPicker from "@/components/assets/RiserLocationPicker";
+import OutletChecksPanel from "@/components/assets/OutletChecksPanel";
+import { readOutletChecks, unresolvedOutlets, countChecked, OUTLET_REASONS } from "@/lib/outletChecks";
 import SiteRiserStickerList from "@/components/assets/SiteRiserStickerList";
 import { QRCodeSVG } from 'qrcode.react';
 import { stickerUrl } from '@/lib/riserStickers';
@@ -158,6 +160,8 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   const [scanParams]=useSearchParams();
   const scanMode=scanParams.get('riserScan')==='1';
   const { user, userRole, profile } = useAuth();
+  const [outletTotal, setOutletTotal] = useState(0);
+  const [outletGate, setOutletGate] = useState<{ missing: number[]; reasons: Record<number, string>; step: "warn" | "reasons" } | null>(null);
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -1443,7 +1447,25 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     setSubmitting(false);
   };
 
-  const handleSubmit = async () => {
+  const isRiserReport = !!activeTemplate && (isDryRiserTemplate(activeTemplate) || isWetRiserTemplate(activeTemplate)) && /^[0-9a-f-]{36}$/i.test(String(formData.riser_asset_id || ""));
+  const requestSubmit = () => {
+    if (isRiserReport && outletTotal > 0) {
+      const missing = unresolvedOutlets(outletTotal, readOutletChecks(formData));
+      if (missing.length) { setOutletGate({ missing, reasons: {}, step: "warn" }); return; }
+    }
+    handleSubmit();
+  };
+  const submitWithReasons = () => {
+    if (!outletGate) return;
+    const checks = { ...readOutletChecks(formData) };
+    for (const n of outletGate.missing) checks[String(n)] = { status: "missing", at: new Date().toISOString(), by: user?.id ?? null, by_name: (profile as any)?.full_name ?? null, reason: outletGate.reasons[n] };
+    const next = { ...formData, _outlet_checks: checks };
+    setFormData(next);
+    setOutletGate(null);
+    handleSubmit(next);
+  };
+
+  const handleSubmit = async (override?: Record<string, any>) => {
     if (!activeTemplate) return;
     // Allow all fields to be left blank — no required validation block
 
@@ -1484,7 +1506,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
           if (subErr) console.error("Submission insert failed", subErr);
         }
       }
-      const baseFormData = await withPreservedSitePhotos(formData);
+      const baseFormData = await withPreservedSitePhotos(override && !(override as any).nativeEvent ? override : formData);
       const existingPhotoUrls = Array.isArray(baseFormData._site_photo_urls) ? baseFormData._site_photo_urls : [];
       const existingPhotoPaths = Array.isArray(baseFormData._site_photo_paths) ? baseFormData._site_photo_paths : [];
       const existingPhotoCaptions = Array.isArray(baseFormData._site_photo_captions) ? baseFormData._site_photo_captions : [];
@@ -2450,6 +2472,17 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                 />
               </div>
             )}
+            {isRiserReport && (
+              <OutletChecksPanel
+                assetId={String(formData.riser_asset_id)}
+                checks={readOutletChecks(formData)}
+                onChange={(c) => setFormData((prev) => ({ ...prev, _outlet_checks: c }))}
+                onTotal={setOutletTotal}
+                locked={activeResponse?.status === "submitted"}
+                userId={user?.id}
+                userName={(profile as any)?.full_name ?? null}
+              />
+            )}
             {sections.map((section) => {
               const omitted = isSectionOmitted(section);
               return (
@@ -2737,7 +2770,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
               {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
               Save Draft
             </Button>
-            <Button size="sm" onClick={handleSubmit} disabled={submitting}>
+            <Button size="sm" onClick={requestSubmit} disabled={submitting}>
               <Send className="h-3.5 w-3.5 mr-1" />
               Submit
             </Button>
