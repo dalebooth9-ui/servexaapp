@@ -36,6 +36,7 @@ import { fetchOrientedImage } from "@/lib/exifOrient";
 import { ukDateifyRecord } from "@/lib/dateFormat";
 import { waitForSignatureSaves } from "@/lib/signatureSaveTracker";
 import { drawQr, stickerUrl } from "@/lib/riserStickers";
+import { readOutletChecks, outletSummaryLine, STATUS_LABEL as OUTLET_STATUS_LABEL } from "@/lib/outletChecks";
 
 /**
  * Load a stored signature as an in-memory image. Downloads the bytes through
@@ -1327,6 +1328,41 @@ export async function generateJobSheetPdf(
   }
 
   const mainSheetPages = doc.getNumberOfPages();
+  // Outlet (landing valve) checks for riser reports: own page after the sign-off.
+  const outletChecks = readOutletChecks(formData);
+  if ((isDryRiser || isWetRiser) && /^[0-9a-f-]{36}$/i.test(riserAssetId)) {
+    let total = 0;
+    try {
+      const { data: oa } = await supabase.from("assets").select("outlets_count").eq("id", riserAssetId).maybeSingle();
+      total = Math.max(0, Math.min(200, Number(oa?.outlets_count) || 0));
+    } catch { /* fall back to recorded outlets */ }
+    if (!total) total = Math.max(0, ...Object.keys(outletChecks).map(Number).filter((n) => n > 0));
+    if (total > 0) {
+      const head = () => {
+        doc.addPage(); y = margin;
+        doc.setFillColor(26, 46, 74); doc.rect(margin, y, maxWidth, 8, "F");
+        doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+        doc.text("OUTLET CHECKS", margin + 3, y + 5.4);
+        doc.setTextColor(0, 0, 0); y += 13;
+      };
+      head();
+      doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+      doc.text(outletSummaryLine(total, outletChecks), margin, y); y += 7;
+      const cols = [margin, margin + 25, margin + 70, margin + 110];
+      const row = (cells: string[], bold: boolean) => {
+        doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(8.5);
+        cells.forEach((c, i) => doc.text(doc.splitTextToSize(c, (cols[i + 1] ?? margin + maxWidth) - cols[i] - 2)[0] || "", cols[i] + 1, y));
+        doc.setDrawColor(210, 214, 220); doc.line(margin, y + 2, margin + maxWidth, y + 2); y += 6;
+      };
+      row(["Outlet", "Status", "Time", "By / reason"], true);
+      for (let n = 1; n <= total; n++) {
+        if (y > pageHeight - 30) { head(); row(["Outlet", "Status", "Time", "By / reason"], true); }
+        const c = outletChecks[String(n)];
+        const t = c?.at ? new Date(c.at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+        row([`Outlet ${n}`, c ? OUTLET_STATUS_LABEL[c.status] : "Not checked", c?.status === "missing" ? "" : t, [c?.by_name, c?.reason].filter(Boolean).join(" – ")], false);
+      }
+    }
+  }
   if (deferredSitePhotos.length > 0) {
     const NAVY: [number, number, number] = [26, 46, 74];
     const BORDER: [number, number, number] = [210, 214, 220];
