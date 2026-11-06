@@ -39,17 +39,31 @@ export default function RiserScan() {
   const [typeOpen,setTypeOpen]=useState(false);
   const [visitType,setVisitType]=useState<VisitType>('visual');
   const [chosenJob,setChosenJob]=useState<string|null>(null);
+  const [outlet,setOutlet]=useState<number|null>(null);
   const isStaff = !!user && (userRole === "admin" || userRole === "engineer");
 
   useEffect(() => {
     if (!isStaff || !tag) return;
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase.rpc("lookup_asset_by_tag", { _tag: tag });
+      let riserTag = tag;
+      let { data, error } = await supabase.rpc("lookup_asset_by_tag", { _tag: tag });
       if (cancelled) return;
-      const row = !error && Array.isArray(data) ? (data[0] as Found | undefined) : undefined;
+      let row = !error && Array.isArray(data) ? (data[0] as Found | undefined) : undefined;
+      if (!row) {
+        // Outlet (landing valve) sticker: log the attendance, then show its riser.
+        const { data: o } = await supabase.rpc("record_outlet_scan", { _tag: tag });
+        const hit = Array.isArray(o) ? o[0] : null;
+        if (cancelled) return;
+        if (hit?.asset_tag) {
+          riserTag = hit.asset_tag;
+          setOutlet(hit.outlet_number);
+          ({ data, error } = await supabase.rpc("lookup_asset_by_tag", { _tag: riserTag }));
+          row = !error && Array.isArray(data) ? (data[0] as Found | undefined) : undefined;
+        }
+      }
       if (row) {
-        const { data: t } = await supabase.rpc("riser_type_by_tag" as any, { _tag: tag });
+        const { data: t } = await supabase.rpc("riser_type_by_tag" as any, { _tag: riserTag });
         if (cancelled) return;
         (row as any).riser_type = (t as unknown as string) || "Dry Riser";
       }
@@ -130,6 +144,7 @@ export default function RiserScan() {
 
   return (
     <Shell wide>
+      {outlet !== null && <p className="text-sm font-semibold">Outlet {outlet} sticker ({tag}) – attendance recorded</p>}
       <p className="text-xs text-muted-foreground font-mono">Riser ID {asset.asset_tag}</p>
       <h1 className="text-3xl font-bold leading-tight">{asset.riser_location || "Unnamed riser"}</h1>
       <p className="text-base mt-1">{asset.site_name || "No site"}</p>
