@@ -1,3 +1,4 @@
+import OutletResults from "./OutletResults";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -131,6 +132,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
       <Tabs defaultValue="history">
         <TabsList>
           <TabsTrigger value="history">History ({history.length})</TabsTrigger>
+          <TabsTrigger value="outlets">Outlet checks</TabsTrigger>
           <TabsTrigger value="defects">Open defects ({defects.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="history">
@@ -156,6 +158,9 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
               </ul>
             )}
           </CardContent></Card>
+        </TabsContent>
+        <TabsContent value="outlets">
+          <Card><CardContent className="p-3"><OutletResults assetId={assetId} /></CardContent></Card>
         </TabsContent>
         <TabsContent value="defects">
           <Card><CardContent className="p-0">

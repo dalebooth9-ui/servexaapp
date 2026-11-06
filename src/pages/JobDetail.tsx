@@ -1,3 +1,4 @@
+import OutletResults from "@/components/assets/OutletResults";
 import { useEffect, useState, lazy, Suspense } from "react";
 import JobStageTimeline from "@/components/jobs/JobStageTimeline";
 import ComplianceRecord from "@/components/jobs/ComplianceRecord";
@@ -1307,6 +1308,7 @@ export default function JobDetail() {
             />
         )}
       </VisitPaperwork></Suspense>}
+      {id && userRole === "admin" && <OutletResults jobId={id} />}
 
       {/* Sign-off — folded in from the old separate tab, underneath the documents. */}
       <div className="mt-8 border-t pt-4">
