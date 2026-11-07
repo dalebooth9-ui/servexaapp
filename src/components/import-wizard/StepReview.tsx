@@ -25,7 +25,7 @@ export interface ReviewRow {
   duplicateOfName?: string;
 }
 
-interface ExistingRecord { id: string; name: string; postcode?: string; address?: string; }
+interface ExistingRecord { id: string; name: string; postcode?: string; address?: string; site_id?:string|null;category?:string; }
 
 export default function StepReview({
   entity,
@@ -52,7 +52,7 @@ export default function StepReview({
       const orgId=await requireCurrentOrgId();
       const fetchAllRows=<T=any>(table:string,columns:string,order='id')=>fetchOrgRows<T>(table,columns,order,supabase,orgId);
       // Fetch existing records of this entity for duplicate detection.
-      const cols = entity === "sites" ? "id,name,postcode,address" : entity === "assets" ? "id,name,asset_tag" : "id,name";
+      const cols = entity === "sites" ? "id,name,postcode,address" : entity === "assets" ? "id,name,asset_tag,site_id,category" : "id,name";
       const existingData = await fetchAllRows<any>(entity, cols, "id");
       // Parents: sites need customers; assets need sites.
       let parentData: any[] = [];
@@ -110,7 +110,7 @@ export default function StepReview({
       }
 
       // Within-file duplicate
-      const dedupeKey = `${nameKey}|${(v.postcode || "").toLowerCase()}|${(v.asset_tag || "").toLowerCase()}`;
+      const dedupeKey = entity==='assets' ? `${nameKey}|${(v.site||'').toLowerCase()}|${(v.category||v.asset_type||'general').toLowerCase()}` : `${nameKey}|${(v.postcode || "").toLowerCase()}|${(v.asset_tag || "").toLowerCase()}`;
       if (nameKey && seen.has(dedupeKey)) {
         problems.push("Duplicate row in file");
       } else if (nameKey) {
@@ -147,6 +147,11 @@ export default function StepReview({
         }
       }
 
+      if(entity==='assets' && parentMatchId) {
+        const category=(v.category||v.asset_type||'general').trim().toLowerCase().replace(/[_-]/g,' ');
+        const hit=existingList.find(e=>e.site_id===parentMatchId && e.name.trim().toLowerCase()===nameKey && (e.category||'general').trim().toLowerCase().replace(/[_-]/g,' ')===category);
+        if(hit){duplicateOfExistingId=hit.id;duplicateOfName=hit.name;}
+      }
       const action: RowAction = duplicateOfExistingId ? "merge" : problems.length ? "skip" : "create";
       out.push({
         values: v,
