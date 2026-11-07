@@ -822,7 +822,16 @@ export default function Sites() {
 
   useEffect(()=>{
     const missing=sitePageIds.map(id=>sites.find(row=>row.id===id)).filter((row):row is Site=>!!row && row.site_type==='building' && !duplicateContexts[row.id]);
-    if(userRole==='admin')for(const row of missing)void browserPage('context','',0,row.id).then(data=>{setDuplicateContexts(prev=>({...prev,[row.id]:data.rows}));});
+    const byParent=new Map<string,Site[]>();
+    for(const row of missing){if(!row.parent_id)continue;byParent.set(row.parent_id,[...(byParent.get(row.parent_id) ?? []),row]);}
+    let cancelled=false;
+    if(userRole==='admin')void (async()=>{
+      for(const rows of byParent.values()){
+        const first=rows[0];if(!first || cancelled)break;
+        try {const data=await browserPage('context','',0,first.id);if(cancelled)break;setDuplicateContexts(prev=>({...prev,...Object.fromEntries(rows.map(row=>[row.id,data.rows]))}));} catch { /* Failed counts never imply an empty building. */ }
+      }
+    })();
+    return()=>{cancelled=true;};
   },[sitePageIds]);
   useEffect(()=>{const timer=setTimeout(()=>setServerSearch(search.trim()),SITES_SEARCH_DELAY);return()=>clearTimeout(timer);},[search]);
   useEffect(()=>{const timer=setTimeout(()=>setServerUnlinkedSearch(unlinkedSearch.trim()),SITES_SEARCH_DELAY);return()=>clearTimeout(timer);},[unlinkedSearch]);
