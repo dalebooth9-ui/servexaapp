@@ -15,7 +15,7 @@ const CORE_FEATURES = [
   "AI job briefs, AI RAMS auto-fill and AI reports",
   "Live engineer GPS tracking",
   "Compliance & certification tracker (BS 5839, 5306, 9990, PAS 79)",
-  "Xero, QuickBooks, Sage and FreeAgent invoicing sync",
+  "Xero and QuickBooks invoicing sync (more coming)",
   "Defects → Quote → Remedial job pipeline",
   "Renewals engine + overdue register",
   "Support ticket inbox + AI help assistant",
@@ -53,7 +53,7 @@ export default function PricingPage() {
             </Link>
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="sm" asChild><Link to="/login">Sign In</Link></Button>
-              <Button size="sm" asChild><Link to="/signup">Get invited</Link></Button>
+              <Button size="sm" asChild><Link to="/signup">Request an invitation</Link></Button>
             </div>
           </div>
         </header>
@@ -106,7 +106,7 @@ export default function PricingPage() {
                     <div className="mt-5">
                       {band.selfServe ? (
                         <Button className="w-full" asChild>
-                          <Link to="/signup">Get invited<ChevronRight className="ml-1 h-4 w-4" /></Link>
+                          <Link to="/signup">Request an invitation<ChevronRight className="ml-1 h-4 w-4" /></Link>
                         </Button>
                       ) : (
                         <Button variant="outline" className="w-full" onClick={() => setContactOpen(true)}>
@@ -183,7 +183,7 @@ export default function PricingPage() {
           <p className="mt-3 text-sidebar-foreground/70">Private beta — request an invitation code and be set up in minutes.</p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Button size="lg" className="h-12 px-10 text-base" asChild>
-              <Link to="/signup">Enter invitation code<ChevronRight className="ml-2 h-4 w-4" /></Link>
+              <Link to="/signup">Request an invitation<ChevronRight className="ml-2 h-4 w-4" /></Link>
             </Button>
             <Button
               size="lg"

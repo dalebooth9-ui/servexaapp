@@ -85,10 +85,10 @@ export default function ContactSalesDialog({ open, onOpenChange }: { open: boole
                 <div className="rounded-lg bg-primary/10 p-1.5">
                   <Building2 className="h-4 w-4 text-primary" />
                 </div>
-                <DialogTitle>Talk to us about a custom plan</DialogTitle>
+                <DialogTitle>Talk to us</DialogTitle>
               </div>
               <DialogDescription>
-                Multiple branches, white-labelling, volume pricing — we'll put together something that fits.
+                Book a quick demo, or ask about multiple branches, white-labelling and larger teams — we'll put together something that fits.
               </DialogDescription>
             </DialogHeader>
 
@@ -118,6 +118,7 @@ export default function ContactSalesDialog({ open, onOpenChange }: { open: boole
                     <SelectValue placeholder="Select an option" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="Book a quick demo">Book a quick demo</SelectItem>
                     <SelectItem value="Multiple branches">Multiple branches</SelectItem>
                     <SelectItem value="White-label / own branding">White-label / own branding</SelectItem>
                     <SelectItem value="High-volume engineer teams">High-volume engineer teams</SelectItem>
