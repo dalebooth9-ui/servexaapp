@@ -1273,7 +1273,7 @@ export default function Sites() {
         <TabsContent value="by-customer" className="mt-4">
           {!foldersLoading && customerFolders.length > 0 && (
             <div className="flex justify-between items-center mb-2 gap-2">
-              <div className="flex flex-wrap items-center gap-2">
+              <div data-assistant-target="Merge customers" className="flex flex-wrap items-center gap-2">
                 <Select value={folderSort} onValueChange={(v) => setFolderSort(v as any)}>
                   <SelectTrigger className="h-7 text-xs w-auto gap-1.5">
                     <ArrowUpDown className="h-3 w-3" />
@@ -1292,7 +1292,6 @@ export default function Sites() {
                       onClick={() => setPickedCustomers(new Set(customerFolders.filter((f) => f.sites.length === 0).map((f) => f.id)))}>
                       Tick all with 0 sites
                     </Button>
-                    <Button data-assistant-target="Merge customers" variant="outline" size="sm" className="h-8 text-xs" onClick={() => { setMergeKeepId(''); setCustMergeOpen(true); }}><Combine className="mr-1 h-3.5 w-3.5" />Merge customers</Button>
                     {pickedCustomers.size > 0 && (
                       <>
                         <Button variant="destructive" size="sm" className="h-7 text-xs" onClick={() => setBulkDeleteOpen(true)}>
