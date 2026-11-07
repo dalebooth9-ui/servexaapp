@@ -1,8 +1,8 @@
 # Roadmap
 
 ## Bold public landing makeover
-- [ ] Alternate white/navy feature bands, stronger visuals/cards, orange CTAs/stats/standards and tighter spacing; preserve colours/pricing and signed-in app.
-- [ ] Hide founder and unfinished copy; inspect public text, verify complete page desktop/phone and image loading; update Help and report build time.
+- [x] Alternating white/navy full-width feature bands, faint navy grid, authentic sample outlet-check capture and sticker output, orange cards/CTAs/stats/standards, tighter spacing; colours/pricing and signed-in app preserved.
+- [x] Founder publication disabled; complete public page checked on desktop/phone with all images loaded, no unfinished visible text, no overflow/runtime errors and working demo enquiry. Help updated; capture used fictitious records and no saved data.
 
 ## Premium public landing page
 - [x] Preserved headline, colours and pricing; authentic demo screenshots in laptop/phone frames, proof strip, five alternating workflow rows, founder/headshot placeholders and simplified standards/footer.
