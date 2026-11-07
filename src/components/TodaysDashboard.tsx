@@ -1,6 +1,6 @@
 import MapAddress from "@/components/MapAddress";
 import { useEffect, useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTimeClock } from "@/hooks/useTimeClock";
@@ -46,6 +46,7 @@ function priorityColor(p: string) {
 }
 
 export default function TodaysDashboard() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { isClockedIn, currentPos } = useTimeClock();
   const { toast } = useToast();
@@ -226,7 +227,7 @@ export default function TodaysDashboard() {
           {jobsWithDistance.map((job) => {
             const needsAck = job.schedule_id && !job.acknowledged_at;
             return (
-              <Link key={job.id} to={`/jobs/${job.id}`}>
+              <div key={job.id} role="link" tabIndex={0} onClick={() => navigate(`/jobs/${job.id}`)} onKeyDown={event => { if (event.target === event.currentTarget && event.key === 'Enter') navigate(`/jobs/${job.id}`); }}>
                 <Card className={`hover:bg-accent/50 transition-colors cursor-pointer ${needsAck ? "border-amber-500/40" : ""}`}>
                   <CardContent className="p-3">
                     <div className="flex items-start justify-between gap-2">
@@ -295,7 +296,7 @@ export default function TodaysDashboard() {
                     </div>
                   </CardContent>
                 </Card>
-              </Link>
+              </div>
             );
           })}
         </div>

@@ -802,8 +802,9 @@ export default function EngineerDashboard() {
 // ── Job Card Component ─────────────────────────────────────
 function JobCard({ job, expanded = false }: { job: ScheduledJob; expanded?: boolean }) {
   const { label, cls } = statusLabel(job.status);
+  const navigate = useNavigate();
   return (
-    <Link to={`/jobs/${job.id}`}>
+    <div role="link" tabIndex={0} className="cursor-pointer" onClick={() => navigate(`/jobs/${job.id}`)} onKeyDown={event => { if (event.target === event.currentTarget && event.key === 'Enter') navigate(`/jobs/${job.id}`); }}>
       <div className="rounded-2xl border bg-card overflow-hidden active:scale-[0.98] transition-transform">
         {/* Priority strip */}
         <div className={`h-1 w-full ${priorityBg(job.priority)}`} />
@@ -858,6 +859,6 @@ function JobCard({ job, expanded = false }: { job: ScheduledJob; expanded?: bool
           )}
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
