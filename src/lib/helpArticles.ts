@@ -18,7 +18,8 @@ const RULES: SlugRule[] = [
   { test: (p) => p === '/due-visits', slug: 'riser-visits' },
   { test: (p) => p === '/printed-paperwork', slug: 'printed-paperwork' },
   // Job guide includes Print reports beside Print sticker pack for per-riser engineer sheets,
-  // both also in the top button row on riser jobs.
+  // both also in the top button row on riser jobs; saved Risers on this job selections,
+  // exact duplicate warnings and confirmed Merge jobs archival are in jobs.detail.
   { test: (p) => /^\/jobs\/[^/]+$/.test(p), slug: "jobs.detail" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/rams"), slug: "rams" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/site-visit-report"), slug: "site-visit-report" },
