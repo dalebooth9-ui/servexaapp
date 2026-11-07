@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { addDays, format, startOfWeek } from "date-fns";
 import { ChevronLeft, ChevronRight, Download, CheckCircle2, AlertTriangle, Pencil, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -147,8 +147,8 @@ export default function Timesheets() {
                 <thead><tr className="border-b text-left text-muted-foreground"><th className="py-1 pr-2">Day</th><th className="pr-2">Van</th><th className="pr-2">Start</th><th className="pr-2">Finish</th><th className="pr-2">Break</th><th className="pr-2">Total</th><th>Checks</th><th></th></tr></thead>
                 <tbody>{mine.map((e) => {
                   const jobs = jobsByDay[`${uid}|${londonDate(e.clock_in_at)}`] || [];
-                  return (<>
-                    <tr key={e.id} className="border-b align-top">
+                  return (<Fragment key={e.id}>
+                    <tr className="border-b align-top">
                       <td className="py-2 pr-2 whitespace-nowrap">{format(new Date(londonDate(e.clock_in_at)), "EEE dd/MM")}</td>
                       <td className="pr-2">{e.van_id ? vans[e.van_id] || "Van" : "Button"}</td>
                       <td className="pr-2">{londonTime(e.clock_in_at)}</td>
@@ -158,11 +158,11 @@ export default function Timesheets() {
                       <td className="space-x-1">{e.flags.map((f) => <Badge key={f} variant="outline" className="border-destructive/50 text-destructive"><AlertTriangle className="mr-1 h-3 w-3" />{FLAG_LABELS[f] || f}</Badge>)}{e.recorded_offline && <Badge variant="outline">Sent later (no signal)</Badge>}{edits[e.id]?.length ? <Badge variant="secondary">Edited</Badge> : null}</td>
                       <td><Button size="icon" variant="ghost" onClick={() => openEdit(e)} aria-label="Edit times"><Pencil className="h-4 w-4" /></Button></td>
                     </tr>
-                    {(jobs.length > 0 || edits[e.id]?.length) && <tr key={`${e.id}-x`} className="border-b"><td></td><td colSpan={7} className="pb-2 text-xs text-muted-foreground">
+                    {(jobs.length > 0 || edits[e.id]?.length) && <tr className="border-b"><td></td><td colSpan={7} className="pb-2 text-xs text-muted-foreground">
                       {jobs.length > 0 && <div>Jobs: {jobs.slice(0, 8).map((j, i) => <span key={i} className="mr-3">{londonTime(j.at)} {j.ref} {j.action}</span>)}</div>}
                       {(edits[e.id] || []).map((x, i) => <div key={i}>Changed {x.field} {x.old_value ? (x.field === "break" ? x.old_value : londonTime(x.old_value)) : "—"} → {x.new_value ? (x.field === "break" ? x.new_value : londonTime(x.new_value)) : "—"} on {format(new Date(x.created_at), "dd/MM HH:mm")} by {name(x.edited_by)}: {x.reason}</div>)}
                     </td></tr>}
-                  </>);
+                  </Fragment>);
                 })}</tbody>
               </table>
             </CardContent>

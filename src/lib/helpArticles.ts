@@ -69,6 +69,8 @@ const RULES: SlugRule[] = [
   { test: (p) => p === "/fleet", slug: "fleet" },
   { test: (p) => p === "/my-profile", slug: "vehicle-checks" },
   { test: (p) => p === "/my-timesheet", slug: "my-timesheet" },
+  { test: (p) => p === "/timesheets", slug: "timesheets" },
+  { test: (p) => p.startsWith("/v/"), slug: "my-timesheet" },
   { test: (p) => p === "/sync-status", slug: "sync-status" },
   { test: (p) => p === "/setup", slug: "setup" },
   { test: (p) => p === "/install", slug: "install" },

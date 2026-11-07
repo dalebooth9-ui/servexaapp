@@ -40,6 +40,7 @@ import JobGeocodeSettings from "@/components/JobGeocodeSettings";
 
 
 import UserRoleSettings from "@/components/UserRoleSettings";
+import VansSettings from "@/components/settings/VansSettings";
 import JobTemplateSettings from "@/components/JobTemplateSettings";
 import VehicleCheckSettings from "@/components/VehicleCheckSettings";
 import CategoryDocumentTemplateSettings from "@/components/CategoryDocumentTemplateSettings";
@@ -219,6 +220,7 @@ export default function SettingsPage() {
 
         <TabsContent value="team" className="space-y-6 mt-0">
           <UserRoleSettings />
+          <VansSettings />
 
         {/* Engineer App Install QR Code */}
         <Card>
