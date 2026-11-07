@@ -1209,7 +1209,7 @@ export default function Sites() {
           return (
             <Button key={key} variant="outline" aria-label={`Show ${cfg.label}s`} aria-pressed={summaryType === key}
               onClick={() => { setSummaryType(key as SiteSummaryType); setSummaryRegionId(null); }}
-              className={`h-auto min-h-24 w-full justify-start whitespace-normal bg-card p-4 text-left cursor-pointer hover:bg-accent hover:shadow-sm ${summaryType === key ? 'ring-2 ring-primary border-primary' : 'border-border'}`}>
+              className={`h-auto min-h-24 w-full justify-start whitespace-normal bg-card p-4 text-left cursor-pointer hover:bg-muted hover:text-foreground hover:shadow-sm ${summaryType === key ? 'ring-2 ring-primary border-primary' : 'border-border'}`}>
                 <Icon className={`h-5 w-5 ${cfg.color}`} />
                 <div>
                   <p className="text-2xl font-bold">{counts[key as keyof typeof counts]}</p>

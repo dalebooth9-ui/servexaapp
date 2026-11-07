@@ -1,8 +1,8 @@
 # Roadmap
 
 ## Clickable Sites summaries
-- [ ] Add summary lists, region drill-down, filtered counts, Clear and zone creation shortcut without changing site records.
-- [ ] Update Sites Help and verify lists/search on desktop and phone.
+- [x] Add summary lists, region drill-down, filtered counts, Clear and zone creation shortcut without changing site records.
+- [x] Update Sites Help; five tests pass; Dale's desktop/phone lists, Riddell search, region drill-down, Clear and zone form verified without saving records.
 
 ## Safe asset duplicate review
 - [x] Count tenant duplicate groups and trace creation paths: 20 groups / 25 extra assets, four evidenced CSV imports (case-insensitive review).
