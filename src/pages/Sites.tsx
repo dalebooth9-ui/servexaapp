@@ -356,7 +356,8 @@ export default function Sites() {
   // Navigate to a site in the hierarchy: switch tab, clear search, expand all ancestors, highlight the target
   const navigateToSite = (siteId: string) => {
     setActiveTab("hierarchy");
-    setSearch("");
+    const target=sites.find(s=>s.id===siteId) ?? customerFolders.flatMap(f=>f.sites).find(s=>s.id===siteId);
+    setSearch(target?.name ?? '');
     // Collect all ancestor IDs
     const ancestors: string[] = [];
     let current = sites.find((s) => s.id === siteId);
@@ -616,15 +617,17 @@ export default function Sites() {
   };
 
   const toggleSelectAll = () => {
-    if (selected.size === sites.length) {
+    if (selected.size === sitePageIds.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(sites.map((s) => s.id)));
+      setSelected(new Set(sitePageIds));
     }
   };
 
   const handleBulkDelete = async () => {
-    const hasChildren = [...selected].some((id) => sites.some((s) => s.parent_id === id));
+    const inspected=await Promise.all([...selected].map(id=>supabase.from("sites").select("id",{count:"exact",head:true}).eq("parent_id",id)));
+    if(inspected.some(r=>r.error))return;
+    const hasChildren=inspected.some(r=>(r.count ?? 0)>0);
     if (hasChildren) {
       toast({ title: "Cannot delete", description: "Some selected sites have children. Remove child sites first.", variant: "destructive" });
       return;
@@ -637,7 +640,10 @@ export default function Sites() {
       key: "bulk-delete",
       label: `${count} site(s) deleted`,
       onConfirm: async () => {
-        const { error } = await supabase.from("sites").delete().in("id", deletedSites.map((s) => s.id));
+        const ids=deletedSites.map(s=>s.id);
+        const checks=await Promise.all([supabase.from('assets').select('id',{count:'exact',head:true}).in('site_id',ids),supabase.from('jobs').select('id',{count:'exact',head:true}).in('site_id',ids)]);
+        if(checks.some(r=>r.error || (r.count ?? 0)>0)){toast({title:'Cannot delete',description:'Selected sites have assets or job history.',variant:'destructive'});void fetchSites();return;}
+        const { error } = await supabase.from("sites").delete().in("id", ids);
         if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); setSites((prev) => [...prev, ...deletedSites]); }
       },
       onUndo: () => setSites((prev) => [...prev, ...deletedSites]),
@@ -676,7 +682,7 @@ export default function Sites() {
     const request=++siteRequest.current;
     setLoading(true);
     try {
-      const data=await browserPage('sites',serverSearch,append?sitePageIds.length:0,summaryRegionId ?? undefined,undefined,summaryType ?? undefined);
+      const data=await browserPage('sites',serverSearch,append?sitePageIds.length:0,summaryRegionId ?? undefined,undefined,(summaryRegionId ? "site" : summaryType) ?? undefined);
       if(request!==siteRequest.current) return;
       const page=visiblePage(data.rows ?? []);
       setSiteMore(page.hasMore);
@@ -719,19 +725,9 @@ export default function Sites() {
   const handleDeleteAllUnlinked = async () => {
     setDeletingUnlinked(true);
     try {
-      const linkedSiteIds = new Set(customerFolders.flatMap((f) => f.sites.map((s) => s.id)));
-      const unlinked = sites
-        .filter((s) => s.site_type !== "region" && !s.parent_id)
-        .filter((s) => !linkedSiteIds.has(s.id));
-      if (unlinked.length === 0) return;
-
-      // Find which have children or jobs
-      const unlinkedIds = unlinked.map((s) => s.id);
-      const childParentIds = new Set(sites.filter((s) => s.parent_id && unlinkedIds.includes(s.parent_id)).map((s) => s.parent_id));
-      const { data: jobLinks } = await supabase.from("jobs").select("site_id").in("site_id", unlinkedIds);
-      const jobSiteIds = new Set((jobLinks || []).map((j: any) => j.site_id));
-
-      const deletable = unlinked.filter((s) => !childParentIds.has(s.id) && !jobSiteIds.has(s.id));
+      const candidates:Site[]=[];
+      for(let offset=0;;offset+=SITES_PAGE_SIZE){const data=await browserPage('unlinked','',offset);const p=visiblePage(data.rows);candidates.push(...p.rows);if(!p.hasMore)break;}
+      const deletable=candidates.filter(row=>(row.child_count ?? 0)===0 && (row.job_count ?? 0)===0 && (row.asset_count ?? 0)===0);
       if (deletable.length === 0) {
         toast({ title: "Nothing to delete", description: "All unlinked sites have children or jobs." });
         return;
@@ -814,6 +810,10 @@ export default function Sites() {
     }
   };
 
+  useEffect(()=>{
+    const missing=sitePageIds.map(id=>sites.find(row=>row.id===id)).filter((row):row is Site=>!!row && row.site_type==='building' && !duplicateContexts[row.id]);
+    if(userRole==='admin')for(const row of missing)void browserPage('context','',0,row.id).then(data=>{setDuplicateContexts(prev=>({...prev,[row.id]:data.rows}));});
+  },[sitePageIds]);
   useEffect(()=>{const timer=setTimeout(()=>setServerSearch(search.trim()),SITES_SEARCH_DELAY);return()=>clearTimeout(timer);},[search]);
   useEffect(()=>{const timer=setTimeout(()=>setServerUnlinkedSearch(unlinkedSearch.trim()),SITES_SEARCH_DELAY);return()=>clearTimeout(timer);},[unlinkedSearch]);
   useEffect(()=>{if(userRole)void fetchSites();},[serverSearch,summaryType,summaryRegionId,userRole]);
@@ -904,11 +904,18 @@ export default function Sites() {
     return children.flatMap((c) => [c.id, ...getAllDescendantIds(c.id)]);
   };
 
-  const handleDelete = (id: string) => {
-    const children = getChildren(id);
+  const handleDelete = async (id: string) => {
+    const data=await browserPage('children','',0,id);
+    setSites(prev=>mergeSiteRows(prev,[...(data.context ?? []),...data.rows]));
+    const children=data.rows;
     if (children.length > 0) {
       // Has children — ask for confirmation before cascading
-      setConfirmDeleteId(id);
+      const collect=async(parent:string):Promise<Site[]>=>{
+        const result:Site[]=[];
+        for(let offset=0;;offset+=50){const d=await browserPage('children','',offset,parent);const p=visiblePage(d.rows);for(const child of p.rows)result.push(child,...await collect(child.id));if(!p.hasMore)break;}
+        return result;
+      };
+      const all=await collect(id);setSites(prev=>mergeSiteRows(prev,all));setConfirmDeleteId(id);
     } else {
       executeSiteDelete(id, []);
     }
@@ -929,6 +936,8 @@ export default function Sites() {
         key: id,
         label: descendantIds.length > 0 ? `Site and ${descendantIds.length} child record(s) deleted` : "Site deleted",
         onConfirm: async () => {
+          const checks=await Promise.all([supabase.from('assets').select('id',{count:'exact',head:true}).in('site_id',allIds),supabase.from('jobs').select('id',{count:'exact',head:true}).in('site_id',allIds)]);
+          if(checks.some(r=>r.error || (r.count ?? 0)>0)){toast({title:'Cannot delete',description:'This site has assets or job history. Use the safe merge preview instead.',variant:'destructive'});void fetchSites();return;}
           for (const did of [...descendantIds].reverse()) { await supabase.from("sites").delete().eq("id", did); }
           const { error } = await supabase.from("sites").delete().eq("id", id);
           if (error) {
@@ -969,7 +978,7 @@ export default function Sites() {
     const config = TYPE_CONFIG[site.site_type];
     const Icon = config?.icon || MapPin;
     const childType = CHILD_TYPES[site.site_type];
-    const isSearching = !!search.trim();
+    const isSearching = !!serverSearch;
     // Build breadcrumb with IDs so we can navigate on click
     const breadcrumbWithIds: { name: string; id: string }[] = [];
     if (isSearching) {
@@ -1147,8 +1156,8 @@ export default function Sites() {
             <CardContent className="p-0 min-h-[420px]">
               {!loading && filteredRoots.length > 0 && userRole === "admin" && (
                 <div className="flex items-center gap-2 py-2 px-3 border-b border-border">
-                  <input type="checkbox" checked={selected.size === sites.length && sites.length > 0} onChange={toggleSelectAll} className="h-4 w-4 shrink-0 rounded border-input accent-primary cursor-pointer" />
-                  <span className="text-xs text-muted-foreground">{selected.size > 0 ? `${selected.size} of ${sites.length} selected` : "Select all"}</span>
+                  <input type="checkbox" checked={selected.size === sitePageIds.length && sitePageIds.length > 0} onChange={toggleSelectAll} className="h-4 w-4 shrink-0 rounded border-input accent-primary cursor-pointer" />
+                  <span className="text-xs text-muted-foreground">{selected.size > 0 ? `${selected.size} of ${sitePageIds.length} selected` : "Select all"}</span>
                 </div>
               )}
               {loading && filteredRoots.length===0 ? (
@@ -1167,7 +1176,7 @@ export default function Sites() {
         <TabsContent value="by-customer" className="mt-4">
           {(
 
-            <div className="flex justify-between items-center mb-2 gap-2">
+            <div className="flex justify-between items-center mb-2 gap-2 min-h-10">
               <div data-assistant-target="Merge customers" className="flex flex-wrap items-center gap-2">
                 <Select value={folderSort} onValueChange={(v) => setFolderSort(v as any)}>
                   <SelectTrigger className="h-7 text-xs w-auto gap-1.5">
@@ -1260,7 +1269,7 @@ export default function Sites() {
                   }}
                 >
                   {customerFolders.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-muted-foreground">No customers found.</p>
+                    <p className="py-8 text-center text-sm text-muted-foreground">{foldersLoading ? "Loading customers…" : "No customers found."}</p>
                   ) : (
                     <Accordion type="multiple" value={openFolders} onValueChange={setOpenFolders} className="space-y-2">
                       {customerFolders
@@ -1588,7 +1597,7 @@ export default function Sites() {
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
-                        {allUnlinked.length > 0 && (
+                        {(totals?.unlinked ?? 0) > 0 && (
                           <AlertDialog onOpenChange={(open) => { if (!open) setDeleteUnlinkedConfirm(""); }}>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive">
@@ -1599,7 +1608,7 @@ export default function Sites() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete all unlinked sites?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  This will permanently delete all {totals?.unlinked ?? "—"} unlinked sites that have no children or jobs. This action cannot be undone.
+                                  This will permanently delete all {totals?.unlinked ?? "—"} unlinked sites that have no children, assets or jobs. This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <div className="space-y-2 py-2">
