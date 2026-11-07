@@ -133,7 +133,7 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
     <Dialog open={open} onOpenChange={setOpen}>
       <span className="inline-flex items-center gap-2">
         <DialogTrigger asChild>
-          <Button variant="outline"><Printer className="h-4 w-4 mr-2" />Print sticker pack</Button>
+          {trigger ?? <Button variant="outline"><Printer className="h-4 w-4 mr-2" />Print sticker pack</Button>}
         </DialogTrigger>
         {lastPrinted && <span className="text-xs text-muted-foreground">Last printed {new Date(lastPrinted).toLocaleDateString("en-GB")}</span>}
       </span>
