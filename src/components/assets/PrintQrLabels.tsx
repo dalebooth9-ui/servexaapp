@@ -34,12 +34,21 @@ export default function PrintQrLabels({ assetId, siteId, onlyOutlet, iconOnly = 
       if (assetId) q = q.eq('id', assetId);
       else if (siteId) q = q.eq('site_id', siteId);
       else throw new Error('Choose a riser or site');
-      const { data, error } = await q;
-      if (error) throw error;
-      const rows = data || [];
-      const { data: outlets, error: outletError } = rows.length ? await supabase.from('riser_outlet_tags').select('asset_id,outlet_number,outlet_tag').eq('org_id', orgId).in('asset_id', rows.map(r => r.id)) : { data: [], error: null };
-      if (outletError) throw outletError;
-      const list = existingRiserLabels(rows, outlets || []).filter(l => onlyOutlet === undefined || l.outlet_number === onlyOutlet);
+      const rows: ExistingRiser[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await q.range(from, from + 999);
+        if (error) throw error;
+        rows.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      const outlets = [];
+      for (const r of rows) for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase.from('riser_outlet_tags').select('asset_id,outlet_number,outlet_tag').eq('org_id', orgId).eq('asset_id', r.id).order('id').range(from, from + 999);
+        if (error) throw error;
+        outlets.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      const list = existingRiserLabels(rows, outlets).filter(l => onlyOutlet === undefined || l.outlet_number === onlyOutlet);
       const logo = await getGeneratingOrgFallbackLogoUrl();
       const bySite: Record<string, string | null> = {};
       for (const id of new Set(rows.map(r => r.site_id))) {
