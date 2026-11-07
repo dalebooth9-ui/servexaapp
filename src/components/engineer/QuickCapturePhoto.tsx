@@ -234,9 +234,8 @@ export default function QuickCapturePhoto() {
                   <p className="truncate text-sm font-semibold">
                     {job.reference_number ? `${job.reference_number} — ` : ""}{job.name}
                   </p>
-                  <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                    <MapPin className="h-3 w-3 shrink-0" />
-                    {siteLabel(job)}
+                  <p className="text-xs text-muted-foreground">
+                    <MapAddress address={job.address} postcode={job.site_postcode} jobId={job.id} label={siteLabel(job)} />
                     {job.distance != null && <span className="ml-1">· {formatDistance(job.distance)}</span>}
                   </p>
                 </div>

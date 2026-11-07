@@ -250,9 +250,7 @@ export default function JobSiteSurveyPhotos({ surveyId, jobId }: { surveyId: str
                   </button>
                 )}
                 {p.what3words && (
-                  <span className="absolute bottom-1 left-1 text-[10px] bg-background/90 rounded px-1.5 py-0.5 flex items-center gap-1 max-w-[90%] truncate">
-                    <MapPin className="h-2.5 w-2.5" /> {p.what3words}
-                  </span>
+                  <MapAddress address={p.what3words} what3words={p.what3words} className="absolute bottom-1 left-1 text-[10px] bg-background/90 rounded px-1.5 py-0.5 max-w-[90%]" />
                 )}
                 <button
                   type="button"

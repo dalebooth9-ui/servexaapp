@@ -29,7 +29,7 @@ const RULES: SlugRule[] = [
   { test: (p) => p === '/customers/print-branding' || p === '/customers/logo-help', slug: 'customers.print-branding' },
   { test: (p) => p === "/customers/duplicates", slug: "customers" },
   { test: (p) => p.startsWith("/customers/"), slug: "customers.detail" },
-  // Sites guide includes clickable Regions/Sites/Buildings/Zones summaries, search/customer-scoped counts and Clear.
+  // Sites guide includes summary lists and app-wide pinned address map/directions/copy controls for office and engineers.
   { test: (p) => p === "/sites", slug: "sites" },
   { test: (p) => p === '/sites/access-info', slug: 'sites.access-info' },
   { test: (p) => p === "/site-surveys" || p.startsWith("/site-surveys/"), slug: "site-surveys" },
