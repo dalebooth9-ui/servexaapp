@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { fetchSiteRisers, type SiteRiser } from "@/components/assets/siteRisers";
 import StickerPackDialog from "@/components/assets/StickerPackDialog";
 import { loadPrintReportRows, buildVisitPdf } from "@/components/riser-visits/VisitPaperwork";
+import {useJobRisers,reportCountLabel} from '@/lib/jobRisers';
 import { logReportsPrinted } from "@/lib/jobCategoryChange";
 
 /**
@@ -17,6 +18,7 @@ import { logReportsPrinted } from "@/lib/jobCategoryChange";
 export default function JobPrintButtons({ jobId, siteId, siteName, customerLogoUrl }: {
   jobId: string; siteId: string | null; siteName: string | null; customerLogoUrl: string | null;
 }) {
+  const membership=useJobRisers(jobId);
   const [hasRisers, setHasRisers] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pick, setPick] = useState<{ risers: SiteRiser[]; ticked: string[] } | null>(null);
@@ -57,9 +59,10 @@ export default function JobPrintButtons({ jobId, siteId, siteName, customerLogoU
     <>
       <Button variant="outline" size="sm" className="gap-1.5" disabled={busy} onClick={() => run()}>
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
-        Print reports
+        {reportCountLabel(membership.filter(r=>r.selected).length)}
       </Button>
       <StickerPackDialog
+        jobId={jobId}
         siteId={siteId}
         siteName={siteName}
         customerLogoUrl={customerLogoUrl}
@@ -92,7 +95,7 @@ export default function JobPrintButtons({ jobId, siteId, siteName, customerLogoU
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPick(null)}>Cancel</Button>
-            <Button disabled={!pick?.ticked.length} onClick={() => { const p = pick!; setPick(null); void run(p.ticked); }}>Print selected</Button>
+            <Button disabled={!pick?.ticked.length} onClick={() => { const p = pick; if(!p)return; setPick(null); void run(p.ticked); }}>Print selected</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

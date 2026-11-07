@@ -3,6 +3,7 @@ import OutletResults from "@/components/assets/OutletResults";
 import { useEffect, useState, lazy, Suspense } from "react";
 import JobStageTimeline from "@/components/jobs/JobStageTimeline";
 import ComplianceRecord from "@/components/jobs/ComplianceRecord";
+import JobRiserSelection from '@/components/riser-visits/JobRiserSelection';
 import PossibleDuplicates from "@/components/jobs/PossibleDuplicates";
 import ChunkErrorBoundary from "@/components/ChunkErrorBoundary";
 import { useAutoSave } from "@/hooks/useAutoSave";
@@ -713,6 +714,7 @@ export default function JobDetail() {
         customerId={job.customer_id}
       />
 
+      <JobRiserSelection jobId={job.id} siteId={job.site_id} />
       <JobStageTimeline jobId={job.id} status={job.status} />
 
       {/* Tab navigation — sections are lazy-mounted; only the active tab is in the DOM.
@@ -1301,6 +1303,7 @@ export default function JobDetail() {
       {id && userRole === "admin" && <Suspense fallback={null}><VisitPaperwork jobId={id}>
         {userRole === "admin" && (
             <StickerPackDialog
+              jobId={job.id}
               siteId={job?.site_id || null}
               siteName={(job as any)?.sites?.name || null}
               customerLogoUrl={(job as any)?.customers?.logo_url || null}

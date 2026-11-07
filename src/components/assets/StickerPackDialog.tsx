@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { fetchSiteRisers, type SiteRiser } from "./siteRisers";
 import { buildStickerPackPdf, loadOffsets, saveOffsets, LABEL_STATUS_LABEL, type StickerOffsets } from "@/lib/riserStickers";
 import { getGeneratingOrgBranding, getGeneratingOrgFallbackLogoUrl } from "@/lib/generatingOrgBranding";
+import {loadJobRisers} from '@/lib/jobRisers';
 import { resolveToSignedUrl } from "@/lib/durableStorageRef";
 
 const inletKey = (id: string) => `i:${id}`;
@@ -17,8 +18,8 @@ const outletKey = (id: string, n: number) => `o:${id}:${n}`;
 const outletNums = (r: SiteRiser) => Array.from({ length: Math.max(0, r.outlets_count || 0) }, (_, i) => i + 1);
 const allKeys = (list: SiteRiser[]) => list.flatMap((r) => [...(r.asset_tag ? [inletKey(r.id)] : []), ...outletNums(r).map((n) => outletKey(r.id, n))]);
 
-export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, trigger }: {
-  siteId: string | null; siteName: string | null; customerLogoUrl: string | null;
+export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, trigger, jobId }: {
+  jobId?:string; siteId: string | null; siteName: string | null; customerLogoUrl: string | null;
   /** Optional custom trigger button (e.g. the job page top row). Defaults to the outline "Print sticker pack" button. */
   trigger?: React.ReactNode;
 }) {
@@ -49,7 +50,7 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
       }
       setOutletTags(tags);
       setRisers(list); noteLast(list);
-      if (resetPick) setPicked(new Set(allKeys(list)));
+      if (resetPick) {const membership=jobId?await loadJobRisers(jobId):null;setPicked(new Set(allKeys(membership?list.filter(r=>membership.some(m=>m.asset_id===r.id&&m.selected)):list)));}
     }).catch(() => { setRisers([]); toast.error("Couldn't load risers"); });
   };
   useEffect(() => { if (open) load(true); }, [open, siteId]);

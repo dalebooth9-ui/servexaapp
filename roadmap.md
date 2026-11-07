@@ -1,10 +1,10 @@
 # Roadmap
 
 ## Multi-riser site visit job page
-- [ ] Persist job riser membership/selection; split job/site riser sections, consistent count and per-riser report/sticker printing.
-- [ ] Default new site jobs to all active risers; exact site/riser/type duplicate warnings.
-- [ ] Admin/company-scoped merge preview/confirmation preserving linked data and archiving source jobs.
-- [ ] Update Help and verify example visit, print counts, safe merge and tenant/role guards; report build time.
+- [x] Persisted job riser membership/selection; split job/site riser sections, count and shared per-riser report/sticker defaults.
+- [x] New site jobs default to active risers; targeted scan/explicit visit paths preserved. Duplicate warnings require site/riser/type.
+- [x] Admin/company-scoped merge preview/confirmation with fingerprint, preservation snapshot, transactional reference moves, conflict blocking and source archival.
+- [x] Help updated; 29 tests pass, real example page and merge preview checked desktop/phone; temporary jobs verified four-riser defaults/four print rows and successful merge/history preservation, then archived. Real example jobs untouched. Physical printing, full engineer/second-tenant browser sessions and conflict/stale-preview integration tests not exercised.
 
 ## Sticker-only Viva logo and larger QR
 - [x] Exact original Viva logo cropped without tagline for stickers only; enlarged logo/number and 20mm QR, retaining L4778 grid and plain customer labels across the shared print entry points.

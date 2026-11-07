@@ -386,6 +386,27 @@
       "when": 1794049769037,
       "tag": "0054_permanent_riser_outlet_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1794051784228,
+      "tag": "0055_job_riser_membership",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1794051870273,
+      "tag": "0056_safe_job_merge_review",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1794052035071,
+      "tag": "0057_preserve_targeted_riser_scan_defaults",
+      "breakpoints": true
     }
   ]
 }
