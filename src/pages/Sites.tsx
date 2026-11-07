@@ -1063,10 +1063,6 @@ export default function Sites() {
           {userRole === "admin" && (
             <SiteRowActions name={site.name} childType={childType} onNewJob={()=>openCreateJob(site)} onAdd={()=>openCreate(site.id,childType)} onEdit={()=>openEdit(site)} onDelete={()=>void handleDelete(site.id)}/>
           )}
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }}><Pencil className="h-3.5 w-3.5" /></Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(site.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
-            </div>
-          )}
         </div>
         {isExpanded && children.map((child) => renderTreeRow(child, depth + 1))}
         {isExpanded && childPages[site.id]?.more && <Button variant="outline" onClick={()=>void loadChildren(site.id,true)}>Load more buildings</Button>}
