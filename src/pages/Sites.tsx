@@ -10,7 +10,7 @@ import NewVisitDialog from '@/components/riser-visits/NewVisitDialog';
 import SiteJobDialog from '@/components/sites/SiteJobDialog';
 import BuildingDuplicateWarning from '@/components/sites/BuildingDuplicateWarning';
 import { buildingDuplicatePairs } from '@/lib/buildingDuplicates';
-import { loadSiteStats, type SiteStat } from '@/lib/siteDuplicates';
+import { SITES_PAGE_SIZE, SITES_SEARCH_DELAY, visiblePage, mergeSiteRows } from '@/lib/sitesPaging';
 import ServicingControl from '@/components/riser-visits/ServicingControl';
 import BulkImportSitesDialog from "@/components/BulkImportSitesDialog";
 import FolderSiteImportDialog from "@/components/FolderSiteImportDialog";
@@ -67,6 +67,9 @@ type Site = {
   outlets_count: number | null;
   riser_location: string | null;
   created_at: string;
+  child_count?: number;
+  job_count?: number;
+  asset_count?: number;
 };
 
 const TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string }> = {
@@ -106,6 +109,7 @@ type CustomerFolder = {
   phone?: string | null;
   address?: string | null;
   sites: Site[];
+  site_count?: number;
   jobCountsBySite?: Record<string, number>;
 };
 
@@ -214,17 +218,27 @@ export default function Sites() {
   const navigate = useNavigate();
   const [navigationParams] = useSearchParams();
   const [sites, setSites] = useState<Site[]>([]);
-  const [buildingStats, setBuildingStats] = useState<Map<string, SiteStat>>(new Map());
-  useEffect(() => {
-    let cancelled = false;
-    setBuildingStats(new Map());
-    if (userRole === 'admin') void loadSiteStats(supabase).then(result => { if (!cancelled) setBuildingStats(result); }).catch(() => { /* No warning until counts are verified. */ });
-    return () => { cancelled = true; };
-  }, [sites, userRole]);
-  const buildingPairs = buildingDuplicatePairs(sites, buildingStats);
+  const [sitePageIds, setSitePageIds] = useState<string[]>([]);
+  const [siteMore, setSiteMore] = useState(false);
+  const [folderMore, setFolderMore] = useState(false);
+  const [unlinkedRows, setUnlinkedRows] = useState<Site[]>([]);
+  const [unlinkedMore, setUnlinkedMore] = useState(false);
+  const [unlinkedLoading, setUnlinkedLoading] = useState(false);
+  const [totals, setTotals] = useState<Record<string,number> | null>(null);
+  const [serverSearch, setServerSearch] = useState('');
+  const [serverUnlinkedSearch, setServerUnlinkedSearch] = useState('');
+  const [childPages, setChildPages] = useState<Record<string,{offset:number;more:boolean}>>({});
+  const [folderPages, setFolderPages] = useState<Record<string,{offset:number;more:boolean}>>({});
+  const [folderBusy, setFolderBusy] = useState<Record<string,boolean>>({});
+  const [duplicateContexts, setDuplicateContexts] = useState<Record<string,Site[]>>({});
+  const siteRequest = useRef(0);
+  const folderRequest = useRef(0);
+  const unlinkedRequest = useRef(0);
   const duplicateBuildingWarning = (site: Site) => {
-    const pair = buildingPairs.find(p => p.source.id === site.id);
-    return userRole === 'admin' && pair ? <BuildingDuplicateWarning source={pair.source} keep={pair.keep} onChanged={() => { void fetchSites(); void fetchCustomerFolders(); }} /> : null;
+    const rows=duplicateContexts[site.id] ?? [];
+    const counts=new Map(rows.map(row=>[row.id,{assets:row.asset_count ?? 0}]));
+    const pair=buildingDuplicatePairs(rows,counts).find(p=>p.source.id===site.id);
+    return userRole==='admin' && pair ? <BuildingDuplicateWarning source={pair.source} keep={pair.keep} onChanged={()=>{void fetchSites();void fetchCustomerFolders();setDuplicateContexts({});}}/> : null;
   };
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -649,20 +663,59 @@ export default function Sites() {
     return rows;
   }
 
-  const fetchSites = async () => {
+  const browserPage = async (mode:string, query='',offset=0,parent?:string,customer?:string,type?:string) => {
+    const {data,error}=await supabase.rpc('sites_browser_page',{_mode:mode,_search:query,_offset:offset,_parent:parent ?? undefined,_customer:customer ?? undefined,_type:type ?? undefined});
+    if(error) throw error;
+    return data as unknown as {rows:Site[];context:Site[]};
+  };
+  const refreshTotals = async () => {
+    const {data,error}=await supabase.rpc('sites_browser_page',{_mode:'totals'});
+    if(!error) setTotals(data as unknown as Record<string,number>);
+  };
+  const fetchSites = async (append=false) => {
+    const request=++siteRequest.current;
+    setLoading(true);
     try {
-      const allSites = await fetchAllPages<Site>((from, to) =>
-        supabase.from("sites").select("*").order("name").order("id").range(from, to)
-      );
-      setSites(allSites);
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to load sites.", variant: "destructive" });
-      setSites([]);
-    } finally {
-      setLoading(false);
+      const data=await browserPage('sites',serverSearch,append?sitePageIds.length:0,summaryRegionId ?? undefined,undefined,summaryType ?? undefined);
+      if(request!==siteRequest.current) return;
+      const page=visiblePage(data.rows ?? []);
+      setSiteMore(page.hasMore);
+      setSitePageIds(prev=>append?[...prev,...page.rows.map(s=>s.id)]:page.rows.map(s=>s.id));
+      setSites(prev=>mergeSiteRows(append?prev:[],[...(data.context ?? []),...page.rows]));
+      if(!append){setChildPages({});setDuplicateContexts({});void refreshTotals();}
+    } catch {toast({title:'Could not load sites',variant:'destructive'});} finally {if(request===siteRequest.current)setLoading(false);}
+  };
+  const fetchUnlinked = async (append=false) => {
+    const request=++unlinkedRequest.current;setUnlinkedLoading(true);
+    try {
+      const data=await browserPage('unlinked',serverUnlinkedSearch,append?unlinkedRows.length:0);
+      if(request!==unlinkedRequest.current)return;
+      const page=visiblePage(data.rows ?? []);setUnlinkedMore(page.hasMore);
+      setUnlinkedRows(prev=>append?mergeSiteRows(prev,page.rows):page.rows);
+    } catch {toast({title:'Could not load unlinked sites',variant:'destructive'});} finally {if(request===unlinkedRequest.current)setUnlinkedLoading(false);}
+  };
+  const loadChildren = async (id:string,append=false) => {
+    const offset=append?(childPages[id]?.offset ?? 0):0;
+    const data=await browserPage('children','',offset,id);
+    const page=visiblePage(data.rows ?? []);
+    setSites(prev=>mergeSiteRows(prev,[...(data.context ?? []),...page.rows]));
+    setChildPages(prev=>({...prev,[id]:{offset:offset+page.rows.length,more:page.hasMore}}));
+    if(userRole==='admin') for(const row of page.rows.filter(row=>row.site_type==='building')) {
+      setDuplicateContexts(prev=>({...prev,[row.id]:page.rows}));
     }
   };
-
+  const loadFolderSites = async (id:string,append=false) => {
+    setFolderBusy(prev=>({...prev,[id]:true}));
+    try {
+      const offset=append?(folderPages[id]?.offset ?? 0):0;
+      const data=await browserPage('folder',serverSearch,offset,undefined,id);
+      const page=visiblePage(data.rows ?? []);
+      setCustomerFolders(prev=>prev.map(f=>f.id===id?{...f,sites:mergeSiteRows(append?f.sites:[],[...(data.context ?? []).filter(row=>row.site_type!=='region'),...page.rows]),jobCountsBySite:Object.fromEntries(page.rows.map(row=>[row.id,row.job_count ?? 0]))}:f));
+      setFolderPages(prev=>({...prev,[id]:{offset:offset+page.rows.length,more:page.hasMore}}));
+      setSites(prev=>mergeSiteRows(prev,[...(data.context ?? []),...page.rows]));
+      for(const row of page.rows.filter(row=>row.site_type==='building'))setDuplicateContexts(prev=>({...prev,[row.id]:page.rows}));
+    } catch {toast({title:'Could not load customer sites',variant:'destructive'});} finally {setFolderBusy(prev=>({...prev,[id]:false}));}
+  };
   const handleDeleteAllUnlinked = async () => {
     setDeletingUnlinked(true);
     try {
@@ -698,113 +751,22 @@ export default function Sites() {
     }
   };
 
-  const fetchCustomerFolders = async (options?: {
-    ensureOpenFolderIds?: string[];
-    preserveCustomerScroll?: boolean;
-    preserveUnlinkedScroll?: boolean;
-    background?: boolean;
-  }) => {
-    const scrollY = window.scrollY;
-    const customerScrollTop = customerFoldersScrollRef.current?.scrollTop ?? 0;
-    const unlinkedScrollTop = unlinkedSitesScrollRef.current?.scrollTop ?? 0;
-    const shouldShowLoading = !options?.background;
-
-    if (shouldShowLoading) setFoldersLoading(true);
-
+  const fetchCustomerFolders = async (options?: {ensureOpenFolderIds?:string[];preserveCustomerScroll?:boolean;preserveUnlinkedScroll?:boolean;background?:boolean;append?:boolean}) => {
+    const request=++folderRequest.current;
+    setFoldersLoading(true);
     try {
-      const [customers, customerSiteLinks, allSites, jobsBySite] = await Promise.all([
-        fetchAllPages<any>((from, to) =>
-          supabase.from("customers").select("id, name, email, phone, address").order("name").order("id").range(from, to)
-        ),
-        fetchAllPages<any>((from, to) =>
-          supabase.from("customer_sites" as any).select("customer_id, site_id").order("customer_id").order("site_id").range(from, to)
-        ),
-        fetchAllPages<Site>((from, to) =>
-          supabase.from("sites").select("*").order("name").order("id").range(from, to)
-        ),
-        fetchAllPages<any>((from, to) =>
-          supabase.from("jobs").select("customer_id, site_id").not("customer_id", "is", null).not("site_id", "is", null).order("customer_id").order("site_id").range(from, to)
-        ),
-      ]);
-
-      const siteMap = new Map<string, Site>(allSites.map((s) => [s.id, s]));
-      const customerSiteMap = new Map<string, Set<string>>();
-      for (const link of customerSiteLinks || []) {
-        if (!link.customer_id || !link.site_id) continue;
-        if (!customerSiteMap.has(link.customer_id)) customerSiteMap.set(link.customer_id, new Set());
-        customerSiteMap.get(link.customer_id)!.add(link.site_id);
+      const data=await browserPage('customers',serverSearch,options?.append?customerFolders.length:0);
+      if(request!==folderRequest.current)return;
+      const page=visiblePage((data.rows ?? []) as unknown as CustomerFolder[]);
+      setFolderMore(page.hasMore);
+      setCustomerFolders(prev=>options?.append?mergeSiteRows(prev,page.rows.map(row=>({...row,sites:[]}))):page.rows.map(row=>({...row,sites:[]})));
+      if(!options?.append) {
+        setFolderPages({});setOpenFolders(options?.ensureOpenFolderIds ?? []);
+        for(const id of options?.ensureOpenFolderIds ?? [])void loadFolderSites(id);
+        void refreshTotals();void fetchUnlinked();
       }
-      const jobCountMap = new Map<string, Map<string, number>>();
-      for (const job of jobsBySite || []) {
-        if (!job.customer_id || !job.site_id) continue;
-        if (!jobCountMap.has(job.customer_id)) jobCountMap.set(job.customer_id, new Map());
-        const sc = jobCountMap.get(job.customer_id)!;
-        sc.set(job.site_id, (sc.get(job.site_id) || 0) + 1);
-      }
-      const folders: CustomerFolder[] = customers.map((c) => {
-        const linkedSiteIds = [...(customerSiteMap.get(c.id) || [])];
-        const linkedSites = linkedSiteIds.map((sid) => siteMap.get(sid)).filter(Boolean) as Site[];
-        const linkedSiteIdSet = new Set(linkedSiteIds);
-        const extraChildren = allSites.filter(
-          (s) => s.parent_id && linkedSiteIdSet.has(s.parent_id) && !linkedSiteIdSet.has(s.id)
-        );
-        const allSitesForFolder = [...linkedSites, ...extraChildren];
-        return {
-          id: c.id,
-          name: c.name,
-          email: c.email,
-          phone: c.phone,
-          address: c.address,
-          sites: allSitesForFolder,
-          jobCountsBySite: Object.fromEntries(jobCountMap.get(c.id) || new Map()),
-        };
-      });
-      setCustomerFolders(folders);
-      setOpenFolders((prev) => {
-        const validFolderIds = new Set(folders.map((f) => f.id));
-        const next = prev.length > 0 ? prev.filter((id) => validFolderIds.has(id)) : [];
-
-        for (const folderId of options?.ensureOpenFolderIds || []) {
-          if (validFolderIds.has(folderId) && !next.includes(folderId)) next.push(folderId);
-        }
-
-        return next;
-      });
-      const autoCollapsed = new Set<string>();
-      for (const folder of folders) {
-        const childCountBySite = new Map<string, number>();
-        for (const s of folder.sites) {
-          if (s.parent_id && folder.sites.some((p) => p.id === s.parent_id)) {
-            childCountBySite.set(s.parent_id, (childCountBySite.get(s.parent_id) || 0) + 1);
-          }
-        }
-        for (const [siteId, count] of childCountBySite.entries()) {
-          if (count > 2) autoCollapsed.add(siteId);
-        }
-      }
-      setCollapsedSites((prev) => {
-        const validIds = new Set(folders.flatMap((folder) => folder.sites.map((site) => site.id)));
-        const next = new Set([...prev].filter((id) => validIds.has(id)));
-        autoCollapsed.forEach((id) => next.add(id));
-        return next;
-      });
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to load customer folders.", variant: "destructive" });
-      setCustomerFolders([]);
-    } finally {
-      if (shouldShowLoading) setFoldersLoading(false);
-      requestAnimationFrame(() => {
-        window.scrollTo(0, scrollY);
-        if (options?.preserveCustomerScroll && customerFoldersScrollRef.current) {
-          customerFoldersScrollRef.current.scrollTop = customerScrollTop;
-        }
-        if (options?.preserveUnlinkedScroll && unlinkedSitesScrollRef.current) {
-          unlinkedSitesScrollRef.current.scrollTop = unlinkedScrollTop;
-        }
-      });
-    }
+    } catch {toast({title:'Could not load customers',variant:'destructive'});} finally {if(request===folderRequest.current)setFoldersLoading(false);}
   };
-
   const handleDeleteCustomer = async (customerId: string) => {
     setDeleteCustomerId(null);
     setExitingFolderIds((prev) => new Set([...prev, customerId]));
@@ -852,25 +814,21 @@ export default function Sites() {
     }
   };
 
-  useEffect(() => {
-    fetchSites();
-    fetchCustomerFolders();
-    supabase.from("customers").select("id, name").order("name").then(({ data }) => setAllCustomers(data || []));
-  }, []);
-
-  const toggle = (id: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+  useEffect(()=>{const timer=setTimeout(()=>setServerSearch(search.trim()),SITES_SEARCH_DELAY);return()=>clearTimeout(timer);},[search]);
+  useEffect(()=>{const timer=setTimeout(()=>setServerUnlinkedSearch(unlinkedSearch.trim()),SITES_SEARCH_DELAY);return()=>clearTimeout(timer);},[unlinkedSearch]);
+  useEffect(()=>{if(userRole)void fetchSites();},[serverSearch,summaryType,summaryRegionId,userRole]);
+  useEffect(()=>{if(userRole && activeTab==='by-customer')void fetchCustomerFolders();},[serverSearch,activeTab,userRole]);
+  useEffect(()=>{if(userRole && activeTab==='by-customer')void fetchUnlinked();},[serverUnlinkedSearch,activeTab,userRole]);
+  useEffect(()=>{for(const id of openFolders)if(!folderPages[id] && !folderBusy[id])void loadFolderSites(id);},[openFolders]);
+  useEffect(()=>{if(!quickAssignSite && !moveSitesOpen)return;void supabase.from('customers').select('id,name').order('name').limit(50).then(({data})=>setAllCustomers(data ?? []));},[quickAssignSite,moveSitesOpen]);
+  const toggle = (id:string) => {
+    if(!expanded.has(id) && !childPages[id])void loadChildren(id).catch(()=>toast({title:'Could not load buildings',variant:'destructive'}));
+    setExpanded(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next;});
   };
 
   const getChildren = (parentId: string | null) => sites.filter((s) => s.parent_id === parentId);
 
-  const filteredRoots = search.trim()
-    ? fuzzyFilter(sites, search, (s) => [s.name, s.address, s.postcode])
-    : sites.filter((s) => s.site_type !== "region" && (!s.parent_id || !sites.some((p) => p.id === s.parent_id && p.site_type !== "region")));
+  const filteredRoots = sitePageIds.map(id=>sites.find(s=>s.id===id)).filter((s):s is Site=>!!s);
 
   const openCreate = (parentId: string | null = null, type: string = "region") => {
     setEditing(null);
@@ -987,11 +945,10 @@ export default function Sites() {
     }, 260);
   };
 
-  const summarySites = filteredSummarySites(sites, search, customerFolders);
-  const counts = siteSummaryCounts(summarySites);
-  const summaryRegion = sites.find(site => site.id === summaryRegionId);
-  const summaryList = summarySites.filter(site => site.site_type === (summaryRegionId ? 'site' : summaryType)
-    && (!summaryRegionId || siteAncestors(site, sites).some(parent => parent.id === summaryRegionId)));
+  const summarySites = filteredRoots;
+  const counts = totals ?? {region:0,site:0,building:0,zone:0};
+  const summaryRegion = sites.find(site=>site.id===summaryRegionId);
+  const summaryList = filteredRoots;
 
   const getSiteBreadcrumb = (s: Site): string[] => {
     const parts: string[] = [s.name];
@@ -1007,6 +964,7 @@ export default function Sites() {
 
   const renderTreeRow = (site: Site, depth: number): React.ReactNode => {
     const children = getChildren(site.id);
+    const childCount = site.child_count ?? children.length;
     const isExpanded = expanded.has(site.id);
     const config = TYPE_CONFIG[site.site_type];
     const Icon = config?.icon || MapPin;
@@ -1028,12 +986,12 @@ export default function Sites() {
         <div
           className={`flex flex-wrap items-center gap-2 py-2 px-3 border-b border-border/50 hover:bg-muted/50 transition-all duration-200 cursor-pointer ${selected.has(site.id) ? "bg-primary/5" : ""} ${isHighlighted ? "ring-2 ring-inset ring-primary/60 bg-primary/5" : ""}`}
           style={{ paddingLeft: `${depth * 24 + 12}px` }}
-          onClick={() => { if (children.length > 0) toggle(site.id); }}
+          onClick={() => { if (childCount > 0) toggle(site.id); }}
         >
           {userRole === "admin" && (
             <input type="checkbox" checked={selected.has(site.id)} onChange={() => toggleSelect(site.id)} className="h-4 w-4 shrink-0 rounded border-input accent-primary cursor-pointer" onClick={(e) => e.stopPropagation()} />
           )}
-          {children.length > 0 ? (
+          {childCount > 0 ? (
             <button type="button" onClick={(e) => { e.stopPropagation(); toggle(site.id); }} className="shrink-0">
               {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
             </button>
@@ -1062,9 +1020,9 @@ export default function Sites() {
             )}
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="font-medium text-sm truncate">{site.name}</span>
-              {children.length > 0 && (
+              {childCount > 0 && (
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0 bg-muted text-muted-foreground">
-                  {children.length} {childType || "building"}{children.length !== 1 ? "s" : ""}
+                  {childCount} {childType || "building"}{childCount !== 1 ? "s" : ""}
                 </Badge>
               )}
             </div>
@@ -1089,6 +1047,7 @@ export default function Sites() {
           )}
         </div>
         {isExpanded && children.map((child) => renderTreeRow(child, depth + 1))}
+        {isExpanded && childPages[site.id]?.more && <Button variant="outline" onClick={()=>void loadChildren(site.id,true)}>Load more buildings</Button>}
       </div>
     );
   };
@@ -1123,7 +1082,7 @@ export default function Sites() {
               className={`h-auto min-h-24 w-full justify-start whitespace-normal bg-card p-4 text-left cursor-pointer hover:bg-muted hover:text-foreground hover:shadow-sm ${summaryType === key ? 'ring-2 ring-primary border-primary' : 'border-border'}`}>
                 <Icon className={`h-5 w-5 ${cfg.color}`} />
                 <div>
-                  <p className="text-2xl font-bold">{counts[key as keyof typeof counts]}</p>
+                  <p className="text-2xl font-bold">{totals ? counts[key as keyof typeof counts] : '—'}</p>
                   <p className="text-xs text-muted-foreground">{cfg.label}s</p>
                 </div>
             </Button>
@@ -1143,7 +1102,7 @@ export default function Sites() {
             <h2 className="font-semibold">{summaryRegion ? `${summaryRegion.name} — Sites` : `${TYPE_CONFIG[summaryType].label}s`}</h2>
             <Button variant="ghost" size="sm" onClick={() => { setSummaryType(null); setSummaryRegionId(null); }}><X className="h-4 w-4" />Clear</Button>
           </div>
-          {loading || foldersLoading ? <p className="py-8 text-center text-muted-foreground">Loading...</p> : summaryList.length === 0 ? (
+          {loading && summaryList.length===0 ? <p className="py-8 text-center text-muted-foreground">Loading...</p> : summaryList.length === 0 ? (
             <div className="py-8 text-center space-y-3">
               <p className="text-sm text-muted-foreground">{summaryType === 'zone' ? (search.trim() ? 'No zones match your search.' : 'No zones yet') : `No ${summaryRegionId ? 'sites' : `${TYPE_CONFIG[summaryType].label.toLowerCase()}s`}${search.trim() ? ' match your search.' : ' yet.'}`}</p>
               {summaryType === 'zone' && userRole === 'admin' && <Button onClick={() => openCreate(null, 'zone')}><Plus className="h-4 w-4" />Add a zone</Button>}
@@ -1168,6 +1127,7 @@ export default function Sites() {
               })}
             </div>
           )}
+          <div className="h-14"><Button variant="outline" disabled={loading || !siteMore} onClick={()=>void fetchSites(true)}>{loading?"Loading…":"Load more"}</Button></div>
         </section>
       )}
       <Tabs value={activeTab} onValueChange={setActiveTab} className={summaryType ? 'hidden' : undefined}>
@@ -1184,27 +1144,29 @@ export default function Sites() {
             </div>
           )}
           <Card>
-            <CardContent className="p-0">
+            <CardContent className="p-0 min-h-[420px]">
               {!loading && filteredRoots.length > 0 && userRole === "admin" && (
                 <div className="flex items-center gap-2 py-2 px-3 border-b border-border">
                   <input type="checkbox" checked={selected.size === sites.length && sites.length > 0} onChange={toggleSelectAll} className="h-4 w-4 shrink-0 rounded border-input accent-primary cursor-pointer" />
                   <span className="text-xs text-muted-foreground">{selected.size > 0 ? `${selected.size} of ${sites.length} selected` : "Select all"}</span>
                 </div>
               )}
-              {loading ? (
+              {loading && filteredRoots.length===0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">Loading...</p>
               ) : filteredRoots.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">{search ? "No sites match your search." : "No sites yet. Add a region to get started."}</p>
               ) : (
-                <div>{filteredRoots.map((site) => renderTreeRow(site, 0))}</div>
+                <div aria-busy={loading}>{filteredRoots.map((site) => renderTreeRow(site, 0))}</div>
               )}
             </CardContent>
           </Card>
+          <div className="h-14 flex items-center justify-center"><Button variant="outline" disabled={loading || !siteMore} onClick={()=>void fetchSites(true)}>{loading?"Loading…":siteMore?"Load more sites":"All matches loaded"}</Button></div>
         </TabsContent>
 
         {/* By Customer Tab */}
         <TabsContent value="by-customer" className="mt-4">
-          {!foldersLoading && customerFolders.length > 0 && (
+          {(
+
             <div className="flex justify-between items-center mb-2 gap-2">
               <div data-assistant-target="Merge customers" className="flex flex-wrap items-center gap-2">
                 <Select value={folderSort} onValueChange={(v) => setFolderSort(v as any)}>
@@ -1233,7 +1195,7 @@ export default function Sites() {
                         <Button variant="outline" size="sm" className="h-7 text-xs" disabled={pickedCustomers.size < 2}
                           onClick={() => {
                             const picked = customerFolders.filter((f) => pickedCustomers.has(f.id));
-                            setMergeKeepId([...picked].sort((a, b) => b.sites.length - a.sites.length)[0]?.id || "");
+                            setMergeKeepId([...picked].sort((a, b) => (b.site_count ?? 0) - (a.site_count ?? 0))[0]?.id || "");
                             setCustMergeOpen(true);
                           }}>
                           <Combine className="mr-1 h-3 w-3" /> Merge customers
@@ -1260,22 +1222,21 @@ export default function Sites() {
               </Button>
             </div>
           )}
-          {foldersLoading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Loading...</p>
-          ) : (
+          {(
+
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} autoScroll={autoScrollOptions}>
               <div className="flex gap-4 items-start">
                 {/* Customer folders */}
                 <div
                   ref={customerFoldersScrollRef}
-                  className="flex-1 min-w-0 space-y-2 max-h-[75vh] overflow-y-auto pr-1 focus:outline-none"
+                  className="flex-1 min-w-0 space-y-2 min-h-[420px] max-h-[75vh] overflow-y-auto pr-1 focus:outline-none"
                   tabIndex={0}
                   onKeyDown={(e) => {
                     const visibleFolders = customerFolders
-                      .filter((f) => !search.trim() || f.name.toLowerCase().includes(search.toLowerCase()) || f.sites.some((s) => s.name.toLowerCase().includes(search.toLowerCase())))
+                      .filter(() => true)
                       .sort((a, b) => {
-                        if (folderSort === "sites-desc") return b.sites.length - a.sites.length;
-                        if (folderSort === "sites-asc") return a.sites.length - b.sites.length;
+                        if (folderSort === "sites-desc") return (b.site_count ?? 0) - (a.site_count ?? 0);
+                        if (folderSort === "sites-asc") return (a.site_count ?? 0) - (b.site_count ?? 0);
                         return a.name.localeCompare(b.name);
                       });
                     if (visibleFolders.length === 0) return;
@@ -1303,10 +1264,10 @@ export default function Sites() {
                   ) : (
                     <Accordion type="multiple" value={openFolders} onValueChange={setOpenFolders} className="space-y-2">
                       {customerFolders
-                        .filter((f) => !search.trim() || f.name.toLowerCase().includes(search.toLowerCase()) || f.sites.some((s) => s.name.toLowerCase().includes(search.toLowerCase())))
+                        .filter(() => true)
                         .sort((a, b) => {
-                          if (folderSort === "sites-desc") return b.sites.length - a.sites.length;
-                          if (folderSort === "sites-asc") return a.sites.length - b.sites.length;
+                          if (folderSort === "sites-desc") return (b.site_count ?? 0) - (a.site_count ?? 0);
+                          if (folderSort === "sites-asc") return (a.site_count ?? 0) - (b.site_count ?? 0);
                           return a.name.localeCompare(b.name);
                         })
                         .map((folder, idx) => (
@@ -1329,7 +1290,7 @@ export default function Sites() {
                                     {(() => {
                                       const parents = folder.sites.filter((s) => !s.parent_id || !folder.sites.some((p) => p.id === s.parent_id));
                                       const childCount = folder.sites.length - parents.length;
-                                      return `${parents.length} site${parents.length !== 1 ? "s" : ""}${childCount > 0 ? ` · ${childCount} building${childCount !== 1 ? "s" : ""}` : ""}`;
+                                      return `${folder.site_count ?? parents.length} sites`;
                                     })()}
                                   </Badge>
                                    {userRole === "admin" && (
@@ -1346,7 +1307,7 @@ export default function Sites() {
                                 </div>
                               </AccordionTrigger>
                               <AccordionContent className="px-0 pb-0">
-                                {folder.sites.length === 0 ? (
+                                {folderBusy[folder.id] && folder.sites.length===0 ? <div className="h-48 flex items-center justify-center text-muted-foreground">Loading sites…</div> : folder.sites.length === 0 ? (
                                   <div className={`px-4 py-6 text-center rounded-b-lg border-t border-dashed transition-colors ${dragOverFolderId === folder.id ? "bg-primary/5 border-primary/40 text-primary" : "border-muted-foreground/30 text-muted-foreground"}`}>
                                     <p className="text-sm">Drop a site here to link it</p>
                                   </div>
@@ -1572,22 +1533,20 @@ export default function Sites() {
                                     </div>
                                   );
                                 })()}
+                                <div className="h-12 flex items-center justify-center"><Button variant="outline" size="sm" disabled={folderBusy[folder.id] || !folderPages[folder.id]?.more} onClick={()=>void loadFolderSites(folder.id,true)}>{folderBusy[folder.id]?"Loading…":"Load more sites"}</Button></div>
                               </AccordionContent>
                             </AccordionItem>
                           </DroppableCustomerFolder>
                         ))}
                     </Accordion>
                   )}
+                  <div className="h-14 flex items-center justify-center"><Button variant="outline" disabled={foldersLoading || !folderMore} onClick={()=>void fetchCustomerFolders({append:true})}>{foldersLoading?"Loading…":folderMore?"Load more customers":"All matches loaded"}</Button></div>
                 </div>
 
                 {/* Draggable site chips panel */}
                 {(() => {
-                  const linkedSiteIds = new Set(customerFolders.flatMap((f) => f.sites.map((s) => s.id)));
-                  const allUnlinked = sites
-                    .filter((s) => s.site_type !== "region" && !s.parent_id)
-                    .filter((s) => !linkedSiteIds.has(s.id));
-                  const filteredUnlinked = allUnlinked
-                    .filter((s) => !unlinkedSearch.trim() || s.name.toLowerCase().includes(unlinkedSearch.toLowerCase()) || s.postcode?.toLowerCase().includes(unlinkedSearch.toLowerCase()));
+                  const allUnlinked=unlinkedRows;
+                  const filteredUnlinked=unlinkedRows;
                   return (
                     <DroppableUnlinkedZone isOver={dragOverUnlinked} isDragging={!!(activeDragSite || activeDragCustomer)}>
                     <div className={`shrink-0 space-y-2 transition-all ${unlinkedExpanded ? "w-96" : "w-72"}`}>
@@ -1605,12 +1564,12 @@ export default function Sites() {
                             <TooltipTrigger asChild>
                               <span className="inline-flex">
                                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0 cursor-help">
-                                  {allUnlinked.length} unlinked
+                                  {totals?.unlinked ?? "—"} unlinked
                                 </Badge>
                               </span>
                             </TooltipTrigger>
                             <TooltipContent side="left" className="max-w-xs max-h-64 overflow-y-auto">
-                              <p className="font-semibold text-xs mb-1">{allUnlinked.length} unlinked sites</p>
+                              <p className="font-semibold text-xs mb-1">{totals?.unlinked ?? "—"} unlinked sites</p>
                               {allUnlinked.length === 0 ? (
                                 <p className="text-xs text-muted-foreground">All sites are linked to customers.</p>
                               ) : (
@@ -1640,7 +1599,7 @@ export default function Sites() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete all unlinked sites?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  This will permanently delete all {allUnlinked.length} unlinked sites that have no children or jobs. This action cannot be undone.
+                                  This will permanently delete all {totals?.unlinked ?? "—"} unlinked sites that have no children or jobs. This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <div className="space-y-2 py-2">
@@ -1668,7 +1627,8 @@ export default function Sites() {
                           </AlertDialog>
                         )}
                       </div>
-                      {allUnlinked.length > 5 && (
+                      {(
+
                         <div className="relative px-1">
                           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                           <Input
@@ -1681,7 +1641,7 @@ export default function Sites() {
                       )}
                       <div
                         ref={unlinkedSitesScrollRef}
-                        className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1 focus:outline-none"
+                        className="space-y-1.5 min-h-[420px] max-h-[70vh] overflow-y-auto pr-1 focus:outline-none"
                         tabIndex={0}
                         onKeyDown={(e) => {
                           if (filteredUnlinked.length === 0) return;
@@ -1706,10 +1666,13 @@ export default function Sites() {
                           filteredUnlinked.map((site, idx) => (
                             <div key={site.id} className={`rounded-md ${focusedUnlinkedIndex === idx ? "ring-2 ring-primary/50" : ""}`}>
                               <DraggableSiteChip site={site} typeConfig={TYPE_CONFIG} onAssign={(s) => { setQuickAssignSite(s); setQuickAssignCustomerId(""); }} onDelete={async (s) => {
-                                const children = sites.filter((c) => c.parent_id === s.id);
+                                const {count:childCount,error:childError}=await supabase.from("sites").select("id",{count:"exact",head:true}).eq("parent_id",s.id);
+                                if(childError)throw childError;
+                                const children=Array(childCount ?? 0);
                                 if (children.length > 0) { toast({ title: "Cannot delete", description: "This site has children. Remove them first.", variant: "destructive" }); return; }
-                                const { data: jobs } = await supabase.from("jobs").select("id", { count: "exact", head: true }).eq("site_id", s.id);
-                                if ((jobs as any)?.length > 0) { toast({ title: "Cannot delete", description: "This site has associated jobs.", variant: "destructive" }); return; }
+                                const {count:jobCount,error:jobError}=await supabase.from("jobs").select("id",{count:"exact",head:true}).eq("site_id",s.id);
+                                if(jobError)throw jobError;
+                                if ((jobCount ?? 0) > 0) { toast({ title: "Cannot delete", description: "This site has associated jobs.", variant: "destructive" }); return; }
                                 const { error } = await supabase.from("sites").delete().eq("id", s.id);
                                 if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
                                 setSites((prev) => prev.filter((x) => x.id !== s.id));
@@ -1719,6 +1682,7 @@ export default function Sites() {
                           ))
                         )}
                       </div>
+                      <div className="h-12"><Button variant="outline" size="sm" disabled={unlinkedLoading || !unlinkedMore} onClick={()=>void fetchUnlinked(true)}>{unlinkedLoading?"Loading…":"Load more sites"}</Button></div>
                     </div>
                     </DroppableUnlinkedZone>
                   );
