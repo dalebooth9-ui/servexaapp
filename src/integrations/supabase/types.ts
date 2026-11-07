@@ -8863,6 +8863,58 @@ export type Database = {
           },
         ]
       }
+      riser_label_reprints: {
+        Row: {
+          asset_id: string
+          created_at: string
+          id: string
+          labels: Json
+          org_id: string
+          printed_by: string
+          printed_by_name: string
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          id?: string
+          labels: Json
+          org_id: string
+          printed_by: string
+          printed_by_name: string
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          id?: string
+          labels?: Json
+          org_id?: string
+          printed_by?: string
+          printed_by_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "riser_label_reprints_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "riser_label_reprints_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "riser_label_reprints_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       riser_outlet_scans: {
         Row: {
           asset_id: string
@@ -11882,6 +11934,7 @@ export type Database = {
       is_org_active: { Args: { _org_id: string }; Returns: boolean }
       is_org_admin: { Args: { _org_id: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
+      log_riser_label_reprints: { Args: { _labels: Json }; Returns: number }
       lookup_asset_by_tag: {
         Args: { _tag: string }
         Returns: {

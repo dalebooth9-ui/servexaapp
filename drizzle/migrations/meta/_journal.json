@@ -372,6 +372,13 @@
       "when": 1794044811384,
       "tag": "0052_asset_duplicate_lock_and_alias_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1794048484746,
+      "tag": "0053_riser_label_reprint_audit",
+      "breakpoints": true
     }
   ]
 }
