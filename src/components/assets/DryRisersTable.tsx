@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import PrintQrLabels from './PrintQrLabels';
 
 interface Row {
   id: string; asset_tag: string | null; riser_location: string | null; outlets_count: number | null;
@@ -85,10 +86,11 @@ export default function DryRisersTable() {
             <TableRow>
               <TableHead>Tag</TableHead><TableHead>Type</TableHead><TableHead>Site</TableHead><TableHead>Riser location</TableHead>
               <TableHead className="w-28">Outlets</TableHead><TableHead>Status</TableHead><TableHead>Last inspection</TableHead><TableHead>Sticker</TableHead>
+              <TableHead>Labels</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {shown.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">No risers match.</TableCell></TableRow>}
+            {shown.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">No risers match.</TableCell></TableRow>}
             {shown.map((r) => (
               <TableRow key={r.id}>
                 <TableCell><Link to={`/assets/${r.id}`} className="font-mono text-primary hover:underline">{r.asset_tag || "—"}</Link></TableCell>
@@ -108,6 +110,7 @@ export default function DryRisersTable() {
                   {r.last_inspection_result ? ` · ${r.last_inspection_result}` : ""}
                 </TableCell>
                 <TableCell className="text-xs capitalize">{(r as any).label_status || "none"}</TableCell>
+                <TableCell><PrintQrLabels assetId={r.id} /></TableCell>
               </TableRow>
             ))}
           </TableBody>

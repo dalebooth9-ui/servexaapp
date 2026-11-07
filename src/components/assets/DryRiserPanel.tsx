@@ -1,4 +1,7 @@
 import OutletResults from "./OutletResults";
+import PrintQrLabels from './PrintQrLabels';
+import RiserQrRows from './RiserQrRows';
+import RiserReprintHistory from './RiserReprintHistory';
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,6 +51,8 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
   const [others, setOthers] = useState<{ id: string; asset_tag: string | null; riser_location: string | null }[]>([]);
   const [mergeId, setMergeId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [reprintRevision, setReprintRevision] = useState(0);
+  const onPrinted = () => setReprintRevision(r => r + 1);
 
   const load = async () => {
     const [{ data: asset }, { data: h }, { data: d }] = await Promise.all([
@@ -111,6 +116,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
             {isAdmin && (
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="outline" onClick={openEdit}><Pencil className="h-4 w-4 mr-1.5" />Edit</Button>
+                <PrintQrLabels assetId={a.id} onPrinted={onPrinted} />
                 <Button size="sm" variant="outline" onClick={openMove}><MoveRight className="h-4 w-4 mr-1.5" />Move site</Button>
                 <Button size="sm" variant="outline" onClick={openMerge}><Merge className="h-4 w-4 mr-1.5" />Merge duplicate</Button>
                 {riserTypeOf(a) === 'Dry Riser' && <ServicingControl table="assets" id={a.id}/>}
@@ -134,6 +140,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
         </TabsList>
         <TabsContent value="history">
           <Card><CardContent className="p-0">
+            <RiserReprintHistory assetId={assetId} revision={reprintRevision} />
             {history.length === 0 ? <p className="p-4 text-sm text-muted-foreground">No history yet.</p> : (
               <ul className="divide-y">
                 {history.map((h) => (
@@ -157,7 +164,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
           </CardContent></Card>
         </TabsContent>
         <TabsContent value="outlets">
-          <Card><CardContent className="p-3"><OutletResults assetId={assetId} /></CardContent></Card>
+          <Card><CardContent className="p-3"><RiserQrRows assetId={assetId} onPrinted={onPrinted} /><OutletResults assetId={assetId} /></CardContent></Card>
         </TabsContent>
         <TabsContent value="defects">
           <Card><CardContent className="p-0">

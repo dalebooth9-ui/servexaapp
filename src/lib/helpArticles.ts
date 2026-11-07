@@ -38,6 +38,7 @@ const RULES: SlugRule[] = [
   { test: (p) => p === '/assets/duplicates', slug: 'assets.duplicates' },
   { test: (p) => p.startsWith("/r/"), slug: "assets.stickers" },
   { test: (p) => p === '/riser-scan-service', slug: 'assets.stickers' },
+  // Asset guide includes existing-code-only Print QR labels, outlet QR rows and reprint history.
   { test: (p) => p.startsWith("/assets/"), slug: "assets.detail" },
   { test: (p) => p === "/engineers", slug: "engineers" },
   { test: (p) => p === "/planner", slug: "planner" },
