@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { FLAG_LABELS, breakUsed, fmtHM, londonDate, londonTime, timesheetCsv, workedMinutes } from "@/lib/vanClock";
+import { FLAG_LABELS, breakUsed, fmtHM, londonDate, londonTime, payrollDailyCsv, payrollWeeklyCsv, workedMinutes } from "@/lib/vanClock";
 
 type Entry = { id: string; user_id: string; clock_in_at: string; clock_out_at: string | null; break_minutes: number; total_minutes: number | null; van_id: string | null; flags: string[]; missing_finish: boolean; recorded_offline: boolean; break_started_at: string | null };
 type Person = { user_id: string; full_name: string | null };
@@ -38,6 +38,7 @@ export default function Timesheets() {
   const [corrections, setCorrections] = useState<any[]>([]);
   const [edits, setEdits] = useState<Record<string, any[]>>({});
   const [stdBreak, setStdBreak] = useState(0);
+  const [empIds, setEmpIds] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<Entry | null>(null);
   const [form, setForm] = useState({ start: "", finish: "", brk: 0, reason: "" });
   const [loading, setLoading] = useState(true);
@@ -58,6 +59,8 @@ export default function Timesheets() {
     const list = ((e.data as Entry[]) || []).filter((x) => days.includes(londonDate(x.clock_in_at)));
     setEntries(list);
     setStdBreak(s.data?.standard_break_minutes ?? 0);
+    const { data: ids } = await supabase.from("payroll_employee_ids").select("user_id, employee_id");
+    setEmpIds(Object.fromEntries(((ids as any[]) || []).map((x) => [x.user_id, x.employee_id])));
     setVans(Object.fromEntries(((v.data as any[]) || []).map((x) => [x.id, x.name])));
     setApprovals(Object.fromEntries(((a.data as any[]) || []).map((x) => [x.user_id, x.approved_at])));
     setCorrections((c.data as any[]) || []);
@@ -98,18 +101,34 @@ export default function Timesheets() {
     const { data: u } = await supabase.auth.getUser();
     await supabase.from("time_clock_corrections").update({ status: "resolved", resolved_at: new Date().toISOString(), resolved_by: u.user?.id }).eq("id", id); load();
   };
-  const exportCsv = () => {
-    const rows = entries.filter((e) => approvals[e.user_id] && (filter === "all" || e.user_id === filter)).map((e) => ({ employee: name(e.user_id), entry: e }));
-    if (!rows.length) return toast.error("No approved timesheets this week to export");
-    const blob = new Blob([timesheetCsv(rows, stdBreak)], { type: "text/csv" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `timesheets-${ws}.csv`; a.click();
+  const saveEmpId = async (uid: string, value: string) => {
+    const v = value.trim();
+    if ((empIds[uid] || "") === v) return;
+    const { error } = v
+      ? await supabase.from("payroll_employee_ids").upsert({ user_id: uid, employee_id: v } as any, { onConflict: "org_id,user_id" })
+      : await supabase.from("payroll_employee_ids").delete().eq("user_id", uid);
+    if (error) return toast.error(error.message);
+    setEmpIds({ ...empIds, [uid]: v }); toast.success("Employee ID saved");
+  };
+  const download = (csv: string, file: string) => {
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = file; a.click();
+  };
+  const approvedRows = () => entries.filter((e) => approvals[e.user_id] && (filter === "all" || e.user_id === filter)).map((e) => ({ employee: name(e.user_id), employeeId: empIds[e.user_id] || "", entry: e }));
+  const exportDaily = () => {
+    const rows = approvedRows(); if (!rows.length) toast.info("No approved weeks yet — file has headers only");
+    download(payrollDailyCsv(rows, stdBreak), `payroll-daily-${ws}.csv`);
+  };
+  const exportWeekly = () => {
+    const rows = approvedRows(); if (!rows.length) toast.info("No approved weeks yet — file has headers only");
+    download(payrollWeeklyCsv(rows, ws, stdBreak), `payroll-weekly-summary-${ws}.csv`);
   };
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div><h1 className="text-2xl font-bold">Timesheets</h1><p className="text-sm text-muted-foreground">Hours from van QR scans and Start/Finish day buttons. Hours only.</p></div>
-        <Button onClick={exportCsv} data-assistant-target="Export timesheets"><Download className="mr-2 h-4 w-4" />Export approved (CSV / Excel)</Button>
+        <div className="flex flex-wrap gap-2" data-assistant-target="Export timesheets"><Button onClick={exportDaily}><Download className="mr-2 h-4 w-4" />Payroll export (daily)</Button><Button variant="outline" onClick={exportWeekly}><Download className="mr-2 h-4 w-4" />Weekly summary</Button></div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="Previous week"><ChevronLeft className="h-4 w-4" /></Button>
@@ -137,7 +156,7 @@ export default function Timesheets() {
         return (
           <Card key={uid}>
             <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-              <CardTitle className="text-base">{name(uid)} · <span className="text-primary">{fmtHM(total)}</span></CardTitle>
+              <div className="flex flex-wrap items-center gap-2"><CardTitle className="text-base">{name(uid)} · <span className="text-primary">{fmtHM(total)}</span></CardTitle><Input key={`${uid}-${empIds[uid] || ""}`} defaultValue={empIds[uid] || ""} placeholder="Employee ID (Xero)" aria-label="Employee ID" className="h-8 w-40" onBlur={(e) => saveEmpId(uid, e.target.value)} /></div>
               {approvals[uid]
                 ? <div className="flex items-center gap-2"><Badge variant="secondary"><CheckCircle2 className="mr-1 h-3 w-3" />Approved {format(new Date(approvals[uid]), "dd/MM HH:mm")}</Badge><Button size="sm" variant="ghost" onClick={() => approve(uid, false)}>Undo</Button></div>
                 : <Button size="sm" onClick={() => approve(uid, true)}>Approve week</Button>}
