@@ -21,6 +21,7 @@
 .public-navy .workflow-shot { box-shadow: 0 16px 48px hsl(var(--accent) / .13); border: 1px solid hsl(var(--sidebar-primary-foreground) / .18); }
 .public-navy .workflow-illustration { background: hsl(var(--sidebar-accent)); border-color: hsl(var(--sidebar-border)); color: hsl(var(--foreground)); }
 .public-navy .illustration-eyebrow,.public-navy .illustration-status { color: hsl(var(--sidebar-foreground)); }
+.qr-product-visual { position: relative; padding: 0 20px 62px; max-width: 480px; margin-inline: auto; }.outlet-screen { max-width: 390px; margin-inline: auto; }.sticker-screen { position: absolute; width: 100%; left: 0; bottom: 0; padding: 8px; background: hsl(var(--card)); transform: rotate(-3deg); }
 .public-hero { padding: 32px 24px 24px; }
 .public-hero h1 { font-size: 44px; line-height: 1.1; }
 .product-devices { position: relative; width: min(100%, 560px); margin: 24px auto 0; padding: 0 38px 14px 0; }

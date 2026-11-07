@@ -12,7 +12,8 @@ type SlugRule = {
 const RULES: SlugRule[] = [
   { test: (p) => p === '/assistant-shortcuts', slug: 'assistant.shortcuts' },
   // Signed-in root retains dashboard guidance; the signed-out public presentation
-  // is documented separately in public-landing, without changing app navigation.
+  // is documented separately in public-landing (navy/white workflow bands,
+  // real sample-data outlet/sticker visuals, orange CTAs; unfinished founder copy hidden).
   { test: (p) => p === "/", slug: "dashboard" },
   { test: (p) => p === "/admin/error-log", slug: "error-log" },
 
