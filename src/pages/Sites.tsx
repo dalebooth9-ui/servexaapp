@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import SiteDryRisers from "@/components/assets/SiteDryRisers";
 import SiteAccessCard from '@/components/sites/SiteAccessCard';
@@ -205,6 +205,7 @@ export default function Sites() {
   const { categories: jobCategories } = useJobCategories();
   const { convert: convertW3W } = useWhat3Words();
   const navigate = useNavigate();
+  const [navigationParams] = useSearchParams();
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -236,6 +237,7 @@ export default function Sites() {
   const [focusedFolderIndex, setFocusedFolderIndex] = useState<number>(-1);
   const [focusedUnlinkedIndex, setFocusedUnlinkedIndex] = useState<number>(-1);
   const [activeTab, setActiveTab] = useState("by-customer");
+  useEffect(() => {const tab=navigationParams.get('tab');if(tab==='hierarchy'||tab==='by-customer')setActiveTab(tab);},[navigationParams]);
   const [editingW3W, setEditingW3W] = useState<string | null>(null);
   const [unlinkedExpanded, setUnlinkedExpanded] = useState(false);
   const [unlinkedSearch, setUnlinkedSearch] = useState("");
@@ -1290,6 +1292,7 @@ export default function Sites() {
                       onClick={() => setPickedCustomers(new Set(customerFolders.filter((f) => f.sites.length === 0).map((f) => f.id)))}>
                       Tick all with 0 sites
                     </Button>
+                    <Button data-assistant-target="Merge customers" variant="outline" size="sm" className="h-8 text-xs" onClick={() => { setMergeKeepId(''); setCustMergeOpen(true); }}><Combine className="mr-1 h-3.5 w-3.5" />Merge customers</Button>
                     {pickedCustomers.size > 0 && (
                       <>
                         <Button variant="destructive" size="sm" className="h-7 text-xs" onClick={() => setBulkDeleteOpen(true)}>

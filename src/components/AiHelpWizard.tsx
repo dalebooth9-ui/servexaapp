@@ -8,6 +8,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveHelpSlug } from "@/lib/helpArticles";
 import { classifyAssistantQuestion } from "@/lib/assistantRouting";
+import AssistantMessageText from '@/components/AssistantMessageText';
+import { ASSISTANT_DESTINATIONS, resolveAssistantUrl } from '@/lib/assistantDestinations';
 
 type QuickAction = { label: string; url: string; description: string };
 type Receipt = { label: string; url: string; description: string };
@@ -157,7 +159,7 @@ async function callWizard(
         "Authorization": `Bearer ${token ?? anonKey}`,
         "apikey": anonKey,
       },
-      body: JSON.stringify({ messages, currentPage, currentSlug }),
+      body: JSON.stringify({ messages, currentPage, currentSlug, navigationDestinations: ASSISTANT_DESTINATIONS }),
     }
   );
 
@@ -465,7 +467,9 @@ export default function AiHelpWizard() {
       setMinimised(true);
       return;
     }
-    navigate(action.url);
+    const url = resolveAssistantUrl(action.label, action.url, location.pathname);
+    if (!url) return;
+    navigate(url);
     setMinimised(true);
   };
 
@@ -599,7 +603,7 @@ export default function AiHelpWizard() {
                         <span className="animate-bounce h-1.5 w-1.5 rounded-full bg-muted-foreground/60" style={{ animationDelay: "240ms" }} />
                       </span>
                     ) : (
-                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                      msg.role === 'assistant' ? <AssistantMessageText text={msg.content} actions={msg.quick_actions || []} currentPath={location.pathname} onNavigate={(url,label)=>handleAction({url,label,description:label})} /> : <div className="whitespace-pre-wrap">{msg.content}</div>
                     )}
                   </div>
 
@@ -607,7 +611,7 @@ export default function AiHelpWizard() {
                   {msg.role === "assistant" && msg.quick_actions && msg.quick_actions.length > 0 && (
                     <div className="flex flex-col gap-1.5 w-full">
                       {msg.quick_actions.map((action, j) => (
-                        <button
+                        <Button variant="outline"
                           key={j}
                           onClick={() => handleAction(action)}
                           title={action.description}
@@ -619,7 +623,7 @@ export default function AiHelpWizard() {
                         >
                           <span>{action.label}</span>
                           <ArrowRight className="h-3 w-3 shrink-0 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-                        </button>
+                        </Button>
                       ))}
                     </div>
                   )}

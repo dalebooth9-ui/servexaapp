@@ -18,6 +18,7 @@ import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
 import NotificationBell from "@/components/NotificationBell";
 import AiHelpWizard from "@/components/AiHelpWizard";
+import AssistantNavigation from '@/components/AssistantNavigation';
 import ClockInButton from "@/components/ClockInButton";
 import TodaysVisitsBadge from "@/components/TodaysVisitsBadge";
 import UnreadMessagesBadge from "@/components/UnreadMessagesBadge";
@@ -605,6 +606,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
 
       </div>
       {userRole === "admin" && <CommandPalette />}
+      <AssistantNavigation />
       {userRole === "admin" && <div data-tour="ai-help"><AiHelpWizard /></div>}
       <KeyboardShortcutsHelp open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       </div>

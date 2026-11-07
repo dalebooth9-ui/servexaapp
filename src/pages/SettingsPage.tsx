@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { MessageSquare, Copy, CheckCircle2, ArrowLeft, Loader2, Send, BarChart2, Smartphone, Mail, ShieldCheck, RotateCcw, AlertTriangle, Calendar, Link2, ExternalLink, RefreshCw, ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import ComplianceReminderSettings from "@/components/ComplianceReminderSettings";
@@ -75,6 +75,15 @@ function getRotationStatus(lastRotatedIso: string | null) {
 
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab') || 'team';
+  const tab = ['team','email','documents','integrations','import-history','advanced'].includes(requestedTab) ? requestedTab : 'team';
+  const [advancedIntegrations,setAdvancedIntegrations] = useState(false);
+  const [advancedDocuments,setAdvancedDocuments] = useState(false);
+  useEffect(() => {
+    if(searchParams.get('section') === 'advanced-integrations')setAdvancedIntegrations(true);
+    if(searchParams.get('section') === 'advanced-document-settings')setAdvancedDocuments(true);
+  },[searchParams]);
   const [copied, setCopied] = useState(false);
   const [copiedInstall, setCopiedInstall] = useState(false);
   const [testEmail, setTestEmail] = useState("");
@@ -204,7 +213,7 @@ export default function SettingsPage() {
         <p className="mt-1 text-sm text-muted-foreground">Configure your workspace — integrations, reminders, templates, and team access.</p>
       </div>
 
-      <Tabs defaultValue="team" className="space-y-6">
+      <Tabs value={tab} onValueChange={value=>setSearchParams(prev=>{const next=new URLSearchParams(prev);next.set('tab',value);next.delete('focus');next.delete('section');return next;})} className="space-y-6">
         <TabsList className="flex w-full flex-wrap h-auto justify-start gap-1">
           <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
@@ -374,7 +383,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Collapsible>
+          <Collapsible open={advancedDocuments} onOpenChange={setAdvancedDocuments}>
             <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border bg-card px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
               Advanced document settings
               <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
@@ -477,7 +486,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Collapsible>
+          <Collapsible open={advancedIntegrations} onOpenChange={setAdvancedIntegrations}>
             <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border bg-card px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
               Advanced integrations
               <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
