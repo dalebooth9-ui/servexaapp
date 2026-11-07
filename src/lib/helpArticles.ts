@@ -39,7 +39,8 @@ const RULES: SlugRule[] = [
   { test: (p) => p.startsWith("/r/"), slug: "assets.stickers" },
   { test: (p) => p === '/riser-scan-service', slug: 'assets.stickers' },
   // Asset guide includes permanent auto-created outlet codes, count changes/No longer fitted,
-  // Print QR labels, outlet checks, map links and reprint history; job guide shares sticker rules.
+  // Print QR labels, outlet checks, map links and reprint history; sticker guide covers
+  // the original tagline-free Viva logo, large numbers, 20mm QR and plain customer labels.
   { test: (p) => p.startsWith("/assets/"), slug: "assets.detail" },
   { test: (p) => p === "/engineers", slug: "engineers" },
   { test: (p) => p === "/planner", slug: "planner" },
