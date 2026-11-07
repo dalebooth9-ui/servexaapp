@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Sites performance
-- [ ] Load 50 at a time in hierarchy, By Customer and Drag to link; database search after 500ms, quick true totals, stable loading layout; preserve safe building warnings and update Help/tests.
+- [x] Independent 50-row pages for hierarchy, customers, folder sites and Drag to link; 500ms server name/postcode/customer search, separate true totals, retained loading footprints and stale-response protection. Lazy buildings and duplicate contexts preserve Riverside warnings; destructive checks no longer assume loaded-page completeness. Help updated; nine tests pass. Signed-in live checks verified 50→100 sites, 560-site customer offsets 0→50, independent right-panel search, postcode matches and totals (13 regions/1,601 sites/1,976 buildings/0 zones); no browser errors. Indexed page read verified; build OK 12:45 UTC/London. No data changed.
 
 ## Duplicate buildings
 - [x] Added admin sibling-name warnings, attached-record preview, fingerprint-confirmed merge with unhandled-link/leftover-link rollback protection and existing audit/undo. All five Riverside flat-range copies verified empty; real buildings left unchanged for confirmation. Desktop/phone previews and stale-request rejection verified; 11 focused tests pass, Help updated, build OK. Successful merge/undo was not exercised because rollback-only database testing lacks staff permissions.
