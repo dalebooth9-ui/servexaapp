@@ -22,7 +22,8 @@ export type PrintLoad={rows:any[];pick?:import('@/components/assets/siteRisers')
 /** Engineer paper sheets for "Print reports": only this job's risers (visit sheets, else risers linked to the job, else the office's ticked risers) plus the job type's default print template. Never stickers. */
 export async function loadPrintReportRows(jobId:string,pickedIds?:string[]):Promise<PrintLoad>{
  const visit=await loadVisitSheets(jobId);
- const {data:job}=await supabase.from('jobs').select('id,org_id,site_id,asset_id,category,detected_work_types,reference_number,customer_po,due_date,customers(name),sites(name,address,postcode)').eq('id',jobId).maybeSingle();
+ const {data:job,error:jobError}=await supabase.from('jobs').select('id,org_id,site_id,asset_id,category,detected_work_types,reference_number,customer_po,due_date,customers(name),sites(name,address,postcode)').eq('id',jobId).maybeSingle();
+ if(jobError||!job)throw jobError||new Error('Job not found');
  const site:any=(job as any)?.sites;const base={job_id:jobId,customer:(job as any)?.customers?.name||null,site_name:site?.name||null,address:siteAddressOnce(site?.address,site?.postcode),job_reference:(job as any)?.reference_number||null,customer_po:(job as any)?.customer_po||null,site_id:(job as any)?.site_id||null,planned_date:(job as any)?.due_date||null};
  const printTemplate:any=job?await resolveJobPrintTemplate(job as any):null;
  const rows:any[]=visit.map(r=>({...r,responses:{...r.responses,_riser_visit:{...base,...Object.fromEntries(Object.entries(r.responses._riser_visit).filter(([,v])=>v!==null&&v!==undefined&&v!=='')),address:base.address,customer_po:base.customer_po}}}));
