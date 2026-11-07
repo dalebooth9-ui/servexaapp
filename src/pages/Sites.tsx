@@ -8,6 +8,9 @@ const StickerPackDialog = lazy(() => import('@/components/assets/StickerPackDial
 const PrintQrLabels = lazy(() => import('@/components/assets/PrintQrLabels'));
 import NewVisitDialog from '@/components/riser-visits/NewVisitDialog';
 import SiteJobDialog from '@/components/sites/SiteJobDialog';
+import BuildingDuplicateWarning from '@/components/sites/BuildingDuplicateWarning';
+import { buildingDuplicatePairs } from '@/lib/buildingDuplicates';
+import { loadSiteStats, type SiteStat } from '@/lib/siteDuplicates';
 import ServicingControl from '@/components/riser-visits/ServicingControl';
 import BulkImportSitesDialog from "@/components/BulkImportSitesDialog";
 import FolderSiteImportDialog from "@/components/FolderSiteImportDialog";
@@ -211,6 +214,18 @@ export default function Sites() {
   const navigate = useNavigate();
   const [navigationParams] = useSearchParams();
   const [sites, setSites] = useState<Site[]>([]);
+  const [buildingStats, setBuildingStats] = useState<Map<string, SiteStat>>(new Map());
+  useEffect(() => {
+    let cancelled = false;
+    setBuildingStats(new Map());
+    if (userRole === 'admin') void loadSiteStats(supabase).then(result => { if (!cancelled) setBuildingStats(result); }).catch(() => { /* No warning until counts are verified. */ });
+    return () => { cancelled = true; };
+  }, [sites, userRole]);
+  const buildingPairs = buildingDuplicatePairs(sites, buildingStats);
+  const duplicateBuildingWarning = (site: Site) => {
+    const pair = buildingPairs.find(p => p.source.id === site.id);
+    return userRole === 'admin' && pair ? <BuildingDuplicateWarning source={pair.source} keep={pair.keep} onChanged={() => { void fetchSites(); void fetchCustomerFolders(); }} /> : null;
+  };
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [summaryType, setSummaryType] = useState<SiteSummaryType | null>(null);
@@ -1055,6 +1070,7 @@ export default function Sites() {
             </div>
           </div>
           <Badge variant="secondary" className="text-[10px] capitalize shrink-0">{site.site_type}</Badge>
+          {duplicateBuildingWarning(site)}
           {(site.address || site.postcode) && <MapAddress address={site.address} postcode={site.postcode} label={site.postcode || site.address || undefined} siteId={site.id} className="text-xs text-muted-foreground" />}
           <Button variant="ghost" size="sm" onClick={e=>{e.stopPropagation();setAccessSite(site);}}>Access info</Button>
           {userRole === "admin" && (
@@ -1434,6 +1450,7 @@ export default function Sites() {
                                              {site.outlets_count != null && <span className="text-xs text-muted-foreground">{site.outlets_count} {((site as any).category || "").toLowerCase().includes("sprinkler") ? "heads" : "outlets"}</span>}
                                              {riser && <span className="text-xs text-muted-foreground truncate max-w-[180px]">· Riser: {riser}</span>}
                                            </div>
+                                           {duplicateBuildingWarning(site)}
                                            {showBreadcrumb && (
                                              <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5 flex items-center gap-0.5">
                                                {breadcrumb.slice(0, -1).map((crumb, i) => (
