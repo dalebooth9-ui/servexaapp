@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +15,7 @@ import { ClipboardCheck, Loader2, Mail, Pencil, Undo2, ExternalLink } from "luci
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { officeReturnToEngineer, officeSendToCustomer, officeUnlockForEdit, type CustomerChannel } from "@/lib/reportReview";
 
-type Row = { jobId: string; ref: string; site: string; name: string; engineer: string; submittedAt: string; pdfPath: string | null; visualOnly: boolean; reasonCheck?: boolean; completedReports: number; totalReports: number };
+type Row = { jobId: string; ref: string; site: string; address: string | null; postcode: string | null; name: string; engineer: string; submittedAt: string; pdfPath: string | null; visualOnly: boolean; reasonCheck?: boolean; completedReports: number; totalReports: number };
 
 export default function ReportsToCheck() {
   const { toast } = useToast();
@@ -31,7 +32,7 @@ export default function ReportsToCheck() {
   const load = async () => {
     setLoading(true);
     const { data: jobs } = await supabase.from("jobs")
-      .select("id, name, reference_number, customer_po, address, sites(name)")
+      .select("id, name, reference_number, customer_po, address, sites(name,address,postcode)")
       .eq("status", "submitted_for_review").limit(500);
     const ids = (jobs || []).map((j: any) => j.id);
     const { data: evs } = ids.length
@@ -62,6 +63,8 @@ export default function ReportsToCheck() {
         jobId: j.id,
         ref: j.customer_po ? `PO ${j.customer_po}` : j.reference_number || "—",
         site: j.sites?.name || j.address || "",
+        address: j.sites?.address || j.address || null,
+        postcode: j.sites?.postcode || null,
         name: j.name || "",
         engineer: (e && names.get(e.actor_id)) || "Engineer",
         submittedAt: e?.created_at || "",
@@ -115,6 +118,7 @@ export default function ReportsToCheck() {
                   {r.visualOnly && <Badge variant="outline" className="ml-2 border-amber-400 text-amber-800 dark:text-amber-300">Pressure test outstanding</Badge>}
                   {r.reasonCheck && <Badge variant="outline" className="ml-2">Reason to check</Badge>}</p>
                 <p className="text-xs text-muted-foreground truncate">{r.name} · {r.engineer}{r.submittedAt && ` · ${format(new Date(r.submittedAt), "dd/MM/yyyy HH:mm")}`}</p>
+                {r.address && <MapAddress address={r.address} postcode={r.postcode} jobId={r.jobId} className="text-xs text-muted-foreground" />}
                 {r.totalReports > 0 && r.completedReports < r.totalReports && (
                   <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{r.completedReports} of {r.totalReports} reports completed</p>
                 )}

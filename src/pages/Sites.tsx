@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -124,7 +125,7 @@ function DraggableSiteChip({ site, typeConfig, onAssign, onDelete }: { site: Sit
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{site.name}</p>
               {(site.address || site.postcode) && (
-                <p className="text-[11px] text-muted-foreground truncate">{[site.address, site.postcode].filter(Boolean).join(", ")}</p>
+                <MapAddress address={site.address} postcode={site.postcode} siteId={site.id} className="text-[11px] text-muted-foreground" />
               )}
             </div>
           </div>
@@ -1160,7 +1161,7 @@ export default function Sites() {
             </div>
           </div>
           <Badge variant="secondary" className="text-[10px] capitalize shrink-0">{site.site_type}</Badge>
-          {site.postcode && <span className="text-xs text-muted-foreground shrink-0">{site.postcode}</span>}
+          {(site.address || site.postcode) && <MapAddress address={site.address} postcode={site.postcode} label={site.postcode || site.address || undefined} siteId={site.id} className="text-xs text-muted-foreground" />}
           <Button variant="ghost" size="sm" onClick={e=>{e.stopPropagation();setAccessSite(site);}}>Access info</Button>
           {userRole === "admin" && (
             <div className="flex items-center gap-1 shrink-0 ml-2">
@@ -1558,7 +1559,7 @@ export default function Sites() {
                                              </p>
                                            )}
                                            {(addressLine || site.contact_name) && (
-                                             <p className="text-xs text-muted-foreground truncate mt-0.5">{[addressLine, site.contact_name].filter(Boolean).join(" · ")}</p>
+                                             <div className="text-xs text-muted-foreground mt-0.5">{addressLine && <MapAddress address={site.address} postcode={site.postcode} siteId={site.id} />}{site.contact_name && <span> · {site.contact_name}</span>}</div>
                                            )}
                                          </div>
                                          {/* Compact ⋯ menu — visible on hover */}
@@ -1705,9 +1706,8 @@ export default function Sites() {
                                 <ul className="space-y-0.5">
                                   {allUnlinked.slice(0, 30).map((s) => (
                                     <li key={s.id} className="text-xs flex items-center gap-1.5">
-                                      <MapPin className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
                                       <span className="truncate">{s.name}</span>
-                                      {s.postcode && <span className="text-muted-foreground shrink-0">{s.postcode}</span>}
+                                      {(s.address || s.postcode) && <MapAddress address={s.address} postcode={s.postcode} siteId={s.id} label={s.postcode || s.address || undefined} />}
                                     </li>
                                   ))}
                                   {allUnlinked.length > 30 && (
