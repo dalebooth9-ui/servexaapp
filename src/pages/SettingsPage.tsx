@@ -346,7 +346,7 @@ export default function SettingsPage() {
           <CategoryDocumentTemplateSettings />
           <RamsTemplateSettings />
           <RenewalsSettingsCard />
-          <DueVisitSettings />
+          <div data-assistant-target="Due visit reminders"><DueVisitSettings /></div>
           <Card className="cursor-pointer hover:border-primary transition" onClick={() => navigate("/settings/rams-library")}>
             <CardHeader>
               <CardTitle className="text-lg">RAMS Library</CardTitle>
