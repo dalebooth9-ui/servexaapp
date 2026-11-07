@@ -95,6 +95,7 @@ const JobPhotos = lazy(() => import("@/components/jobs/JobPhotos"));
 const ShareGalleryDialog = lazy(() => import("@/components/jobs/ShareGalleryDialog"));
 const StickerPackDialog = lazy(() => import("@/components/assets/StickerPackDialog"));
 const VisitPaperwork = lazy(() => import('@/components/riser-visits/VisitPaperwork'));
+const JobPrintButtons = lazy(() => import('@/components/riser-visits/JobPrintButtons'));
 const JobEmailChain = lazy(() => import("@/components/jobs/JobEmailChain"));
 import RamsRequiredBanner from "@/components/rams/RamsRequiredBanner";
 import JobRamsPanel from "@/components/rams/JobRamsPanel";
@@ -564,6 +565,14 @@ export default function JobDetail() {
           <div className="flex flex-wrap items-center gap-2">
             <JobCompletionFlagsBadge jobId={id!} isAdmin={userRole === "admin"} />
             <SendToCustomerMenu jobId={id!} job={job} customerEmail={customerEmail} />
+            <Suspense fallback={null}>
+              <JobPrintButtons
+                jobId={id!}
+                siteId={job.site_id || null}
+                siteName={(job as any).sites?.name || null}
+                customerLogoUrl={(job as any).customers?.logo_url || null}
+              />
+            </Suspense>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5">
