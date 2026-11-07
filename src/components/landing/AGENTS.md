@@ -1,1 +1,2 @@
 - Keep public landing visuals, editorial placeholders and page-scoped styles in this module; use compressed authentic demo screenshots and explicitly labelled illustrations so marketing changes cannot alter signed-in screens or expose customer data.
+- Founder content stays disabled until approved; captures of operational controls use fictitious data without saving records, and public colour/CTA roles are scoped to this page so other screens keep their existing theme.

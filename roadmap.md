@@ -1,5 +1,9 @@
 # Roadmap
 
+## Bold public landing makeover
+- [x] Alternating white/navy full-width feature bands, faint navy grid, authentic sample outlet-check capture and sticker output, orange cards/CTAs/stats/standards, tighter spacing; colours/pricing and signed-in app preserved.
+- [x] Founder publication disabled; complete public page checked on desktop/phone with all images loaded, no unfinished visible text, no overflow/runtime errors and working demo enquiry. Help updated; capture used fictitious records and no saved data.
+
 ## Premium public landing page
 - [x] Preserved headline, colours and pricing; authentic demo screenshots in laptop/phone frames, proof strip, five alternating workflow rows, founder/headshot placeholders and simplified standards/footer.
 - [x] Compressed CDN imagery, lazy-loaded secondary screenshots, scoped reduced-motion-aware fades; desktop/phone, image delivery and demo enquiry checked with no runtime errors or overflow; Help updated. Logged-in screens unchanged. Site figure and founder quote remain visibly unverified pending Dale’s approved wording.
