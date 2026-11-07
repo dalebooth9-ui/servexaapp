@@ -1,5 +1,10 @@
 # Roadmap
 
+## App-wide pinned address links
+- [ ] Add shared safe map/search, mobile directions and copy-address controls with precise saved locations.
+- [ ] Replace pinned address displays across office, engineer, planner and customer views; update Help.
+- [ ] Test destination privacy/blank rules and desktop/mobile interactions; report build time.
+
 ## Clickable Sites summaries
 - [x] Add summary lists, region drill-down, filtered counts, Clear and zone creation shortcut without changing site records.
 - [x] Update Sites Help; five tests pass; Dale's desktop/phone lists, Riddell search, region drill-down, Clear and zone form verified without saving records.
