@@ -95,7 +95,7 @@ export default function CategoryDocumentTemplateSettings() {
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const fetchTemplates = async () => {
-    const [{ data }, { data: jst }] = await Promise.all([
+    const [{ data }, { data: jst, error: templateError }] = await Promise.all([
       supabase
         .from("category_document_templates" as any)
         .select("*")
@@ -103,8 +103,13 @@ export default function CategoryDocumentTemplateSettings() {
         .order("sort_order"),
       supabase
         .from("job_sheet_templates")
-        .select("id,name,description,standard,fields,branding,category"),
+        .select("id,name,description,fields,branding,category"),
     ]);
+    if (templateError) {
+      toast({ title: "Could not load job sheet templates", description: templateError.message, variant: "destructive" });
+      setLoading(false);
+      return;
+    }
     setTemplates((data as unknown as DocTemplate[]) || []);
     const parsed = ((jst as any[]) || []).map((t) => ({
       ...t,
