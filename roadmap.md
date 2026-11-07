@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Sites row actions
-- [ ] Visible fixed-size New job and labelled action menus in both views; confirm every row deletion, tooltips, Help and browser verification.
+- [x] Shared fixed-size main-colour New job and labelled more-actions menus across hierarchy/customer rows; Delete last in red, all row deletion paths show confirmation, icon tooltips added. Help updated; signed-in checks verified menu/tooltips, empty-building confirmation and Cancel causing zero writes, New job opening the form, and customer row controls. Nine existing safety tests pass; build OK 12:47 UTC/London. No records changed.
 
 ## Sites performance
 - [x] Independent 50-row pages for hierarchy, customers, folder sites and Drag to link; 500ms server name/postcode/customer search, separate true totals, retained loading footprints and stale-response protection. Lazy buildings and duplicate contexts preserve Riverside warnings; destructive checks no longer assume loaded-page completeness. Help updated; nine tests pass. Signed-in live checks verified 50→100 sites, 560-site customer offsets 0→50, independent right-panel search, postcode matches and totals (13 regions/1,601 sites/1,976 buildings/0 zones); no browser errors. Indexed page read verified; build OK 12:45 UTC/London. No data changed.
