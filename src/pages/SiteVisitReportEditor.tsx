@@ -148,7 +148,8 @@ export default function SiteVisitReportEditor() {
     const onHide = () => { if (document.visibilityState === "hidden") flush(); };
     window.addEventListener("online", onUp);
     document.addEventListener("visibilitychange", onHide);
-    return () => { window.removeEventListener("online", onUp); document.removeEventListener("visibilitychange", onHide); flush(); };
+    const unregisterSaver = registerDraftSaver(() => flush());
+    return () => { unregisterSaver(); window.removeEventListener("online", onUp); document.removeEventListener("visibilitychange", onHide); flush(); };
   }, [flush]);
 
   const update = (patch: Record<string, any>) => {

@@ -214,10 +214,15 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       if (key && Object.keys(data).length > 0) void saveFormDraft(key, data);
     };
     const onVis = () => { if (document.visibilityState === "hidden") flush(); };
+    const unregisterSaver = registerDraftSaver(async () => {
+      const { key, data } = latestDraftRef.current;
+      if (key && Object.keys(data).length > 0) await saveFormDraft(key, data);
+    });
     window.addEventListener("pagehide", flush);
     window.addEventListener("beforeunload", flush);
     document.addEventListener("visibilitychange", onVis);
     return () => {
+      unregisterSaver();
       window.removeEventListener("pagehide", flush);
       window.removeEventListener("beforeunload", flush);
       document.removeEventListener("visibilitychange", onVis);
