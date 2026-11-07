@@ -1,5 +1,9 @@
 # Roadmap
 
+## Clickable Sites summaries
+- [ ] Add summary lists, region drill-down, filtered counts, Clear and zone creation shortcut without changing site records.
+- [ ] Update Sites Help and verify lists/search on desktop and phone.
+
 ## Safe asset duplicate review
 - [x] Count tenant duplicate groups and trace creation paths: 20 groups / 25 extra assets, four evidenced CSV imports (case-insensitive review).
 - [x] Add admin-only preview/confirmed merge preserving linked records and old QR tags; source assets retained as hidden aliases with full merge snapshots.

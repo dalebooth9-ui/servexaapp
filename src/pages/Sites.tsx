@@ -45,6 +45,7 @@ import { useJobCategories } from "@/hooks/useJobCategories";
 import { format } from "date-fns";
 import { fuzzyMatch, fuzzyFilter } from "@/lib/fuzzyMatch";
 import { UKDateInput } from "@/components/ui/uk-date-input";
+import { filteredSummarySites, siteAncestors, siteSummaryCounts, type SiteSummaryType } from '@/lib/siteSummary';
 
 type Site = {
   id: string;
@@ -209,6 +210,8 @@ export default function Sites() {
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [summaryType, setSummaryType] = useState<SiteSummaryType | null>(null);
+  const [summaryRegionId, setSummaryRegionId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [accessSite,setAccessSite]=useState<Site|null>(null);
@@ -1074,25 +1077,11 @@ export default function Sites() {
     }, 260);
   };
 
-  const regionIds = new Set(sites.filter((s) => s.site_type === "region").map((s) => s.id));
-  const buildingRecords = sites.filter((s) => s.site_type === "building");
-  const distinctBuildingCount = new Set(
-    buildingRecords.map((b) => b.parent_id || b.id)
-  ).size;
-  const unitCount = buildingRecords.length - distinctBuildingCount;
-
-  const siteRecords = sites.filter((s) => s.site_type === "site");
-  // Sites under regions are real sites, not sub-sites
-  const topLevelSites = siteRecords.filter((s) => !s.parent_id || regionIds.has(s.parent_id));
-  const subSites = siteRecords.filter((s) => s.parent_id && !regionIds.has(s.parent_id));
-
-  const counts = {
-    region: regionIds.size,
-    site: topLevelSites.length,
-    building: distinctBuildingCount,
-    zone: sites.filter((s) => s.site_type === "zone").length,
-  };
-  const siteSubCount = subSites.length;
+  const summarySites = filteredSummarySites(sites, search, customerFolders);
+  const counts = siteSummaryCounts(summarySites);
+  const summaryRegion = sites.find(site => site.id === summaryRegionId);
+  const summaryList = summarySites.filter(site => site.site_type === (summaryRegionId ? 'site' : summaryType)
+    && (!summaryRegionId || siteAncestors(site, sites).some(parent => parent.id === summaryRegionId)));
 
   const getSiteBreadcrumb = (s: Site): string[] => {
     const parts: string[] = [s.name];
@@ -1218,15 +1207,15 @@ export default function Sites() {
         {Object.entries(TYPE_CONFIG).map(([key, cfg]) => {
           const Icon = cfg.icon;
           return (
-            <Card key={key}>
-              <CardContent className="flex items-center gap-3 p-4">
+            <Button key={key} variant="outline" aria-label={`Show ${cfg.label}s`} aria-pressed={summaryType === key}
+              onClick={() => { setSummaryType(key as SiteSummaryType); setSummaryRegionId(null); }}
+              className={`h-auto min-h-24 w-full justify-start whitespace-normal bg-card p-4 text-left cursor-pointer hover:bg-accent hover:shadow-sm ${summaryType === key ? 'ring-2 ring-primary border-primary' : 'border-border'}`}>
                 <Icon className={`h-5 w-5 ${cfg.color}`} />
                 <div>
                   <p className="text-2xl font-bold">{counts[key as keyof typeof counts]}</p>
-                  <p className="text-xs text-muted-foreground">{cfg.label}s{key === "building" && unitCount > 0 ? ` (${unitCount} units)` : ""}{key === "site" && siteSubCount > 0 ? ` (${siteSubCount} sub-sites)` : ""}</p>
+                  <p className="text-xs text-muted-foreground">{cfg.label}s</p>
                 </div>
-              </CardContent>
-            </Card>
+            </Button>
           );
         })}
       </div>
@@ -1237,7 +1226,40 @@ export default function Sites() {
         <Input placeholder="Search sites..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      {summaryType && (
+        <section aria-label="Site summary list" className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-semibold">{summaryRegion ? `${summaryRegion.name} — Sites` : `${TYPE_CONFIG[summaryType].label}s`}</h2>
+            <Button variant="ghost" size="sm" onClick={() => { setSummaryType(null); setSummaryRegionId(null); }}><X className="h-4 w-4" />Clear</Button>
+          </div>
+          {loading || foldersLoading ? <p className="py-8 text-center text-muted-foreground">Loading...</p> : summaryList.length === 0 ? (
+            <div className="py-8 text-center space-y-3">
+              <p className="text-sm text-muted-foreground">{summaryType === 'zone' ? (search.trim() ? 'No zones match your search.' : 'No zones yet') : `No ${summaryRegionId ? 'sites' : `${TYPE_CONFIG[summaryType].label.toLowerCase()}s`}${search.trim() ? ' match your search.' : ' yet.'}`}</p>
+              {summaryType === 'zone' && userRole === 'admin' && <Button onClick={() => openCreate(null, 'zone')}><Plus className="h-4 w-4" />Add a zone</Button>}
+            </div>
+          ) : (
+            <div className="divide-y divide-border border-y border-border">
+              {summaryList.map(site => {
+                const ancestors = siteAncestors(site, sites);
+                const owner = ancestors.find(parent => parent.site_type === 'site');
+                const regionSiteCount = summarySites.filter(record => record.site_type === 'site' && siteAncestors(record, sites).some(parent => parent.id === site.id)).length;
+                return <Button key={site.id} variant="ghost" className="w-full h-auto min-h-14 justify-between rounded-none py-3 px-3 whitespace-normal text-left gap-3"
+                  onClick={() => {
+                    if (site.site_type === 'region') { setSummaryRegionId(site.id); }
+                    else { setSummaryType(null); setSummaryRegionId(null); navigateToSite(site.id); }
+                  }}>
+                  <span className="min-w-0 break-words"><span className="block font-medium">{site.name}</span>
+                    {(owner || ancestors.length > 0) && <span className="block text-xs text-muted-foreground">{owner ? owner.name : ancestors.map(parent => parent.name).reverse().join(' / ')}</span>}
+                    {(site.address || site.postcode) && <span className="block text-xs text-muted-foreground">{[site.address, site.postcode].filter(Boolean).join(', ')}</span>}
+                  </span>
+                  <span className="flex items-center gap-2 shrink-0">{site.site_type === 'region' && <span className="text-xs text-muted-foreground">{regionSiteCount} {regionSiteCount === 1 ? 'site' : 'sites'}</span>}<ChevronRight className="h-4 w-4" /></span>
+                </Button>;
+              })}
+            </div>
+          )}
+        </section>
+      )}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className={summaryType ? 'hidden' : undefined}>
         <TabsList>
           <TabsTrigger value="hierarchy"><Globe className="mr-2 h-4 w-4" /> Hierarchy</TabsTrigger>
           <TabsTrigger value="by-customer"><Users className="mr-2 h-4 w-4" /> By Customer</TabsTrigger>
