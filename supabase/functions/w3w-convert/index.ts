@@ -12,7 +12,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { lat, lng, address } = body;
+    const { lat, lng, address, words } = body;
 
     const apiKey = Deno.env.get("WHAT3WORDS_API_KEY");
     if (!apiKey) {
@@ -20,6 +20,20 @@ serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    if (typeof words === 'string') {
+      const normalized = words.trim().replace(/^\/+/, '');
+      if (!/^[\p{L}]+\.[\p{L}]+\.[\p{L}]+$/u.test(normalized)) {
+        return new Response(JSON.stringify({ error: 'Invalid what3words location' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      const response = await fetch(`https://api.what3words.com/v3/convert-to-coordinates?words=${encodeURIComponent(normalized)}&key=${encodeURIComponent(apiKey)}`);
+      const result = await response.json();
+      const coordinates = result.coordinates;
+      if (!response.ok || !Number.isFinite(coordinates?.lat) || !Number.isFinite(coordinates?.lng)) {
+        return new Response(JSON.stringify({ error: 'Could not resolve what3words location' }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      return new Response(JSON.stringify({ lat: coordinates.lat, lng: coordinates.lng }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // --- Address → words (geocode the address first via W3W autosuggest or just return null if only address) ---

@@ -25,15 +25,15 @@ export default function MapAddress({ address, postcode, lat, lng, what3words, si
     try {
       if (!resolved.current) {
         if (jobId) {
-          const { data } = await supabase.from('jobs').select('site_latitude,site_longitude,sites(address,postcode,latitude,longitude,what3words)').eq('id', jobId).maybeSingle();
+          const { data } = await supabase.from('jobs').select('site_latitude,site_longitude,sites(address,postcode,what3words)').eq('id', jobId).maybeSingle();
           if (data) {
             const site = data.sites;
-            dest = { address: site?.address || dest.address, postcode: site?.postcode || dest.postcode, lat: site?.latitude ?? data.site_latitude ?? dest.lat, lng: site?.longitude ?? data.site_longitude ?? dest.lng };
+            dest = { address: site?.address || dest.address, postcode: site?.postcode || dest.postcode, lat: data.site_latitude ?? dest.lat, lng: data.site_longitude ?? dest.lng };
             words = site?.what3words || words;
           }
         } else if (siteId) {
-          const { data } = await supabase.from('sites').select('address,postcode,latitude,longitude,what3words').eq('id', siteId).maybeSingle();
-          if (data) { dest = { address: data.address || dest.address, postcode: data.postcode || dest.postcode, lat: data.latitude ?? dest.lat, lng: data.longitude ?? dest.lng }; words = data.what3words || words; }
+          const { data } = await supabase.from('sites').select('address,postcode,what3words').eq('id', siteId).maybeSingle();
+          if (data) { dest = { ...dest, address: data.address || dest.address, postcode: data.postcode || dest.postcode }; words = data.what3words || words; }
         }
         if ((dest.lat == null || dest.lng == null) && words) {
           const { data } = await supabase.functions.invoke('w3w-convert', { body: { words } });
