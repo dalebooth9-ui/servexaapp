@@ -357,6 +357,44 @@ export type Database = {
           },
         ]
       }
+      asset_merge_log: {
+        Row: {
+          created_at: string
+          id: string
+          keep_id: string
+          merged_by: string
+          org_id: string
+          snapshot: Json
+          source_ids: string[]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          keep_id: string
+          merged_by: string
+          org_id: string
+          snapshot: Json
+          source_ids: string[]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          keep_id?: string
+          merged_by?: string
+          org_id?: string
+          snapshot?: Json
+          source_ids?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_merge_log_keep_id_fkey"
+            columns: ["keep_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asset_review_flags: {
         Row: {
           asset_id: string | null
@@ -583,6 +621,7 @@ export type Database = {
           category: string
           created_at: string
           created_by: string | null
+          creation_source: string | null
           due_visit_state: Json
           id: string
           import_batch_id: string | null
@@ -598,6 +637,8 @@ export type Database = {
           last_job_id: string | null
           last_job_sheet_response_id: string | null
           make: string | null
+          merged_at: string | null
+          merged_into_asset_id: string | null
           model: string | null
           name: string
           no_longer_serviced: boolean
@@ -619,6 +660,7 @@ export type Database = {
           category?: string
           created_at?: string
           created_by?: string | null
+          creation_source?: string | null
           due_visit_state?: Json
           id?: string
           import_batch_id?: string | null
@@ -634,6 +676,8 @@ export type Database = {
           last_job_id?: string | null
           last_job_sheet_response_id?: string | null
           make?: string | null
+          merged_at?: string | null
+          merged_into_asset_id?: string | null
           model?: string | null
           name: string
           no_longer_serviced?: boolean
@@ -655,6 +699,7 @@ export type Database = {
           category?: string
           created_at?: string
           created_by?: string | null
+          creation_source?: string | null
           due_visit_state?: Json
           id?: string
           import_batch_id?: string | null
@@ -670,6 +715,8 @@ export type Database = {
           last_job_id?: string | null
           last_job_sheet_response_id?: string | null
           make?: string | null
+          merged_at?: string | null
+          merged_into_asset_id?: string | null
           model?: string | null
           name?: string
           no_longer_serviced?: boolean
@@ -689,6 +736,13 @@ export type Database = {
             columns: ["import_batch_id"]
             isOneToOne: false
             referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_merged_into_asset_id_fkey"
+            columns: ["merged_into_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
             referencedColumns: ["id"]
           },
           {
@@ -11546,6 +11600,12 @@ export type Database = {
         Returns: Json
       }
       approve_site_visit_report: { Args: { _report_id: string }; Returns: Json }
+      asset_duplicate_review: { Args: never; Returns: Json }
+      asset_identity_refs: {
+        Args: { keep_id: string; source_ids: string[]; v: Json }
+        Returns: Json
+      }
+      asset_outlet_codes: { Args: { _asset_id: string }; Returns: Json }
       attach_defects_to_quote: {
         Args: { _defect_ids: string[]; _quote_id: string }
         Returns: string
@@ -11561,6 +11621,10 @@ export type Database = {
       cancel_organisation: {
         Args: { _org_id: string; _reason: string; _source?: string }
         Returns: undefined
+      }
+      canonical_asset_id: {
+        Args: { _id: string; _org: string }
+        Returns: string
       }
       capture_defects_from_response: {
         Args: { _response_id: string }
@@ -11854,6 +11918,14 @@ export type Database = {
         Args: { _ids: string[] }
         Returns: undefined
       }
+      merge_asset_duplicates: {
+        Args: {
+          _keep_id: string
+          _preview_token?: string
+          _source_ids: string[]
+        }
+        Returns: Json
+      }
       merge_assets: {
         Args: { _keep_id: string; _remove_id: string }
         Returns: undefined
@@ -12080,6 +12152,10 @@ export type Database = {
       unlock_site_visit_report: {
         Args: { _report_id: string }
         Returns: undefined
+      }
+      upsert_asset_rows: {
+        Args: { _rows: Json; _source?: string }
+        Returns: Json
       }
       upsert_service_schedule_from_historic: {
         Args: { _report_id: string }
