@@ -1,5 +1,9 @@
 # Roadmap
 
+## Riser QR label reprinting
+- [ ] Add existing-code-only riser/site picker, per-label preview and reprint controls, outlet QR rows and immutable office history.
+- [ ] Preserve fitted QR identities, company branding and admin isolation; verify Digital Twin off, update Help and test.
+
 ## Digital Twin visibility
 - [x] Add default-off company setting under Advanced, admin-only writes using verified company-scoped app_settings RLS; gate asset sensor UI and maintenance alerts.
 - [x] Remove public sensor claims; update Help and shortcuts. 19 tests pass; Dale's real asset and admin enable/disable read-back verified, left OFF; desktop/phone checked. Independent engineer/second-company sessions not exercised; role/company rules covered by tests and existing server policies.
