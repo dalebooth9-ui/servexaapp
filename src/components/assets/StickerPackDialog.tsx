@@ -17,8 +17,10 @@ const outletKey = (id: string, n: number) => `o:${id}:${n}`;
 const outletNums = (r: SiteRiser) => Array.from({ length: Math.max(0, Math.min(200, r.outlets_count || 0)) }, (_, i) => i + 1);
 const allKeys = (list: SiteRiser[]) => list.flatMap((r) => [...(r.asset_tag ? [inletKey(r.id)] : []), ...outletNums(r).map((n) => outletKey(r.id, n))]);
 
-export default function StickerPackDialog({ siteId, siteName, customerLogoUrl }: {
+export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, trigger }: {
   siteId: string | null; siteName: string | null; customerLogoUrl: string | null;
+  /** Optional custom trigger button (e.g. the job page top row). Defaults to the outline "Print sticker pack" button. */
+  trigger?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [risers, setRisers] = useState<SiteRiser[] | null>(null);
@@ -131,7 +133,7 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl }:
     <Dialog open={open} onOpenChange={setOpen}>
       <span className="inline-flex items-center gap-2">
         <DialogTrigger asChild>
-          <Button variant="outline"><Printer className="h-4 w-4 mr-2" />Print sticker pack</Button>
+          {trigger ?? <Button variant="outline"><Printer className="h-4 w-4 mr-2" />Print sticker pack</Button>}
         </DialogTrigger>
         {lastPrinted && <span className="text-xs text-muted-foreground">Last printed {new Date(lastPrinted).toLocaleDateString("en-GB")}</span>}
       </span>
