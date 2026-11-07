@@ -1,9 +1,9 @@
 # Roadmap
 
 ## App-wide pinned address links
-- [ ] Add shared safe map/search, mobile directions and copy-address controls with precise saved locations.
-- [ ] Replace pinned address displays across office, engineer, planner and customer views; update Help.
-- [ ] Test destination privacy/blank rules and desktop/mobile interactions; report build time.
+- [x] Add shared safe map/search, mobile directions and copy-address controls with precise saved locations; deployed and verified what3words coordinate lookup.
+- [x] Replace pinned address displays across office, engineer, planner and customer views; update Help. Quote screens have no pinned address displays; printable documents unchanged.
+- [x] Eleven focused tests pass; signed-in map/directions URLs, clipboard, job link and phone wrapping verified without data changes; native installed maps-app launch requires a physical device.
 
 ## Clickable Sites summaries
 - [x] Add summary lists, region drill-down, filtered counts, Clear and zone creation shortcut without changing site records.
