@@ -1,0 +1,5 @@
+CREATE OR REPLACE FUNCTION public.customer_cleanup_admin(_org uuid) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$ SELECT _org=public.get_user_org_id() AND EXISTS(SELECT 1 FROM public.organisation_members WHERE user_id=auth.uid() AND org_id=_org AND status='active') AND (public.is_org_admin(_org) OR public.has_role_in_org(auth.uid(),_org,'admin')); $$;
+REVOKE ALL ON FUNCTION public.customer_cleanup_admin(uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.customer_cleanup_admin(uuid) TO authenticated;
+DO $$ DECLARE _r record; BEGIN FOR _r IN SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname IN ('customer_cleanup_counts','customer_cleanup_preview','apply_customer_cleanup') LOOP EXECUTE replace(pg_get_functiondef(_r.oid),'public.is_org_admin(_org)','public.customer_cleanup_admin(_org)'); END LOOP; END $$;
+ALTER POLICY cleanup_archive_admin_read ON public.customer_cleanup_archive USING (org_id=public.get_user_org_id() AND public.customer_cleanup_admin(org_id));

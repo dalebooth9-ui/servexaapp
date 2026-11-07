@@ -1540,6 +1540,44 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_cleanup_archive: {
+        Row: {
+          id: string
+          merged_at: string
+          merged_by: string
+          org_id: string
+          source_customer_id: string
+          source_record: Json
+          winner_customer_id: string
+        }
+        Insert: {
+          id?: string
+          merged_at?: string
+          merged_by: string
+          org_id: string
+          source_customer_id: string
+          source_record: Json
+          winner_customer_id: string
+        }
+        Update: {
+          id?: string
+          merged_at?: string
+          merged_by?: string
+          org_id?: string
+          source_customer_id?: string
+          source_record?: Json
+          winner_customer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_cleanup_archive_winner_customer_id_fkey"
+            columns: ["winner_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_documents: {
         Row: {
           created_at: string
@@ -11214,6 +11252,14 @@ export type Database = {
         }[]
       }
       apply_backfill_rewrites: { Args: { _row_id: string }; Returns: number }
+      apply_customer_cleanup: {
+        Args: {
+          _listed_names: string[]
+          _merges?: Json
+          _remove_ids?: string[]
+        }
+        Returns: Json
+      }
       approve_site_visit_report: { Args: { _report_id: string }; Returns: Json }
       attach_defects_to_quote: {
         Args: { _defect_ids: string[]; _quote_id: string }
@@ -11303,6 +11349,9 @@ export type Database = {
           suspension_reason: string
         }[]
       }
+      customer_cleanup_admin: { Args: { _org: string }; Returns: boolean }
+      customer_cleanup_counts: { Args: { _id: string }; Returns: Json }
+      customer_cleanup_preview: { Args: never; Returns: Json }
       customer_logo_path_belongs_to_caller: {
         Args: { _name: string }
         Returns: boolean

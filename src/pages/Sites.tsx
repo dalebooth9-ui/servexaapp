@@ -40,6 +40,7 @@ import SiteDocumentDropZone from "@/components/SiteDocumentDropZone";
 import SiteFireLog from "@/components/SiteFireLog";
 import { Flame, Combine } from "lucide-react";
 import MergeDuplicateSitesDialog from "@/components/sites/MergeDuplicateSitesDialog";
+import CustomerCleanupDialog from '@/components/sites/CustomerCleanupDialog';
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { format } from "date-fns";
 import { fuzzyMatch, fuzzyFilter } from "@/lib/fuzzyMatch";
@@ -249,6 +250,7 @@ export default function Sites() {
   const [pickedCustomers, setPickedCustomers] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [custMergeOpen, setCustMergeOpen] = useState(false);
+  const [cleanupOpen, setCleanupOpen] = useState(false);
   const [mergeKeepId, setMergeKeepId] = useState<string>("");
   const [customerActionBusy, setCustomerActionBusy] = useState(false);
   const togglePickedCustomer = (id: string) =>
@@ -1269,7 +1271,7 @@ export default function Sites() {
         <TabsContent value="by-customer" className="mt-4">
           {!foldersLoading && customerFolders.length > 0 && (
             <div className="flex justify-between items-center mb-2 gap-2">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Select value={folderSort} onValueChange={(v) => setFolderSort(v as any)}>
                   <SelectTrigger className="h-7 text-xs w-auto gap-1.5">
                     <ArrowUpDown className="h-3 w-3" />
@@ -1283,6 +1285,7 @@ export default function Sites() {
                 </Select>
                 {userRole === "admin" && (
                   <>
+                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setCleanupOpen(true)}><FileSpreadsheet className="mr-1 h-3.5 w-3.5" />Customer clean-up</Button>
                     <Button variant="outline" size="sm" className="h-7 text-xs"
                       onClick={() => setPickedCustomers(new Set(customerFolders.filter((f) => f.sites.length === 0).map((f) => f.id)))}>
                       Tick all with 0 sites
@@ -2063,6 +2066,7 @@ export default function Sites() {
 
       <BulkImportSitesDialog open={bulkOpen} onOpenChange={setBulkOpen} onImported={fetchSites} />
       {userRole === "admin" && <MergeDuplicateSitesDialog open={mergeOpen} onOpenChange={setMergeOpen} onChanged={fetchSites} />}
+      {userRole === 'admin' && <CustomerCleanupDialog open={cleanupOpen} onOpenChange={setCleanupOpen} onChanged={() => { void fetchSites(); void fetchCustomerFolders(); }} />}
 
       <FolderSiteImportDialog
         open={folderImportOpen}
