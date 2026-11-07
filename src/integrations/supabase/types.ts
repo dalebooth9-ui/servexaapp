@@ -11810,6 +11810,10 @@ export type Database = {
         }
         Returns: Json
       }
+      confirm_building_merge: {
+        Args: { _fingerprint: string; _keep: string; _source: string }
+        Returns: string
+      }
       confirm_job_merge: { Args: { _token: string }; Returns: string }
       confirm_paper_scan_job: {
         Args: {
@@ -12139,6 +12143,10 @@ export type Database = {
           suspension_reason: string
           user_count: number
         }[]
+      }
+      preview_building_merge: {
+        Args: { _keep: string; _source: string }
+        Returns: Json
       }
       preview_invitation_token: {
         Args: { _token: string }
