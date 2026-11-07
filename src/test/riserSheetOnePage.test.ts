@@ -19,7 +19,11 @@ describe('riser inspection sheets print on one A4 page', () => {
       const doc = new jsPDF({ unit: 'mm', format: 'a4' });
       const logo = { dataUrl: `data:image/png;base64,${readFileSync('src/assets/vivafire-logo.png').toString('base64')}`, width: 1536, height: 1024, format: 'PNG' as const };
       const info = job(false);
-      renderPaperFormPage(doc, { template: t, jobInfo: { ...info, riserVisit: { ...info.riserVisit, outlets_count: outlets } }, logo, accreditationLogos: [logo], handfill: true });
+      const accreditationLogos = ['bafe-logo.jpeg', 'constructionline-logo.png', 'iso-9001-logo.jpg', 'smas-logo.png'].map(file => {
+        const jpeg = /jpe?g$/.test(file);
+        return { dataUrl: `data:image/${jpeg ? 'jpeg' : 'png'};base64,${readFileSync(`src/assets/accreditation/${file}`).toString('base64')}`, width: 100, height: 100, format: jpeg ? 'JPEG' as const : 'PNG' as const };
+      });
+      renderPaperFormPage(doc, { template: t, jobInfo: { ...info, riserVisit: { ...info.riserVisit, outlets_count: outlets } }, logo, accreditationLogos, handfill: true });
       expect(doc.getNumberOfPages()).toBe(1);
       expect(doc.internal.pageSize.getWidth()).toBeCloseTo(210, 1);
       expect(doc.internal.pageSize.getHeight()).toBeCloseTo(297, 1);
