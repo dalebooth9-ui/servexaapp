@@ -3,7 +3,7 @@
 .servexa-public section[id] { scroll-margin-top: 88px; }
 .public-hero { padding: 42px 24px 34px; }
 .public-hero h1 { font-size: 44px; line-height: 1.1; }
-.product-devices { position: relative; width: min(100%, 780px); margin: 30px auto 0; padding: 0 46px 14px 0; }
+.product-devices { position: relative; width: min(100%, 600px); margin: 26px auto 0; padding: 0 38px 14px 0; }
 .laptop-screen { background: hsl(var(--sidebar-background)); border: 7px solid hsl(var(--sidebar-border)); border-top-width: 15px; border-radius: 14px 14px 5px 5px; position: relative; box-shadow: var(--public-shadow); }
 .laptop-screen img { width: 100%; height: auto; display: block; border-radius: 3px; }
 .device-camera { position: absolute; width: 4px; height: 4px; background: hsl(var(--muted-foreground)); border-radius: 50%; top: -10px; left: 50%; }
