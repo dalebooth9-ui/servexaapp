@@ -1242,7 +1242,7 @@ export default function Sites() {
               {summaryList.map(site => {
                 const ancestors = siteAncestors(site, sites);
                 const owner = ancestors.find(parent => parent.site_type === 'site');
-                const regionSiteCount = summarySites.filter(record => record.site_type === 'site' && siteAncestors(record, sites).some(parent => parent.id === site.id)).length;
+                const regionSiteCount = site.site_type === 'region' ? summarySites.filter(record => record.site_type === 'site' && siteAncestors(record, sites).some(parent => parent.id === site.id)).length : 0;
                 return <Button key={site.id} variant="ghost" className="w-full h-auto min-h-14 justify-between rounded-none py-3 px-3 whitespace-normal text-left gap-3"
                   onClick={() => {
                     if (site.site_type === 'region') { setSummaryRegionId(site.id); }
