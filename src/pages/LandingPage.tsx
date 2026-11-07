@@ -39,7 +39,7 @@ export default function LandingPage() {
       <div className="mx-auto max-w-6xl text-center">
         <p className="mb-4 flex items-center justify-center gap-2 text-xs font-semibold text-accent"><Flame className="h-4 w-4" />BUILT FOR FIRE PROTECTION. PROVEN ON SITE.</p>
         <h1 className="font-extrabold text-sidebar-primary-foreground">The operations platform for<span className="mt-1 block text-accent">fire &amp; security companies.</span></h1>
-        <p className="mx-auto mt-5 max-w-4xl text-base leading-relaxed text-sidebar-foreground md:text-lg">Dry riser QR stickers, outlet scanning, paper report scanning and automatic timesheets, built by a working fire protection company.</p>
+        <p className="mx-auto mt-5 max-w-4xl text-base leading-relaxed text-sidebar-foreground md:text-lg">QR code asset scanning, digital job sheets, paper report scanning and automatic timesheets. Built by a working fire protection company.</p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <Button size="lg" className="public-invite" asChild><Link to="/signup">Request an invitation<ChevronRight className="ml-2 h-4 w-4" /></Link></Button>
           <Button size="lg" variant="outline" className="h-11 border-sidebar-border bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent/80" onClick={() => setContactOpen(true)}>Book a quick demo</Button>
@@ -62,7 +62,7 @@ export default function LandingPage() {
             <div className={index % 2 ? "md:order-1" : ""}>
               <p className="mb-4 flex items-center gap-3 text-xs font-semibold text-accent"><Icon className="h-6 w-6" />{feature.label}</p>
               <h2 className="public-feature-title">{feature.title}</h2><p className="public-feature-copy mt-5">{feature.body}</p>
-              <div className="public-feature-card mt-6"><Icon className="h-7 w-7 shrink-0 text-accent" /><div><h3 className="font-bold">{feature.label}</h3><p className="mt-1 text-sm">{["Check every outlet. Keep every visit connected.", "Know what was found — and what was fixed.", "Scan, review and file the original.", "Recorded on site. Reviewed in the office.", "Reports and approvals, securely shared."][index]}</p></div></div>
+              <div className="public-feature-card mt-6"><Icon className="h-7 w-7 shrink-0 text-accent" /><div><h3 className="font-bold">{feature.label}</h3><p className="mt-1 text-sm">{["QR code asset scanning, down to every outlet, valve or device.", "Know what was found — and what was fixed.", "Scan, review and file the original.", "Recorded on site. Reviewed in the office.", "Service reports and approvals, securely shared."][index]}</p></div></div>
               {index === 2 && <Button size="lg" className="public-invite mt-6" asChild><Link to="/signup">Request an invitation<ChevronRight className="ml-2 h-4 w-4" /></Link></Button>}
             </div>
           </div>
@@ -71,6 +71,7 @@ export default function LandingPage() {
     </div>
     <section id="compliance" className="public-navy public-standards px-6 py-7">
       <div className="public-reveal mx-auto flex max-w-6xl flex-col items-center justify-between gap-5 md:flex-row"><p className="text-lg font-bold">Built around UK fire standards</p><div className="flex flex-wrap justify-center gap-3 text-sm font-semibold">{["BS 9990", "BS 5306", "BS 5839", "PAS 79"].map(standard => <span className="rounded-full border border-accent/70 px-4 py-2" key={standard}>{standard}</span>)}</div></div>
+      <p className="mx-auto mt-5 max-w-6xl text-center text-sm leading-relaxed text-sidebar-foreground">Dry Risers · Fire Alarms · Extinguishers · Sprinklers · Emergency Lighting · CCTV · Door Sets</p>
     </section>
     <section id="our-story" className="public-white px-6 py-12 md:py-16">
       <div className="public-reveal mx-auto grid max-w-6xl items-center gap-10 md:grid-cols-2 md:gap-16">
