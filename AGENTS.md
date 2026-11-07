@@ -35,3 +35,4 @@
 - Paper-form riser sheets (src/workers/paperFormRenderer.ts) never add a page: margins, logo, font and row height shrink, then rows are evenly squeezed and clipped — why: one riser must always be one A4 page with sign-off on it.
 - Print reports only prints risers belonging to the job (visit sheets, jobs.asset_id, answers' riser_asset_id), else asks the office to tick risers; CABINET KEYS uses assets.cabinet_key_type before site key info and riser sheets omit site notes — why: site-wide riser lists and notes cluttered per-job paperwork.
 - Day clocking: engineers write `time_clock` only via clock_* RPCs; office edits via admin_edit_time_clock (logged) — why: identity is the login and hour changes are audited.
+- Sites summaries share siteSummary filtering/counts on RLS-loaded records — why: lists and totals must agree without data writes.
