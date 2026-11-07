@@ -30,7 +30,7 @@ export default function CustomerCleanupDialog({open,onOpenChange,onChanged}:{ope
     if(!file)return;
     setBusy(true);setError('');setRows([]);setResults(null);setSelected(new Set());
     try {
-      const parsed=Papa.parse<string[]>(await file.text(),{skipEmptyLines:'greedy'});
+      const parsed=Papa.parse<string[]>(await file.text(),{skipEmptyLines:'greedy',delimiter:','});
       if(parsed.errors.length)throw new Error('The CSV could not be read: '+parsed.errors[0].message);
       const values=parsed.data.map(row=>row.map(v=>v.trim()));
       const first=values[0]||[];
