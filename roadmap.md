@@ -1,5 +1,9 @@
 # Roadmap
 
+## Generic public asset wording
+- [x] Exact hero subheading and QR asset heading/line; generic asset, visit and service-report copy, trades shown as examples; title, description and sharing metadata updated. Buttons, pricing and signed-in app unchanged.
+- [x] Help updated; desktop/phone checked with all images loaded, no overflow/runtime errors and working demo enquiry; founder visibility test passes.
+
 ## Bold public landing makeover
 - [x] Alternating white/navy full-width feature bands, faint navy grid, authentic sample outlet-check capture and sticker output, orange cards/CTAs/stats/standards, tighter spacing; colours/pricing and signed-in app preserved.
 - [x] Founder publication disabled; complete public page checked on desktop/phone with all images loaded, no unfinished visible text, no overflow/runtime errors and working demo enquiry. Help updated; capture used fictitious records and no saved data.
