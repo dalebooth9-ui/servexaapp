@@ -44,7 +44,7 @@ export default function CustomerCleanupDialog({open,onOpenChange,onChanged}:{ope
       const preview=mode==='remove'?removePreview(entries.map(e=>e[0]),list):mergePreview(entries.map(e=>({name:e[0],into:e[1]||''})),list);
       setCustomers(list);setNames(entries.map(e=>e[0]));setRows(preview);
       setSelected(new Set(preview.filter(r=>mode==='remove'?r.status==='Safe to remove':!!r.targetId&&r.targetId!==r.customer?.id&&!protectedCustomer(r.name)).map(r=>r.key)));
-    }catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}
+    }catch(e){setError(e instanceof Error?e.message:typeof e==='object'&&e&&'message' in e?String(e.message):String(e));}finally{setBusy(false);}
   };
   const changeWinner=(row:CleanupRow,id:string)=>{
     setRows(prev=>prev.map(r=>r.key===row.key || (row.groupIds?.includes(r.key)) ? {...r,targetId:id,status:id===r.customer?.id?'Keep':'Ready to merge'}:r));
@@ -58,7 +58,7 @@ export default function CustomerCleanupDialog({open,onOpenChange,onChanged}:{ope
       const changed=data as unknown as {id:string;name:string;status:string;into?:string;counts?:Record<string,number>}[];
       setResults(rows.map(r=>changed.find(x=>x.id===r.key)||{name:r.name,status:r.status==='Not found'?'Not found':r.status==='Keep'?'Kept':'Skipped',counts:r.customer?.counts}));
       setConfirm(false);onChanged();
-    }catch(e){setError(e instanceof Error?e.message:String(e));setConfirm(false);}finally{setBusy(false);}
+    }catch(e){setError(e instanceof Error?e.message:typeof e==='object'&&e&&'message' in e?String(e.message):String(e));setConfirm(false);}finally{setBusy(false);}
   };
   const download=async()=>{
     if(!results)return;

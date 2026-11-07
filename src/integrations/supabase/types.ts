@@ -11349,6 +11349,7 @@ export type Database = {
           suspension_reason: string
         }[]
       }
+      customer_cleanup_admin: { Args: { _org: string }; Returns: boolean }
       customer_cleanup_counts: { Args: { _id: string }; Returns: Json }
       customer_cleanup_preview: { Args: never; Returns: Json }
       customer_logo_path_belongs_to_caller: {

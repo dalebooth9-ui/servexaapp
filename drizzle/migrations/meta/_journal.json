@@ -337,6 +337,13 @@
       "when": 1794041196670,
       "tag": "0047_customer_csv_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1794041494155,
+      "tag": "0048_customer_cleanup_company_admin_roles",
+      "breakpoints": true
     }
   ]
 }
