@@ -1,8 +1,8 @@
 # Roadmap
 
 ## Premium public landing page
-- [ ] Preserve headline, colours and pricing; authentic framed product screenshots, proof strip, five alternating workflow rows, founder placeholder and simplified standards/footer.
-- [ ] Compress/lazy-load imagery, scoped scroll motion, verify desktop/phone and record build time; no logged-in app changes.
+- [x] Preserved headline, colours and pricing; authentic demo screenshots in laptop/phone frames, proof strip, five alternating workflow rows, founder/headshot placeholders and simplified standards/footer.
+- [x] Compressed CDN imagery, lazy-loaded secondary screenshots, scoped reduced-motion-aware fades; desktop/phone, image delivery and demo enquiry checked with no runtime errors or overflow; Help updated. Logged-in screens unchanged. Site figure and founder quote remain visibly unverified pending Dale’s approved wording.
 
 ## Multi-riser site visit job page
 - [x] Persisted job riser membership/selection; split job/site riser sections, count and shared per-riser report/sticker defaults.
