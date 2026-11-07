@@ -5,7 +5,10 @@ import { format, startOfWeek, endOfWeek } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import ClockInButton from "@/components/ClockInButton";
+import DayClockCard from "@/components/timesheets/DayClockCard";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 type Entry = {
   id: string;
@@ -14,6 +17,7 @@ type Entry = {
   total_minutes: number | null;
   clock_in_lat: number | null;
   clock_in_lng: number | null;
+  missing_finish?: boolean;
 };
 
 function fmtMins(mins: number) {
@@ -27,6 +31,14 @@ export default function MyTimesheet() {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fix, setFix] = useState<{ date: string; id: string | null } | null>(null);
+  const [note, setNote] = useState("");
+  const sendFix = async () => {
+    if (!fix) return;
+    const { error } = await supabase.rpc("request_time_correction", { _time_clock_id: fix.id as any, _work_date: fix.date, _note: note });
+    if (error) return toast.error(error.message);
+    toast.success("Sent to the office"); setFix(null); setNote("");
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -34,7 +46,7 @@ export default function MyTimesheet() {
     since.setDate(since.getDate() - 30);
     supabase
       .from("time_clock")
-      .select("id, clock_in_at, clock_out_at, total_minutes, clock_in_lat, clock_in_lng")
+      .select("id, clock_in_at, clock_out_at, total_minutes, clock_in_lat, clock_in_lng, missing_finish")
       .eq("user_id", user.id)
       .gte("clock_in_at", since.toISOString())
       .order("clock_in_at", { ascending: false })
@@ -74,7 +86,7 @@ export default function MyTimesheet() {
           </div>
           <Clock className="h-8 w-8 text-primary" />
         </div>
-        <ClockInButton />
+        <DayClockCard />
       </div>
 
       <div className="space-y-3">
@@ -92,11 +104,12 @@ export default function MyTimesheet() {
                   <p className="font-semibold">{format(new Date(date), "EEE d MMM")}</p>
                   <span className="text-sm font-medium text-primary">{fmtMins(total)}</span>
                 </div>
+                <button className="text-xs font-medium text-primary underline" onClick={() => setFix({ date, id: items[0]?.id ?? null })}>Request a correction</button>
                 {items.map((e) => (
                   <div key={e.id} className="flex items-center justify-between text-sm text-muted-foreground border-t pt-2">
                     <span>
                       {format(new Date(e.clock_in_at), "HH:mm")} –{" "}
-                      {e.clock_out_at ? format(new Date(e.clock_out_at), "HH:mm") : "active"}
+                      {e.clock_out_at ? format(new Date(e.clock_out_at), "HH:mm") : e.missing_finish ? <strong className="text-destructive">Missing finish</strong> : "active"}
                     </span>
                     {e.clock_in_lat && (
                       <span className="inline-flex items-center gap-1">
@@ -111,6 +124,14 @@ export default function MyTimesheet() {
           })
         )}
       </div>
+      <Dialog open={!!fix} onOpenChange={(o) => !o && setFix(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Request a correction</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Tell the office what's wrong (e.g. "Forgot to finish — left site at 16:30"). Only the office can change times.</p>
+          <Textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
+          <DialogFooter><Button className="h-12" onClick={sendFix} disabled={!note.trim()}>Send to office</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
