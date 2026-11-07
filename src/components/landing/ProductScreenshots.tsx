@@ -7,7 +7,8 @@
  */
 import dashboard from "@/assets/screens/dashboard.webp";
 import planner from "@/assets/screens/planner.webp";
-import jobDetail from "@/assets/screens/job-detail.webp";
+import jobDetail from "@/assets/screens/job-page-new.webp";
+import timesheets from "@/assets/screens/timesheets-new.webp";
 import defects from "@/assets/screens/defects.webp";
 import quote from "@/assets/screens/quote.webp";
 import helpGuides from "@/assets/screens/help-guides.webp";
@@ -17,7 +18,8 @@ import engineerReport from "@/assets/screens/engineer-report.webp";
 const WIDE = [
   { src: dashboard, alt: "Servexa dashboard showing jobs awaiting approval, overdue jobs, this week's schedule and upcoming renewals", caption: "Office dashboard — what needs attention today" },
   { src: planner, alt: "Weekly job planner grid with engineers down the side and jobs scheduled across the week", caption: "Drag-and-drop weekly planner" },
-  { src: jobDetail, alt: "Job record with engineer assignment, scheduled visits, RAMS and job sheets", caption: "Everything about a job on one page" },
+  { src: jobDetail, alt: "Dry riser job page with print reports, QR sticker pack printing, site history and per-riser outlet status", caption: "Dry riser job — reports, QR stickers and riser history" },
+  { src: timesheets, alt: "Timesheets page showing an engineer's week with start and finish times, breaks and payroll export buttons", caption: "Van QR clocking → automatic timesheets" },
   { src: defects, alt: "Defects register listing outstanding remedial items with severity, site and status", caption: "Defects tracked to closure" },
   { src: quote, alt: "Branded quote document with line items, subtotal, VAT and total", caption: "Branded quotes and invoices" },
   { src: helpGuides, alt: "In-app help centre listing step-by-step guides grouped by category", caption: "Step-by-step guides built in" },

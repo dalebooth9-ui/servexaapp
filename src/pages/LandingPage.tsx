@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import ProductWalkthrough from "@/components/landing/ProductWalkthrough";
 import ProductScreenshots from "@/components/landing/ProductScreenshots";
+import ContactSalesDialog from "@/components/ContactSalesDialog";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,12 +10,13 @@ import {
   CheckCircle2, Briefcase, CalendarDays, Shield, FileText, Smartphone, MapPin,
   Zap, BarChart2, Users, ChevronRight, Layers, Brain, Flame, ClipboardCheck,
   Bell, Wrench, Camera, Building2, FileCheck, Siren, ScanLine, Send,
+  QrCode, History, Clock, Sparkles,
 } from "lucide-react";
 
 const FEATURES = [
-  { icon: Briefcase, title: "Intelligent Job Management", desc: "Create, assign and track fire & security jobs from first call to customer sign-off — full audit trail, priority flags and SLA breach alerts included." },
+  { icon: Briefcase, title: "Intelligent Job Management", desc: "Create, assign and track fire & security jobs from first call to customer sign-off — full audit trail and priority flags included." },
   { icon: CalendarDays, title: "PPM Scheduling & Planner", desc: "Drag-and-drop weekly planner with auto-generated PPM visits for every fire system type. AI-assisted route optimisation to sequence a day's jobs efficiently." },
-  { icon: Shield, title: "Compliance & Certification", desc: "Track certificate and engineer qualification expiry dates, attach documents, and generate PDF reports aligned to BS 9990, BS 5306 and BS 5839." },
+  { icon: Shield, title: "Compliance & Certification", desc: "Track certificate and engineer qualification expiry dates, attach documents, and generate PDF reports built around BS 9990, BS 5306 and BS 5839." },
   { icon: FileText, title: "RAMS & Digital Job Sheets", desc: "Build PAS 79-aligned Risk Assessments and Method Statements with AI auto-fill from the job's category, site and customer. Custom templates, digital signatures and one-click PDF export." },
   { icon: Smartphone, title: "Engineer Mobile App", desc: "Engineers clock in, submit voice notes, capture on-site photos and get client sign-offs — on or off site, even offline." },
   { icon: Brain, title: "AI-Powered Fire Tools", desc: "AI RAMS auto-fill, AI job briefs, AI scheduler, AI customer report summaries and predictive maintenance alerts — built right in, no extra tools needed." },
@@ -21,12 +24,19 @@ const FEATURES = [
   { icon: BarChart2, title: "Reports & Analytics", desc: "Weekly management reports every Monday — revenue, jobs completed, top engineers, compliance status and more." },
   { icon: ScanLine, title: "Paper Sheets → Digital", desc: "Post or email in your paper job sheets. Servexa's OCR + AI reads the handwriting, matches to a template, and produces a clean branded PDF ready for the customer." },
   { icon: Send, title: "Customer Sign-Off & Send", desc: "Digital customer sign-off via a secure link. Send the finished report straight from the app — via Servexa or via your own Microsoft 365 mailbox." },
-  { icon: Wrench, title: "Job Costing & Invoicing", desc: "Track parts, labour and margin per job. Raise invoices directly from the job sheet and sync with Xero, QuickBooks, Sage or FreeAgent." },
-  { icon: ClipboardCheck, title: "Installation Projects", desc: "Manage multi-phase installation projects with milestone tracking, handover sign-off and certificate of conformity generation." },
+  { icon: Wrench, title: "Job Costing & Invoicing", desc: "Track parts, labour and margin per job. Raise invoices directly from the job sheet and sync with Xero and QuickBooks (more coming)." },
+  { icon: ClipboardCheck, title: "Installation Projects", desc: "Manage multi-phase installation projects with handover sign-off and certificate of conformity generation." },
+];
+
+const WHATS_NEW = [
+  { icon: QrCode, title: "QR stickers on every riser", desc: "Unique QR stickers for every dry and wet riser inlet and every outlet. Engineers scan each valve to prove attendance — and get a warning if an outlet is missed." },
+  { icon: History, title: "Riser & site history", desc: "Full service history per riser and per site, including remedial work needed and done — always one scan away." },
+  { icon: Clock, title: "Van QR clocking & timesheets", desc: "Engineers clock in and out by scanning a QR sticker in their van. Timesheets build themselves, with a payroll-ready export for approved weeks." },
+  { icon: Sparkles, title: "Built-in AI assistant", desc: "Ask where anything lives and the assistant takes you straight to the right screen — no hunting through menus." },
 ];
 
 const WHY_CHOOSE = [
-  { icon: Shield, title: "Built for UK Fire Standards", desc: "Every workflow aligns with BS 5839, BS 5306, BS 9990, PAS 79 and 6 more UK standards. Not a generic tool retrofitted for fire — purpose-built from day one." },
+  { icon: Shield, title: "Built for UK Fire Standards", desc: "Every workflow is built around BS 5839, BS 5306, BS 9990, PAS 79 and more UK standards. Not a generic tool retrofitted for fire — purpose-built from day one." },
   { icon: Layers, title: "One Platform, Not Five", desc: "RAMS, job sheets, compliance certificates, scheduling, invoicing and customer sign-off in one place. Replace the spreadsheet, the WhatsApp group, and the filing cabinet." },
   { icon: Smartphone, title: "Your Engineers Will Actually Use It", desc: "Dark-themed mobile interface designed for site use. Clock in, complete checklists, capture photos, get customer sign-off — all from their phone. No training needed." },
   { icon: Zap, title: "From First Job to Invoice in Minutes", desc: "Create a job, assign an engineer, complete on-site, get signed off, generate the invoice and sync to Xero. The whole workflow, end to end, no paper." },
@@ -47,9 +57,7 @@ const COMPLIANCE_STANDARDS = [
   { code: "BS 5839", label: "Fire Alarms" },
   { code: "BS 9251", label: "Sprinkler Systems" },
   { code: "PAS 79", label: "Fire Risk Assessments" },
-  { code: "BAFE SP203", label: "Gas Suppression" },
   { code: "BS EN 62676", label: "CCTV Systems" },
-  { code: "BS 7858", label: "Access Control" },
 ];
 
 const FIRE_SYSTEMS = [
@@ -62,6 +70,7 @@ const FIRE_SYSTEMS = [
 ];
 
 export default function LandingPage() {
+  const [contactOpen, setContactOpen] = useState(false);
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-50 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -83,7 +92,7 @@ export default function LandingPage() {
           </nav>
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild><Link to="/auth">Sign In</Link></Button>
-            <Button size="sm" asChild><Link to="/signup">Start Free Trial</Link></Button>
+            <Button size="sm" asChild><Link to="/signup">Request an invitation</Link></Button>
           </div>
         </div>
       </header>
@@ -102,17 +111,17 @@ export default function LandingPage() {
             <span className="block mt-1 text-accent">fire & security companies.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-sidebar-foreground/70">
-            Manage RAMS, compliance certificates, PPM schedules, engineer dispatch and customer sign-off in one purpose-built platform — from dry riser inspections to sprinkler commissioning.
+            Fire protection job management, done properly: RAMS, compliance certificates, PPM schedules, dry riser software with QR code riser inspection, engineer dispatch and customer sign-off in one purpose-built platform.
           </p>
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Button size="lg" className="h-12 px-8 text-base font-semibold" asChild>
-              <Link to="/signup">Start your free 14-day trial<ChevronRight className="ml-2 h-4 w-4" /></Link>
+              <Link to="/signup">Request an invitation<ChevronRight className="ml-2 h-4 w-4" /></Link>
             </Button>
-            <Button size="lg" variant="outline" className="h-12 border-sidebar-border/60 px-8 text-base text-sidebar-foreground hover:bg-sidebar-accent" asChild>
-              <Link to="/pricing">View pricing</Link>
+            <Button size="lg" variant="outline" className="h-12 border-sidebar-border/60 px-8 text-base text-sidebar-foreground hover:bg-sidebar-accent" onClick={() => setContactOpen(true)}>
+              Book a quick demo
             </Button>
           </div>
-          <p className="mt-4 text-xs text-sidebar-foreground/35">Full access. No credit card required. Then from £49/month.</p>
+          <p className="mt-4 text-xs text-sidebar-foreground/35">Private beta. From £199/month flat, whole team included.</p>
 
           <div className="mt-12 flex flex-wrap justify-center gap-2">
             {FIRE_SYSTEMS.map(({ icon: Icon, label }) => (
@@ -127,7 +136,7 @@ export default function LandingPage() {
 
       <section className="border-y border-border bg-muted/40 py-5">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-8 px-6 text-sm text-muted-foreground">
-          {["Workflows aligned to BAFE SP203", "Aligned with BS 9990 / BS 5306 / BS 5839", "PAS 79 Fire Risk Templates", "GDPR-Ready Data Handling", "99.5% Uptime SLA"].map((t) => (
+          {["Built around BS 9990 / BS 5306 / BS 5839", "PAS 79 Fire Risk Templates", "GDPR-Ready Data Handling", "QR Code Riser Inspection"].map((t) => (
             <div key={t} className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-primary" />
               <span>{t}</span>
@@ -143,7 +152,7 @@ export default function LandingPage() {
             Servexa is a software platform that helps accredited contractors manage their compliance workflows. We are not affiliated with, endorsed by, or accredited by any of the bodies listed below.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
-            {["BAFE", "NICEIC", "SSAIB", "NSI", "Gas Safe Register", "Constructionline", "ISO 9001", "SafeContractor"].map((name) => (
+            {["BAFE", "NICEIC", "SSAIB", "NSI", "Constructionline", "ISO 9001", "SafeContractor"].map((name) => (
               <span key={name} className="rounded-full border border-border bg-muted/50 px-4 py-1.5 text-xs font-semibold text-muted-foreground tracking-wide">{name}</span>
             ))}
           </div>
@@ -218,6 +227,27 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="border-y border-border bg-muted/40 px-6 py-20">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-12 text-center">
+            <Badge variant="outline" className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">What's new</Badge>
+            <h2 className="text-3xl font-bold tracking-tight">Built for the way engineers really work</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">The latest additions to the platform — live in the product today.</p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {WHATS_NEW.map(({ icon: Icon, title, desc }) => (
+              <div key={title} className="rounded-xl border bg-card p-6 shadow-sm flex flex-col">
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <h3 className="mb-2 font-semibold tracking-tight">{title}</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section id="how-it-works" className="bg-muted/20 px-6 py-24">
         <div className="mx-auto max-w-4xl">
           <div className="mb-16 text-center">
@@ -261,7 +291,7 @@ export default function LandingPage() {
             ))}
           </div>
           <Button size="lg" className="mt-8 h-12 px-10 text-base" asChild>
-            <Link to="/signup">Start free 14-day trial<ChevronRight className="ml-2 h-4 w-4" /></Link>
+            <Link to="/signup">Request an invitation<ChevronRight className="ml-2 h-4 w-4" /></Link>
           </Button>
         </div>
       </section>
@@ -311,6 +341,26 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="bg-background px-6 py-20 border-t border-border">
+        <div className="mx-auto max-w-3xl text-center">
+          <Badge variant="outline" className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Our story</Badge>
+          <h2 className="text-3xl font-bold tracking-tight">Built by a working fire protection company</h2>
+          <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+            Servexa was built by <span className="font-medium text-foreground">Viva Fire Protection</span>, a UK fire
+            protection contractor, for the way engineers and offices really work. Every screen has been used on real
+            jobs, on real sites, before it ever reached you.
+          </p>
+          <blockquote className="mx-auto mt-8 max-w-2xl rounded-xl border bg-card p-6 text-left shadow-sm">
+            <p className="text-sm leading-relaxed text-muted-foreground italic">
+              "[Founder quote goes here — a sentence or two about why you built Servexa and what you wanted to fix.]"
+            </p>
+            <footer className="mt-3 text-sm font-medium text-foreground">
+              Dale Booth <span className="font-normal text-muted-foreground">— Director, Viva Fire Protection</span>
+            </footer>
+          </blockquote>
+        </div>
+      </section>
+
       <section className="bg-sidebar px-6 py-24 text-sidebar-foreground">
         <div className="mx-auto max-w-2xl text-center">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-accent/15">
@@ -318,12 +368,17 @@ export default function LandingPage() {
           </div>
           <h2 className="text-4xl font-bold text-sidebar-primary-foreground">Ready to run a tighter service operation?</h2>
           <p className="mt-4 text-lg text-sidebar-foreground/70">
-            Start your free 14-day trial today. Full access from day one — RAMS, compliance, scheduling, engineer dispatch and customer sign-off. No credit card required.
+            Servexa is in private beta. Request an invitation and be set up in minutes — RAMS, compliance, scheduling, engineer dispatch and customer sign-off from day one.
           </p>
-          <Button size="lg" className="mt-8 h-12 px-10 text-base font-semibold" asChild>
-            <Link to="/signup">Start Free Trial — 14 Days<ChevronRight className="ml-2 h-4 w-4" /></Link>
-          </Button>
-          <p className="mt-4 text-xs text-sidebar-foreground/40">From £49/month. Cancel any time.</p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Button size="lg" className="h-12 px-10 text-base font-semibold" asChild>
+              <Link to="/signup">Request an invitation<ChevronRight className="ml-2 h-4 w-4" /></Link>
+            </Button>
+            <Button size="lg" variant="outline" className="h-12 border-sidebar-border/60 px-8 text-base text-sidebar-foreground hover:bg-sidebar-accent" onClick={() => setContactOpen(true)}>
+              Book a quick demo
+            </Button>
+          </div>
+          <p className="mt-4 text-xs text-sidebar-foreground/40">Private beta. From £199/month flat, whole team included. Cancel any time.</p>
         </div>
       </section>
 
@@ -354,6 +409,7 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+      <ContactSalesDialog open={contactOpen} onOpenChange={setContactOpen} />
     </div>
   );
 }
