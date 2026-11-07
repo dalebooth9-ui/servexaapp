@@ -38,6 +38,8 @@ const RULES: SlugRule[] = [
   // site customer/duplicate warning, one type, exact riser tick/count, save or planner scheduling.
   // Building duplicate warnings compare sibling extended names; every merge previews links,
   // confirms explicitly, preserves records and supports existing site merge undo.
+  // Sites uses 50-row Load more pages, 500ms database name/postcode/customer search,
+  // independent true totals, lazy customer folders/buildings and paged Drag to link.
   { test: (p) => p === "/sites", slug: "sites" },
   { test: (p) => p === '/sites/access-info', slug: 'sites.access-info' },
   { test: (p) => p === "/site-surveys" || p.startsWith("/site-surveys/"), slug: "site-surveys" },
