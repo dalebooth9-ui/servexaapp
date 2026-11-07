@@ -1,4 +1,5 @@
 import OfficeEmailSettings from "@/components/settings/OfficeEmailSettings";
+import DigitalTwinSettings from '@/components/settings/DigitalTwinSettings';
 import AccessPrintSettings from '@/components/settings/AccessPrintSettings';
 import CompanyBrandColourCard from '@/components/settings/CompanyBrandColourCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -505,6 +506,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="advanced" className="space-y-6 mt-0">
+          <DigitalTwinSettings />
           <DataExportSettings />
           <HelpArticlesAdmin />
           {/* Weekly Report Settings */}

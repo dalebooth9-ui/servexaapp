@@ -2,6 +2,7 @@ export type AssistantDestination = { label: string; path: string; tab?: string; 
 const settings = (label:string,tab:string,section?:string,aliases?:string[]):AssistantDestination => ({label,path:'/settings',tab,section,aliases});
 export const ASSISTANT_DESTINATIONS: AssistantDestination[] = [
   settings('Team','team'),settings('Email','email'),settings('Documents','documents'),settings('Integrations','integrations'),settings('Import history','import-history'),settings('Advanced','advanced'),
+  settings('Digital Twin (IoT sensors)','advanced',undefined,['Digital Twin','IoT sensors']),
   settings('Advanced integrations','integrations','advanced-integrations'),settings('Advanced document settings','documents','advanced-document-settings'),
   settings('Xero Accounting','integrations','advanced-integrations',['Xero']),settings('QuickBooks Online','integrations','advanced-integrations',['QuickBooks']),settings('Sage Business Cloud Accounting','integrations','advanced-integrations',['Sage']),settings('FreeAgent','integrations','advanced-integrations'),settings('The Mellor Integration','integrations','advanced-integrations',['Quote Hound','QuoteHound','The Mellor']),
   settings('Customer merge suggestions','integrations','advanced-integrations'),settings('Customer Reassignment Wizard','integrations','advanced-integrations',['Reassign customers','Reassign customer']),settings('Re-attach Job Documents','integrations','advanced-integrations',['Reattach job documents','Reattach documents']),

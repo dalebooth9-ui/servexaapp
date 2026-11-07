@@ -64,7 +64,7 @@ const RULES: SlugRule[] = [
   { test: (p) => p === "/settings/import", slug: "settings.import" },
   { test: (p) => p === '/settings/company-isolation', slug: 'settings.company-isolation' },
   { test: (p) => p === "/settings/integrations", slug: "integrations.quickbooks" },
-  // Settings guide covers the Documents tab, incl. the Print template column on job types (settings.print-template).
+  // Settings guide covers company-only default-off Digital Twin under Advanced, and Documents print templates.
   { test: (p) => p === "/settings", slug: "settings" },
 
   { test: (p) => p === "/fleet", slug: "fleet" },

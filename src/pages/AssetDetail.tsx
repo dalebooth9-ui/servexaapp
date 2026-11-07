@@ -11,6 +11,7 @@ import DryRiserPanel from "@/components/assets/DryRiserPanel";
 import { isRiserAsset } from "@/lib/dryRisers";
 import PpmSchedules from "@/components/PpmSchedules";
 import DigitalTwinPanel from "@/components/DigitalTwinPanel";
+import { useDigitalTwinSettings } from '@/hooks/useDigitalTwinSettings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -107,6 +108,7 @@ const DOC_TYPES = ["general", "certificate", "inspection", "warranty", "manual",
 export default function AssetDetail() {
   const { id } = useParams<{ id: string }>();
   const { user, userRole } = useAuth();
+  const { enabled: digitalTwinOn } = useDigitalTwinSettings();
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -358,13 +360,13 @@ export default function AssetDetail() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="digital-twin" className="gap-1.5">
+          {digitalTwinOn && <TabsTrigger value="digital-twin" className="gap-1.5">
             <span className="relative flex h-2 w-2 mr-1">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </span>
             Digital Twin
-          </TabsTrigger>
+          </TabsTrigger>}
           <TabsTrigger value="documents">Documents ({docs.length})</TabsTrigger>
           <TabsTrigger value="ppm">PPM Schedules</TabsTrigger>
         </TabsList>
@@ -456,9 +458,9 @@ export default function AssetDetail() {
         </TabsContent>
 
         {/* Digital Twin Tab */}
-        <TabsContent value="digital-twin">
+        {digitalTwinOn && <TabsContent value="digital-twin">
           <DigitalTwinPanel assetId={asset.id} assetName={asset.name} />
-        </TabsContent>
+        </TabsContent>}
 
         {/* Documents Tab */}
         <TabsContent value="documents">

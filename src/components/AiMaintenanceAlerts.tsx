@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useDigitalTwinSettings } from '@/hooks/useDigitalTwinSettings';
 
 interface MaintenanceAlert {
   ppm_id: string;
@@ -33,6 +34,11 @@ interface Props {
 }
 
 export default function AiMaintenanceAlerts({ compact = false }: Props) {
+  const { enabled } = useDigitalTwinSettings();
+  return enabled ? <EnabledMaintenanceAlerts compact={compact} /> : null;
+}
+
+function EnabledMaintenanceAlerts({ compact = false }: Props) {
   const [open, setOpen] = useState(false);
   const [alerts, setAlerts] = useState<MaintenanceAlert[]>([]);
   const [loading, setLoading] = useState(false);
