@@ -7058,6 +7058,27 @@ export type Database = {
           },
         ]
       }
+      payroll_employee_ids: {
+        Row: {
+          employee_id: string
+          org_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          employee_id: string
+          org_id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          employee_id?: string
+          org_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pending_whatsapp_scans: {
         Row: {
           created_at: string
