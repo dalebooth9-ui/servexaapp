@@ -11867,6 +11867,15 @@ export type Database = {
         }
         Returns: string
       }
+      create_site_riser_job: {
+        Args: {
+          _details: Json
+          _request_id: string
+          _riser_ids: string[]
+          _site_id: string
+        }
+        Returns: string
+      }
       current_user_org_status: {
         Args: never
         Returns: {
