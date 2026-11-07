@@ -1,5 +1,10 @@
 # Roadmap
 
+## CSV customer clean-up
+- [ ] Add admin-only removal/merge CSV previews, safe confirmation and downloadable results.
+- [ ] Enforce tenant ownership, protected customer and no-data removal; preserve all merge records.
+- [ ] Update Help, test matching/safety/group winners and verify signed-in workflow/build time.
+
 ## Restore job report printing
 - [x] Restore Print reports beside Print sticker pack using the unchanged per-riser paperwork generator; update Help. 20 focused tests pass and preview builds cleanly; isolated visit-data rendering verified without writes. No actual visit-sheet rows are available in this preview, so real visit printing remains unverified.
 
