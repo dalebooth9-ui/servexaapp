@@ -30,7 +30,7 @@ export default function BuildingDuplicateWarning({source,keep,onChanged}:{source
     <Dialog open={!!preview} onOpenChange={open=>{if(!open && !busy)setPreview(null);}}><DialogContent>
       <DialogHeader><DialogTitle>Preview building merge</DialogTitle><DialogDescription>{source.name} → {keep.name}</DialogDescription></DialogHeader>
       <p className="text-sm">Attached records on {source.name}:</p>
-      {preview?.details.length ? <ul className="space-y-1 text-sm">{preview.details.map(d=><li key={d.table}>{d.table.replaceAll('_',' ')}: <strong>{d.count}</strong></li>)}</ul> : <p className="text-sm">No attached records. No assets, risers or job history will be removed.</p>}
+      {preview?.details.length ? <ul className="space-y-1 text-sm">{preview.details.map(d=><li key={d.table}>{d.table.replace(/_/g,' ')}: <strong>{d.count}</strong></li>)}</ul> : <p className="text-sm">No attached records. No assets, risers or job history will be removed.</p>}
       <p className="text-sm text-muted-foreground">Records move to {keep.name}. The duplicate disappears from the building list but remains recoverable using Undo last merge in Merge duplicate sites.</p>
       {preview?.blocked && <p className="text-sm text-destructive">Some links need a separate review. Merging is blocked to protect those records.</p>}
       <DialogFooter><Button variant="outline" disabled={busy} onClick={()=>setPreview(null)}>Cancel</Button><Button disabled={busy || preview?.blocked} onClick={merge}>Confirm merge</Button></DialogFooter>
