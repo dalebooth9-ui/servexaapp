@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { registerDraftSaver } from "@/lib/draftFlush";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Camera, CheckCircle2, CloudOff, FileText, Loader2, Mic, Plus, Square, Trash2, Upload, AlertTriangle, RefreshCw, ArrowUp, ArrowDown, Lock, X, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";

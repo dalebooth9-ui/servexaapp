@@ -1,4 +1,5 @@
 import ReportSitePhotos from "@/components/jobs/ReportSitePhotos";
+import { registerDraftSaver } from "@/lib/draftFlush";
 import SiteAccessCard from '@/components/sites/SiteAccessCard';
 import SaveAccessNote from '@/components/sites/SaveAccessNote';
 import {loadSiteAccess} from '@/lib/siteAccess';
