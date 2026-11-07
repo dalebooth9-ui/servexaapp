@@ -36,6 +36,8 @@ const RULES: SlugRule[] = [
   { test: (p) => p.startsWith("/customers/"), slug: "customers.detail" },
   // Sites guide includes the shared site-row Create job / New visit form: optional PO,
   // site customer/duplicate warning, one type, exact riser tick/count, save or planner scheduling.
+  // Building duplicate warnings compare sibling extended names; every merge previews links,
+  // confirms explicitly, preserves records and supports existing site merge undo.
   { test: (p) => p === "/sites", slug: "sites" },
   { test: (p) => p === '/sites/access-info', slug: 'sites.access-info' },
   { test: (p) => p === "/site-surveys" || p.startsWith("/site-surveys/"), slug: "site-surveys" },

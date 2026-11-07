@@ -1,0 +1,1 @@
+- Building duplicate actions use preview_building_merge and fingerprint-checked confirm_building_merge, retaining existing site merge audit/undo and blocking unhandled references — why: stale previews and incomplete link moves must never hide occupied buildings.
