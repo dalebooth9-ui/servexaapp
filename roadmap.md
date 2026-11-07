@@ -1,5 +1,9 @@
 # Roadmap
 
+## Sticker-only Viva logo and larger QR
+- [x] Exact original Viva logo cropped without tagline for stickers only; enlarged logo/number and 20mm QR, retaining L4778 grid and plain customer labels across the shared print entry points.
+- [x] Eleven tests pass; branded/plain PDFs rendered in the browser and branded labels visually checked; Help updated. Ready at 11:15 UTC/London. Physical printing not tested; no build log available in this sandbox.
+
 ## Permanent outlet QR codes
 - [x] Automatically save missing dry/wet outlet codes on creation/count changes; retain removed outlets as No longer fitted and preserve existing identities.
 - [x] Backfilled Viva Fire: 5,344 unique codes created, zero missing outlets or inlet collisions; other companies unchanged. Both pickers ensure codes before listing; Help updated.

@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { buildStickerPackPdf, loadOffsets, stickerUrl } from '@/lib/riserStickers';
+import { buildStickerPackPdf, loadOffsets, stickerUrl, stickerLogoUrl } from '@/lib/riserStickers';
 import { existingRiserLabels, labelSelection, type ExistingRiser, type ReprintLabel } from '@/lib/riserLabelReprints';
 import { riserOrFilter } from '@/lib/dryRisers';
 import { resolvePrintCustomer } from '@/lib/documentBrandingProfile';
@@ -58,7 +58,7 @@ export default function PrintQrLabels({ assetId, siteId, onlyOutlet, iconOnly = 
       const bySite: Record<string, string | null> = {};
       for (const id of new Set(rows.map(r => r.site_id))) {
         const customer = id ? await resolvePrintCustomer({ siteId: id }) : null;
-        bySite[id || ''] = customer?.print_logo_url || customer?.logo_url ? null : logo;
+        bySite[id || ''] = customer?.print_logo_url || customer?.logo_url ? null : stickerLogoUrl(logo);
       }
       if (alive) { setRisers(rows); setLabels(list); setPicked(labelSelection(list, 'all')); setLogos(bySite); }
     })().catch(() => { if (alive) toast.error('Could not load existing QR labels. Please try again.'); })
@@ -105,7 +105,7 @@ export default function PrintQrLabels({ assetId, siteId, onlyOutlet, iconOnly = 
         {selected.length > 0 && <div aria-label="Label preview" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {selected.map(l => <div key={l.tag} className="flex items-center gap-3 border rounded p-3 bg-background">
             <QRCodeSVG value={stickerUrl(l.tag)} size={72} />
-            <div className="flex-1 text-center"><p className="font-mono font-bold">{l.tag}</p>{logos[l.site_id || ''] && <img src={logos[l.site_id || ''] || ''} alt="Company logo" className="mx-auto mt-2 h-8 max-w-24 object-contain" />}</div>
+            <div className="flex-1 text-center"><p className="font-mono font-bold text-lg">{l.tag}</p>{logos[l.site_id || ''] && <img src={logos[l.site_id || ''] || ''} alt="Company logo" className="mx-auto mt-2 h-10 max-w-28 object-contain" />}</div>
           </div>)}
         </div>}
         <Button onClick={print} disabled={busy || !selected.length}><Printer className="h-4 w-4 mr-2" />{busy ? 'Preparing…' : `Print ${selected.length} label(s)`}</Button>

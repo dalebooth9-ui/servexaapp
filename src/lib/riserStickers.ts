@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
+import vivaStickerLogo from '@/assets/vivafire-sticker-logo.png';
 
 /** Public URL encoded in every riser sticker. Always the primary domain so
  *  stickers keep working whichever host printed them. */
@@ -22,7 +23,12 @@ export const L4778 = {
 
 export const LABELS_PER_SHEET = L4778.cols * L4778.rows;
 /** Fixed print geometry inside each label; never derive logo size from source-image whitespace. */
-export const STICKER_CONTENT = { padding: 1.5, qrSize: 16.2, quiet: 1, logoWidth: 20, logoMaxHeight: 8, idFontSize: 13 } as const;
+export const STICKER_CONTENT = { padding: 0.6, qrSize: 20, quiet: 0.6, logoWidth: 22.4, logoMaxHeight: 8, idFontSize: 16 } as const;
+
+/** Sticker-only crop; the full Viva logo remains unchanged on all paperwork. */
+export function stickerLogoUrl(url: string): string {
+  return /\/images\/vivafire-logo-new\.png(?:[?#]|$)/.test(url) ? vivaStickerLogo : url;
+}
 
 export function stickerLogoSize(width:number,height:number){
   const scale=Math.min(STICKER_CONTENT.logoWidth/width,STICKER_CONTENT.logoMaxHeight/height);
@@ -69,7 +75,7 @@ async function loadImage(url: string): Promise<{ data: string; w: number; h: num
     if (!ctx) return null;
     ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0);
-    // Remove blank margins around the full logo, preserving its strapline.
+    // Remove blank margins; Viva's sticker source already excludes the tagline.
     const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;
     let left=canvas.width,top=canvas.height,right=-1,bottom=-1;
     for(let y=0;y<canvas.height;y++)for(let x=0;x<canvas.width;x++){
@@ -98,7 +104,7 @@ export async function buildStickerPackPdf(opts: {
   startPosition?: number;
 }): Promise<jsPDF> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const logo = opts.logoUrl ? await loadImage(opts.logoUrl) : null;
+  const logo = opts.logoUrl ? await loadImage(stickerLogoUrl(opts.logoUrl)) : null;
   const items = opts.testPage && opts.items.length === 0 ? [] : opts.items;
 
   if (opts.testPage) {
@@ -121,15 +127,14 @@ export async function buildStickerPackPdf(opts: {
       currentSheet = p.sheet;
     }
     const pad = STICKER_CONTENT.padding;
-    const qrSize = L4778.labelH - pad * 2; // ~18.2mm, includes quiet zone below
-    const quiet = STICKER_CONTENT.quiet;
-    drawQr(doc, stickerUrl(item.asset_tag), p.x + pad + quiet, p.y + pad + quiet, STICKER_CONTENT.qrSize);
-    const textX = p.x + pad + qrSize + 1.5;
+    drawQr(doc, stickerUrl(item.asset_tag), p.x + pad, p.y + pad, STICKER_CONTENT.qrSize);
+    const textX = p.x + pad + STICKER_CONTENT.qrSize + 2;
     const textW = L4778.labelW - (textX - p.x) - pad;
     doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(STICKER_CONTENT.idFontSize);
-    const tagY = logo ? p.y + 9 : p.y + L4778.labelH / 2 + 2;
+    if (doc.getTextWidth(item.asset_tag) > textW) doc.setFontSize(STICKER_CONTENT.idFontSize * textW / doc.getTextWidth(item.asset_tag));
+    const tagY = p.y + 7;
     doc.text(item.asset_tag, textX + textW / 2, tagY, { align: "center" });
     if (logo) {
       const {width:w,height:h}=stickerLogoSize(logo.w,logo.h);
