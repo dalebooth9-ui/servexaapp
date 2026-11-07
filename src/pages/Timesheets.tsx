@@ -59,8 +59,8 @@ export default function Timesheets() {
     const list = ((e.data as Entry[]) || []).filter((x) => days.includes(londonDate(x.clock_in_at)));
     setEntries(list);
     setStdBreak(s.data?.standard_break_minutes ?? 0);
-    const { data: ids } = await supabase.from("payroll_employee_ids").select("user_id, employee_id");
-    setEmpIds(Object.fromEntries(((ids as any[]) || []).map((x) => [x.user_id, x.employee_id])));
+    const { data: payIds } = await supabase.from("payroll_employee_ids").select("user_id, employee_id");
+    setEmpIds(Object.fromEntries(((payIds as any[]) || []).map((x) => [x.user_id, x.employee_id])));
     setVans(Object.fromEntries(((v.data as any[]) || []).map((x) => [x.id, x.name])));
     setApprovals(Object.fromEntries(((a.data as any[]) || []).map((x) => [x.user_id, x.approved_at])));
     setCorrections((c.data as any[]) || []);
