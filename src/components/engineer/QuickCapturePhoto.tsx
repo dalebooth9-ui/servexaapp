@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 /**
  * QuickCapturePhoto — floating camera button for engineers.
  *
