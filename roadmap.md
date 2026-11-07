@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Duplicate buildings
-- [ ] Add same-parent extended-name warnings, attached-record preview and confirmed safe merge; check Riverside Studios, update Help and tests.
+- [x] Added admin sibling-name warnings, attached-record preview, fingerprint-confirmed merge with unhandled-link/leftover-link rollback protection and existing audit/undo. All five Riverside flat-range copies verified empty; real buildings left unchanged for confirmation. Desktop/phone previews and stale-request rejection verified; 11 focused tests pass, Help updated, build OK. Successful merge/undo was not exercised because rollback-only database testing lacks staff permissions.
 
 ## Shared site job and visit form
 - [x] Unify site + and New visit: PO, site customer/duplicate warning, one job type, asset tick list and save/schedule actions.
