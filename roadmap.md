@@ -1,5 +1,8 @@
 # Roadmap
 
+## Larger riser report logo
+- [ ] Enlarge the centred riser sheet logo, retain right QR, omit pressure/hold rows on Pressure test printouts only, and verify 8/10-outlet Pressure and Visual sheets remain one readable A4 page. Update Help.
+
 ## Sites row actions
 - [x] Shared fixed-size main-colour New job and labelled more-actions menus across hierarchy/customer rows; Delete last in red, all row deletion paths show confirmation, icon tooltips added. Help updated; signed-in checks verified menu/tooltips, empty-building confirmation and Cancel causing zero writes, New job opening the form, and customer row controls. Nine existing safety tests pass; build OK 12:47 UTC/London. No records changed.
 
