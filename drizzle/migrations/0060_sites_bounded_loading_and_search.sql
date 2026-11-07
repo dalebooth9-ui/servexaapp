@@ -1,0 +1,25 @@
+CREATE INDEX IF NOT EXISTS sites_org_name_id_live ON public.sites(org_id,name,id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS sites_name_search ON public.sites USING gin(lower(name) gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS sites_postcode_search ON public.sites USING gin(lower(postcode) gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS customer_sites_org_site_customer ON public.customer_sites(org_id,site_id,customer_id);
+CREATE INDEX IF NOT EXISTS customers_org_name_id ON public.customers(org_id,name,id);
+CREATE OR REPLACE FUNCTION public.sites_browser_page(_mode text DEFAULT 'sites',_search text DEFAULT '',_offset integer DEFAULT 0,_parent uuid DEFAULT NULL,_customer uuid DEFAULT NULL,_type text DEFAULT NULL)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public AS $$
+DECLARE o uuid:=get_user_org_id(); admin boolean; engineer boolean; q text:=lower(btrim(coalesce(_search,''))); result jsonb; ids uuid[];
+BEGIN
+ admin:=has_role_in_org(auth.uid(),o,'admin'); engineer:=has_role_in_org(auth.uid(),o,'engineer');
+ IF o IS NULL OR NOT is_org_active(o) OR NOT(admin OR engineer) THEN RAISE EXCEPTION 'Staff access required'; END IF;
+ IF _mode='totals' THEN
+ SELECT jsonb_build_object('region',count(*) FILTER(WHERE site_type='region'),'site',count(*) FILTER(WHERE site_type='site'),'building',count(*) FILTER(WHERE site_type='building'),'zone',count(*) FILTER(WHERE site_type='zone'),'unlinked',count(*) FILTER(WHERE parent_id IS NULL AND site_type<>'region' AND NOT EXISTS(SELECT 1 FROM customer_sites c WHERE c.org_id=o AND c.site_id=s.id))) INTO result FROM sites s WHERE s.org_id=o AND s.deleted_at IS NULL AND (admin OR engineer_can_access_site(auth.uid(),s.id)); RETURN result;
+ ELSIF _mode='customers' THEN
+ WITH page AS (SELECT c.id,c.name,c.email,c.phone,c.address,(SELECT count(*) FROM customer_sites cs JOIN sites s ON s.id=cs.site_id AND s.org_id=o AND s.deleted_at IS NULL WHERE cs.org_id=o AND cs.customer_id=c.id) site_count FROM customers c WHERE c.org_id=o AND (admin OR engineer_can_access_customer(auth.uid(),c.id)) AND (q='' OR strpos(lower(c.name),q)>0 OR EXISTS(SELECT 1 FROM customer_sites cs JOIN sites s ON s.id=cs.site_id AND s.org_id=o AND s.deleted_at IS NULL WHERE cs.customer_id=c.id AND cs.org_id=o AND (strpos(lower(s.name),q)>0 OR strpos(lower(coalesce(s.postcode,'')),q)>0 OR EXISTS(SELECT 1 FROM sites child WHERE child.parent_id=s.id AND child.org_id=o AND child.deleted_at IS NULL AND (strpos(lower(child.name),q)>0 OR strpos(lower(coalesce(child.postcode,'')),q)>0))))) ORDER BY c.name,c.id LIMIT 51 OFFSET greatest(_offset,0)) SELECT jsonb_build_object('rows',coalesce(jsonb_agg(to_jsonb(page)),'[]')) INTO result FROM page; RETURN result;
+ END IF;
+ WITH page AS (SELECT s.id FROM sites s WHERE s.org_id=o AND s.deleted_at IS NULL AND (admin OR engineer_can_access_site(auth.uid(),s.id))
+ AND (_type IS NULL OR s.site_type=_type)
+ AND (CASE WHEN _mode='children' THEN s.parent_id=_parent WHEN _mode='context' THEN s.id=_parent OR s.parent_id=(SELECT parent_id FROM sites WHERE id=_parent AND org_id=o) WHEN _mode='folder' THEN EXISTS(SELECT 1 FROM customer_sites c WHERE c.org_id=o AND c.customer_id=_customer AND (c.site_id=s.id OR c.site_id=s.parent_id)) WHEN _mode='unlinked' THEN s.parent_id IS NULL AND s.site_type<>'region' AND NOT EXISTS(SELECT 1 FROM customer_sites c WHERE c.org_id=o AND c.site_id=s.id) ELSE CASE WHEN q<>'' OR _type IS NOT NULL THEN true WHEN _parent IS NOT NULL THEN s.parent_id=_parent ELSE s.site_type='site' OR (s.parent_id IS NULL AND s.site_type<>'region') END END)
+ AND (_mode IN ('children','context') OR q='' OR strpos(lower(s.name),q)>0 OR strpos(lower(coalesce(s.postcode,'')),q)>0 OR EXISTS(SELECT 1 FROM customer_sites cs JOIN customers c ON c.id=cs.customer_id AND c.org_id=o WHERE cs.org_id=o AND (cs.site_id=s.id OR cs.site_id=s.parent_id) AND strpos(lower(c.name),q)>0)) ORDER BY s.name,s.id LIMIT 51 OFFSET greatest(_offset,0)) SELECT array_agg(id) INTO ids FROM page;
+ WITH RECURSIVE ancestors AS (SELECT p.* FROM sites p WHERE p.org_id=o AND p.deleted_at IS NULL AND p.id=ANY(ids) UNION SELECT p.* FROM sites p JOIN ancestors a ON a.parent_id=p.id WHERE p.org_id=o AND p.deleted_at IS NULL), rows AS (SELECT s.*,(SELECT count(*) FROM sites c WHERE c.org_id=o AND c.deleted_at IS NULL AND c.parent_id=s.id) child_count,(SELECT count(*) FROM jobs j WHERE j.org_id=o AND j.site_id=s.id) job_count,(SELECT count(*) FROM assets a WHERE a.org_id=o AND a.site_id=s.id) asset_count FROM sites s WHERE s.id=ANY(ids)) SELECT jsonb_build_object('rows',coalesce((SELECT jsonb_agg(to_jsonb(rows) ORDER BY name,id) FROM rows),'[]'),'context',coalesce((SELECT jsonb_agg(to_jsonb(a)) FROM ancestors a WHERE NOT(a.id=ANY(ids))),'[]')) INTO result;
+ RETURN result;
+END $$;
+REVOKE ALL ON FUNCTION public.sites_browser_page(text,text,integer,uuid,uuid,text) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.sites_browser_page(text,text,integer,uuid,uuid,text) TO authenticated;

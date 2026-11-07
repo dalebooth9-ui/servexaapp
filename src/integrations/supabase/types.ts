@@ -12300,6 +12300,17 @@ export type Database = {
           total: number
         }[]
       }
+      sites_browser_page: {
+        Args: {
+          _customer?: string
+          _mode?: string
+          _offset?: number
+          _parent?: string
+          _search?: string
+          _type?: string
+        }
+        Returns: Json
+      }
       start_riser_scan_service: {
         Args: { _asset_id: string; _job_id?: string; _type?: string }
         Returns: Json
