@@ -108,6 +108,7 @@ const NAV_GROUPS: NavGroupDef[] = [
       { to: "/parts-library", label: "Parts library", icon: Library, adminOnly: true },
       { to: "/leave", label: "Leave", icon: Palmtree },
       { to: "/fleet", label: "Vehicle checks", icon: Truck, adminOnly: true },
+      { to: "/timesheets", label: "Timesheets", icon: ClipboardList, adminOnly: true },
       { to: "/industry-templates", label: "Templates", icon: BookOpen, adminOnly: true },
     ],
   },

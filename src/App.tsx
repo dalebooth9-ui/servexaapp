@@ -96,6 +96,8 @@ const ReportDownloads = lazy(() => import("@/pages/ReportDownloads"));
 const JobApprovalAuditLog = lazy(() => import("@/pages/JobApprovalAuditLog"));
 const MyProfile = lazy(() => import("@/pages/MyProfile"));
 const MyTimesheet = lazy(() => import("@/pages/MyTimesheet"));
+const Timesheets = lazy(() => import("@/pages/Timesheets"));
+const VanClock = lazy(() => import("@/pages/VanClock"));
 const SyncStatus = lazy(() => import("@/pages/SyncStatus"));
 const HelpGuides = lazy(() => import("@/pages/HelpGuides"));
 const SetupGuide = lazy(() => import("@/pages/SetupGuide"));
@@ -200,6 +202,7 @@ const App = () => (
           <AuthProvider>
             <Routes>
               <Route path="/auth" element={<AuthRoute />} />
+              <Route path="/v/:token" element={<Suspense fallback={<PageFallback />}><VanClock /></Suspense>} />
               <Route path="/r/:tag" element={<Suspense fallback={<PageFallback />}><RiserScan /></Suspense>} />
               <Route path="/login" element={<AuthRoute />} />
               <Route path="/signup" element={<Suspense fallback={<PageFallback />}><SignupPage /></Suspense>} />
@@ -218,6 +221,7 @@ const App = () => (
               <Route path="/setup" element={<AdminRoute><SetupGuide /></AdminRoute>} />
               <Route path="/admin/error-log" element={<AdminRoute><ErrorLog /></AdminRoute>} />
               <Route path="/admin/support-tickets" element={<AdminRoute><SupportTickets /></AdminRoute>} />
+              <Route path="/timesheets" element={<AdminRoute><Timesheets /></AdminRoute>} />
               <Route path="/fleet" element={<AdminRoute><FleetVehicles /></AdminRoute>} />
               <Route path="/platform/organisations" element={<AdminRoute><PlatformOrganisations /></AdminRoute>} />
               <Route path="/platform/support" element={<AdminRoute><PlatformSupportInbox /></AdminRoute>} />

@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { format, addDays, isSameDay, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useTimeClock } from "@/hooks/useTimeClock";
+import DayClockCard from "@/components/timesheets/DayClockCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -201,7 +201,6 @@ export default function EngineerTodayHome() {
   const engineerId = effectiveUserId ?? user?.id ?? null;
   const isGenericPreview = isPreviewingAsEngineer && !previewEngineerId;
 
-  const { isClockedIn, clockIn, clockOut, loading: clockLoading } = useTimeClock();
   const [loading, setLoading] = useState(true);
   const [today, setToday] = useState<JobLite[]>([]);
   const [completedToday, setCompletedToday] = useState<JobLite[]>([]);
@@ -430,26 +429,8 @@ export default function EngineerTodayHome() {
 
 
 
-      {/* Clock in/out — always visible, large tap */}
-      <button
-        onClick={isClockedIn ? clockOut : clockIn}
-        disabled={clockLoading}
-        className={`w-full rounded-2xl p-4 min-h-14 flex items-center justify-between border-2 transition-all active:scale-[0.99] ${
-          isClockedIn ? "border-destructive/40 bg-destructive/10" : "border-primary/40 bg-primary/10"
-        }`}
-      >
-        <span className="flex items-center gap-3">
-          {clockLoading
-            ? <Loader2 className="h-6 w-6 animate-spin" />
-            : isClockedIn
-              ? <LogOut className="h-6 w-6 text-destructive" />
-              : <LogIn className="h-6 w-6 text-primary" />}
-          <span className={`font-bold text-lg ${isClockedIn ? "text-destructive" : "text-primary"}`}>
-            {isClockedIn ? "Clock out" : "Clock in"}
-          </span>
-        </span>
-        <span className={`h-3 w-3 rounded-full ${isClockedIn ? "bg-destructive animate-pulse" : "bg-muted-foreground/30"}`} />
-      </button>
+      {/* Start day / Finish day — backup to scanning the van QR */}
+      <DayClockCard />
 
       {/* Vehicle check banner */}
       {vehicleCheckOk === false && (
