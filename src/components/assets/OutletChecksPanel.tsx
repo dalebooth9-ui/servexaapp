@@ -20,7 +20,7 @@ async function loadTagInfo(assetId: string): Promise<TagInfo> {
     if(error)throw error;
     const codes=data as {total?:number;tags?:Record<string,number>} | null;
     const info: TagInfo = {
-      total: Math.max(0, Math.min(200, Number(codes?.total) || 0)),
+      total: Math.max(0, Number(codes?.total) || 0),
       tags: codes?.tags || {},
     };
     localStorage.setItem(cacheKey(assetId), JSON.stringify(info));

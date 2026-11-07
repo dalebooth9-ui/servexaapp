@@ -21,4 +21,14 @@ describe("outlet checks", () => {
     expect(countChecked(6, c)).toBe(2);
     expect(unresolvedOutlets(6, c)).toEqual([3, 5, 6]);
   });
+  it('recognises five unique saved outlet codes and counts five of eight checked', () => {
+    const saved = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`ABC23${i + 2}`, i + 1]));
+    const checks: import('@/lib/outletChecks').OutletChecks = {};
+    for (const tag of Object.keys(saved).slice(0, 5)) {
+      const result = judgeScan(`https://servexaapp.com/r/${tag}`, saved, checks);
+      expect(result.kind).toBe('ok');
+      if (result.kind === 'ok') checks[String(result.outlet)] = { status: 'scanned', at: '2026-11-07T11:08:00Z', tag };
+    }
+    expect(countChecked(8, checks)).toBe(5);
+  });
 });

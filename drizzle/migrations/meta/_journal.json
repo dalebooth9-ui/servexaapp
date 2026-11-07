@@ -379,6 +379,13 @@
       "when": 1794048484746,
       "tag": "0053_riser_label_reprint_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1794049769037,
+      "tag": "0054_permanent_riser_outlet_codes",
+      "breakpoints": true
     }
   ]
 }

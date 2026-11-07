@@ -17,4 +17,9 @@ describe('existing QR label reprinting', () => {
     expect([...labelSelection(labels, 'inlet')]).toEqual(['48W4EU']);
     expect([...labelSelection(labels, 'outlets')]).toEqual(['OUTLET']);
   });
+  it('shows only fitted outlets when the count falls from ten to eight, retaining saved identities for later', () => {
+    const outlets = Array.from({ length: 10 }, (_, i) => ({ asset_id: 'r1', outlet_number: i + 1, outlet_tag: `SAVED${i}`, is_fitted: i < 8 }));
+    expect(existingRiserLabels([riser], outlets).map(l => l.tag)).toEqual(['48W4EU', ...outlets.slice(0, 8).map(o => o.outlet_tag)]);
+    expect(existingRiserLabels([{ ...riser, outlets_count: 10 }], outlets.map(o => ({ ...o, is_fitted: true })))).toHaveLength(11);
+  });
 });

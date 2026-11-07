@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import DryRiserPanel from "@/components/assets/DryRiserPanel";
+import MapAddress from '@/components/MapAddress';
 import { isRiserAsset } from "@/lib/dryRisers";
 import PpmSchedules from "@/components/PpmSchedules";
 import DigitalTwinPanel from "@/components/DigitalTwinPanel";
@@ -42,7 +43,6 @@ import {
   Wrench,
   AlertTriangle,
   XCircle,
-  MapPin,
   Calendar,
   Shield,
   Activity,
@@ -114,6 +114,7 @@ export default function AssetDetail() {
 
   const [asset, setAsset] = useState<Asset | null>(null);
   const [siteName, setSiteName] = useState<string | null>(null);
+  const [siteLocation, setSiteLocation] = useState<{ address: string | null; postcode: string | null; what3words: string | null } | null>(null);
   const [jobs, setJobs] = useState<LinkedJob[]>([]);
   const [docs, setDocs] = useState<AssetDoc[]>([]);
   const [activities, setActivities] = useState<ActivityEntry[]>([]);
@@ -139,8 +140,12 @@ export default function AssetDetail() {
 
     // Fetch site name
     if (assetData?.site_id) {
-      const { data: siteData } = await supabase.from("sites").select("name").eq("id", assetData.site_id).maybeSingle();
+      const { data: siteData } = await supabase.from("sites").select("name,address,postcode,what3words").eq("id", assetData.site_id).maybeSingle();
       setSiteName(siteData?.name || null);
+      setSiteLocation(siteData || null);
+    } else {
+      setSiteName(null);
+      setSiteLocation(null);
     }
 
     // Fetch activity from linked jobs
@@ -295,7 +300,7 @@ export default function AssetDetail() {
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Location</p>
             <div className="space-y-1.5 text-sm">
               {siteName ? (
-                <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-muted-foreground" /><span>{siteName}</span></div>
+                <div className="space-y-1"><p>{siteName}</p><MapAddress address={siteLocation?.address} postcode={siteLocation?.postcode} what3words={siteLocation?.what3words} siteId={asset.site_id} /></div>
               ) : (
                 <p className="text-muted-foreground">No site assigned</p>
               )}

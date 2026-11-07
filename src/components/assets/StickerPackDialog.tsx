@@ -14,7 +14,7 @@ import { resolveToSignedUrl } from "@/lib/durableStorageRef";
 
 const inletKey = (id: string) => `i:${id}`;
 const outletKey = (id: string, n: number) => `o:${id}:${n}`;
-const outletNums = (r: SiteRiser) => Array.from({ length: Math.max(0, Math.min(200, r.outlets_count || 0)) }, (_, i) => i + 1);
+const outletNums = (r: SiteRiser) => Array.from({ length: Math.max(0, r.outlets_count || 0) }, (_, i) => i + 1);
 const allKeys = (list: SiteRiser[]) => list.flatMap((r) => [...(r.asset_tag ? [inletKey(r.id)] : []), ...outletNums(r).map((n) => outletKey(r.id, n))]);
 
 export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, trigger }: {
@@ -40,12 +40,16 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
   };
   const load = (resetPick = false) => {
     if (!siteId) { setRisers([]); return Promise.resolve(); }
-    return fetchSiteRisers(siteId).then((list) => {
+    return fetchSiteRisers(siteId).then(async (list) => {
+      const tags: Record<string, string> = {};
+      for (let from = 0; from < list.length; from += 100) {
+        const { data, error } = await supabase.rpc('ensure_riser_outlet_tags', { _asset_ids: list.slice(from, from + 100).map(r => r.id) });
+        if (error) throw error;
+        (data || []).forEach(t => { tags[outletKey(t.asset_id, t.outlet_number)] = t.outlet_tag; });
+      }
+      setOutletTags(tags);
       setRisers(list); noteLast(list);
       if (resetPick) setPicked(new Set(allKeys(list)));
-      const ids = list.map((r) => r.id);
-      if (ids.length) supabase.from("riser_outlet_tags").select("asset_id, outlet_number, outlet_tag").in("asset_id", ids)
-        .then(({ data }) => setOutletTags(Object.fromEntries((data || []).map((t: any) => [outletKey(t.asset_id, t.outlet_number), t.outlet_tag]))));
     }).catch(() => { setRisers([]); toast.error("Couldn't load risers"); });
   };
   useEffect(() => { if (open) load(true); }, [open, siteId]);
@@ -113,10 +117,11 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
   };
 
   const addRisers = async () => {
+    if (!siteId) return;
     const locs = addLocs.map((s) => s.trim()).filter(Boolean);
     if (locs.length !== addCount) { toast.error("Enter a riser location for each riser"); return; }
     setBusy(true);
-    const { error } = await supabase.rpc("add_site_risers", { _site_id: siteId!, _locations: locs });
+    const { error } = await supabase.rpc("add_site_risers", { _site_id: siteId, _locations: locs });
     setBusy(false);
     if (error) { toast.error("Couldn't add risers: " + error.message); return; }
     toast.success(`${locs.length} riser(s) added`);
@@ -174,9 +179,9 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
                     <div className="flex items-center gap-3 px-3 py-1.5 text-sm">
                       <Checkbox checked={onCount === 0 ? false : onCount === keys.length ? true : "indeterminate"} disabled={!keys.length}
                         onCheckedChange={(v) => setKeys(keys, !!v)} aria-label={`Whole riser ${r.riser_location || ""}`} />
-                      <button type="button" className="flex-1 truncate text-left" onClick={() => setExpanded((p) => { const n = new Set(p); open ? n.delete(r.id) : n.add(r.id); return n; })}>
+                      <Button type="button" variant="ghost" className="flex-1 min-w-0 truncate text-left justify-start h-auto px-0" onClick={() => setExpanded((p) => { const n = new Set(p); open ? n.delete(r.id) : n.add(r.id); return n; })}>
                         {r.riser_location || "Unnamed riser"} <span className="text-xs text-muted-foreground">({1 + nums.length} sticker{nums.length ? "s" : ""}{nums.length ? ` · ${open ? "hide" : "choose"}` : ""})</span>
-                      </button>
+                      </Button>
                       <span className="font-mono font-bold">{r.asset_tag}</span>
                       <span className="text-xs text-muted-foreground w-14 text-right">{LABEL_STATUS_LABEL[r.label_status] || r.label_status}</span>
                     </div>
@@ -190,7 +195,7 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
                           <label key={n} className="flex items-center gap-3 text-sm cursor-pointer">
                             <Checkbox checked={picked.has(outletKey(r.id, n))} onCheckedChange={(v) => setKeys([outletKey(r.id, n)], !!v)} />
                             <span className="flex-1">Outlet {n}</span>
-                            <span className="font-mono text-muted-foreground">{outletTags[outletKey(r.id, n)] || "new number"}</span>
+                            <span className="font-mono text-muted-foreground">{outletTags[outletKey(r.id, n)]}</span>
                           </label>
                         ))}
                       </div>

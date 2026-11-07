@@ -8969,6 +8969,7 @@ export type Database = {
           asset_id: string
           created_at: string
           id: string
+          is_fitted: boolean
           label_printed_at: string | null
           last_scanned_at: string | null
           last_scanned_by: string | null
@@ -8980,6 +8981,7 @@ export type Database = {
           asset_id: string
           created_at?: string
           id?: string
+          is_fitted?: boolean
           label_printed_at?: string | null
           last_scanned_at?: string | null
           last_scanned_by?: string | null
@@ -8991,6 +8993,7 @@ export type Database = {
           asset_id?: string
           created_at?: string
           id?: string
+          is_fitted?: boolean
           label_printed_at?: string | null
           last_scanned_at?: string | null
           last_scanned_by?: string | null
@@ -12199,6 +12202,10 @@ export type Database = {
       }
       sync_asset_from_job_sheet: {
         Args: { _response_id: string }
+        Returns: undefined
+      }
+      sync_riser_outlet_codes: {
+        Args: { _asset_id: string }
         Returns: undefined
       }
       undo_last_site_merge: { Args: never; Returns: number }
