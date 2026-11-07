@@ -138,7 +138,10 @@ export async function buildStickerPackPdf(opts: {
     doc.text(item.asset_tag, textX + textW / 2, tagY, { align: "center" });
     if (logo) {
       const {width:w,height:h}=stickerLogoSize(logo.w,logo.h);
-      doc.addImage(logo.data, "PNG", textX + (textW - w) / 2, p.y + L4778.labelH - pad - h, w, h);
+      // Centre the logo in the space below the number, rather than bottom-aligning it.
+      const logoTop = 8.5;
+      const logoAreaHeight = L4778.labelH - pad - logoTop;
+      doc.addImage(logo.data, "PNG", textX + (textW - w) / 2, p.y + logoTop + (logoAreaHeight - h) / 2, w, h);
     }
   });
   return doc;
