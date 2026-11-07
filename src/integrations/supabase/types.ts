@@ -10658,6 +10658,10 @@ export type Database = {
       }
       time_clock: {
         Row: {
+          break_minutes: number
+          break_started_at: string | null
+          client_finish_id: string | null
+          client_start_id: string | null
           clock_in_at: string
           clock_in_lat: number | null
           clock_in_lng: number | null
@@ -10665,12 +10669,23 @@ export type Database = {
           clock_out_lat: number | null
           clock_out_lng: number | null
           created_at: string
+          finish_source: string | null
+          flags: string[]
           id: string
+          missing_finish: boolean
           org_id: string
+          recorded_offline: boolean
+          reminder_sent_at: string | null
+          start_source: string | null
           total_minutes: number | null
           user_id: string
+          van_id: string | null
         }
         Insert: {
+          break_minutes?: number
+          break_started_at?: string | null
+          client_finish_id?: string | null
+          client_start_id?: string | null
           clock_in_at?: string
           clock_in_lat?: number | null
           clock_in_lng?: number | null
@@ -10678,12 +10693,23 @@ export type Database = {
           clock_out_lat?: number | null
           clock_out_lng?: number | null
           created_at?: string
+          finish_source?: string | null
+          flags?: string[]
           id?: string
+          missing_finish?: boolean
           org_id?: string
+          recorded_offline?: boolean
+          reminder_sent_at?: string | null
+          start_source?: string | null
           total_minutes?: number | null
           user_id: string
+          van_id?: string | null
         }
         Update: {
+          break_minutes?: number
+          break_started_at?: string | null
+          client_finish_id?: string | null
+          client_start_id?: string | null
           clock_in_at?: string
           clock_in_lat?: number | null
           clock_in_lng?: number | null
@@ -10691,10 +10717,17 @@ export type Database = {
           clock_out_lat?: number | null
           clock_out_lng?: number | null
           created_at?: string
+          finish_source?: string | null
+          flags?: string[]
           id?: string
+          missing_finish?: boolean
           org_id?: string
+          recorded_offline?: boolean
+          reminder_sent_at?: string | null
+          start_source?: string | null
           total_minutes?: number | null
           user_id?: string
+          van_id?: string | null
         }
         Relationships: [
           {
@@ -10712,6 +10745,172 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      time_clock_corrections: {
+        Row: {
+          created_at: string
+          id: string
+          note: string
+          org_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          time_clock_id: string | null
+          user_id: string
+          work_date: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note: string
+          org_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          time_clock_id?: string | null
+          user_id?: string
+          work_date: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string
+          org_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          time_clock_id?: string | null
+          user_id?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_clock_corrections_time_clock_id_fkey"
+            columns: ["time_clock_id"]
+            isOneToOne: false
+            referencedRelation: "time_clock"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      time_clock_edits: {
+        Row: {
+          created_at: string
+          edited_by: string
+          employee_id: string
+          field: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          org_id: string
+          reason: string
+          time_clock_id: string
+        }
+        Insert: {
+          created_at?: string
+          edited_by: string
+          employee_id: string
+          field: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          org_id: string
+          reason: string
+          time_clock_id: string
+        }
+        Update: {
+          created_at?: string
+          edited_by?: string
+          employee_id?: string
+          field?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          org_id?: string
+          reason?: string
+          time_clock_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_clock_edits_time_clock_id_fkey"
+            columns: ["time_clock_id"]
+            isOneToOne: false
+            referencedRelation: "time_clock"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timesheet_settings: {
+        Row: {
+          break_button_enabled: boolean
+          far_scan_km: number
+          min_day_minutes: number
+          missing_finish_time: string
+          org_id: string
+          standard_break_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          break_button_enabled?: boolean
+          far_scan_km?: number
+          min_day_minutes?: number
+          missing_finish_time?: string
+          org_id?: string
+          standard_break_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          break_button_enabled?: boolean
+          far_scan_km?: number
+          min_day_minutes?: number
+          missing_finish_time?: string
+          org_id?: string
+          standard_break_minutes?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timesheet_settings_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheet_settings_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timesheet_week_approvals: {
+        Row: {
+          approved_at: string
+          approved_by: string
+          id: string
+          org_id: string
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          approved_at?: string
+          approved_by: string
+          id?: string
+          org_id: string
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          approved_at?: string
+          approved_by?: string
+          id?: string
+          org_id?: string
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -10803,6 +11002,51 @@ export type Database = {
             columns: ["part_id"]
             isOneToOne: false
             referencedRelation: "parts_library"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vans: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          org_id: string
+          qr_token: string
+          registration: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          org_id?: string
+          qr_token?: string
+          registration?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          org_id?: string
+          qr_token?: string
+          registration?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vans_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vans_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -11179,7 +11423,17 @@ export type Database = {
       }
     }
     Functions: {
+      _clamp_scan_time: { Args: { _at: string }; Returns: string }
       _extract_int_from_jsonb: { Args: { v: Json }; Returns: number }
+      _km: {
+        Args: { a_lat: number; a_lng: number; b_lat: number; b_lng: number }
+        Returns: number
+      }
+      _notify_org_admins: {
+        Args: { _msg: string; _org: string; _title: string }
+        Returns: undefined
+      }
+      _recalc_time_clock: { Args: { _id: string }; Returns: undefined }
       add_site_risers: {
         Args: { _locations: string[]; _site_id: string }
         Returns: string[]
@@ -11217,6 +11471,16 @@ export type Database = {
           _quote_id: string
         }
         Returns: string
+      }
+      admin_edit_time_clock: {
+        Args: {
+          _break_minutes: number
+          _clock_in: string
+          _clock_out: string
+          _id: string
+          _reason: string
+        }
+        Returns: undefined
       }
       admin_get_latest_handover_token: {
         Args: { _job_id: string }
@@ -11280,6 +11544,29 @@ export type Database = {
       capture_defects_from_response: {
         Args: { _response_id: string }
         Returns: number
+      }
+      check_missing_clock_finishes: { Args: never; Returns: undefined }
+      clock_break: { Args: { _action: string; _at: string }; Returns: Json }
+      clock_finish_day: {
+        Args: {
+          _at: string
+          _client_id: string
+          _lat: number
+          _lng: number
+          _source?: string
+        }
+        Returns: Json
+      }
+      clock_start_day: {
+        Args: {
+          _at: string
+          _client_id: string
+          _lat: number
+          _lng: number
+          _source?: string
+          _van_id: string
+        }
+        Returns: Json
       }
       confirm_paper_scan_job: {
         Args: {
@@ -11642,6 +11929,10 @@ export type Database = {
         Args: { _asset_id: string; _note: string }
         Returns: undefined
       }
+      request_time_correction: {
+        Args: { _note: string; _time_clock_id: string; _work_date: string }
+        Returns: string
+      }
       resolve_org_by_intake_email: {
         Args: { _email: string }
         Returns: {
@@ -11649,6 +11940,14 @@ export type Database = {
           kind: string
           org_id: string
           status: string
+        }[]
+      }
+      resolve_van: {
+        Args: { _token: string }
+        Returns: {
+          id: string
+          name: string
+          registration: string
         }[]
       }
       riser_scan_jobs: { Args: { _asset_id: string }; Returns: Json }
@@ -11682,6 +11981,10 @@ export type Database = {
       }
       set_riser_reminder_state: {
         Args: { _asset_id: string; _state: Json }
+        Returns: undefined
+      }
+      set_timesheet_week_approval: {
+        Args: { _approved: boolean; _user_id: string; _week_start: string }
         Returns: undefined
       }
       shares_job_assignment: {
