@@ -5353,6 +5353,55 @@ export type Database = {
           },
         ]
       }
+      job_risers: {
+        Row: {
+          asset_id: string
+          created_at: string
+          id: string
+          job_id: string
+          org_id: string
+          selected: boolean
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          id?: string
+          job_id: string
+          org_id: string
+          selected?: boolean
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          id?: string
+          job_id?: string
+          org_id?: string
+          selected?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_risers_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_risers_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_risers_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_schedule: {
         Row: {
           acknowledged_at: string | null
@@ -12127,6 +12176,10 @@ export type Database = {
       set_email_automation_active: {
         Args: { _active: boolean; _jobname: string }
         Returns: boolean
+      }
+      set_job_riser: {
+        Args: { _asset_id: string; _job_id: string; _selected: boolean }
+        Returns: undefined
       }
       set_riser_reminder_state: {
         Args: { _asset_id: string; _state: Json }
