@@ -41,6 +41,11 @@ export default function PrintQrLabels({ assetId, siteId, onlyOutlet, iconOnly = 
         rows.push(...(data || []));
         if (!data || data.length < 1000) break;
       }
+      // Save missing identities once before listing labels; existing tags are never replaced.
+      for (let from = 0; from < rows.length; from += 100) {
+        const { error } = await supabase.rpc('ensure_riser_outlet_tags', { _asset_ids: rows.slice(from, from + 100).map(r => r.id) });
+        if (error) throw error;
+      }
       const outlets = [];
       for (const r of rows) for (let from = 0; ; from += 1000) {
         const { data, error } = await supabase.from('riser_outlet_tags').select('asset_id,outlet_number,outlet_tag').eq('org_id', orgId).eq('asset_id', r.id).order('id').range(from, from + 999);
@@ -95,7 +100,6 @@ export default function PrintQrLabels({ assetId, siteId, onlyOutlet, iconOnly = 
         {risers.map(r => { const list = labels.filter(l => l.asset_id === r.id); return <div key={r.id} className="border-b pb-3 space-y-2">
           {!assetId && <label className="flex items-center gap-2 font-medium text-sm"><Checkbox checked={list.length > 0 && list.every(l => picked.has(l.tag))} onCheckedChange={v => toggle(list.map(l => l.tag), Boolean(v))} />{r.riser_location || r.asset_tag || 'Riser'}</label>}
           {list.map(l => <label key={l.tag} className="flex items-center gap-3 text-sm"><Checkbox checked={picked.has(l.tag)} onCheckedChange={v => toggle([l.tag], Boolean(v))} /><span>{l.name}</span><span className="font-mono ml-auto">{l.tag}</span></label>)}
-          {onlyOutlet === undefined && list.length < 1 + (r.outlets_count || 0) && <p className="text-sm text-muted-foreground">Some labels have no saved QR code yet. Existing labels can still be reprinted; no new codes will be made here.</p>}
         </div>; })}
         {!labels.length && <p className="text-sm text-muted-foreground">No existing QR labels available.</p>}
         {selected.length > 0 && <div aria-label="Label preview" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
