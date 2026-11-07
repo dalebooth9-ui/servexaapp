@@ -1,2 +1,3 @@
 - Building duplicate actions use preview_building_merge and fingerprint-checked confirm_building_merge, retaining existing site merge audit/undo and blocking unhandled references — why: stale previews and incomplete link moves must never hide occupied buildings.
 - Sites browsing uses independent 50-row pages and a 500ms server-search debounce through sites_browser_page; totals and dependency checks never infer completeness from loaded rows — why: large estates must remain fast without misleading counts or unsafe partial-data actions.
+- SiteRowActions shares fixed-size controls across hierarchy and customer rows; row Delete opens the common confirmation before existing deletion — why: icons and shifting actions must not cause accidental jobs or deletions.

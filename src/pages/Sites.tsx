@@ -8,6 +8,7 @@ const StickerPackDialog = lazy(() => import('@/components/assets/StickerPackDial
 const PrintQrLabels = lazy(() => import('@/components/assets/PrintQrLabels'));
 import NewVisitDialog from '@/components/riser-visits/NewVisitDialog';
 import SiteJobDialog from '@/components/sites/SiteJobDialog';
+import SiteRowActions from '@/components/sites/SiteRowActions';
 import BuildingDuplicateWarning from '@/components/sites/BuildingDuplicateWarning';
 import { buildingDuplicatePairs } from '@/lib/buildingDuplicates';
 import { SITES_PAGE_SIZE, SITES_SEARCH_DELAY, visiblePage, mergeSiteRows } from '@/lib/sitesPaging';
@@ -936,13 +937,13 @@ export default function Sites() {
       };
       const all=await collect(id);setSites(prev=>mergeSiteRows(prev,all));setConfirmDeleteId(id);
     } else {
-      executeSiteDelete(id, []);
+      setConfirmDeleteId(id);
     }
   };
 
   const executeSiteDelete = (id: string, descendantIds: string[]) => {
     const allIds = [id, ...descendantIds];
-    const deletedSites = sites.filter((s) => allIds.includes(s.id));
+    const deletedSites = mergeSiteRows(sites,unlinkedRows).filter((s) => allIds.includes(s.id));
     if (!deletedSites.length) return;
     // Animate out first, then optimistically remove
     const idSet = new Set(allIds);
@@ -1020,7 +1021,7 @@ export default function Sites() {
             <input type="checkbox" checked={selected.has(site.id)} onChange={() => toggleSelect(site.id)} className="h-4 w-4 shrink-0 rounded border-input accent-primary cursor-pointer" onClick={(e) => e.stopPropagation()} />
           )}
           {childCount > 0 ? (
-            <button type="button" onClick={(e) => { e.stopPropagation(); toggle(site.id); }} className="shrink-0">
+            <button type="button" onClick={(e) => { e.stopPropagation(); toggle(site.id); }} className="shrink-0" title={isExpanded ? "Collapse buildings" : "Expand buildings"} aria-label={isExpanded ? "Collapse buildings" : "Expand buildings"}>
               {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
             </button>
           ) : childType ? (
@@ -1060,18 +1061,7 @@ export default function Sites() {
           {(site.address || site.postcode) && <MapAddress address={site.address} postcode={site.postcode} label={site.postcode || site.address || undefined} siteId={site.id} className="text-xs text-muted-foreground" />}
           <Button variant="ghost" size="sm" onClick={e=>{e.stopPropagation();setAccessSite(site);}}>Access info</Button>
           {userRole === "admin" && (
-            <div className="flex items-center gap-1 shrink-0 ml-2">
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:text-primary" onClick={(e) => { e.stopPropagation(); openCreateJob(site); }} title="Create job for this site">
-                <Briefcase className="h-3.5 w-3.5" />
-              </Button>
-              {childType && (
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openCreate(site.id, childType); }} title={`Add ${childType}`}>
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-              )}
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }}><Pencil className="h-3.5 w-3.5" /></Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(site.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
-            </div>
+            <SiteRowActions name={site.name} childType={childType} onNewJob={()=>openCreateJob(site)} onAdd={()=>openCreate(site.id,childType)} onEdit={()=>openEdit(site)} onDelete={()=>void handleDelete(site.id)}/>
           )}
         </div>
         {isExpanded && children.map((child) => renderTreeRow(child, depth + 1))}
@@ -1390,7 +1380,7 @@ export default function Sites() {
                                        {userRole === "admin" && isChild && (
                                          <>
                                            <ContextMenuSeparator />
-                                           <ContextMenuItem onClick={() => setConfirmDeleteId(site.id)} className="text-destructive focus:text-destructive">
+                                           <ContextMenuItem onClick={() => void handleDelete(site.id)} className="text-destructive focus:text-destructive">
                                              <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
                                            </ContextMenuItem>
                                          </>
@@ -1462,47 +1452,9 @@ export default function Sites() {
                                              <div className="text-xs text-muted-foreground mt-0.5">{addressLine && <MapAddress address={site.address} postcode={site.postcode} siteId={site.id} />}{site.contact_name && <span> · {site.contact_name}</span>}</div>
                                            )}
                                          </div>
-                                         {/* Compact ⋯ menu — visible on hover */}
-                                         <DropdownMenu>
-                                           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                             <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground">
-                                               <MoreHorizontal className="h-4 w-4" />
-                                             </Button>
-                                           </DropdownMenuTrigger>
-                                           <DropdownMenuContent align="end" className="w-48">
-                                             <DropdownMenuItem onClick={()=>setAccessSite(site)}>Access info</DropdownMenuItem>
-                                             <DropdownMenuItem onClick={() => openEdit(site)}>
-                                               <Pencil className="mr-2 h-3.5 w-3.5" /> Edit site
-                                             </DropdownMenuItem>
-                                             <DropdownMenuItem onClick={() => setFireLogSite(site)}>
-                                               <Flame className="mr-2 h-3.5 w-3.5" /> Fire log
-                                             </DropdownMenuItem>
-                                             {userRole === "admin" && (
-                                               <DropdownMenuItem onClick={() => openCreateJob(site, folder.id)}>
-                                                 <Briefcase className="mr-2 h-3.5 w-3.5" /> Create job
-                                               </DropdownMenuItem>
-                                             )}
-                                             {userRole === "admin" && !isChild && (
-                                               <>
-                                                 <DropdownMenuSeparator />
-                                                 <DropdownMenuItem onClick={() => openMoveSites(folder, [site.id])}>
-                                                   <ArrowRightLeft className="mr-2 h-3.5 w-3.5" /> Move to customer
-                                                 </DropdownMenuItem>
-                                                 <DropdownMenuItem onClick={() => handleBulkUnlinkSites(folder, [site.id])} className="text-destructive focus:text-destructive">
-                                                   <X className="mr-2 h-3.5 w-3.5" /> Unlink
-                                                 </DropdownMenuItem>
-                                               </>
-                                             )}
-                                             {userRole === "admin" && isChild && (
-                                               <>
-                                                 <DropdownMenuSeparator />
-                                                 <DropdownMenuItem onClick={() => setConfirmDeleteId(site.id)} className="text-destructive focus:text-destructive">
-                                                   <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
-                                                 </DropdownMenuItem>
-                                               </>
-                                             )}
-                                           </DropdownMenuContent>
-                                         </DropdownMenu>
+                                         {userRole==='admin' && <SiteRowActions name={site.name} childType={CHILD_TYPES[site.site_type]} onNewJob={()=>openCreateJob(site,folder.id)} onAdd={()=>openCreate(site.id,CHILD_TYPES[site.site_type])} onEdit={()=>openEdit(site)} onDelete={()=>void handleDelete(site.id)}
+                                           extra={<><DropdownMenuItem onClick={()=>setAccessSite(site)}>Access info</DropdownMenuItem><DropdownMenuItem onClick={()=>setFireLogSite(site)}>Fire log</DropdownMenuItem>{!isChild && <><DropdownMenuItem onClick={()=>openMoveSites(folder,[site.id])}>Move to customer</DropdownMenuItem><DropdownMenuItem onClick={()=>handleBulkUnlinkSites(folder,[site.id])}>Unlink</DropdownMenuItem></>}</>}/>
+                                         }
                                        </div>
                                      );
 
@@ -1693,20 +1645,7 @@ export default function Sites() {
                         ) : (
                           filteredUnlinked.map((site, idx) => (
                             <div key={site.id} className={`rounded-md ${focusedUnlinkedIndex === idx ? "ring-2 ring-primary/50" : ""}`}>
-                              <DraggableSiteChip site={site} typeConfig={TYPE_CONFIG} onAssign={(s) => { setQuickAssignSite(s); setQuickAssignCustomerId(""); }} onDelete={async (s) => {
-                                const {count:childCount,error:childError}=await supabase.from("sites").select("id",{count:"exact",head:true}).eq("parent_id",s.id);
-                                if(childError)throw childError;
-                                const children=Array(childCount ?? 0);
-                                if (children.length > 0) { toast({ title: "Cannot delete", description: "This site has children. Remove them first.", variant: "destructive" }); return; }
-                                const {count:jobCount,error:jobError}=await supabase.from("jobs").select("id",{count:"exact",head:true}).eq("site_id",s.id);
-                                if(jobError)throw jobError;
-                                if ((jobCount ?? 0) > 0) { toast({ title: "Cannot delete", description: "This site has associated jobs.", variant: "destructive" }); return; }
-                                const { error } = await supabase.from("sites").delete().eq("id", s.id);
-                                if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
-                                setSites((prev) => prev.filter((x) => x.id !== s.id));
-                                toast({ title: "Site deleted" });
-                              }} />
-                            </div>
+                              <DraggableSiteChip site={site} typeConfig={TYPE_CONFIG} onAssign={(s) => { setQuickAssignSite(s); setQuickAssignCustomerId(""); }} onDelete={(s)=>{setSites(prev=>mergeSiteRows(prev,[s]));void handleDelete(s.id);}} />                            </div>
                           ))
                         )}
                       </div>
@@ -2003,7 +1942,7 @@ export default function Sites() {
 
       {/* Cascade delete confirmation dialog */}
       {confirmDeleteId && (() => {
-        const site = sites.find((s) => s.id === confirmDeleteId);
+        const site = sites.find((s) => s.id === confirmDeleteId) ?? unlinkedRows.find(s=>s.id===confirmDeleteId);
         const descendantIds = getAllDescendantIds(confirmDeleteId);
         return (
           <Dialog open onOpenChange={(open) => { if (!open) setConfirmDeleteId(null); }}>
@@ -2012,12 +1951,12 @@ export default function Sites() {
                 <DialogTitle>Delete "{site?.name}"?</DialogTitle>
               </DialogHeader>
               <p className="text-sm text-muted-foreground">
-                This will also permanently delete <span className="font-semibold text-foreground">{descendantIds.length} child record{descendantIds.length !== 1 ? "s" : ""}</span> (zones / sub-sites). This action can be undone within 8 seconds.
+                This will permanently delete this record and <span className="font-semibold text-foreground">{descendantIds.length} child record{descendantIds.length !== 1 ? "s" : ""}</span> (zones / sub-sites). This action can be undone within 8 seconds.
               </p>
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
                 <Button variant="destructive" onClick={() => { setConfirmDeleteId(null); executeSiteDelete(confirmDeleteId, descendantIds); }}>
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete all
+                  <Trash2 className="mr-2 h-4 w-4" /> Confirm delete
                 </Button>
               </div>
             </DialogContent>

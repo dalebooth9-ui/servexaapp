@@ -40,6 +40,8 @@ const RULES: SlugRule[] = [
   // confirms explicitly, preserves records and supports existing site merge undo.
   // Sites uses 50-row Load more pages, 500ms database name/postcode/customer search,
   // independent true totals, lazy customer folders/buildings and paged Drag to link.
+  // Fixed row actions: visible New job; More actions has Add building, Edit and
+  // Delete last, with a confirmation before any row deletion.
   { test: (p) => p === "/sites", slug: "sites" },
   { test: (p) => p === '/sites/access-info', slug: 'sites.access-info' },
   { test: (p) => p === "/site-surveys" || p.startsWith("/site-surveys/"), slug: "site-surveys" },
