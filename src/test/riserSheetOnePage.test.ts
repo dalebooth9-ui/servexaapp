@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import jsPDF from 'jspdf';
 import { renderPaperFormPage } from '@/workers/paperFormRenderer';
 import templates from './fixtures/riserSheetTemplates.json';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 
 const longText = 'Very long riser location name at the rear stairwell beside the plant room '.repeat(3);
 const access = { lines: ['Cabinet key: FB11, held at Reception', 'Notes: ' + 'long access note about permits and induction '.repeat(40)], cabinetKeys: 'FB11' };
@@ -13,6 +14,25 @@ const job = (long: boolean) => ({
 });
 
 describe('riser inspection sheets print on one A4 page', () => {
+  for (const t of templates as any[]) for (const outlets of [8, 10]) {
+    it(`${t.name} with ${outlets} outlets, full logo and footer remains one A4`, () => {
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const logo = { dataUrl: `data:image/png;base64,${readFileSync('src/assets/vivafire-logo.png').toString('base64')}`, width: 1536, height: 1024, format: 'PNG' as const };
+      const info = job(false);
+      const accreditationLogos = ['bafe-logo.jpeg', 'constructionline-logo.png', 'iso-9001-logo.jpg', 'smas-logo.png'].map(file => {
+        const jpeg = /jpe?g$/.test(file);
+        return { dataUrl: `data:image/${jpeg ? 'jpeg' : 'png'};base64,${readFileSync(`src/assets/accreditation/${file}`).toString('base64')}`, width: 100, height: 100, format: jpeg ? 'JPEG' as const : 'PNG' as const };
+      });
+      renderPaperFormPage(doc, { template: t, jobInfo: { ...info, riserVisit: { ...info.riserVisit, outlets_count: outlets } }, logo, accreditationLogos, handfill: true });
+      expect(doc.getNumberOfPages()).toBe(1);
+      expect(doc.internal.pageSize.getWidth()).toBeCloseTo(210, 1);
+      expect(doc.internal.pageSize.getHeight()).toBeCloseTo(297, 1);
+      if (process.env.RISER_PDF_CHECK_DIR) {
+        mkdirSync(process.env.RISER_PDF_CHECK_DIR, { recursive: true });
+        writeFileSync(`${process.env.RISER_PDF_CHECK_DIR}/${/pressure/i.test(t.name) ? 'pressure' : 'visual'}-${outlets}.pdf`, Buffer.from(doc.output('arraybuffer')));
+      }
+    });
+  }
   for (const t of templates as any[]) for (const long of [false, true]) {
     it(`${t.name}${long ? ' with long names/access notes' : ''}`, () => {
       const doc = new jsPDF({ unit: 'mm', format: 'a4' });

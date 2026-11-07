@@ -234,9 +234,8 @@ function isWritingLineField(field: PdfTemplateField): boolean {
 
 /**
  * Render one full paper-form page (single template instance). Content is
- * fitted to a single A4 page by adaptive font/row sizing when the template
- * has ≤ ~24 body rows (typical Dry Riser sheets). Larger templates
- * (Sprinkler Annual, etc.) allow additional pages that flow naturally.
+ * fitted to a single A4 page by adaptive row sizing. Riser sheets retain
+ * a readable 8pt body minimum; no sheet adds a continuation page.
  */
 export function renderPaperFormPage(
   doc: jsPDF,
@@ -247,6 +246,13 @@ export function renderPaperFormPage(
   const pageHeight = doc.internal.pageSize.getHeight();
   // Long templates get tighter margins so the sheet stays on one A4 page.
   const bodyCount = template.fields.filter((f) => !skipInBody(f)).length;
+  const isRiserInspection = /(?:dry|wet)\s*riser/i.test(template.name) && /pressure\s*test|visual/i.test(template.name);
+  const isRiserPressure = isRiserInspection && /pressure\s*test/i.test(template.name);
+  // Print-only omission: leave template definitions and recorded readings intact.
+  const bodyFields = template.fields.filter((f) => !skipInBody(f) && !(isRiserPressure && (
+    ['test_pressure_bar', 'hold_time_minutes'].includes(f.id.toLowerCase()) ||
+    /^(?:test pressure\s*\(bar\)|hold time\s*\(minutes\))\s*:?$/i.test(f.label.trim())
+  )));
   const margin = bodyCount > 30 ? 6 : bodyCount > 24 ? 8 : 10;
   const maxWidth = pageWidth - margin * 2;
   const visit = jobInfo?.riserVisit;
@@ -254,8 +260,10 @@ export function renderPaperFormPage(
   // ─── HEADER ────────────────────────────────────────────────────────
   // Logo centred; the Viva logo image already carries the strapline.
   const logoTop = margin;
-  const logoMaxH = bodyCount > 30 ? 16 : bodyCount > 24 ? 19 : 22;
-  const logoMaxW = 70;
+  const logoScale = isRiserInspection ? 2.5 : 1;
+  const logoMaxH = (bodyCount > 30 ? 16 : bodyCount > 24 ? 19 : 22) * logoScale;
+  // Centred logo stops before the right-hand QR, even with wide company logos.
+  const logoMaxW = isRiserInspection ? Math.min(70 * logoScale, pageWidth - 2 * (margin + 26)) : 70;
   let cursorY = logoTop;
   if (logo) {
     const aspect = logo.width / logo.height;
@@ -263,7 +271,7 @@ export function renderPaperFormPage(
     let lh = logoMaxH;
     if (lw > logoMaxW) { lw = logoMaxW; lh = lw / aspect; }
     doc.addImage(logo.dataUrl, logo.format, (pageWidth - lw) / 2, logoTop, lw, lh);
-    cursorY = logoTop + lh + 2;
+    cursorY = logoTop + lh + (isRiserInspection ? 0 : 2);
   } else {
     cursorY = logoTop + 12;
   }
@@ -277,12 +285,12 @@ export function renderPaperFormPage(
   doc.setTextColor(0, 0, 0);
   const scopeW = doc.getTextWidth(scopeText);
   const scopeX = (pageWidth - scopeW) / 2;
-  const scopeY = cursorY + 5;
+  const scopeY = cursorY + (isRiserInspection ? 3.5 : 5);
   doc.text(scopeText, scopeX, scopeY);
   doc.setDrawColor(0);
   doc.setLineWidth(0.4);
   doc.line(scopeX, scopeY + 1.2, scopeX + scopeW, scopeY + 1.2);
-  cursorY = scopeY + 4;
+  cursorY = scopeY + (isRiserInspection ? 2.5 : 4);
 
   // ─── DETAILS TABLE ─────────────────────────────────────────────────
   // LEFT: Customer/Site Details (multi-line, ~55% wide)
@@ -454,7 +462,6 @@ export function renderPaperFormPage(
   // ─── BODY ──────────────────────────────────────────────────────────
   // Group fields by section, preserving order. Skip fields already
   // rendered in the header/footer.
-  const bodyFields = template.fields.filter((f) => !skipInBody(f));
   const sectionOrder: string[] = [];
   const bySection = new Map<string, PdfTemplateField[]>();
   for (const f of bodyFields) {
@@ -488,7 +495,7 @@ export function renderPaperFormPage(
   // height and font that fit; shrink font/rows/spacing; last resort divides
   // the space evenly and clips labels to the lines that fit.
   const rowCandidates = [7, 6.5, 6, 5.5, 5, 4.6, 4.2, 3.8, 3.5];
-  const ptCandidates = [9, 8.5, 8, 7.5, 7, 6.5, 6];
+  const ptCandidates = isRiserInspection ? [9, 8.5, 8] : [9, 8.5, 8, 7.5, 7, 6.5, 6];
   const itemHeightAt = (it: BodyItem, rowH: number, secH: number, pt: number) => {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(pt);
     const text = it.kind === 'section' ? it.label : it.field.label;
@@ -496,7 +503,8 @@ export function renderPaperFormPage(
     const lines = doc.splitTextToSize(text, width) as string[];
     return Math.max(it.kind === 'section' ? secH : rowH, lines.length * pt * 0.4 + 1.2);
   };
-  let fit = { rowH: 3.5, secH: 3.5, font: { label: 6, ans: 6, sec: 6 }, forced: 0 };
+  const minBodyPt = isRiserInspection ? 8 : 6;
+  let fit = { rowH: 3.5, secH: 3.5, font: { label: minBodyPt, ans: minBodyPt, sec: minBodyPt }, forced: 0 };
   outer: for (const pt of ptCandidates) {
     for (const rowH of rowCandidates) {
       const secH = Math.max(rowH, Math.min(6.5, rowH + 0.5));

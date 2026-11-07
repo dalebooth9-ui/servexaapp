@@ -1,5 +1,8 @@
 # Roadmap
 
+## Larger riser report logo
+- [x] Enlarged centred riser sheet logo 2.5× with right QR, tighter title spacing, print-only pressure/hold row omissions and 8pt body minimum. All four 8/10-outlet Pressure/Visual PDFs remain one A4; rendered sheets visually checked, 18 tests pass, Help updated and build clean. Physical printing not available.
+
 ## Sites row actions
 - [x] Shared fixed-size main-colour New job and labelled more-actions menus across hierarchy/customer rows; Delete last in red, all row deletion paths show confirmation, icon tooltips added. Help updated; signed-in checks verified menu/tooltips, empty-building confirmation and Cancel causing zero writes, New job opening the form, and customer row controls. Nine existing safety tests pass; build OK 12:47 UTC/London. No records changed.
 
