@@ -8,6 +8,7 @@ import {Checkbox} from '@/components/ui/checkbox';
 import {fetchSiteRisers} from '@/components/assets/siteRisers';
 import {resolveJobPrintTemplate} from '@/lib/printTemplate';
 import {logReportsPrinted} from '@/lib/jobCategoryChange';
+import {loadJobRisers,useJobRisers,reportCountLabel} from '@/lib/jobRisers';
 export async function loadVisitSheets(jobId:string){
  const rows:any[]=[];for(let from=0;;from+=1000){const {data,error}=await supabase.from('job_sheet_responses').select('id,responses,job_sheet_templates(id,name,description,fields,footer_text,branding)').eq('job_id',jobId).is('archived_at',null).order('created_at').order('id').range(from,from+999);if(error)throw error;rows.push(...data);if(data.length<1000)break;}
  return rows.filter(r=>r.responses?._riser_visit).map(r=>({...r,responses:{...r.responses,_riser_visit:{...r.responses._riser_visit,job_id:jobId}}})).sort((a,b)=>a.responses._riser_visit.order-b.responses._riser_visit.order);
@@ -25,7 +26,15 @@ export async function loadPrintReportRows(jobId:string,pickedIds?:string[]):Prom
  const site:any=(job as any)?.sites;const base={job_id:jobId,customer:(job as any)?.customers?.name||null,site_name:site?.name||null,address:siteAddressOnce(site?.address,site?.postcode),job_reference:(job as any)?.reference_number||null,customer_po:(job as any)?.customer_po||null,site_id:(job as any)?.site_id||null,planned_date:(job as any)?.due_date||null};
  const printTemplate:any=job?await resolveJobPrintTemplate(job as any):null;
  const rows:any[]=visit.map(r=>({...r,responses:{...r.responses,_riser_visit:{...base,...Object.fromEntries(Object.entries(r.responses._riser_visit).filter(([,v])=>v!==null&&v!==undefined&&v!=='')),address:base.address,customer_po:base.customer_po}}}));
- if(!rows.length&&job?.site_id&&printTemplate){
+ const membership=await loadJobRisers(jobId);
+ if(membership.length){
+  const wanted=new Set(pickedIds??membership.filter(r=>r.selected).map(r=>r.asset_id));
+  const existing=new Map(rows.map(r=>[r.responses._riser_visit.asset_id,r]));rows.length=0;
+  const risers=job?.site_id?await fetchSiteRisers(job.site_id):[];
+  for(const id of wanted){const r=risers.find(r=>r.id===id);if(!r)throw new Error('A selected riser is unavailable. Check Risers on this job.');const saved=existing.get(id);if(saved){rows.push(saved);continue;}if(!printTemplate)throw new Error('No print template for a selected riser. Choose one in Settings.');rows.push({id:`riser-${r.id}`,job_sheet_templates:printTemplate,responses:{_riser_visit:{...base,order:rows.length,asset_id:r.id,asset_tag:r.asset_tag,riser_location:r.riser_location,outlets_count:r.outlets_count}}});}
+  if(!wanted.size)throw new Error('Tick at least one riser on this job before printing.');
+ }
+ if(!membership.length&&!rows.length&&job?.site_id&&printTemplate){
   const cat=String(printTemplate.job_category||'').toLowerCase();
   const risers=(await fetchSiteRisers(job.site_id).catch(()=>[])).filter(r=>/wet/.test(cat)?/wet/i.test(r.asset_type||''):/dry/.test(cat)?!/wet/i.test(r.asset_type||''):true);
   const {data:resp,error}=await supabase.from('job_sheet_responses').select('responses').eq('job_id',jobId).is('archived_at',null).limit(1000);if(error)throw error;
