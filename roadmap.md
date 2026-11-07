@@ -1,5 +1,10 @@
 # Roadmap
 
+## Exact assistant shortcuts
+- [x] Share tool destinations between help answers and navigation; link tool names and Go to buttons.
+- [x] Reveal tabs/collapsed sections, scroll and briefly highlight without executing tools.
+- [x] Update Help; 15 destination/safety tests pass; signed-in real assistant inline jump and desktop/phone reveal/highlight checked. Existing company access rules unchanged; no company data modified.
+
 ## CSV customer clean-up
 - [x] Add admin-only removal/merge CSV previews, safe confirmation and downloadable results.
 - [x] Enforce tenant ownership, protected customer and no-data removal; preserve linked records and archive complete merged contacts.

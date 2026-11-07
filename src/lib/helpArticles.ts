@@ -10,6 +10,7 @@ type SlugRule = {
 };
 
 const RULES: SlugRule[] = [
+  { test: (p) => p === '/assistant-shortcuts', slug: 'assistant.shortcuts' },
   { test: (p) => p === "/", slug: "dashboard" },
   { test: (p) => p === "/admin/error-log", slug: "error-log" },
 
@@ -79,6 +80,7 @@ const RULES: SlugRule[] = [
 ];
 
 export function resolveHelpSlug(pathname: string): string | null {
+  pathname = pathname.split(/[?#]/)[0];
   for (const rule of RULES) {
     if (rule.test(pathname)) return rule.slug;
   }

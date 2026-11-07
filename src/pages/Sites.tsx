@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import SiteDryRisers from "@/components/assets/SiteDryRisers";
 import SiteAccessCard from '@/components/sites/SiteAccessCard';
@@ -205,6 +205,7 @@ export default function Sites() {
   const { categories: jobCategories } = useJobCategories();
   const { convert: convertW3W } = useWhat3Words();
   const navigate = useNavigate();
+  const [navigationParams] = useSearchParams();
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -236,6 +237,7 @@ export default function Sites() {
   const [focusedFolderIndex, setFocusedFolderIndex] = useState<number>(-1);
   const [focusedUnlinkedIndex, setFocusedUnlinkedIndex] = useState<number>(-1);
   const [activeTab, setActiveTab] = useState("by-customer");
+  useEffect(() => {const tab=navigationParams.get('tab');if(tab==='hierarchy'||tab==='by-customer')setActiveTab(tab);},[navigationParams]);
   const [editingW3W, setEditingW3W] = useState<string | null>(null);
   const [unlinkedExpanded, setUnlinkedExpanded] = useState(false);
   const [unlinkedSearch, setUnlinkedSearch] = useState("");
@@ -1271,7 +1273,7 @@ export default function Sites() {
         <TabsContent value="by-customer" className="mt-4">
           {!foldersLoading && customerFolders.length > 0 && (
             <div className="flex justify-between items-center mb-2 gap-2">
-              <div className="flex flex-wrap items-center gap-2">
+              <div data-assistant-target="Merge customers" className="flex flex-wrap items-center gap-2">
                 <Select value={folderSort} onValueChange={(v) => setFolderSort(v as any)}>
                   <SelectTrigger className="h-7 text-xs w-auto gap-1.5">
                     <ArrowUpDown className="h-3 w-3" />

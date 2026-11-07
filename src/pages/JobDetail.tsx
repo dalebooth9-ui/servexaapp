@@ -195,6 +195,7 @@ export default function JobDetail() {
     return LEGACY_TAB_MAP[stored] ?? "overview";
   };
   const [activeTab, setActiveTab] = useState<JobTab>(() => readStoredTab(tabStorageKey));
+  useEffect(() => {const tab=scanParams.get('tab');if(JOB_TABS.some(t=>t.value===tab))setActiveTab(tab as JobTab);},[scanParams]);
   useEffect(() => {
     setActiveTab(readStoredTab(tabStorageKey));
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -4,6 +4,14 @@
 @tailwind components;
 @tailwind utilities;
 
+:root { --assistant-focus: 210 85% 60%; }
+.assistant-destination-highlight {
+  outline: 2px solid hsl(var(--assistant-focus) / 0.55);
+  outline-offset: 4px;
+  box-shadow: 0 0 18px 6px hsl(var(--assistant-focus) / 0.18);
+  scroll-margin-block: 100px;
+}
+
 /* Smooth exit animations for list items */
 @keyframes site-row-exit {
   0% { opacity: 1; max-height: 80px; transform: translateX(0); }
