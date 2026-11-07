@@ -1,5 +1,11 @@
 # Roadmap
 
+## Safe asset duplicate review
+- [ ] Count tenant duplicate groups and trace creation paths.
+- [ ] Add admin-only preview/confirmed merge preserving linked records and old QR tags.
+- [ ] Prevent repeated imports/builds and correct paginated asset counts.
+- [ ] Update Help and verify tests and signed-in review.
+
 ## Exact assistant shortcuts
 - [x] Share tool destinations between help answers and navigation; link tool names and Go to buttons.
 - [x] Reveal tabs/collapsed sections, scroll and briefly highlight without executing tools.
