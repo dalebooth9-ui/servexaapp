@@ -1,5 +1,9 @@
 # Roadmap
 
+## Digital Twin visibility
+- [x] Add default-off company setting under Advanced, admin-only writes using verified company-scoped app_settings RLS; gate asset sensor UI and maintenance alerts.
+- [x] Remove public sensor claims; update Help and shortcuts. 19 tests pass; Dale's real asset and admin enable/disable read-back verified, left OFF; desktop/phone checked. Independent engineer/second-company sessions not exercised; role/company rules covered by tests and existing server policies.
+
 ## App-wide pinned address links
 - [x] Add shared safe map/search, mobile directions and copy-address controls with precise saved locations; deployed and verified what3words coordinate lookup.
 - [x] Replace pinned address displays across office, engineer, planner and customer views; update Help. Quote screens have no pinned address displays; printable documents unchanged.

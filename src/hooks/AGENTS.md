@@ -1,0 +1,1 @@
+- Sensor UI and predictive alerts use useDigitalTwinSettings with company/user query keys and app_settings RLS — why: disabled features must never flash or inherit another company's opt-in.

@@ -19,7 +19,7 @@ const FEATURES = [
   { icon: Shield, title: "Compliance & Certification", desc: "Track certificate and engineer qualification expiry dates, attach documents, and generate PDF reports built around BS 9990, BS 5306 and BS 5839." },
   { icon: FileText, title: "RAMS & Digital Job Sheets", desc: "Build PAS 79-aligned Risk Assessments and Method Statements with AI auto-fill from the job's category, site and customer. Custom templates, digital signatures and one-click PDF export." },
   { icon: Smartphone, title: "Engineer Mobile App", desc: "Engineers clock in, submit voice notes, capture on-site photos and get client sign-offs — on or off site, even offline." },
-  { icon: Brain, title: "AI-Powered Fire Tools", desc: "AI RAMS auto-fill, AI job briefs, AI scheduler, AI customer report summaries and predictive maintenance alerts — built right in, no extra tools needed." },
+  { icon: Brain, title: "AI-Powered Fire Tools", desc: "AI RAMS auto-fill, AI job briefs, AI scheduler and AI customer report summaries — built right in, no extra tools needed." },
   { icon: MapPin, title: "Live Engineer Tracking", desc: "See every engineer in real time. View assigned fire jobs, today's site visits and route history on one map." },
   { icon: BarChart2, title: "Reports & Analytics", desc: "Weekly management reports every Monday — revenue, jobs completed, top engineers, compliance status and more." },
   { icon: ScanLine, title: "Paper Sheets → Digital", desc: "Post or email in your paper job sheets. Servexa's OCR + AI reads the handwriting, matches to a template, and produces a clean branded PDF ready for the customer." },
