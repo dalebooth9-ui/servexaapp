@@ -15,7 +15,7 @@ import { ChevronLeft, ChevronRight, Plus, Printer, Copy, LayoutGrid, Calendar as
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { exportWorksheetPdf, exportWorksheetXlsx } from "@/components/planner/PlannerWorksheetExport";
 import { format, addDays, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import jsPDF from "jspdf";
 import WeeklyGridView from "@/components/planner/WeeklyGridView";
 import MonthlyView from "@/components/planner/MonthlyView";
@@ -111,6 +111,7 @@ function extractPostcode(address: string | null): string {
 
 export default function WeeklyPlanner() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { userRole, user, effectiveUserId, isPreviewingAsEngineer, previewEngineerId, previewEngineerName } = useAuth();
   const { toast } = useToast();
   const isAdmin = userRole === "admin";
@@ -240,6 +241,19 @@ export default function WeeklyPlanner() {
   // Labour-only (adhoc) entry dialog
   const [adhocOpen, setAdhocOpen] = useState(false);
   const [mapScheduleJob, setMapScheduleJob] = useState<{ id: string; name: string; reference_number: string } | null>(null);
+  useEffect(() => {
+    const jobId = searchParams.get('job');
+    if (!jobId || !isAdmin) return;
+    let live = true;
+    void supabase.from('jobs').select('id,name,reference_number').eq('id',jobId).single().then(({data,error}) => {
+      if (!live) return;
+      if (error) { sonnerToast.error('Could not open this job for scheduling'); return; }
+      setMapScheduleJob(data);
+      setSearchParams(prev=>{const next=new URLSearchParams(prev);next.delete('job');return next;},{replace:true});
+    });
+    return ()=>{live=false;};
+  }, [searchParams,isAdmin,setSearchParams]);
+
   const [adhocDay, setAdhocDay] = useState("");
   const [adhocEngineerId, setAdhocEngineerId] = useState("");
   const [adhocCompany, setAdhocCompany] = useState("");
