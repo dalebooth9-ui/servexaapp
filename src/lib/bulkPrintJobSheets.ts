@@ -192,9 +192,11 @@ export async function bulkPrintJobSheets(
       .select("job_category_slug, template_id, sort_order, org_id"),
     supabase
       .from("job_sheet_templates")
-      .select("id, name, description, standard, fields, footer_text, branding")
+      .select("id, name, description, fields, footer_text, branding")
       .eq("status", "published"),
   ]);
+
+  if (tplRowsRes.error) throw tplRowsRes.error;
 
   const jobRows = (jobRowsRes.data || []) as Array<{
     id: string;

@@ -134,11 +134,13 @@ export default function SiteSheetPrintDialog({ jobId, open, onOpenChange }: Prop
         if ((job.pressure_test_qty || 0) > 0) categories.add("pressure_test");
         if ((job.visual_qty || 0) > 0) categories.add("visual");
 
-        const { data: tpls } = await supabase
+        const { data: tpls, error: templateError } = await supabase
           .from("job_sheet_templates")
-          .select("id, name, fields, description, standard, footer_text, branding, updated_at, category")
+          .select("id, name, fields, description, footer_text, branding, updated_at, category")
           .in("category", Array.from(categories))
           .eq("status", "published");
+
+        if (templateError) throw templateError;
 
         const templates: LoadedTemplate[] = (tpls || []).map((t: any) => ({
           ...t,
