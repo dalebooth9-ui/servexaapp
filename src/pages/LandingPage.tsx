@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import ProductWalkthrough from "@/components/landing/ProductWalkthrough";
 import ProductScreenshots from "@/components/landing/ProductScreenshots";
+import ContactSalesDialog from "@/components/ContactSalesDialog";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +10,7 @@ import {
   CheckCircle2, Briefcase, CalendarDays, Shield, FileText, Smartphone, MapPin,
   Zap, BarChart2, Users, ChevronRight, Layers, Brain, Flame, ClipboardCheck,
   Bell, Wrench, Camera, Building2, FileCheck, Siren, ScanLine, Send,
+  QrCode, History, Clock, Sparkles,
 } from "lucide-react";
 
 const FEATURES = [
