@@ -57,9 +57,7 @@ const COMPLIANCE_STANDARDS = [
   { code: "BS 5839", label: "Fire Alarms" },
   { code: "BS 9251", label: "Sprinkler Systems" },
   { code: "PAS 79", label: "Fire Risk Assessments" },
-  { code: "BAFE SP203", label: "Gas Suppression" },
   { code: "BS EN 62676", label: "CCTV Systems" },
-  { code: "BS 7858", label: "Access Control" },
 ];
 
 const FIRE_SYSTEMS = [
@@ -72,6 +70,7 @@ const FIRE_SYSTEMS = [
 ];
 
 export default function LandingPage() {
+  const [contactOpen, setContactOpen] = useState(false);
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-50 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -93,7 +92,7 @@ export default function LandingPage() {
           </nav>
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild><Link to="/auth">Sign In</Link></Button>
-            <Button size="sm" asChild><Link to="/signup">Start Free Trial</Link></Button>
+            <Button size="sm" asChild><Link to="/signup">Request an invitation</Link></Button>
           </div>
         </div>
       </header>
@@ -112,17 +111,17 @@ export default function LandingPage() {
             <span className="block mt-1 text-accent">fire & security companies.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-sidebar-foreground/70">
-            Manage RAMS, compliance certificates, PPM schedules, engineer dispatch and customer sign-off in one purpose-built platform — from dry riser inspections to sprinkler commissioning.
+            Fire protection job management, done properly: RAMS, compliance certificates, PPM schedules, dry riser software with QR code riser inspection, engineer dispatch and customer sign-off in one purpose-built platform.
           </p>
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Button size="lg" className="h-12 px-8 text-base font-semibold" asChild>
-              <Link to="/signup">Start your free 14-day trial<ChevronRight className="ml-2 h-4 w-4" /></Link>
+              <Link to="/signup">Request an invitation<ChevronRight className="ml-2 h-4 w-4" /></Link>
             </Button>
-            <Button size="lg" variant="outline" className="h-12 border-sidebar-border/60 px-8 text-base text-sidebar-foreground hover:bg-sidebar-accent" asChild>
-              <Link to="/pricing">View pricing</Link>
+            <Button size="lg" variant="outline" className="h-12 border-sidebar-border/60 px-8 text-base text-sidebar-foreground hover:bg-sidebar-accent" onClick={() => setContactOpen(true)}>
+              Book a quick demo
             </Button>
           </div>
-          <p className="mt-4 text-xs text-sidebar-foreground/35">Full access. No credit card required. Then from £49/month.</p>
+          <p className="mt-4 text-xs text-sidebar-foreground/35">Private beta. From £199/month flat, whole team included.</p>
 
           <div className="mt-12 flex flex-wrap justify-center gap-2">
             {FIRE_SYSTEMS.map(({ icon: Icon, label }) => (
@@ -137,7 +136,7 @@ export default function LandingPage() {
 
       <section className="border-y border-border bg-muted/40 py-5">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-8 px-6 text-sm text-muted-foreground">
-          {["Workflows aligned to BAFE SP203", "Aligned with BS 9990 / BS 5306 / BS 5839", "PAS 79 Fire Risk Templates", "GDPR-Ready Data Handling", "99.5% Uptime SLA"].map((t) => (
+          {["Built around BS 9990 / BS 5306 / BS 5839", "PAS 79 Fire Risk Templates", "GDPR-Ready Data Handling", "QR Code Riser Inspection"].map((t) => (
             <div key={t} className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-primary" />
               <span>{t}</span>
@@ -153,7 +152,7 @@ export default function LandingPage() {
             Servexa is a software platform that helps accredited contractors manage their compliance workflows. We are not affiliated with, endorsed by, or accredited by any of the bodies listed below.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
-            {["BAFE", "NICEIC", "SSAIB", "NSI", "Gas Safe Register", "Constructionline", "ISO 9001", "SafeContractor"].map((name) => (
+            {["BAFE", "NICEIC", "SSAIB", "NSI", "Constructionline", "ISO 9001", "SafeContractor"].map((name) => (
               <span key={name} className="rounded-full border border-border bg-muted/50 px-4 py-1.5 text-xs font-semibold text-muted-foreground tracking-wide">{name}</span>
             ))}
           </div>
