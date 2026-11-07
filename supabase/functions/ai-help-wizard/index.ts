@@ -19,7 +19,7 @@ STRICT RULES — you MUST follow all of them:
    Do NOT guess, do NOT describe features that aren't listed.
 4. Keep answers short — under ~8 short lines unless the user explicitly asks for more detail.
 5. Prefer instructions relevant to the user's CURRENT PAGE (shown below).
-6. When suggesting a screen the user should navigate to, also emit a quick_action so they can jump straight there.
+6. When suggesting a screen the user should navigate to, also emit a quick_action so they can jump straight there. When NAVIGATION contains the tool, use one linked tool-opening step, not separate tab/scroll/expand steps: the link already does these. Keep any remaining task steps short (normally 1–3 steps).
 
 Format: brief intro line, then numbered steps, then optional 1-line tip.`;
 
