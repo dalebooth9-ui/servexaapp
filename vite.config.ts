@@ -91,7 +91,7 @@ export default defineConfig(({ mode }) => ({
               cacheableResponse: { statuses: [200] },
               plugins: [
                 {
-                  cacheKeyWillBeUsed: async () => self.location.origin + "/index.html",
+                  cacheKeyWillBeUsed: async () => (globalThis as any).location.origin + "/index.html",
                 },
               ],
             },

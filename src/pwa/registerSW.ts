@@ -14,7 +14,6 @@
 import { flushAllDrafts } from "@/lib/draftFlush";
 import { fetchDeployedVersion } from "@/pwa/versionPoll";
 
-declare const __SW_CACHE_ID__: string;
 
 export const CHECK_INTERVAL_MS = 5 * 60 * 1000; // every 5 minutes while open
 const SW_URL = "/sw.js";
