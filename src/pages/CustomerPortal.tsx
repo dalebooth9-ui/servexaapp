@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -401,9 +402,7 @@ export default function CustomerPortal() {
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{s.name}</p>
                         {(s.address || s.postcode) && (
-                          <p className="text-xs text-slate-500 flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />{[s.address, s.postcode].filter(Boolean).join(", ")}
-                          </p>
+                          <MapAddress address={s.address} postcode={s.postcode} className="text-xs text-muted-foreground" />
                         )}
                       </div>
                       <Badge variant="outline" className="text-xs shrink-0">
@@ -505,7 +504,7 @@ function JobRow({ job, open, onToggle, photos }: { job: Job; open: boolean; onTo
           </div>
           <Badge className={`${STATUS_COLORS[job.status] || ""} capitalize border-0 shrink-0`}>{job.status.replace(/_/g, " ")}</Badge>
         </div>
-        {job.address && <p className="flex items-center gap-1 text-xs text-slate-500"><MapPin className="h-3 w-3" />{job.address}</p>}
+        {job.address && <MapAddress address={job.address} className="text-xs text-muted-foreground" />}
         {job.due_date && <p className="flex items-center gap-1 text-xs text-slate-500"><Clock className="h-3 w-3" />Due {format(new Date(job.due_date), "dd MMM yyyy")}</p>}
       </button>
       {open && (

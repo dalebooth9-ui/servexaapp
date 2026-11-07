@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -421,9 +422,7 @@ export default function AdminDashboard() {
                     </p>
                   </div>
                   {job.address && (
-                    <span className="text-xs text-muted-foreground truncate max-w-[200px] hidden sm:block ml-2">
-                      <MapPin className="h-3 w-3 inline mr-0.5" />{job.address}
-                    </span>
+                    <MapAddress address={job.address} jobId={job.id} className="text-xs text-muted-foreground max-w-[200px] hidden sm:inline-flex ml-2" />
                   )}
                 </Link>
               ))}

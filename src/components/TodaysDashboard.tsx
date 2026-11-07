@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -250,10 +251,7 @@ export default function TodaysDashboard() {
                           <p className="text-xs text-muted-foreground truncate">{job.customer}</p>
                         )}
                         {job.address && (
-                          <p className="text-xs text-muted-foreground/70 truncate mt-0.5">
-                            <MapPin className="h-3 w-3 inline mr-0.5" />
-                            {job.address}
-                          </p>
+                          <MapAddress address={job.address} jobId={job.id} className="text-xs text-muted-foreground/70 mt-0.5" />
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">

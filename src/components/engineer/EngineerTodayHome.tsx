@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import { isQueued } from "@/lib/reportReview";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -136,9 +137,9 @@ function BigJobCard({ job, showDate = false }: { job: JobLite; showDate?: boolea
 
         {(job.address || w3w) && (
           <div className="flex items-start gap-2">
-            <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+            
             <div className="min-w-0 flex-1">
-              {job.address && <p className="text-sm text-muted-foreground">{job.address}</p>}
+              {job.address && <MapAddress address={job.address} postcode={job.site_postcode} what3words={job.what3words} jobId={job.id} className="text-sm text-muted-foreground" />}
               {w3w && (
                 <a
                   href={`https://what3words.com/${w3w}`}

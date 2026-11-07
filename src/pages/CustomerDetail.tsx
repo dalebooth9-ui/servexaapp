@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { InviteCustomerPortalDialog } from "@/components/settings/InviteCustomerPortalDialog";
 
@@ -885,7 +886,7 @@ export default function CustomerDetail() {
                 <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {customer.phone}</span>
               )}
               {customer.address && (
-                <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {customer.address}</span>
+                <MapAddress address={customer.address} />
               )}
             </div>
           </div>

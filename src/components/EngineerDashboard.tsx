@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -818,9 +819,7 @@ function JobCard({ job, expanded = false }: { job: ScheduledJob; expanded?: bool
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">{job.customer}</p>
               )}
               {job.address && (
-                <p className="text-xs text-muted-foreground/70 truncate mt-1 flex items-center gap-1">
-                  <MapPin className="h-3 w-3 shrink-0" />{job.address}
-                </p>
+                <MapAddress address={job.address} jobId={job.id} className="text-xs text-muted-foreground/70 mt-1" />
               )}
             </div>
             <div className="shrink-0 flex flex-col items-end gap-1">

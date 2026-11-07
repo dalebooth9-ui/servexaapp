@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import OutletResults from "@/components/assets/OutletResults";
 import { useEffect, useState, lazy, Suspense } from "react";
 import JobStageTimeline from "@/components/jobs/JobStageTimeline";
@@ -895,19 +896,7 @@ export default function JobDetail() {
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-muted-foreground">Site Address:</span>
-                      <span className="font-medium">{job.address || "—"}</span>
-                      {job.address && (
-                        <OpenInMapsButton
-                          address={job.address}
-                          postcode={job.sites?.postcode ?? null}
-                          lat={(job.sites as any)?.latitude ?? null}
-                          lng={(job.sites as any)?.longitude ?? null}
-                          size="sm"
-                          variant="outline"
-                          label="Directions"
-                          className="h-7"
-                        />
-                      )}
+                      <MapAddress address={job.sites?.address || job.address} postcode={job.sites?.postcode} jobId={job.id} what3words={jobW3W} className="font-medium" />
                     </div>
                     {jobW3W && (
                       <div className="flex items-center gap-1">
