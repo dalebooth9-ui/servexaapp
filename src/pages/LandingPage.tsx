@@ -14,9 +14,9 @@ import {
 } from "lucide-react";
 
 const FEATURES = [
-  { icon: Briefcase, title: "Intelligent Job Management", desc: "Create, assign and track fire & security jobs from first call to customer sign-off — full audit trail, priority flags and SLA breach alerts included." },
+  { icon: Briefcase, title: "Intelligent Job Management", desc: "Create, assign and track fire & security jobs from first call to customer sign-off — full audit trail and priority flags included." },
   { icon: CalendarDays, title: "PPM Scheduling & Planner", desc: "Drag-and-drop weekly planner with auto-generated PPM visits for every fire system type. AI-assisted route optimisation to sequence a day's jobs efficiently." },
-  { icon: Shield, title: "Compliance & Certification", desc: "Track certificate and engineer qualification expiry dates, attach documents, and generate PDF reports aligned to BS 9990, BS 5306 and BS 5839." },
+  { icon: Shield, title: "Compliance & Certification", desc: "Track certificate and engineer qualification expiry dates, attach documents, and generate PDF reports built around BS 9990, BS 5306 and BS 5839." },
   { icon: FileText, title: "RAMS & Digital Job Sheets", desc: "Build PAS 79-aligned Risk Assessments and Method Statements with AI auto-fill from the job's category, site and customer. Custom templates, digital signatures and one-click PDF export." },
   { icon: Smartphone, title: "Engineer Mobile App", desc: "Engineers clock in, submit voice notes, capture on-site photos and get client sign-offs — on or off site, even offline." },
   { icon: Brain, title: "AI-Powered Fire Tools", desc: "AI RAMS auto-fill, AI job briefs, AI scheduler, AI customer report summaries and predictive maintenance alerts — built right in, no extra tools needed." },
@@ -24,8 +24,15 @@ const FEATURES = [
   { icon: BarChart2, title: "Reports & Analytics", desc: "Weekly management reports every Monday — revenue, jobs completed, top engineers, compliance status and more." },
   { icon: ScanLine, title: "Paper Sheets → Digital", desc: "Post or email in your paper job sheets. Servexa's OCR + AI reads the handwriting, matches to a template, and produces a clean branded PDF ready for the customer." },
   { icon: Send, title: "Customer Sign-Off & Send", desc: "Digital customer sign-off via a secure link. Send the finished report straight from the app — via Servexa or via your own Microsoft 365 mailbox." },
-  { icon: Wrench, title: "Job Costing & Invoicing", desc: "Track parts, labour and margin per job. Raise invoices directly from the job sheet and sync with Xero, QuickBooks, Sage or FreeAgent." },
-  { icon: ClipboardCheck, title: "Installation Projects", desc: "Manage multi-phase installation projects with milestone tracking, handover sign-off and certificate of conformity generation." },
+  { icon: Wrench, title: "Job Costing & Invoicing", desc: "Track parts, labour and margin per job. Raise invoices directly from the job sheet and sync with Xero and QuickBooks (more coming)." },
+  { icon: ClipboardCheck, title: "Installation Projects", desc: "Manage multi-phase installation projects with handover sign-off and certificate of conformity generation." },
+];
+
+const WHATS_NEW = [
+  { icon: QrCode, title: "QR stickers on every riser", desc: "Unique QR stickers for every dry and wet riser inlet and every outlet. Engineers scan each valve to prove attendance — and get a warning if an outlet is missed." },
+  { icon: History, title: "Riser & site history", desc: "Full service history per riser and per site, including remedial work needed and done — always one scan away." },
+  { icon: Clock, title: "Van QR clocking & timesheets", desc: "Engineers clock in and out by scanning a QR sticker in their van. Timesheets build themselves, with a payroll-ready export for approved weeks." },
+  { icon: Sparkles, title: "Built-in AI assistant", desc: "Ask where anything lives and the assistant takes you straight to the right screen — no hunting through menus." },
 ];
 
 const WHY_CHOOSE = [
