@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -230,9 +231,7 @@ export default function JobHandover() {
             </span>
           </div>
           {job?.site_address && (
-            <p className="text-sm text-slate-600 flex items-start gap-1.5">
-              <MapPin className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" /> {job.site_address}
-            </p>
+            <MapAddress address={job.site_address} className="text-sm text-muted-foreground" />
           )}
           {job?.description && (
             <div className="pt-2 border-t border-slate-100">

@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import { Link } from "react-router-dom";
 
 export function extractTownAndPostcode(address: string | null): string {
@@ -56,7 +57,7 @@ export function JobCardSubtitle({
       >
         {job.reference_number}
       </Link>
-      {location ? ` · ${location}` : ""}
+      {location && <> · <MapAddress address={job.address} postcode={sitePostcode} label={location} jobId={job.id} /></>}
     </span>
   );
 }

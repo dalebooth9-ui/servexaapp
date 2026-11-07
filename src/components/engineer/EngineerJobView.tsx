@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 /**
  * EngineerJobView — simplified, mobile/tablet-first job detail view for
  * engineers (and admins previewing as engineer). Replaces the full admin
@@ -215,14 +216,10 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
               {custName && <> · <span className="font-medium text-foreground">{custName}</span></>}
             </p>
             {(siteName || address) && (
-              <p className="mt-2 flex items-start gap-1.5 text-sm text-foreground">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span className="break-words">
-                  {siteName && <span className="font-medium">{siteName}</span>}
-                  {siteName && address && <span className="text-muted-foreground"> — </span>}
-                  {address && <span>{address}</span>}
-                </span>
-              </p>
+              <div className="mt-2 text-sm text-foreground">
+                {siteName && <span className="block font-medium">{siteName}</span>}
+                {address && <MapAddress address={address} jobId={jobId} postcode={job?.sites?.postcode} what3words={job?.sites?.what3words} />}
+              </div>
             )}
             {(job?.sites as any)?.what3words && (
               <p className="mt-1 ml-6 text-xs">

@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -401,10 +402,10 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="space-y-2">
               {todaysJobs.map((job) => (
-                <Link
+                <div
                   key={job.id}
-                  to={`/jobs/${job.id}`}
-                  className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                  role="link" tabIndex={0} onClick={() => navigate(`/jobs/${job.id}`)} onKeyDown={event => { if (event.target === event.currentTarget && event.key === 'Enter') navigate(`/jobs/${job.id}`); }}
+                  className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors cursor-pointer"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
@@ -421,11 +422,9 @@ export default function AdminDashboard() {
                     </p>
                   </div>
                   {job.address && (
-                    <span className="text-xs text-muted-foreground truncate max-w-[200px] hidden sm:block ml-2">
-                      <MapPin className="h-3 w-3 inline mr-0.5" />{job.address}
-                    </span>
+                    <MapAddress address={job.address} jobId={job.id} className="text-xs text-muted-foreground max-w-[200px] hidden sm:inline-flex ml-2" />
                   )}
-                </Link>
+                </div>
               ))}
             </div>
           </CardContent>

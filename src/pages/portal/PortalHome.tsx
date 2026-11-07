@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import { useEffect, useState } from "react";
 import { useOutletContext, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,7 +51,7 @@ export default function PortalHome() {
             <CardHeader className="flex-row items-start justify-between gap-3">
               <div>
                 <CardTitle className="flex items-center gap-2"><MapPin className="w-4 h-4" />{s.name}</CardTitle>
-                {s.address && <div className="text-sm text-muted-foreground mt-1">{s.address}</div>}
+                {s.address && <MapAddress address={s.address} className="text-sm text-muted-foreground mt-1" />}
               </div>
               <Button size="sm" variant="outline" onClick={() => setVisitFor(s)}>
                 <Send className="w-4 h-4 mr-2" />Request a visit

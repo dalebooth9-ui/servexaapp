@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import { useMemo, useState } from "react";
 import { format, parseISO, isPast, isSameDay, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -264,17 +265,7 @@ export default function ListView({
                         <TableCell className="text-sm">{(job as any)?.customers?.name || job?.customer || "—"}</TableCell>
                         <TableCell className="text-sm max-w-[220px]">
                           <div className="flex items-center gap-1.5">
-                            <span className="truncate">{job?.site?.name || job?.address || "—"}</span>
-                            {(job?.address || job?.site?.postcode) && (
-                              <OpenInMapsButton
-                                address={job?.address ?? null}
-                                postcode={job?.site?.postcode ?? null}
-                                size="sm"
-                                variant="ghost"
-                                iconOnly
-                                className="h-6 w-6 p-0 shrink-0"
-                              />
-                            )}
+                            <MapAddress address={job?.site?.address || job?.address} postcode={job?.site?.postcode} jobId={job?.id} label={job?.site?.name || undefined} />
                           </div>
                         </TableCell>
                         <TableCell className="text-sm font-mono">{job?.site?.postcode || extractPostcode(job?.address || null) || "—"}</TableCell>

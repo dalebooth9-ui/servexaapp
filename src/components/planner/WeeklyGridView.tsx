@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { format, isSameDay, isPast, parseISO, startOfDay, isWithinInterval, endOfDay, addDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -247,7 +248,7 @@ function DraggableScheduleCard({ entry, job, engineerName, dayIndex, dayCount, i
       <HoverCardContent side="top" align="start" className="w-72 space-y-1 text-xs" onPointerDown={(e) => e.stopPropagation()}>
         <div className="font-semibold break-words">{job.name}</div>
         <div><span className="text-muted-foreground">Client:</span> {job.customer || "—"}</div>
-        <div><span className="text-muted-foreground">Site:</span> {job.site?.name ? `${job.site.name} · ` : ""}{job.site?.address || job.address || "—"}</div>
+        <div><span className="text-muted-foreground">Site:</span> {job.site?.name ? `${job.site.name} · ` : ""}<MapAddress address={job.site?.address || job.address} postcode={job.site?.postcode} jobId={job.id} /></div>
         <div><span className="text-muted-foreground">Ref:</span> {job.reference_number}</div>
         <div><span className="text-muted-foreground">Status:</span> {job.status.replace(/_/g, " ")} · <span className="text-muted-foreground">Priority:</span> {job.priority}</div>
         <div><span className="text-muted-foreground">Engineer:</span> {engineerName}</div>

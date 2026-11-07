@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -801,8 +802,9 @@ export default function EngineerDashboard() {
 // ── Job Card Component ─────────────────────────────────────
 function JobCard({ job, expanded = false }: { job: ScheduledJob; expanded?: boolean }) {
   const { label, cls } = statusLabel(job.status);
+  const navigate = useNavigate();
   return (
-    <Link to={`/jobs/${job.id}`}>
+    <div role="link" tabIndex={0} className="cursor-pointer" onClick={() => navigate(`/jobs/${job.id}`)} onKeyDown={event => { if (event.target === event.currentTarget && event.key === 'Enter') navigate(`/jobs/${job.id}`); }}>
       <div className="rounded-2xl border bg-card overflow-hidden active:scale-[0.98] transition-transform">
         {/* Priority strip */}
         <div className={`h-1 w-full ${priorityBg(job.priority)}`} />
@@ -818,9 +820,7 @@ function JobCard({ job, expanded = false }: { job: ScheduledJob; expanded?: bool
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">{job.customer}</p>
               )}
               {job.address && (
-                <p className="text-xs text-muted-foreground/70 truncate mt-1 flex items-center gap-1">
-                  <MapPin className="h-3 w-3 shrink-0" />{job.address}
-                </p>
+                <MapAddress address={job.address} jobId={job.id} className="text-xs text-muted-foreground/70 mt-1" />
               )}
             </div>
             <div className="shrink-0 flex flex-col items-end gap-1">
@@ -859,6 +859,6 @@ function JobCard({ job, expanded = false }: { job: ScheduledJob; expanded?: bool
           )}
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

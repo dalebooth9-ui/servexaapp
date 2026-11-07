@@ -1,3 +1,4 @@
+import MapAddress from "@/components/MapAddress";
 import { useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -717,10 +718,7 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
                                               )}
                                             </p>
                                             {(site.editAddress || site.site_address) && (
-                                              <p className="text-xs text-muted-foreground truncate">
-                                                {site.editAddress || site.site_address}
-                                                {site.postcode ? `, ${site.postcode}` : ""}
-                                              </p>
+                                              <MapAddress address={site.editAddress || site.site_address} postcode={site.postcode} className="text-xs text-muted-foreground" />
                                             )}
                                           </div>
                                           {stage === "review" && (
