@@ -1,99 +1,44 @@
 /**
- * Guarded service-worker registration. Follows the Lovable PWA skill rules:
- * - Never register in dev / iframe / Lovable preview hosts / when ?sw=off is set
- * - In refused contexts, unregister any matching SW so previous installs clean up
- * - Single registration entry-point (vite-plugin-pwa has `injectRegister: null`)
+ * Guarded service-worker registration and the app's single update path.
  *
- * Exposes `setupPWA({ onNeedRefresh, onOfflineReady })` so React components
- * can subscribe to update / offline-ready events without depending on the
- * registration internals.
+ * Rules (Lovable PWA skill):
+ * - Never register in dev / iframe / Lovable preview hosts / when ?sw=off is set;
+ *   in refused contexts, unregister any matching app SW so old installs clean up.
+ * - This module is the only registrar (vite-plugin-pwa has `injectRegister: null`).
  *
- * Also exposes `forceUpdateCheck()` so UI actions (e.g. Settings → "Check for
- * updates") can manually poll for a new service worker and surface the result.
+ * Update flow (`applyUpdate`): save open drafts → fetch the newest worker →
+ * tell it to take over (SKIP_WAITING; the worker claims clients) → delete the
+ * old app caches → full reload onto the new build. The page never reloads on
+ * its own; only the user's "Update now" / Settings button starts this.
  */
-type Callbacks = {
-  onNeedRefresh?: (reload: () => Promise<void>) => void;
-  onOfflineReady?: () => void;
-};
+import { flushAllDrafts } from "@/lib/draftFlush";
+import { fetchDeployedVersion } from "@/pwa/versionPoll";
 
-const LAST_PROMPTED_VERSION_KEY = "pwa_last_prompted_version";
-const INSTALLED_VERSION_KEY = "pwa_installed_version";
 
-export function getLastPromptedVersion(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return localStorage.getItem(LAST_PROMPTED_VERSION_KEY);
-  } catch {
-    return null;
-  }
+export const CHECK_INTERVAL_MS = 5 * 60 * 1000; // every 5 minutes while open
+const SW_URL = "/sw.js";
+const JUST_UPDATED_KEY = "pwa_just_updated_from";
+
+export const RUNNING_VERSION: string =
+  typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev";
+const CURRENT_CACHE_ID: string =
+  typeof __SW_CACHE_ID__ !== "undefined" ? __SW_CACHE_ID__ : "servexa";
+
+// Runtime caches that hold copies of the app itself (never user data).
+const APP_RUNTIME_CACHES = ["servexa-html", "servexa-assets"];
+
+/** True when a cache belongs to the app shell of an older build and can be dropped. */
+export function isOldAppCache(name: string, currentCacheId: string = CURRENT_CACHE_ID): boolean {
+  if (APP_RUNTIME_CACHES.includes(name)) return true;
+  // Workbox precache names look like "<cacheId>-precache-v2-<scope>".
+  if (/-precache-v\d+-/.test(name)) return !name.startsWith(`${currentCacheId}-precache-`);
+  return false;
 }
 
-export function setLastPromptedVersion(version: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(LAST_PROMPTED_VERSION_KEY, version);
-  } catch {
-    // ignore
-  }
+/** A newer build exists when the deployed version differs from the one running. */
+export function isNewerBuild(deployed: string | null | undefined, running: string = RUNNING_VERSION): boolean {
+  return !!deployed && deployed !== running;
 }
-
-export function clearLastPromptedVersion(): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.removeItem(LAST_PROMPTED_VERSION_KEY);
-  } catch {
-    // ignore
-  }
-}
-
-export function getInstalledVersion(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return localStorage.getItem(INSTALLED_VERSION_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function setInstalledVersion(version: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(INSTALLED_VERSION_KEY, version);
-  } catch {
-    // ignore
-  }
-}
-
-/**
- * Returns true if we have not already prompted for an update while this
- * exact build was the running version. This stops the banner/toast from
- * spamming the user on every foreground check once they have dismissed it.
- */
-export function shouldPromptForUpdate(currentVersion: string): boolean {
-  return getLastPromptedVersion() !== currentVersion;
-}
-
-/**
- * Reset the update-prompt state whenever the running app version changes.
- * This ensures a fresh install (or a fresh deployment) does not inherit a
- * stale "last prompted" version from browser storage, so the user sees the
- * update banner correctly from the first run.
- */
-export function resetPromptStateOnNewInstall(currentVersion: string): void {
-  const installed = getInstalledVersion();
-  if (installed !== currentVersion) {
-    clearLastPromptedVersion();
-    setInstalledVersion(currentVersion);
-  }
-}
-
-const REFUSE_HOSTNAMES = (h: string) =>
-  h === "lovableproject.com" ||
-  h.endsWith(".lovableproject.com") ||
-  h === "lovableproject-dev.com" ||
-  h.endsWith(".lovableproject-dev.com") ||
-  h === "beta.lovable.dev" ||
-  h.endsWith(".beta.lovable.dev");
 
 function shouldRefuse(): boolean {
   if (!import.meta.env.PROD) return true;
@@ -101,25 +46,34 @@ function shouldRefuse(): boolean {
   try {
     if (window.self !== window.top) return true; // inside an iframe (preview)
   } catch {
-    return true; // cross-origin frame — refuse
+    return true;
   }
-  const host = window.location.hostname;
-  if (host.startsWith("id-preview--") || host.startsWith("preview--")) return true;
-  if (REFUSE_HOSTNAMES(host)) return true;
+  const host = window.location.hostname.toLowerCase();
+  const firstLabel = host.split(".")[0];
+  const lovableHost = /\.(lovable\.app|gpt-eng\.com|gptengineer\.run)$/.test(host);
+  if (lovableHost && /^(?:id-preview|preview)(?:-[a-z0-9]+)?--.+$/.test(firstLabel)) return true;
+  if (lovableHost && /^project--.+-dev$/.test(firstLabel)) return true;
+  if (
+    host === "lovableproject.com" || host.endsWith(".lovableproject.com") ||
+    host === "lovableproject-dev.com" || host.endsWith(".lovableproject-dev.com") ||
+    host === "beta.lovable.dev" || host.endsWith(".beta.lovable.dev")
+  ) return true;
   if (new URLSearchParams(window.location.search).get("sw") === "off") return true;
   return false;
 }
 
+function swSupported(): boolean {
+  return typeof navigator !== "undefined" && "serviceWorker" in navigator;
+}
+
 async function unregisterMatching(): Promise<void> {
-  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+  if (!swSupported()) return;
   try {
     const regs = await navigator.serviceWorker.getRegistrations();
     await Promise.allSettled(
       regs.map(async (r) => {
         const scriptUrl = r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || "";
-        if (/\/sw\.js$|\/service-worker\.js$|\/registerSW\.js$/.test(scriptUrl)) {
-          await r.unregister();
-        }
+        if (/\/sw\.js$|\/service-worker\.js$|\/registerSW\.js$/.test(scriptUrl)) await r.unregister();
       }),
     );
   } catch {
@@ -127,104 +81,228 @@ async function unregisterMatching(): Promise<void> {
   }
 }
 
-/**
- * Load the newest deployed build even when the installed service worker has
- * not updated yet. A plain reload would be answered by the old worker's cached
- * page, so we drop the app worker first; the next load re-registers a fresh one.
- * Saved drafts (localStorage) and the offline queue (IndexedDB) are untouched.
- */
-export async function reloadToLatest(): Promise<void> {
-  await unregisterMatching();
-  window.location.reload();
+// ---------------------------------------------------------------------------
+// Update-available signal shared by the pop-up and Settings
+// ---------------------------------------------------------------------------
+type UpdateListener = (deployedVersion: string | null) => void;
+const listeners = new Set<UpdateListener>();
+let updateAvailable = false;
+let knownDeployed: string | null = null;
+
+export function onUpdateAvailable(fn: UpdateListener): () => void {
+  listeners.add(fn);
+  if (updateAvailable) fn(knownDeployed);
+  return () => {
+    listeners.delete(fn);
+  };
 }
 
-export async function setupPWA(cb: Callbacks = {}): Promise<void> {
-  if (shouldRefuse()) {
-    await unregisterMatching();
-    return;
+function announce(deployed: string | null) {
+  if (deployed) knownDeployed = deployed;
+  updateAvailable = true;
+  listeners.forEach((fn) => fn(knownDeployed));
+}
+
+let registration: ServiceWorkerRegistration | null = null;
+
+async function getRegistration(): Promise<ServiceWorkerRegistration | null> {
+  if (registration) return registration;
+  if (!swSupported()) return null;
+  try {
+    return (await navigator.serviceWorker.getRegistration("/")) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function watchRegistration(reg: ServiceWorkerRegistration, onOfflineReady?: () => void) {
+  const handleInstalled = (worker: ServiceWorker | null) => {
+    if (!worker) return;
+    const onState = () => {
+      if (worker.state === "installed" && navigator.serviceWorker.controller) {
+        // A newer build is downloaded and waiting for the user's go-ahead.
+        void fetchDeployedVersion().then((v) => announce(v));
+      }
+      if (worker.state === "activated" && !navigator.serviceWorker.controller) onOfflineReady?.();
+    };
+    worker.addEventListener("statechange", onState);
+  };
+  if (reg.waiting && navigator.serviceWorker.controller) {
+    void fetchDeployedVersion().then((v) => announce(v));
+  }
+  if (reg.installing) handleInstalled(reg.installing);
+  reg.addEventListener("updatefound", () => handleInstalled(reg.installing));
+}
+
+/** Store a copy of the app page so it can open offline (navigations are network-first). */
+async function warmOfflineShell() {
+  try {
+    if (typeof caches === "undefined") return;
+    const cache = await caches.open("servexa-html");
+    const key = `${window.location.origin}/index.html`;
+    if (!(await cache.match(key))) await cache.add(key);
+  } catch {
+    // offline or quota — the next online navigation fills it
+  }
+}
+
+/**
+ * Look for a newer build now (service worker + version.json, both uncached).
+ * Fires the update-available signal when one exists.
+ */
+export async function checkForUpdate(): Promise<{ updateFound: boolean; deployed: string | null; error?: string }> {
+  let error: string | undefined;
+  const reg = await getRegistration();
+  if (reg) {
+    try {
+      await reg.update();
+    } catch (e: any) {
+      error = e?.message || "Update check failed.";
+    }
+  }
+  const deployed = await fetchDeployedVersion();
+  const swHasNew = !!reg && (!!reg.waiting || !!reg.installing) && !!navigator.serviceWorker.controller;
+  const updateFound = isNewerBuild(deployed) || swHasNew;
+  if (updateFound) announce(deployed);
+  if (!deployed && !reg && !error) error = "Couldn't reach Servexa to check for updates.";
+  return { updateFound, deployed, error: updateFound ? undefined : error };
+}
+
+function waitForInstalled(reg: ServiceWorkerRegistration, timeoutMs: number): Promise<ServiceWorker | null> {
+  if (reg.waiting) return Promise.resolve(reg.waiting);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(reg.waiting ?? null), timeoutMs);
+    const track = (w: ServiceWorker | null) => {
+      if (!w) return;
+      w.addEventListener("statechange", () => {
+        if (w.state === "installed" || w.state === "activated") {
+          clearTimeout(timer);
+          resolve(reg.waiting ?? w);
+        }
+        if (w.state === "redundant") {
+          clearTimeout(timer);
+          resolve(reg.waiting ?? null);
+        }
+      });
+    };
+    track(reg.installing);
+    reg.addEventListener("updatefound", () => track(reg.installing));
+  });
+}
+
+function activateWaiting(worker: ServiceWorker, timeoutMs: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const done = (ok: boolean) => {
+      clearTimeout(timer);
+      navigator.serviceWorker.removeEventListener("controllerchange", onChange);
+      resolve(ok);
+    };
+    const onChange = () => done(true);
+    const timer = setTimeout(() => done(worker.state === "activated"), timeoutMs);
+    navigator.serviceWorker.addEventListener("controllerchange", onChange);
+    worker.postMessage({ type: "SKIP_WAITING" });
+  });
+}
+
+async function clearOldAppCaches(): Promise<void> {
+  if (typeof caches === "undefined") return;
+  try {
+    const names = await caches.keys();
+    await Promise.allSettled(names.filter((n) => isOldAppCache(n)).map((n) => caches.delete(n)));
+  } catch {
+    // ignore
+  }
+}
+
+let applying = false;
+
+/**
+ * "Update now": save drafts, switch to the newest worker, clear the old app
+ * copies and reload. Sign-in, saved drafts and the offline queue are kept
+ * (they live in localStorage / IndexedDB, which this never touches).
+ */
+export async function applyUpdate(): Promise<void> {
+  if (applying) return;
+  applying = true;
+  try {
+    await flushAllDrafts();
+
+    const reg = await getRegistration();
+    if (reg && swSupported()) {
+      try { await reg.update(); } catch { /* offline — use what we have */ }
+      const waiting = await waitForInstalled(reg, 20_000);
+      let switched = false;
+      if (waiting && waiting !== reg.active) switched = await activateWaiting(waiting, 8_000);
+      // If the new worker couldn't take over, remove the old one so the reload
+      // goes straight to the network instead of an old stored copy.
+      if (!switched && (waiting || isNewerBuild(await fetchDeployedVersion()))) await reg.unregister();
+    }
+
+    await clearOldAppCaches();
+    try { sessionStorage.setItem(JUST_UPDATED_KEY, RUNNING_VERSION); } catch { /* ignore */ }
+  } finally {
+    window.location.reload();
+  }
+}
+
+/** Returns the previous build number once, right after an update reload. */
+export function consumeJustUpdated(): string | null {
+  try {
+    const from = sessionStorage.getItem(JUST_UPDATED_KEY);
+    if (from) sessionStorage.removeItem(JUST_UPDATED_KEY);
+    return from;
+  } catch {
+    return null;
+  }
+}
+
+/** @deprecated kept for older callers — same as applyUpdate(). */
+export const reloadToLatest = applyUpdate;
+
+let started = false;
+
+export async function setupPWA(cb: { onOfflineReady?: () => void } = {}): Promise<void> {
+  if (started) return;
+  started = true;
+
+  const refused = shouldRefuse();
+  if (refused) await unregisterMatching();
+
+  // Automatic checks: on open, when the app comes back to the foreground,
+  // when the network returns, and every few minutes while it's open.
+  if (import.meta.env.PROD && typeof window !== "undefined") {
+    const run = () => void checkForUpdate();
+    run();
+    setInterval(run, CHECK_INTERVAL_MS);
+    window.addEventListener("focus", run);
+    window.addEventListener("online", run);
+    window.addEventListener("pageshow", (e) => { if ((e as PageTransitionEvent).persisted) run(); });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") run();
+    });
   }
 
-  // Reset the last-prompted version whenever the installed app version changes.
-  // A fresh PWA install can inherit origin localStorage from prior browser use;
-  // clearing the key guarantees the update banner behaves correctly from run one.
+  if (refused || !swSupported()) return;
 
   try {
-    const { registerSW } = await import("virtual:pwa-register");
-    const update = registerSW({
-      immediate: true,
-      onNeedRefresh() {
-        cb.onNeedRefresh?.(async () => {
-          await update(true);
-        });
-      },
-      onOfflineReady() {
-        cb.onOfflineReady?.();
-      },
-    });
+    // updateViaCache "none": the browser never answers sw.js (or its imports)
+    // from its HTTP cache, so a new build's worker is always seen.
+    const reg = await navigator.serviceWorker.register(SW_URL, { scope: "/", updateViaCache: "none" });
+    registration = reg;
+    watchRegistration(reg, cb.onOfflineReady);
+    void warmOfflineShell();
 
-    // No automatic reload when a new worker takes control: the app only
-    // reloads when the user taps "Update now" (update(true) below). A waiting
-    // worker otherwise activates the next time the app is opened from closed.
-
-    // Actively poll for a new service worker so installed phone apps that
-    // stay open for days still pick up published updates. We check:
-    //   - immediately on load (registerSW already does this)
-    //   - every 30 minutes while the tab is alive
-    //   - whenever the tab regains focus / visibility
-    //   - whenever the network comes back online
-    const checkForUpdate = async () => {
-      try {
-        const reg = await navigator.serviceWorker?.getRegistration();
-        if (reg) await reg.update();
-      } catch {
-        // ignore
-      }
-    };
-    setInterval(checkForUpdate, 30 * 60 * 1000);
-    window.addEventListener("focus", checkForUpdate);
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") void checkForUpdate();
-    });
-    window.addEventListener("online", checkForUpdate);
-
-    // Best-effort Background Sync registration (Chromium browsers only).
-    // On Safari/Firefox `sync` is absent and we fall back to the page-level
-    // `online` listener in useSyncQueueDrainer.
+    // Best-effort Background Sync registration (Chromium only).
     try {
-      if ("serviceWorker" in navigator) {
-        const reg: any = await navigator.serviceWorker.ready;
-        if (reg && "sync" in reg) {
-          await reg.sync.register("servexa-sync-queue");
-        }
-      }
+      const ready: any = await navigator.serviceWorker.ready;
+      if (ready && "sync" in ready) await ready.sync.register("servexa-sync-queue");
     } catch {
-      // ignore — Background Sync is optional
+      // optional
     }
   } catch {
-    // virtual:pwa-register only exists after vite-plugin-pwa builds; ignore in tests
+    // registration failed — the app still works online
   }
 }
 
-/**
- * Manually poll the registered service worker for an update.
- * Returns `true` if a new worker is installing or waiting after the check.
- * The existing PWAPrompts banner will surface via `onNeedRefresh` when the
- * new worker is waiting, so callers only need to show a "checking" toast.
- */
-export async function forceUpdateCheck(): Promise<{ updateFound: boolean; error?: string }> {
-  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
-    return { updateFound: false, error: "Service workers are not supported in this browser." };
-  }
-  try {
-    const reg = await navigator.serviceWorker.getRegistration();
-    if (!reg) {
-      return { updateFound: false, error: "No service worker is registered." };
-    }
-    await reg.update();
-    const newWorker = reg.installing || reg.waiting;
-    const updateFound = !!newWorker && newWorker !== reg.active;
-    return { updateFound };
-  } catch (err: any) {
-    return { updateFound: false, error: err?.message || "Update check failed." };
-  }
-}
+/** Settings "Check for updates". */
+export const forceUpdateCheck = checkForUpdate;

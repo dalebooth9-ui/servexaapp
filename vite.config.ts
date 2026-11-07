@@ -10,12 +10,15 @@ import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 // per-deployment identifier.
 const BUILD_TIME = new Date().toISOString();
 const APP_VERSION = BUILD_TIME.replace(/[-:.TZ]/g, "").slice(0, 12); // e.g. 202607121930
+// Prefix of the service worker's stored app copy. The page clears any older prefix on update.
+const SW_CACHE_ID = "servexa-v5";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   define: {
     __APP_VERSION__: JSON.stringify(APP_VERSION),
     __APP_BUILD_TIME__: JSON.stringify(BUILD_TIME),
+    __SW_CACHE_ID__: JSON.stringify(SW_CACHE_ID),
   },
   // Strip console.* and debugger statements from production builds only.
   // Dev keeps them so engineers can inspect logs locally.
@@ -58,31 +61,39 @@ export default defineConfig(({ mode }) => ({
       devOptions: { enabled: false }, // never emit a SW in dev / Lovable preview
       includeAssets: ["favicon.png", "favicon.ico", "bg-sync.js", "icon-192.png", "icon-512.png", "icon-maskable-512.png"],
       workbox: {
-        // Bump cacheId to force all clients to evict old precaches
-        cacheId: "servexa-v4",
+        cacheId: SW_CACHE_ID,
         cleanupOutdatedCaches: true,
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // When "Update now" activates this worker it takes over open pages at once.
+        // (skipWaiting stays off: it only happens when the user asks.)
+        clientsClaim: true,
+        // HTML is deliberately NOT precached: a precached page is served
+        // cache-first and kept devices on old builds. Pages are network-first below.
+        globPatterns: ["**/*.{js,css,ico,png,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         // Pull in the Background Sync listener so queued offline writes
         // can drain even when the page is closed (supported browsers only)
         importScripts: ["/bg-sync.js"],
-        // OAuth and Supabase auth callbacks must always hit the network
-        navigateFallback: "/index.html",
-        navigateFallbackDenylist: [
-          /^\/~oauth/,
-          /^\/\.lovable\/oauth/,
-          /^\/api/,
-          /^\/auth\/callback/,
-        ],
+        // No navigateFallback: it answers every page open from the stored copy.
+        navigateFallback: undefined,
         runtimeCaching: [
           // HTML navigations — NetworkFirst (never serve a stale shell to a connected user)
+          // One stored app page (key /index.html) is the offline fallback for every route.
+          // OAuth / auth callbacks are excluded and always go to the network.
           {
-            urlPattern: ({ request }) => request.mode === "navigate",
+            urlPattern: ({ request, url }) =>
+              request.mode === "navigate" &&
+              !/^\/(~oauth|\.lovable\/oauth|api|auth\/callback)/.test(url.pathname),
             handler: "NetworkFirst",
             options: {
               cacheName: "servexa-html",
               networkTimeoutSeconds: 4,
-              expiration: { maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [200] },
+              plugins: [
+                {
+                  cacheKeyWillBeUsed: async () => (globalThis as any).location.origin + "/index.html",
+                },
+              ],
             },
           },
           // Same-origin hashed JS/CSS — safe to cache long-term
