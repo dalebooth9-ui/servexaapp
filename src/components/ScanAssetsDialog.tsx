@@ -127,14 +127,14 @@ export default function ScanAssetsDialog({ open, onOpenChange, onImported, sites
       created_by: user.id,
     }));
 
-    const { data, error: dbError } = await supabase.from("assets").insert(payload).select("id");
+    const { data, error: dbError } = await supabase.rpc('upsert_asset_rows', { _rows: payload, _source: 'paper scan' });
     setImporting(false);
 
     if (dbError) {
       toast({ title: "Import failed", description: dbError.message, variant: "destructive" });
       return;
     }
-    toast({ title: "Scan imported", description: `${data?.length ?? 0} asset(s) added${scanPath ? " and scan stored" : ""}.` });
+    toast({ title: "Scan imported", description: `${Array.isArray(data) ? data.length : 0} rows saved; existing assets reused${scanPath ? " and scan stored" : ""}.` });
     reset();
     onOpenChange(false);
     onImported();

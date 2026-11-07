@@ -61,6 +61,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { fuzzyFilter } from "@/lib/fuzzyMatch";
 import { UKDateInput } from "@/components/ui/uk-date-input";
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 type Asset = {
   id: string;
@@ -170,15 +171,15 @@ export default function Assets() {
   };
   const fetchData = async () => {
     const [assetRes, siteRes, custRes, csRes] = await Promise.all([
-      supabase.from("assets").select("*").order("name"),
-      supabase.from("sites").select("id, name, site_type").order("name"),
-      supabase.from("customers").select("id, name").order("name"),
-      supabase.from("customer_sites").select("customer_id, site_id"),
+      fetchAllRows<Asset>('assets', '*'),
+      fetchAllRows<SiteOption>('sites', 'id, name, site_type'),
+      fetchAllRows<CustomerRow>('customers', 'id, name'),
+      fetchAllRows<CustomerSiteRow>('customer_sites', 'customer_id, site_id'),
     ]);
-    setAssets((assetRes.data as Asset[]) || []);
-    setSites((siteRes.data as SiteOption[]) || []);
-    setCustomers((custRes.data as CustomerRow[]) || []);
-    setCustomerSites((csRes.data as CustomerSiteRow[]) || []);
+    setAssets(assetRes.sort((a,b)=>a.name.localeCompare(b.name)));
+    setSites(siteRes.sort((a,b)=>a.name.localeCompare(b.name)));
+    setCustomers(custRes);
+    setCustomerSites(csRes);
     setLoading(false);
   };
 
@@ -314,7 +315,7 @@ export default function Assets() {
       });
       return;
     } else {
-      const { error } = await supabase.from("assets").insert(payload as any);
+      const { error } = await supabase.rpc('upsert_asset_rows', { _rows: [payload], _source: 'manual' });
       if (error) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
         return;
@@ -406,6 +407,7 @@ export default function Assets() {
           )}
           {userRole === "admin" && (
             <>
+              <Button variant="outline" asChild><Link to="/assets/duplicates">Possible duplicates</Link></Button>
               <Button variant="outline" onClick={() => setScanOpen(true)}>
                 <ScanLine className="mr-2 h-4 w-4" /> Scan Asset List
               </Button>

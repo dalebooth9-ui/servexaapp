@@ -88,10 +88,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
     setMoveOpen(false); toast({ title: "Riser moved" }); load(); onChanged?.();
   };
   const openMerge = async () => {
-    let q = supabase.from("assets").select("id, asset_tag, riser_location").or(riserOrFilter(riserTypeOf(a) ?? "Dry Riser")).neq("id", a.id).neq("status", "decommissioned");
-    if (a.site_id) q = q.eq("site_id", a.site_id);
-    const { data } = await q.limit(500);
-    setOthers((data as any) || []); setMergeId(""); setMergeOpen(true);
+    window.location.assign('/assets/duplicates');
   };
   const doMerge = async () => {
     setBusy(true);

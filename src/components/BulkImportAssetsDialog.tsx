@@ -148,20 +148,17 @@ export default function BulkImportAssetsDialog({ open, onOpenChange, onImported 
     if (all.length === 0 && errors.length > 0) { setError(errors.join("; ")); setLoading(false); return; }
     if (all.length === 0) { setError("No valid asset rows found. Ensure your file has a 'Name' column."); setLoading(false); return; }
 
-    // Fetch existing assets for duplicate detection (by name, case-insensitive)
-    const { data: existing } = await supabase.from("assets").select("name");
-    const existingNames = new Set((existing || []).map((a: any) => a.name.trim().toLowerCase()));
-
+    // Existing records are updated by the tenant-scoped save, not discarded.
     const seenInBatch = new Set<string>();
     const deduped = all.filter((a) => {
-      const key = a.name.trim().toLowerCase();
-      if (!key || existingNames.has(key) || seenInBatch.has(key)) return false;
+      const key = JSON.stringify(a);
+      if (seenInBatch.has(key)) return false;
       seenInBatch.add(key);
       return true;
     });
 
     const skipped = all.length - deduped.length;
-    if (skipped > 0) toast({ title: `${skipped} duplicate${skipped > 1 ? "s" : ""} skipped`, description: `${skipped} asset${skipped > 1 ? "s" : ""} already exist and won't be re-imported.` });
+    if (skipped > 0) toast({ title: `${skipped} repeated identical rows skipped` });
     if (deduped.length === 0) { setError("All extracted assets already exist in the database."); setLoading(false); return; }
 
     setParsed(deduped);
@@ -189,12 +186,12 @@ export default function BulkImportAssetsDialog({ open, onOpenChange, onImported 
       status: VALID_STATUSES.includes(a.status) ? a.status : "operational",
       created_by: user.id,
     }));
-    const { data, error: dbError } = await supabase.from("assets").insert(rows).select("id");
+    const { data, error: dbError } = await supabase.rpc('upsert_asset_rows', { _rows: rows, _source: 'import' });
     setImporting(false);
     if (dbError) {
       toast({ title: "Import failed", description: dbError.message, variant: "destructive" });
     } else {
-      toast({ title: "Import complete", description: `${data.length} asset(s) imported.` });
+      toast({ title: "Import complete", description: `${Array.isArray(data) ? data.length : 0} rows saved; existing assets reused.` });
       setParsed([]); setFileName(""); setError("");
       onOpenChange(false); onImported();
     }

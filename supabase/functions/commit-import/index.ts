@@ -185,6 +185,13 @@ serve(async (req) => {
     }
 
     for (const group of chunk(paired, 500)) {
+      if (body.entity === 'assets') {
+        const { data, error } = await callerClient.rpc('upsert_asset_rows', { _rows: group.map(g=>g.payload), _source: 'import' });
+        if (error) { errors.push({chunk_size:group.length,message:error.message}); continue; }
+        created += (data || []).filter((r: {created:boolean})=>r.created).length;
+        merged += (data || []).filter((r: {created:boolean})=>!r.created).length;
+        continue;
+      }
       const { data: inserted, error } = await admin
         .from(body.entity)
         .insert(group.map((g) => g.payload))
@@ -218,6 +225,13 @@ serve(async (req) => {
       if (!r.mergeTargetId) { skipped++; continue; }
       const payload = buildCreatePayload(r);
       if (!payload) { skipped++; continue; }
+      if(body.entity==='assets') {
+        const {data:target}=await admin.from('assets').select('site_id,name,category').eq('id',r.mergeTargetId).eq('org_id',orgId).maybeSingle();
+        if(!target || target.site_id!==r.parentMatchId || target.name.trim().toLowerCase()!==String(payload.name).trim().toLowerCase() || target.category.trim().toLowerCase()!==String(payload.category).trim().toLowerCase()) { errors.push({merge_id:r.mergeTargetId,message:'Asset identity differs from selected site/name/category'});continue; }
+        const {error}=await callerClient.rpc('upsert_asset_rows',{_rows:[payload],_source:'import'});
+        if(error)errors.push({merge_id:r.mergeTargetId,message:error.message});else merged++;
+        continue;
+      }
       // Read existing to only fill empty fields
       const { data: existing } = await admin.from(body.entity).select("*").eq("id", r.mergeTargetId).eq("org_id", orgId).maybeSingle();
       if (!existing) { skipped++; continue; }

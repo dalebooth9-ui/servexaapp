@@ -16,14 +16,12 @@ const cacheKey = (id: string) => `outlet_tags_${id}`;
 /** Load this riser's outlet count + sticker numbers; cached so it works offline. */
 async function loadTagInfo(assetId: string): Promise<TagInfo> {
   try {
-    const [{ data: a, error: e1 }, { data: t, error: e2 }] = await Promise.all([
-      supabase.from("assets").select("outlets_count").eq("id", assetId).maybeSingle(),
-      supabase.from("riser_outlet_tags").select("outlet_number, outlet_tag").eq("asset_id", assetId),
-    ]);
-    if (e1 || e2) throw e1 || e2;
+    const {data,error}=await supabase.rpc('asset_outlet_codes',{_asset_id:assetId});
+    if(error)throw error;
+    const codes=data as {total?:number;tags?:Record<string,number>} | null;
     const info: TagInfo = {
-      total: Math.max(0, Math.min(200, Number(a?.outlets_count) || 0)),
-      tags: Object.fromEntries((t || []).map((r: any) => [String(r.outlet_tag).toUpperCase(), r.outlet_number])),
+      total: Math.max(0, Math.min(200, Number(codes?.total) || 0)),
+      tags: codes?.tags || {},
     };
     localStorage.setItem(cacheKey(assetId), JSON.stringify(info));
     return info;

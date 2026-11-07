@@ -1,5 +1,12 @@
 # Roadmap
 
+## Safe asset duplicate review
+- [x] Count tenant duplicate groups and trace creation paths: 20 groups / 25 extra assets, four evidenced CSV imports (case-insensitive review).
+- [x] Add admin-only preview/confirmed merge preserving linked records and old QR tags; source assets retained as hidden aliases with full merge snapshots.
+- [x] Prevent repeated imports/builds and correct paginated asset counts; deploy commit-import.
+- [x] Update Help; 25 tests pass and Dale's signed-in Riddell Court preview/cancel checked with 17 history records.
+- [ ] Successful confirmed merge and physical old-sticker scan: no live cleanup performed without the user's reviewed confirmation; no physical scanner available.
+
 ## Exact assistant shortcuts
 - [x] Share tool destinations between help answers and navigation; link tool names and Go to buttons.
 - [x] Reveal tabs/collapsed sections, scroll and briefly highlight without executing tools.
