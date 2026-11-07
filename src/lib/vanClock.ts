@@ -94,16 +94,39 @@ const londonTime = (iso: string) => new Intl.DateTimeFormat("en-GB", { timeZone:
 export const londonDate = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date(iso));
 export { londonTime };
 
-const csvCell = (v: string) => /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-/** Wages CSV: one row per day, plus the employee's week total on each row. Hours only — never pay. */
-export function timesheetCsv(rows: { employee: string; entry: DayEntry }[], standardBreak = 0): string {
-  const weekTotals = new Map<string, number>();
-  for (const r of rows) weekTotals.set(r.employee, (weekTotals.get(r.employee) || 0) + (workedMinutes(r.entry, standardBreak) || 0));
-  const out = ["Employee,Date,Start,Finish,Break (mins),Total hours,Week total hours"];
+const csvCell = (v: string) => /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+const ukDate = (iso: string) => londonDate(iso).split("-").reverse().join("/");
+
+/** Fixed payroll columns — never reorder or rename, payroll upload mappings depend on them. */
+export const PAYROLL_DAILY_HEADER = "Employee name,Employee ID,Date,Start,Finish,Break (minutes),Total hours";
+export const PAYROLL_WEEKLY_HEADER = "Employee name,Employee ID,Week commencing,Total hours";
+export type PayrollRow = { employee: string; employeeId: string; entry: DayEntry };
+
+/** One row per employee per day (several clock records on one day are combined). Hours only — never pay. */
+export function payrollDailyCsv(rows: PayrollRow[], standardBreak = 0): string {
+  const byKey = new Map<string, { r: PayrollRow; date: string; start: string; finish: string | null; brk: number; mins: number }>();
   for (const r of rows) {
-    const d = londonDate(r.entry.clock_in_at).split("-").reverse().join("/");
-    const w = workedMinutes(r.entry, standardBreak);
-    out.push([csvCell(r.employee), d, londonTime(r.entry.clock_in_at), r.entry.clock_out_at ? londonTime(r.entry.clock_out_at) : "", String(breakUsed(r.entry, standardBreak)), w == null ? "" : hoursDecimal(w), hoursDecimal(weekTotals.get(r.employee) || 0)].join(","));
+    if (!r.entry.clock_out_at) continue;
+    const date = londonDate(r.entry.clock_in_at); const k = `${r.employee}|${r.employeeId}|${date}`;
+    const cur = byKey.get(k); const mins = workedMinutes(r.entry, standardBreak) || 0; const brk = breakUsed(r.entry, standardBreak);
+    if (!cur) byKey.set(k, { r, date, start: r.entry.clock_in_at, finish: r.entry.clock_out_at, brk, mins });
+    else { cur.mins += mins; cur.brk += brk; if (r.entry.clock_in_at < cur.start) cur.start = r.entry.clock_in_at; if (r.entry.clock_out_at > (cur.finish || "")) cur.finish = r.entry.clock_out_at; }
   }
-  return out.join("\n");
+  const out = [PAYROLL_DAILY_HEADER];
+  [...byKey.values()].sort((a, b) => a.r.employee.localeCompare(b.r.employee) || a.date.localeCompare(b.date)).forEach((d) =>
+    out.push([csvCell(d.r.employee), csvCell(d.r.employeeId), ukDate(d.start), londonTime(d.start), londonTime(d.finish!), String(d.brk), hoursDecimal(d.mins)].join(",")));
+  return out.join("\r\n") + "\r\n";
+}
+
+/** One row per employee with the week's total hours. */
+export function payrollWeeklyCsv(rows: PayrollRow[], weekStartIso: string, standardBreak = 0): string {
+  const tot = new Map<string, { employee: string; employeeId: string; mins: number }>();
+  for (const r of rows) {
+    const k = `${r.employee}|${r.employeeId}`; const t = tot.get(k) || { employee: r.employee, employeeId: r.employeeId, mins: 0 };
+    t.mins += workedMinutes(r.entry, standardBreak) || 0; tot.set(k, t);
+  }
+  const wc = weekStartIso.split("-").reverse().join("/");
+  const out = [PAYROLL_WEEKLY_HEADER];
+  [...tot.values()].sort((a, b) => a.employee.localeCompare(b.employee)).forEach((t) => out.push([csvCell(t.employee), csvCell(t.employeeId), wc, hoursDecimal(t.mins)].join(",")));
+  return out.join("\r\n") + "\r\n";
 }
