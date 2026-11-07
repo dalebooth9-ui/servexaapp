@@ -407,6 +407,13 @@
       "when": 1794052035071,
       "tag": "0057_preserve_targeted_riser_scan_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1794054056474,
+      "tag": "0058_shared_site_riser_job_creation",
+      "breakpoints": true
     }
   ]
 }

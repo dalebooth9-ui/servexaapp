@@ -1,32 +1,14 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { fetchAllRows } from '@/lib/fetchAllRows';
-import { loadRiserVisitData, type RiserVisitRow } from '@/lib/riserVisitData';
-import { suggestVisitType, VISIT_LABELS, type VisitType } from '@/lib/riserVisits';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { toast } from 'sonner';
-import { CalendarPlus, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
-export default function NewVisitDialog({siteId,siteName,initialIds,initialTypes,open: controlled,onOpenChange}: {siteId:string;siteName:string;initialIds?:string[];initialTypes?:Record<string,VisitType>;open?:boolean;onOpenChange?:(v:boolean)=>void}) {
- const { userRole }=useAuth(); const navigate=useNavigate(); const [localOpen,setLocalOpen]=useState(false); const open=controlled??localOpen;
- const setOpen=(v:boolean)=>{setLocalOpen(v);onOpenChange?.(v);};
- const [step,setStep]=useState(1); const [rows,setRows]=useState<RiserVisitRow[]>([]); const [ids,setIds]=useState<string[]>([]); const [types,setTypes]=useState<Record<string,VisitType>>({});
- const [engineers,setEngineers]=useState<any[]>([]); const [engineer,setEngineer]=useState(''); const [planned,setPlanned]=useState(''); const [notes,setNotes]=useState(''); const [po,setPo]=useState(''); const [busy,setBusy]=useState(false); const [loading,setLoading]=useState(false); const [error,setError]=useState(''); const [requestId,setRequestId]=useState('');
- useEffect(()=>{if(!open)return;let off=false;setLoading(true);setError('');setStep(1);setRequestId(crypto.randomUUID());setEngineer('');setPlanned('');setNotes('');setPo('');
- Promise.all([loadRiserVisitData(),fetchAllRows<any>('profiles','id,user_id,full_name'),fetchAllRows<any>('user_roles','id,user_id,role')]).then(([data,profiles,roles])=>{if(off)return;const r=data.filter(r=>r.asset.site_id===siteId);setRows(r);setIds(initialIds??r.map(r=>r.asset.id));const suggestions:Record<string,VisitType>={};r.forEach(r=>{const t=initialTypes?.[r.asset.id]??suggestVisitType(r.asset,r.history);if(t)suggestions[r.asset.id]=t;});setTypes(suggestions);setEngineers(profiles.filter(p=>roles.some(r=>r.user_id===p.user_id&&r.role==='engineer')));}).catch(e=>{if(!off)setError(e.message);}).finally(()=>{if(!off)setLoading(false);});return()=>{off=true;};},[open,siteId]);
- if(userRole!=='admin')return null;
- const selected=rows.filter(r=>ids.includes(r.asset.id));
- const create=async()=>{setBusy(true);setError('');try{const {data,error}=await supabase.rpc('create_riser_visit',{_site_id:siteId,_engineer_id:engineer,_date:planned,_risers:selected.map(r=>({asset_id:r.asset.id,type:types[r.asset.id]})),_notes:notes,_po:po,_request_id:requestId});if(error)throw error;toast.success('Visit created');setOpen(false);navigate(`/jobs/${data}`);}catch(e:any){setError(e.message);toast.error('Visit not created',{description:e.message});}finally{setBusy(false);}};
- return <><Button variant="outline" onClick={()=>setOpen(true)}><CalendarPlus className="mr-2 h-4 w-4"/>New visit</Button><Dialog open={open} onOpenChange={v=>{if(!busy)setOpen(v);}}><DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>New visit · {siteName}</DialogTitle></DialogHeader><p className="text-sm text-muted-foreground">Step {step} of 3</p>{loading?<Loader2 className="h-5 w-5 animate-spin"/>:<>
- {step===1&&<div className="divide-y">{rows.length===0&&<p className="py-4 text-sm">No dry risers registered at this site.</p>}{rows.map(r=><label key={r.asset.id} className="flex items-start gap-3 py-3"><Checkbox aria-label={`Select ${r.asset.riser_location||r.asset.name}`} checked={ids.includes(r.asset.id)} onCheckedChange={v=>setIds(prev=>v?[...prev,r.asset.id]:prev.filter(id=>id!==r.asset.id))}/><span className="min-w-0 text-sm"><strong>{r.asset.riser_location||r.asset.name}</strong><span className="block text-muted-foreground">{r.asset.outlets_count??'Unknown'} outlets · {r.asset.last_inspection_at?format(new Date(r.asset.last_inspection_at),'dd/MM/yyyy'):'History not recorded'} · {r.asset.last_inspection_result||'No result'}</span>{r.defects.map(d=><span className="block text-destructive" key={d.id}>{d.title}</span>)}{r.booked&&<span className="block text-muted-foreground">Already booked: {r.booked.reference_number} · {r.booked.due_date}</span>}</span></label>)}</div>}
- {step===2&&<div className="space-y-4">{selected.map(r=><div className="space-y-1" key={r.asset.id}><p className="font-medium text-sm">{r.asset.riser_location||r.asset.name}</p><Select value={types[r.asset.id]||''} onValueChange={v=>setTypes(prev=>({...prev,[r.asset.id]:v as VisitType}))}><SelectTrigger aria-label={`Visit type for ${r.asset.riser_location||r.asset.name}`}><SelectValue placeholder="Choose visit type — history not recorded"/></SelectTrigger><SelectContent>{Object.entries(VISIT_LABELS).map(([v,label])=><SelectItem key={v} value={v}>{label}</SelectItem>)}</SelectContent></Select></div>)}</div>}
- {step===3&&<div className="space-y-4"><label className="block text-sm">Planned date<Input aria-label="Planned date" type="date" value={planned} onChange={e=>setPlanned(e.target.value)}/></label><label className="block text-sm">Engineer<Select value={engineer} onValueChange={setEngineer}><SelectTrigger aria-label="Engineer"><SelectValue placeholder="Choose engineer"/></SelectTrigger><SelectContent>{engineers.map(e=><SelectItem key={e.user_id} value={e.user_id}>{e.full_name}</SelectItem>)}</SelectContent></Select></label><label className="block text-sm">Notes (optional)<Textarea value={notes} onChange={e=>setNotes(e.target.value)}/></label><label className="block text-sm">PO number (optional, office only)<Input value={po} onChange={e=>setPo(e.target.value)}/></label><p className="text-sm">One job · {selected.length} riser sheets</p></div>}
- </>}{error&&<p role="alert" className="text-sm text-destructive">{error}</p>}<DialogFooter>{step>1&&<Button variant="outline" disabled={busy} onClick={()=>setStep(step-1)}>Back</Button>}{step<3?<Button disabled={loading||!!error||!ids.length||(step===2&&selected.some(r=>!types[r.asset.id]))} onClick={()=>setStep(step+1)}>Next</Button>:<Button disabled={busy||!planned||!engineer} onClick={create}>{busy?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:null}Create visit</Button>}</DialogFooter></DialogContent></Dialog></>;
+import { Button } from '@/components/ui/button';
+import { CalendarPlus } from 'lucide-react';
+import SiteJobDialog from '@/components/sites/SiteJobDialog';
+import type { VisitType } from '@/lib/riserVisits';
+
+export default function NewVisitDialog({siteId,siteName,open:controlled,onOpenChange}: {siteId:string;siteName:string;initialIds?:string[];initialTypes?:Record<string,VisitType>;open?:boolean;onOpenChange?:(v:boolean)=>void}) {
+  const {userRole}=useAuth();
+  const [localOpen,setLocalOpen]=useState(false);
+  const setOpen=(v:boolean)=>{setLocalOpen(v);onOpenChange?.(v);};
+  if(userRole!=='admin')return null;
+  return <>{controlled===undefined&&<Button variant="outline" onClick={()=>setOpen(true)}><CalendarPlus className="mr-2 h-4 w-4"/>New visit</Button>}<SiteJobDialog siteId={siteId} siteName={siteName} open={controlled??localOpen} onOpenChange={setOpen}/></>;
 }
