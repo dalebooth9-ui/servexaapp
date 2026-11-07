@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ExcelJS from 'exceljs';
+import Papa from 'papaparse';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -29,10 +30,9 @@ export default function CustomerCleanupDialog({open,onOpenChange,onChanged}:{ope
     if(!file)return;
     setBusy(true);setError('');setRows([]);setResults(null);setSelected(new Set());
     try {
-      const workbook=new ExcelJS.Workbook();
-      const sheet=await workbook.csv.read(new Blob([await file.text()]).stream() as any);
-      const values:string[][]=[];
-      sheet.eachRow(row=>values.push((row.values as unknown[]).slice(1).map(v=>String(v??'').trim())));
+      const parsed=Papa.parse<string[]>(await file.text(),{skipEmptyLines:'greedy'});
+      if(parsed.errors.length)throw new Error('The CSV could not be read: '+parsed.errors[0].message);
+      const values=parsed.data.map(row=>row.map(v=>v.trim()));
       const first=values[0]||[];
       const hasHeader=/^(customer\s*name|customer|name)$/i.test(first[0]||'');
       if(mode==='merge' && (!hasHeader || normaliseCustomerName(first[1]||'')!=='merge into')) throw new Error('Merge CSV must have columns Customer name and Merge into.');
