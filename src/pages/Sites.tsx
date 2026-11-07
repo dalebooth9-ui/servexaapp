@@ -378,6 +378,10 @@ export default function Sites() {
   };
 
   const toggleSiteCollapse = (siteId: string) => {
+    if(!childPages[siteId])void loadChildren(siteId).then(()=>{
+      const folder=customerFolders.find(f=>f.sites.some(row=>row.id===siteId));
+      if(folder)void browserPage('children','',0,siteId).then(data=>setCustomerFolders(prev=>prev.map(f=>f.id===folder.id?{...f,sites:mergeSiteRows(f.sites,visiblePage(data.rows).rows)}:f)));
+    });
     setCollapsedSites((prev) => {
       const next = new Set(prev);
       next.has(siteId) ? next.delete(siteId) : next.add(siteId);
@@ -569,7 +573,9 @@ export default function Sites() {
         // 2. Link the new site to the target customer
         await supabase.from("customer_sites" as any).insert({ customer_id: targetCustomerId, site_id: newSite.id });
         // 3. Move existing linked sites to target customer
-        for (const s of sourceFolder.sites) {
+        const completeLinks=await fetchAllPages<{site_id:string}>((from,to)=>supabase.from('customer_sites').select('site_id').eq('customer_id',sourceId).order('id').range(from,to));
+        for (const link of completeLinks) {
+          const s={id:link.site_id};
           await supabase.from("customer_sites" as any).delete().eq("customer_id", sourceId).eq("site_id", s.id);
           const { error: linkErr } = await supabase.from("customer_sites" as any).insert({ customer_id: targetCustomerId, site_id: s.id });
           if (linkErr && !linkErr.message.includes("duplicate")) throw linkErr;
@@ -688,6 +694,7 @@ export default function Sites() {
       setSiteMore(page.hasMore);
       setSitePageIds(prev=>append?[...prev,...page.rows.map(s=>s.id)]:page.rows.map(s=>s.id));
       setSites(prev=>mergeSiteRows(append?prev:[],[...(data.context ?? []),...page.rows]));
+      if(highlightedSiteId)setTimeout(()=>document.getElementById(`site-row-${highlightedSiteId}`)?.scrollIntoView({block:'center'}),80);
       if(!append){setChildPages({});setDuplicateContexts({});void refreshTotals();}
     } catch {toast({title:'Could not load sites',variant:'destructive'});} finally {if(request===siteRequest.current)setLoading(false);}
   };
@@ -712,13 +719,16 @@ export default function Sites() {
   };
   const loadFolderSites = async (id:string,append=false) => {
     setFolderBusy(prev=>({...prev,[id]:true}));
+    const generation=folderRequest.current;
     try {
       const offset=append?(folderPages[id]?.offset ?? 0):0;
       const data=await browserPage('folder',serverSearch,offset,undefined,id);
+      if(generation!==folderRequest.current)return;
       const page=visiblePage(data.rows ?? []);
       setCustomerFolders(prev=>prev.map(f=>f.id===id?{...f,sites:mergeSiteRows(append?f.sites:[],[...(data.context ?? []).filter(row=>row.site_type!=='region'),...page.rows]),jobCountsBySite:Object.fromEntries(page.rows.map(row=>[row.id,row.job_count ?? 0]))}:f));
       setFolderPages(prev=>({...prev,[id]:{offset:offset+page.rows.length,more:page.hasMore}}));
       setSites(prev=>mergeSiteRows(prev,[...(data.context ?? []),...page.rows]));
+      setCollapsedSites(prev=>new Set([...prev,...page.rows.filter(row=>(row.child_count ?? 0)>0).map(row=>row.id)]));
       for(const row of page.rows.filter(row=>row.site_type==='building'))setDuplicateContexts(prev=>({...prev,[row.id]:page.rows}));
     } catch {toast({title:'Could not load customer sites',variant:'destructive'});} finally {setFolderBusy(prev=>({...prev,[id]:false}));}
   };
@@ -820,7 +830,7 @@ export default function Sites() {
   useEffect(()=>{if(userRole && activeTab==='by-customer')void fetchCustomerFolders();},[serverSearch,activeTab,userRole]);
   useEffect(()=>{if(userRole && activeTab==='by-customer')void fetchUnlinked();},[serverUnlinkedSearch,activeTab,userRole]);
   useEffect(()=>{for(const id of openFolders)if(!folderPages[id] && !folderBusy[id])void loadFolderSites(id);},[openFolders]);
-  useEffect(()=>{if(!quickAssignSite && !moveSitesOpen)return;void supabase.from('customers').select('id,name').order('name').limit(50).then(({data})=>setAllCustomers(data ?? []));},[quickAssignSite,moveSitesOpen]);
+  useEffect(()=>{if(!quickAssignSite && !moveSitesOpen)return;void fetchAllPages<{id:string;name:string}>((from,to)=>supabase.from('customers').select('id,name').order('name').order('id').range(from,to)).then(setAllCustomers);},[quickAssignSite,moveSitesOpen]);
   const toggle = (id:string) => {
     if(!expanded.has(id) && !childPages[id])void loadChildren(id).catch(()=>toast({title:'Could not load buildings',variant:'destructive'}));
     setExpanded(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next;});
@@ -1121,7 +1131,7 @@ export default function Sites() {
               {summaryList.map(site => {
                 const ancestors = siteAncestors(site, sites);
                 const owner = ancestors.find(parent => parent.site_type === 'site');
-                const regionSiteCount = site.site_type === 'region' ? summarySites.filter(record => record.site_type === 'site' && siteAncestors(record, sites).some(parent => parent.id === site.id)).length : 0;
+                const regionSiteCount = site.site_type==='region' ? (site.child_count ?? 0) : 0;
                 return <Button key={site.id} variant="ghost" className="w-full h-auto min-h-14 justify-between rounded-none py-3 px-3 whitespace-normal text-left gap-3"
                   onClick={() => {
                     if (site.site_type === 'region') { setSummaryRegionId(site.id); }
@@ -1136,7 +1146,7 @@ export default function Sites() {
               })}
             </div>
           )}
-          <div className="h-14"><Button variant="outline" disabled={loading || !siteMore} onClick={()=>void fetchSites(true)}>{loading?"Loading…":"Load more"}</Button></div>
+          <div className="h-14"><Button variant="outline" disabled={loading || search.trim()!==serverSearch || !siteMore} onClick={()=>void fetchSites(true)}>{loading?"Loading…":"Load more"}</Button></div>
         </section>
       )}
       <Tabs value={activeTab} onValueChange={setActiveTab} className={summaryType ? 'hidden' : undefined}>
@@ -1165,11 +1175,11 @@ export default function Sites() {
               ) : filteredRoots.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">{search ? "No sites match your search." : "No sites yet. Add a region to get started."}</p>
               ) : (
-                <div aria-busy={loading}>{filteredRoots.map((site) => renderTreeRow(site, 0))}</div>
+                <div aria-busy={loading} className={loading || search.trim()!==serverSearch ? "pointer-events-none opacity-60" : undefined}>{filteredRoots.map((site) => renderTreeRow(site, 0))}</div>
               )}
             </CardContent>
           </Card>
-          <div className="h-14 flex items-center justify-center"><Button variant="outline" disabled={loading || !siteMore} onClick={()=>void fetchSites(true)}>{loading?"Loading…":siteMore?"Load more sites":"All matches loaded"}</Button></div>
+          <div className="h-14 flex items-center justify-center"><Button variant="outline" disabled={loading || search.trim()!==serverSearch || !siteMore} onClick={()=>void fetchSites(true)}>{loading?"Loading…":siteMore?"Load more sites":"All matches loaded"}</Button></div>
         </TabsContent>
 
         {/* By Customer Tab */}
@@ -1193,7 +1203,7 @@ export default function Sites() {
                   <>
                     <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setCleanupOpen(true)}><FileSpreadsheet className="mr-1 h-3.5 w-3.5" />Customer clean-up</Button>
                     <Button variant="outline" size="sm" className="h-7 text-xs"
-                      onClick={() => setPickedCustomers(new Set(customerFolders.filter((f) => f.sites.length === 0).map((f) => f.id)))}>
+                      onClick={() => setPickedCustomers(new Set(customerFolders.filter((f) => (f.site_count ?? f.sites.length) === 0).map((f) => f.id)))}>
                       Tick all with 0 sites
                     </Button>
                     {pickedCustomers.size > 0 && (
@@ -1238,7 +1248,7 @@ export default function Sites() {
                 {/* Customer folders */}
                 <div
                   ref={customerFoldersScrollRef}
-                  className="flex-1 min-w-0 space-y-2 min-h-[420px] max-h-[75vh] overflow-y-auto pr-1 focus:outline-none"
+                  className={`flex-1 min-w-0 space-y-2 min-h-[420px] max-h-[75vh] overflow-y-auto pr-1 focus:outline-none ${foldersLoading || search.trim()!==serverSearch ? "pointer-events-none opacity-60" : ""}`}
                   tabIndex={0}
                   onKeyDown={(e) => {
                     const visibleFolders = customerFolders
@@ -1385,7 +1395,7 @@ export default function Sites() {
                                      const addressLine = [site.address, site.postcode].filter(Boolean).join(", ");
                                      const riser = (site as any).riser_location;
                                      const children = childrenBySite.get(site.id) || [];
-                                     const hasChildren = children.length > 0;
+                                     const hasChildren = (site.child_count ?? children.length) > 0;
                                      const isCollapsed = collapsedSites.has(site.id);
                                      const isSelected = !isChild && folderSelected.has(site.id);
                                      const breadcrumb = getBreadcrumb(site);
@@ -1415,7 +1425,7 @@ export default function Sites() {
                                            <div className="flex items-center gap-2 flex-wrap">
                                              <span className={`font-medium text-sm ${isChild ? "text-muted-foreground" : ""}`}>{site.name}</span>
                                              {isChild && <Badge variant="outline" className="text-[10px] px-1 py-0 capitalize">{site.site_type}</Badge>}
-                                             {hasChildren && !isChild && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{children.length} building{children.length !== 1 ? "s" : ""}</Badge>}
+                                             {hasChildren && !isChild && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{site.child_count ?? children.length} building{(site.child_count ?? children.length) !== 1 ? "s" : ""}</Badge>}
                                              {jobCount > 0 && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{jobCount} job{jobCount !== 1 ? "s" : ""}</Badge>}
                                              {site.outlets_count != null && <span className="text-xs text-muted-foreground">{site.outlets_count} {((site as any).category || "").toLowerCase().includes("sprinkler") ? "heads" : "outlets"}</span>}
                                              {riser && <span className="text-xs text-muted-foreground truncate max-w-[180px]">· Riser: {riser}</span>}
@@ -1669,7 +1679,7 @@ export default function Sites() {
                           }
                         }}
                       >
-                        {filteredUnlinked.length === 0 ? (
+                        {unlinkedLoading && filteredUnlinked.length===0 ? <p className="text-xs text-muted-foreground">Loading sites…</p> : filteredUnlinked.length === 0 ? (
                           <p className="text-xs text-muted-foreground px-1">{allUnlinked.length === 0 ? "All sites are linked." : "No matches."}</p>
                         ) : (
                           filteredUnlinked.map((site, idx) => (
