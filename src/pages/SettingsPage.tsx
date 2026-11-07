@@ -56,7 +56,7 @@ import DataExportSettings from "@/components/settings/DataExportSettings";
 
 import EngineerSignatureSettings from "@/components/EngineerSignatureSettings";
 import AppVersion from "@/components/AppVersion";
-import { forceUpdateCheck, shouldPromptForUpdate } from "@/pwa/registerSW";
+import { forceUpdateCheck, applyUpdate, RUNNING_VERSION } from "@/pwa/registerSW";
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 const INSTALL_URL = "https://servexaapp.lovable.app/install";
@@ -104,33 +104,27 @@ export default function SettingsPage() {
     toast.success("API key rotation logged. Next rotation due in 90 days.");
   };
 
+  // One button: checks, and if a newer build exists installs it straight away
+  // (drafts are saved first). Shows Checking… / Updating… / You're up to date.
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "updating">("idle");
   const handleCheckForUpdates = async () => {
     setCheckingUpdates(true);
+    setUpdateStatus("checking");
     try {
       const { updateFound, error } = await forceUpdateCheck();
-      if (error) {
-        toast.error(error);
+      if (updateFound) {
+        setUpdateStatus("updating");
+        toast.loading("Updating…", { description: "Saving your work and installing the new version." });
+        await applyUpdate();
         return;
       }
-      if (updateFound) {
-        const currentVersion = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "unknown";
-        if (shouldPromptForUpdate(currentVersion)) {
-          toast.success("Update available", {
-            description: "A new version of Servexa is ready. Tap the banner to update now.",
-          });
-        } else {
-          toast.success("Update available", {
-            description: "A new version of Servexa is ready and will install automatically. Reload the page to apply it now.",
-          });
-        }
-      } else {
-        toast.success("You're on the latest version");
-      }
+      if (error) toast.error(error);
+      else toast.success(`You're up to date (build ${RUNNING_VERSION})`);
     } catch (err: any) {
       toast.error(err?.message || "Update check failed");
-    } finally {
-      setCheckingUpdates(false);
     }
+    setUpdateStatus("idle");
+    setCheckingUpdates(false);
   };
 
   const rotationInfo = getRotationStatus(lastRotated);
@@ -662,7 +656,7 @@ export default function SettingsPage() {
           className="gap-1.5"
         >
           {checkingUpdates ? (
-            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking…</>
+            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {updateStatus === "updating" ? "Updating…" : "Checking…"}</>
           ) : (
             <><RefreshCw className="h-3.5 w-3.5" /> Check for updates</>
           )}
