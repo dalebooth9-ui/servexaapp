@@ -1,8 +1,9 @@
 # Roadmap
 
 ## Permanent outlet QR codes
-- [ ] Automatically save missing dry/wet outlet codes on creation/count changes; retain removed outlets as No longer fitted and preserve existing identities.
-- [ ] Backfill this company's existing risers, repair both pickers and verify report scanning and pinned addresses; update Help and report created count/build time.
+- [x] Automatically save missing dry/wet outlet codes on creation/count changes; retain removed outlets as No longer fitted and preserve existing identities.
+- [x] Backfilled Viva Fire: 5,344 unique codes created, zero missing outlets or inlet collisions; other companies unchanged. Both pickers ensure codes before listing; Help updated.
+- [x] Sixteen tests pass; signed-in eight-outlet asset picker shows nine labels on desktop/phone, outlet rows load and report code lookup returns all eight. Asset map link added; site/job links already present. Latest build 11:10 UTC/London clean. Physical camera scan/printing and job picker walkthrough unavailable: no current-company job linked to an eight-outlet site in the checked database.
 
 ## Riser QR label reprinting
 - [x] Add existing-code-only riser/site picker, per-label preview and reprint controls, outlet QR rows and immutable office history.
