@@ -68,9 +68,9 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const words = data.words as string | undefined;
+    const convertedWords = data.words as string | undefined;
 
-    return new Response(JSON.stringify({ words: words ? `///${words}` : null }), {
+    return new Response(JSON.stringify({ words: convertedWords ? `///${convertedWords}` : null }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
