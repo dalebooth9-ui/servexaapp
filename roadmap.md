@@ -1,5 +1,9 @@
 # Roadmap
 
+## Shared site job and visit form
+- [ ] Unify site + and New visit: PO, site customer/duplicate warning, one job type, asset tick list and save/schedule actions.
+- [ ] Persist exact riser selection atomically, preserve one-sheet-per-riser printing; update Help and verify desktop/phone saving and scheduling.
+
 ## Generic public asset wording
 - [x] Exact hero subheading and QR asset heading/line; generic asset, visit and service-report copy, trades shown as examples; title, description and sharing metadata updated. Buttons, pricing and signed-in app unchanged.
 - [x] Help updated; desktop/phone checked with all images loaded, no overflow/runtime errors and working demo enquiry; founder visibility test passes.
