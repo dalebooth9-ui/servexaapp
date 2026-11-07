@@ -1,5 +1,9 @@
 # Roadmap
 
+## Premium public landing page
+- [ ] Preserve headline, colours and pricing; authentic framed product screenshots, proof strip, five alternating workflow rows, founder placeholder and simplified standards/footer.
+- [ ] Compress/lazy-load imagery, scoped scroll motion, verify desktop/phone and record build time; no logged-in app changes.
+
 ## Multi-riser site visit job page
 - [x] Persisted job riser membership/selection; split job/site riser sections, count and shared per-riser report/sticker defaults.
 - [x] New site jobs default to active risers; targeted scan/explicit visit paths preserved. Duplicate warnings require site/riser/type.
