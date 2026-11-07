@@ -1,5 +1,9 @@
 # Roadmap
 
+## Premium public landing page
+- [x] Preserved headline, colours and pricing; authentic demo screenshots in laptop/phone frames, proof strip, five alternating workflow rows, founder/headshot placeholders and simplified standards/footer.
+- [x] Compressed CDN imagery, lazy-loaded secondary screenshots, scoped reduced-motion-aware fades; desktop/phone, image delivery and demo enquiry checked with no runtime errors or overflow; Help updated. Logged-in screens unchanged. Site figure and founder quote remain visibly unverified pending Dale’s approved wording.
+
 ## Multi-riser site visit job page
 - [x] Persisted job riser membership/selection; split job/site riser sections, count and shared per-riser report/sticker defaults.
 - [x] New site jobs default to active risers; targeted scan/explicit visit paths preserved. Duplicate warnings require site/riser/type.

@@ -1,387 +1,80 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import ProductWalkthrough from "@/components/landing/ProductWalkthrough";
-import ProductScreenshots from "@/components/landing/ProductScreenshots";
 import ContactSalesDialog from "@/components/ContactSalesDialog";
-
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  CheckCircle2, Briefcase, CalendarDays, Shield, FileText, Smartphone, MapPin,
-  Zap, BarChart2, Users, ChevronRight, Layers, Brain, Flame, ClipboardCheck,
-  Bell, Wrench, Camera, Building2, FileCheck, Siren, ScanLine, Send,
-  QrCode, History, Clock, Sparkles,
-} from "lucide-react";
-
-const FEATURES = [
-  { icon: Briefcase, title: "Intelligent Job Management", desc: "Create, assign and track fire & security jobs from first call to customer sign-off — full audit trail and priority flags included." },
-  { icon: CalendarDays, title: "PPM Scheduling & Planner", desc: "Drag-and-drop weekly planner with auto-generated PPM visits for every fire system type. AI-assisted route optimisation to sequence a day's jobs efficiently." },
-  { icon: Shield, title: "Compliance & Certification", desc: "Track certificate and engineer qualification expiry dates, attach documents, and generate PDF reports built around BS 9990, BS 5306 and BS 5839." },
-  { icon: FileText, title: "RAMS & Digital Job Sheets", desc: "Build PAS 79-aligned Risk Assessments and Method Statements with AI auto-fill from the job's category, site and customer. Custom templates, digital signatures and one-click PDF export." },
-  { icon: Smartphone, title: "Engineer Mobile App", desc: "Engineers clock in, submit voice notes, capture on-site photos and get client sign-offs — on or off site, even offline." },
-  { icon: Brain, title: "AI-Powered Fire Tools", desc: "AI RAMS auto-fill, AI job briefs, AI scheduler and AI customer report summaries — built right in, no extra tools needed." },
-  { icon: MapPin, title: "Live Engineer Tracking", desc: "See every engineer in real time. View assigned fire jobs, today's site visits and route history on one map." },
-  { icon: BarChart2, title: "Reports & Analytics", desc: "Weekly management reports every Monday — revenue, jobs completed, top engineers, compliance status and more." },
-  { icon: ScanLine, title: "Paper Sheets → Digital", desc: "Post or email in your paper job sheets. Servexa's OCR + AI reads the handwriting, matches to a template, and produces a clean branded PDF ready for the customer." },
-  { icon: Send, title: "Customer Sign-Off & Send", desc: "Digital customer sign-off via a secure link. Send the finished report straight from the app — via Servexa or via your own Microsoft 365 mailbox." },
-  { icon: Wrench, title: "Job Costing & Invoicing", desc: "Track parts, labour and margin per job. Raise invoices directly from the job sheet and sync with Xero and QuickBooks (more coming)." },
-  { icon: ClipboardCheck, title: "Installation Projects", desc: "Manage multi-phase installation projects with handover sign-off and certificate of conformity generation." },
-];
-
-const WHATS_NEW = [
-  { icon: QrCode, title: "QR stickers on every riser", desc: "Unique QR stickers for every dry and wet riser inlet and every outlet. Engineers scan each valve to prove attendance — and get a warning if an outlet is missed." },
-  { icon: History, title: "Riser & site history", desc: "Full service history per riser and per site, including remedial work needed and done — always one scan away." },
-  { icon: Clock, title: "Van QR clocking & timesheets", desc: "Engineers clock in and out by scanning a QR sticker in their van. Timesheets build themselves, with a payroll-ready export for approved weeks." },
-  { icon: Sparkles, title: "Built-in AI assistant", desc: "Ask where anything lives and the assistant takes you straight to the right screen — no hunting through menus." },
-];
-
-const WHY_CHOOSE = [
-  { icon: Shield, title: "Built for UK Fire Standards", desc: "Every workflow is built around BS 5839, BS 5306, BS 9990, PAS 79 and more UK standards. Not a generic tool retrofitted for fire — purpose-built from day one." },
-  { icon: Layers, title: "One Platform, Not Five", desc: "RAMS, job sheets, compliance certificates, scheduling, invoicing and customer sign-off in one place. Replace the spreadsheet, the WhatsApp group, and the filing cabinet." },
-  { icon: Smartphone, title: "Your Engineers Will Actually Use It", desc: "Dark-themed mobile interface designed for site use. Clock in, complete checklists, capture photos, get customer sign-off — all from their phone. No training needed." },
-  { icon: Zap, title: "From First Job to Invoice in Minutes", desc: "Create a job, assign an engineer, complete on-site, get signed off, generate the invoice and sync to Xero. The whole workflow, end to end, no paper." },
-];
-
-const WHY_SERVEXA = [
-  { icon: Brain, title: "AI-Powered RAMS", desc: "Auto-generate PAS 79-aligned risk assessments in minutes, not hours" },
-  { icon: Smartphone, title: "Engineers Love It", desc: "Dark mobile UI built for site work. No training, no app download needed" },
-  { icon: MapPin, title: "Live GPS Tracking", desc: "See every engineer in real time with route optimisation and ETA updates" },
-  { icon: Shield, title: "UK Standards Built In", desc: "BS 5839, BS 5306, BS 9990, PAS 79 and more — compliance tracking is built in" },
-  { icon: Zap, title: "Job to Invoice in Minutes", desc: "Complete on-site, get signed off, sync to Xero — no paper, no waiting" },
-  { icon: FileCheck, title: "Certificates & Sign-Off", desc: "Digital customer sign-off via secure link. PDF certificates auto-generated" },
-];
-
-const COMPLIANCE_STANDARDS = [
-  { code: "BS 9990", label: "Dry Risers" },
-  { code: "BS 5306", label: "Fire Extinguishers" },
-  { code: "BS 5839", label: "Fire Alarms" },
-  { code: "BS 9251", label: "Sprinkler Systems" },
-  { code: "PAS 79", label: "Fire Risk Assessments" },
-  { code: "BS EN 62676", label: "CCTV Systems" },
-];
-
-const FIRE_SYSTEMS = [
-  { icon: Flame, label: "Dry Risers" },
-  { icon: Siren, label: "Fire Alarms" },
-  { icon: Wrench, label: "Suppression" },
-  { icon: Shield, label: "Emergency Lighting" },
-  { icon: Camera, label: "CCTV & Access" },
-  { icon: FileCheck, label: "Sprinklers" },
-];
+import { ChevronRight, Flame, UserRound } from "lucide-react";
+import { ProductDevices, WorkflowVisual } from "@/components/landing/LandingVisuals";
+import { LANDING_PROOF, LANDING_WORKFLOWS, FOUNDER_QUOTE } from "@/components/landing/landingContent";
+import "@/components/landing/landing.css";
 
 export default function LandingPage() {
   const [contactOpen, setContactOpen] = useState(false);
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-50 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary p-1">
-              <img src="/servexa-icon-only.png" alt="Servexa icon" className="h-full w-full object-contain" />
-            </div>
-            <div className="flex flex-col leading-snug">
-              <span className="text-lg font-extrabold tracking-tight">Servexa <span className="text-accent">Platform</span></span>
-              <span className="text-[10px] text-muted-foreground tracking-widest uppercase font-medium leading-none">Fire &amp; Security Operations</span>
-            </div>
-          </Link>
-          <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
-            <a href="#features" className="hover:text-foreground transition-colors">Features</a>
-            <a href="#compliance" className="hover:text-foreground transition-colors">Compliance</a>
-            <a href="#how-it-works" className="hover:text-foreground transition-colors">How it works</a>
-            <Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
-          </nav>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" asChild><Link to="/auth">Sign In</Link></Button>
-            <Button size="sm" asChild><Link to="/signup">Request an invitation</Link></Button>
-          </div>
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!root.current || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (entry.isIntersecting) { entry.target.removeAttribute("data-pending"); observer.unobserve(entry.target); }
+    }), { threshold: 0.08 });
+    root.current.querySelectorAll(".public-reveal").forEach(element => {
+      if (element.getBoundingClientRect().top > window.innerHeight) element.setAttribute("data-pending", "true");
+      observer.observe(element);
+    });
+    return () => observer.disconnect();
+  }, []);
+  return <div ref={root} className="servexa-public min-h-screen bg-background text-foreground">
+    <header className="sticky top-0 z-50 border-b border-border/60 bg-background/95 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-6">
+        <Link to="/" className="flex shrink-0 items-center gap-2">
+          <img src="/servexa-icon-only.png" alt="" width="32" height="32" className="h-8 w-8 object-contain" />
+          <span className="text-lg font-bold">Servexa<span className="hidden text-accent sm:inline"> Platform</span></span>
+        </Link>
+        <nav className="hidden items-center gap-7 text-sm text-muted-foreground lg:flex" aria-label="Main navigation">
+          <a href="#features">Features</a><a href="#compliance">Standards</a><a href="#our-story">Our story</a><Link to="/pricing">Pricing</Link>
+        </nav>
+        <div className="flex items-center gap-2"><Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild><Link to="/auth">Sign In</Link></Button><Button size="sm" asChild><Link to="/signup">Request an invitation</Link></Button></div>
+      </div>
+    </header>
+    <section className="public-hero bg-sidebar text-sidebar-foreground">
+      <div className="mx-auto max-w-6xl text-center">
+        <p className="mb-4 flex items-center justify-center gap-2 text-xs font-semibold text-accent"><Flame className="h-4 w-4" />BUILT FOR FIRE PROTECTION. PROVEN ON SITE.</p>
+        <h1 className="font-extrabold text-sidebar-primary-foreground">The operations platform for<span className="mt-1 block text-accent">fire &amp; security companies.</span></h1>
+        <p className="mx-auto mt-5 max-w-4xl text-base leading-relaxed text-sidebar-foreground md:text-lg">Dry riser QR stickers, outlet scanning, paper report scanning and automatic timesheets, built by a working fire protection company.</p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <Button size="lg" className="h-11 px-6" asChild><Link to="/signup">Request an invitation<ChevronRight className="ml-2 h-4 w-4" /></Link></Button>
+          <Button size="lg" variant="outline" className="h-11 border-sidebar-border bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent/80" onClick={() => setContactOpen(true)}>Book a quick demo</Button>
         </div>
-      </header>
-
-      <section className="relative overflow-hidden bg-sidebar px-6 py-24 text-sidebar-foreground lg:py-36">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,hsl(var(--primary)/0.25),transparent)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_40%_40%_at_90%_110%,hsl(var(--accent)/0.10),transparent)]" />
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(hsl(var(--primary-foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary-foreground)) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
-        <div className="relative mx-auto max-w-5xl text-center">
-          <Badge className="mb-5 border-accent/30 bg-accent/10 text-accent hover:bg-accent/15 gap-1.5 px-3 py-1">
-            <Flame className="h-3.5 w-3.5" />
-            Built exclusively for UK fire &amp; security contractors
-          </Badge>
-          <h1 className="text-5xl font-extrabold leading-[1.1] tracking-tight text-sidebar-primary-foreground lg:text-[3.75rem]">
-            The operations platform for
-            <span className="block mt-1 text-accent">fire & security companies.</span>
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-sidebar-foreground/70">
-            Fire protection job management, done properly: RAMS, compliance certificates, PPM schedules, dry riser software with QR code riser inspection, engineer dispatch and customer sign-off in one purpose-built platform.
-          </p>
-          <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Button size="lg" className="h-12 px-8 text-base font-semibold" asChild>
-              <Link to="/signup">Request an invitation<ChevronRight className="ml-2 h-4 w-4" /></Link>
-            </Button>
-            <Button size="lg" variant="outline" className="h-12 border-sidebar-border/60 px-8 text-base text-sidebar-foreground hover:bg-sidebar-accent" onClick={() => setContactOpen(true)}>
-              Book a quick demo
-            </Button>
-          </div>
-          <p className="mt-4 text-xs text-sidebar-foreground/35">Private beta. From £199/month flat, whole team included.</p>
-
-          <div className="mt-12 flex flex-wrap justify-center gap-2">
-            {FIRE_SYSTEMS.map(({ icon: Icon, label }) => (
-              <div key={label} className="flex items-center gap-1.5 rounded-full border border-sidebar-border/40 bg-sidebar-accent/30 px-3 py-1.5 text-xs font-medium text-sidebar-foreground/70">
-                <Icon className="h-3.5 w-3.5 text-accent" />
-                {label}
-              </div>
-            ))}
-          </div>
+        <p className="mt-3 text-xs text-sidebar-foreground/70">Private beta. From £199/month flat, whole team included.</p>
+        <ProductDevices />
+      </div>
+    </section>
+    <section className="border-b border-border bg-card">
+      <div className="mx-auto grid max-w-6xl gap-6 px-6 py-9 sm:grid-cols-3">
+        {LANDING_PROOF.map(proof => <div key={proof.value} className="text-center sm:border-r sm:border-border sm:last:border-0"><p className="text-3xl font-bold">{proof.value}</p><p className="mt-2 text-sm text-muted-foreground">{proof.label}</p>{proof.note && <p className="mt-1 text-[10px] text-muted-foreground">{proof.note}</p>}</div>)}
+      </div>
+    </section>
+    <section id="features" className="px-6 py-16 md:py-24">
+      <div className="mx-auto max-w-6xl">
+        <div className="public-reveal mb-14 max-w-2xl"><p className="mb-3 text-xs font-semibold text-accent">FROM FIRST SCAN TO FINAL REPORT</p><h2 className="text-3xl font-bold md:text-4xl">Fire protection work.<br />One connected record.</h2></div>
+        <div className="space-y-20 md:space-y-28">
+          {LANDING_WORKFLOWS.map((feature, index) => <div key={feature.type} className="public-reveal grid items-center gap-8 md:grid-cols-2 md:gap-16">
+            <div className={index % 2 ? "md:order-2" : ""}><WorkflowVisual type={feature.type} /></div>
+            <div className={index % 2 ? "md:order-1" : ""}><p className="mb-4 flex items-center gap-3 text-xs font-semibold text-muted-foreground"><span className="text-accent">0{index + 1}</span>{feature.label}</p><h3 className="text-3xl font-bold leading-tight">{feature.title}</h3><p className="mt-5 max-w-lg text-base leading-relaxed text-muted-foreground">{feature.body}</p></div>
+          </div>)}
         </div>
-      </section>
-
-      <section className="border-y border-border bg-muted/40 py-5">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-8 px-6 text-sm text-muted-foreground">
-          {["Built around BS 9990 / BS 5306 / BS 5839", "PAS 79 Fire Risk Templates", "GDPR-Ready Data Handling", "QR Code Riser Inspection"].map((t) => (
-            <div key={t} className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-primary" />
-              <span>{t}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="border-b border-border bg-background px-6 py-10">
-        <div className="mx-auto max-w-4xl text-center">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Designed to support contractors accredited with</p>
-          <p className="text-sm text-muted-foreground/80 mb-6 max-w-2xl mx-auto">
-            Servexa is a software platform that helps accredited contractors manage their compliance workflows. We are not affiliated with, endorsed by, or accredited by any of the bodies listed below.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            {["BAFE", "NICEIC", "SSAIB", "NSI", "Constructionline", "ISO 9001", "SafeContractor"].map((name) => (
-              <span key={name} className="rounded-full border border-border bg-muted/50 px-4 py-1.5 text-xs font-semibold text-muted-foreground tracking-wide">{name}</span>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="compliance" className="bg-primary px-6 py-12">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-2 text-center">
-            <h2 className="text-xl font-bold text-primary-foreground">Built around UK fire &amp; security standards</h2>
-            <p className="mt-1.5 text-sm text-primary-foreground/60">Every workflow maps directly to the regulation that governs it</p>
-          </div>
-          <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-8">
-            {COMPLIANCE_STANDARDS.map(({ code, label }) => (
-              <div key={code} className="flex flex-col items-center rounded-xl border border-primary-foreground/10 bg-primary-foreground/5 px-3 py-5 text-center hover:bg-primary-foreground/10 transition-colors">
-                <Flame className="mb-2 h-5 w-5 text-accent" />
-                <span className="text-sm font-bold text-primary-foreground">{code}</span>
-                <span className="mt-0.5 text-[11px] text-primary-foreground/50">{label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="features" className="px-6 py-24 bg-muted/20">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-16 text-center">
-            <Badge variant="outline" className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Platform Features</Badge>
-            <h2 className="text-4xl font-bold tracking-tight">Everything fire &amp; security teams need</h2>
-            <p className="mt-4 text-lg text-muted-foreground">One platform. Every workflow. Inspection to invoice.</p>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {FEATURES.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="group rounded-xl border bg-card p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
-                <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10">
-                  <Icon className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-semibold text-card-foreground">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="border-y border-border bg-background px-6 py-16">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-10 text-center">
-            <h2 className="text-3xl font-bold tracking-tight">Purpose-built for the fire protection sector</h2>
-            <p className="mt-3 text-muted-foreground">Not a generic field service tool — built from the ground up for fire and security contractors.</p>
-          </div>
-          <div className="grid gap-6 md:grid-cols-3">
-            {[
-              { icon: ClipboardCheck, title: "Digital RAMS Builder", body: "Generate PAS 79-aligned Risk Assessments and Method Statements from your own RAMS library, with AI auto-fill from the job's category, site and customer." },
-              { icon: Bell, title: "Compliance Expiry Alerts", body: "Automated reminders for customer certificate renewals, engineer qualification / training document expiry and upcoming service intervals — configurable per organisation." },
-              { icon: Wrench, title: "PPM Auto-Scheduling", body: "Define service frequencies per site and asset. Servexa auto-generates planned maintenance jobs against the schedule so nothing is missed." },
-              { icon: ScanLine, title: "Paper → Digital → Send", body: "Post or email your paper job sheets in. Servexa's OCR + AI reads the handwriting, matches to a template and produces a branded PDF ready to send to the customer." },
-              { icon: Camera, title: "Site Photos & Sketch Pad", body: "Engineers capture site photos and free-hand sketches / floor plans during a site survey, all bundled into the job record and PDF." },
-              { icon: Building2, title: "Asset Register & Service History", body: "Keep a per-site asset register with categories, service intervals and full service history. Every visit and certificate is filed against the asset." },
-            ].map(({ icon: Icon, title, body }) => (
-              <div key={title} className="flex gap-4 rounded-xl border bg-card p-6 shadow-sm">
-                <div className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg bg-accent/10">
-                  <Icon className="h-5 w-5 text-accent" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-card-foreground">{title}</h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="border-y border-border bg-muted/40 px-6 py-20">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-12 text-center">
-            <Badge variant="outline" className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">What's new</Badge>
-            <h2 className="text-3xl font-bold tracking-tight">Built for the way engineers really work</h2>
-            <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">The latest additions to the platform — live in the product today.</p>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {WHATS_NEW.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="rounded-xl border bg-card p-6 shadow-sm flex flex-col">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <h3 className="mb-2 font-semibold tracking-tight">{title}</h3>
-                <p className="text-sm leading-relaxed text-muted-foreground">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="how-it-works" className="bg-muted/20 px-6 py-24">
-        <div className="mx-auto max-w-4xl">
-          <div className="mb-16 text-center">
-            <Badge variant="outline" className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Getting started</Badge>
-            <h2 className="text-4xl font-bold tracking-tight">Up and running in minutes</h2>
-            <p className="mt-4 text-lg text-muted-foreground">No lengthy onboarding. No consultants. Just sign up and go.</p>
-          </div>
-          <div className="grid gap-8 md:grid-cols-3">
-            {[
-              { step: "1", icon: Users, title: "Sign up & invite your team", desc: "Create your organisation, add engineers via email invite. They're live and submitting fire inspection reports in minutes." },
-              { step: "2", icon: Briefcase, title: "Create your first fire job", desc: "Add a client, set the job type (dry riser, alarm, suppression), assign an engineer and RAMS auto-fills from job details." },
-              { step: "3", icon: CheckCircle2, title: "Complete & get signed off", desc: "Engineer submits their report with photos, client signs off digitally via a secure link. Invoice with one click." },
-            ].map(({ step, icon: Icon, title, desc }) => (
-              <div key={step} className="relative rounded-xl border bg-card p-6 text-center shadow-sm">
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">{step}</div>
-                <Icon className="mx-auto mb-3 h-5 w-5 text-primary" />
-                <h3 className="font-semibold">{title}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-background px-6 py-24 border-t border-border">
-        <div className="mx-auto max-w-4xl text-center">
-          <Badge variant="outline" className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">See it in action</Badge>
-          <h2 className="text-4xl font-bold tracking-tight">Watch Servexa in 60 seconds</h2>
-          <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
-            From first job to final sign-off — see how fire and security teams run their entire operation on one platform.
-          </p>
-          <div className="mt-10">
-            <ProductWalkthrough />
-          </div>
-          <div className="mt-8 flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
-            {["Digital job sheets", "AI RAMS builder", "Live engineer tracking", "Customer sign-off", "Paper → digital scans", "Asset register", "Job costing"].map((f) => (
-              <div key={f} className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
-                <span>{f}</span>
-              </div>
-            ))}
-          </div>
-          <Button size="lg" className="mt-8 h-12 px-10 text-base" asChild>
-            <Link to="/signup">Request an invitation<ChevronRight className="ml-2 h-4 w-4" /></Link>
-          </Button>
-        </div>
-      </section>
-
-      <ProductScreenshots />
-
-
-
-      <section className="bg-background px-6 py-24 border-t border-border">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-12 text-center">
-            <Badge variant="outline" className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Why Servexa</Badge>
-            <h2 className="text-4xl font-bold tracking-tight">Why fire contractors choose Servexa</h2>
-          </div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {WHY_CHOOSE.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="rounded-xl border bg-card p-6 shadow-sm flex flex-col">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-accent/15 text-accent">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <h3 className="mb-2 text-lg font-semibold tracking-tight">{title}</h3>
-                <p className="text-sm leading-relaxed text-muted-foreground">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-muted/20 px-6 py-20 border-t border-border">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-12 text-center">
-            <Badge variant="outline" className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Comparison</Badge>
-            <h2 className="text-3xl font-bold tracking-tight">How we compare</h2>
-            <p className="mt-3 text-muted-foreground">Purpose-built features that generic field service tools can't match</p>
-          </div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {WHY_SERVEXA.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="rounded-xl border bg-card p-6 shadow-sm flex flex-col">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-accent/15 text-accent">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <h3 className="mb-2 text-lg font-semibold tracking-tight">{title}</h3>
-                <p className="text-sm leading-relaxed text-muted-foreground">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-background px-6 py-20 border-t border-border">
-        <div className="mx-auto max-w-3xl text-center">
-          <Badge variant="outline" className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Our story</Badge>
-          <h2 className="text-3xl font-bold tracking-tight">Built by a working fire protection company</h2>
-          <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-            Servexa was built by <span className="font-medium text-foreground">Viva Fire Protection</span>, a UK fire
-            protection contractor, for the way engineers and offices really work. Every screen has been used on real
-            jobs, on real sites, before it ever reached you.
-          </p>
-          <blockquote className="mx-auto mt-8 max-w-2xl rounded-xl border bg-card p-6 text-left shadow-sm">
-            <p className="text-sm leading-relaxed text-muted-foreground italic">
-              "[Founder quote goes here — a sentence or two about why you built Servexa and what you wanted to fix.]"
-            </p>
-            <footer className="mt-3 text-sm font-medium text-foreground">
-              Dale Booth <span className="font-normal text-muted-foreground">— Director, Viva Fire Protection</span>
-            </footer>
-          </blockquote>
-        </div>
-      </section>
-
-      <section className="bg-sidebar px-6 py-24 text-sidebar-foreground">
-        <div className="mx-auto max-w-2xl text-center">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-accent/15">
-            <Flame className="h-8 w-8 text-accent" />
-          </div>
-          <h2 className="text-4xl font-bold text-sidebar-primary-foreground">Ready to run a tighter service operation?</h2>
-          <p className="mt-4 text-lg text-sidebar-foreground/70">
-            Servexa is in private beta. Request an invitation and be set up in minutes — RAMS, compliance, scheduling, engineer dispatch and customer sign-off from day one.
-          </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Button size="lg" className="h-12 px-10 text-base font-semibold" asChild>
-              <Link to="/signup">Request an invitation<ChevronRight className="ml-2 h-4 w-4" /></Link>
-            </Button>
-            <Button size="lg" variant="outline" className="h-12 border-sidebar-border/60 px-8 text-base text-sidebar-foreground hover:bg-sidebar-accent" onClick={() => setContactOpen(true)}>
-              Book a quick demo
-            </Button>
-          </div>
-          <p className="mt-4 text-xs text-sidebar-foreground/40">Private beta. From £199/month flat, whole team included. Cancel any time.</p>
-        </div>
-      </section>
-
+      </div>
+    </section>
+    <section id="compliance" className="border-y border-border bg-muted/40 px-6 py-8">
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-5 md:flex-row"><p className="text-sm font-medium">Built around UK fire standards</p><div className="flex flex-wrap justify-center gap-x-8 gap-y-3 text-sm font-semibold">{["BS 9990", "BS 5306", "BS 5839", "PAS 79"].map(standard => <span key={standard}>{standard}</span>)}</div></div>
+    </section>
+    <section id="our-story" className="px-6 py-16 md:py-24">
+      <div className="public-reveal mx-auto grid max-w-6xl items-center gap-10 md:grid-cols-2 md:gap-16">
+        <div><p className="mb-3 text-xs font-semibold text-accent">BUILT FROM EXPERIENCE</p><h2 className="text-3xl font-bold md:text-4xl">Built by a working fire protection company</h2><p className="mt-5 text-base leading-relaxed text-muted-foreground">Servexa was built by Viva Fire Protection for the way engineers and offices really work. Real jobs, real sites, and the details that matter when you’re responsible for fire protection.</p></div>
+        <blockquote className="rounded-2xl border border-border bg-card p-7 shadow-sm md:p-9"><p className="text-xs font-medium text-muted-foreground">FOUNDER’S NOTE · AWAITING DALE’S WORDING</p><p className="mt-5 text-xl leading-relaxed">{FOUNDER_QUOTE}</p><footer className="mt-7 flex items-center gap-4"><div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-secondary" aria-label="Dale Booth headshot placeholder"><UserRound className="h-7 w-7 text-muted-foreground" /></div><div><p className="font-semibold">Dale Booth</p><p className="mt-1 text-sm text-muted-foreground">Director, Viva Fire Protection</p></div></footer></blockquote>
+      </div>
+    </section>
+    <section className="bg-sidebar px-6 py-16 text-sidebar-foreground md:py-20">
+      <div className="public-reveal mx-auto max-w-3xl text-center"><Flame className="mx-auto mb-5 h-8 w-8 text-accent" /><h2 className="text-3xl font-bold text-sidebar-primary-foreground md:text-4xl">Ready to run a tighter service operation?</h2><p className="mt-5 leading-relaxed">See how Servexa fits your fire protection team. Request an invitation or talk to us about your day-to-day work.</p><div className="mt-7 flex flex-wrap justify-center gap-3"><Button size="lg" asChild><Link to="/signup">Request an invitation<ChevronRight className="ml-2 h-4 w-4" /></Link></Button><Button size="lg" variant="outline" className="border-sidebar-border bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent/80" onClick={() => setContactOpen(true)}>Book a quick demo</Button></div><p className="mt-4 text-xs text-sidebar-foreground/70">Private beta. From £199/month flat, whole team included. Cancel any time.</p></div>
+    </section>
       <footer className="border-t border-border bg-background px-6 py-10">
         <div className="mx-auto max-w-7xl space-y-6">
           <div className="flex flex-col items-center justify-between gap-4 text-sm text-muted-foreground sm:flex-row">
@@ -391,6 +84,7 @@ export default function LandingPage() {
               <span>© {new Date().getFullYear()}</span>
             </div>
             <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
+              <Button variant="link" className="h-auto p-0 text-muted-foreground" onClick={() => setContactOpen(true)}>Contact</Button>
               <Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
               <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
               <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
@@ -410,6 +104,5 @@ export default function LandingPage() {
         </div>
       </footer>
       <ContactSalesDialog open={contactOpen} onOpenChange={setContactOpen} />
-    </div>
-  );
+  </div>;
 }

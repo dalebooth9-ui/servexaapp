@@ -1,0 +1,1 @@
+- Keep public landing visuals, editorial placeholders and page-scoped styles in this module; use compressed authentic demo screenshots and explicitly labelled illustrations so marketing changes cannot alter signed-in screens or expose customer data.
