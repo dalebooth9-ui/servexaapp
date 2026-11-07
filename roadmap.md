@@ -1,5 +1,9 @@
 # Roadmap
 
+## Digital Twin visibility
+- [ ] Add default-off company setting under Advanced, admin-only writes; gate asset sensor UI and maintenance alerts.
+- [ ] Remove public sensor claims, update Help and shortcuts, test company/role rules and signed-in visibility.
+
 ## App-wide pinned address links
 - [x] Add shared safe map/search, mobile directions and copy-address controls with precise saved locations; deployed and verified what3words coordinate lookup.
 - [x] Replace pinned address displays across office, engineer, planner and customer views; update Help. Quote screens have no pinned address displays; printable documents unchanged.
