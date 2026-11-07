@@ -4969,6 +4969,42 @@ export type Database = {
           },
         ]
       }
+      job_merge_previews: {
+        Row: {
+          actor_id: string
+          confirmed_at: string | null
+          created_at: string
+          fingerprint: string
+          id: string
+          job_ids: string[]
+          keep_id: string
+          org_id: string
+          preview: Json
+        }
+        Insert: {
+          actor_id: string
+          confirmed_at?: string | null
+          created_at?: string
+          fingerprint: string
+          id?: string
+          job_ids: string[]
+          keep_id: string
+          org_id: string
+          preview: Json
+        }
+        Update: {
+          actor_id?: string
+          confirmed_at?: string | null
+          created_at?: string
+          fingerprint?: string
+          id?: string
+          job_ids?: string[]
+          keep_id?: string
+          org_id?: string
+          preview?: Json
+        }
+        Relationships: []
+      }
       job_messages: {
         Row: {
           content: string
@@ -6208,6 +6244,7 @@ export type Database = {
           intake_sender_email: string | null
           is_remedial: boolean
           job_type: string
+          merged_into_job_id: string | null
           mismatch_approved_at: string | null
           mismatch_approved_by: string | null
           mismatch_approved_reason: string | null
@@ -6268,6 +6305,7 @@ export type Database = {
           intake_sender_email?: string | null
           is_remedial?: boolean
           job_type?: string
+          merged_into_job_id?: string | null
           mismatch_approved_at?: string | null
           mismatch_approved_by?: string | null
           mismatch_approved_reason?: string | null
@@ -6328,6 +6366,7 @@ export type Database = {
           intake_sender_email?: string | null
           is_remedial?: boolean
           job_type?: string
+          merged_into_job_id?: string | null
           mismatch_approved_at?: string | null
           mismatch_approved_by?: string | null
           mismatch_approved_reason?: string | null
@@ -6383,6 +6422,20 @@ export type Database = {
             columns: ["fault_code_id"]
             isOneToOne: false
             referencedRelation: "fault_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_merged_into_job_id_fkey"
+            columns: ["merged_into_job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_merged_into_job_id_fkey"
+            columns: ["merged_into_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
           {
@@ -11757,6 +11810,7 @@ export type Database = {
         }
         Returns: Json
       }
+      confirm_job_merge: { Args: { _token: string }; Returns: string }
       confirm_paper_scan_job: {
         Args: {
           _batch_item_id?: string
@@ -11986,6 +12040,7 @@ export type Database = {
       is_org_active: { Args: { _org_id: string }; Returns: boolean }
       is_org_admin: { Args: { _org_id: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
+      job_merge_snapshot: { Args: { _ids: string[] }; Returns: Json }
       log_riser_label_reprints: { Args: { _labels: Json }; Returns: number }
       lookup_asset_by_tag: {
         Args: { _tag: string }
@@ -12085,6 +12140,10 @@ export type Database = {
           org_name: string
           role: string
         }[]
+      }
+      preview_job_merge: {
+        Args: { _job_ids: string[]; _keep_id: string }
+        Returns: Json
       }
       preview_signup_code: {
         Args: { _code: string }
