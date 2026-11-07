@@ -1117,7 +1117,7 @@ export default function Sites() {
     return (
       <div key={site.id} id={`site-row-${site.id}`} className={exitingIds.has(site.id) ? "animate-site-exit" : ""}>
         <div
-          className={`flex items-center gap-2 py-2 px-3 border-b border-border/50 hover:bg-muted/50 transition-all duration-200 cursor-pointer ${selected.has(site.id) ? "bg-primary/5" : ""} ${isHighlighted ? "ring-2 ring-inset ring-primary/60 bg-primary/5" : ""}`}
+          className={`flex flex-wrap items-center gap-2 py-2 px-3 border-b border-border/50 hover:bg-muted/50 transition-all duration-200 cursor-pointer ${selected.has(site.id) ? "bg-primary/5" : ""} ${isHighlighted ? "ring-2 ring-inset ring-primary/60 bg-primary/5" : ""}`}
           style={{ paddingLeft: `${depth * 24 + 12}px` }}
           onClick={() => { if (children.length > 0) toggle(site.id); }}
         >
