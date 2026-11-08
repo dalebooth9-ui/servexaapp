@@ -561,6 +561,7 @@ async function buildPdf(payload: WorkerPayload) {
   // bypasses the generic renderer entirely so the field labels are
   // preserved verbatim and the scan classifier stays locked on.
   const usePaperForm = isPaperFormTemplate(cleanTemplateName);
+  const paperLogoImage = usePaperForm && logoImage ? await measureVisibleLogoBounds(logoImage) : logoImage;
   if (usePaperForm) {
     for (let sysIdx = 0; sysIdx < systemQty; sysIdx++) {
       if (sysIdx > 0) doc.addPage();

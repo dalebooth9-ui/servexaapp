@@ -40,6 +40,25 @@ describe('riser inspection sheets print on one A4 page', () => {
       expect(doc.getNumberOfPages()).toBe(1);
     });
   }
+  it('places visible riser logo ink at 5mm with a 3.5mm title gap and aligned QR', () => {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const logo = { dataUrl: `data:image/png;base64,${readFileSync('src/assets/vivafire-logo.png').toString('base64')}`, width: 1536, height: 1024, format: 'PNG' as const, visibleTop: 173 / 1024, visibleBottom: 649 / 1024 };
+    const addImage = vi.spyOn(doc, 'addImage');
+    const text = vi.spyOn(doc, 'text');
+    renderPaperFormPage(doc, { template: templates[0] as any, jobInfo: job(false) as any, logo, accreditationLogos: [], handfill: true });
+    const logoCall = addImage.mock.calls.find(call => call[0] === logo.dataUrl)!;
+    const imageTop = Number(logoCall[3]);
+    const imageHeight = Number(logoCall[5]);
+    expect(imageTop + imageHeight * logo.visibleTop).toBeCloseTo(5, 5);
+    const visibleBottom = imageTop + imageHeight * logo.visibleBottom;
+    const scopeCall = text.mock.calls.find(call => String(call[0]).startsWith('SCOPE OF WORK:'))!;
+    const titleTop = Number(scopeCall[2]) - 12 * 0.352777778 * 0.72;
+    expect(titleTop - visibleBottom).toBeCloseTo(3.5, 5);
+    const qrCall = addImage.mock.calls.find(call => Number(call[4]) === 20 && Number(call[5]) === 20)!;
+    expect(Number(qrCall[3])).toBeCloseTo(5, 5);
+    const riserIdCall = text.mock.calls.find(call => String(call[0]).startsWith('Riser ID '))!;
+    expect(Number(riserIdCall[2])).toBeCloseTo(29, 5);
+  });
   it('a very long template still fits on one page', () => {
     const t = templates[0] as any;
     const fields = Array.from({ length: 4 }, () => t.fields).flat();
