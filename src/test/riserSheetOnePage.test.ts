@@ -60,6 +60,33 @@ describe('riser inspection sheets print on one A4 page', () => {
     const riserIdCall = text.mock.calls.find(call => String(call[0]).startsWith('Riser ID '))!;
     expect(Number(riserIdCall[2])).toBeCloseTo(29, 5);
   });
+  it('pressure sheet declares the 12 bar / 15 minute BS 9990:2015 test', () => {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const text = vi.spyOn(doc as any, 'text') as any;
+    const t = (templates as any[]).find(t => /pressure/i.test(t.name))!;
+    renderPaperFormPage(doc, { template: t, jobInfo: job(false) as any, logo: null, accreditationLogos: [], handfill: true });
+    const printed = text.mock.calls.map((c: any[]) => String(c[0])).join('\n');
+    expect(printed).toContain('We have, today, carried out a dry riser pressure test to the requirements of BS 9990:2015 at 12 bar for 15 minutes.');
+  });
+  it('visual sheet declares a visual inspection and never mentions pressure, bar or minutes', () => {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const text = vi.spyOn(doc as any, 'text') as any;
+    const t = (templates as any[]).find(t => /visual/i.test(t.name))!;
+    renderPaperFormPage(doc, { template: t, jobInfo: job(false) as any, logo: null, accreditationLogos: [], handfill: true });
+    const printed = text.mock.calls.map((c: any[]) => String(c[0])).join('\n');
+    expect(printed).toContain('We have, today, carried out a dry riser visual inspection to the requirements of BS 9990:2015.');
+    expect(printed).not.toMatch(/pressure|\bbar\b|minutes/i);
+  });
+  it('removes the GENERAL section and its Materials required row from both sheets', () => {
+    for (const t of templates as any[]) {
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const text = vi.spyOn(doc as any, 'text') as any;
+      renderPaperFormPage(doc, { template: t, jobInfo: job(false) as any, logo: null, accreditationLogos: [], handfill: true });
+      const printed = text.mock.calls.map((c: any[]) => String(c[0])).join('\n');
+      expect(printed).not.toMatch(/GENERAL/);
+      expect(printed).not.toMatch(/Materials required/i);
+    }
+  });
   it('a very long template still fits on one page', () => {
     const t = templates[0] as any;
     const fields = Array.from({ length: 4 }, () => t.fields).flat();
