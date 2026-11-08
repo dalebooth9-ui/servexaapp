@@ -1,5 +1,9 @@
 # Roadmap
 
+## Compact printed Cabinet keys
+- [x] Removed the riser-sheet Cabinet keys header box, filled the details table and added a blank first External Equipment row without changing digital records.
+- [x] Fifteen focused tests pass; all four Pressure/Visual 8/10-outlet PDFs remain one A4 and were visually checked. Signed-in VFP-00278 Download PDF produced seven A4 sheets with seven Cabinet keys rows. Help updated; build OK 12:36 UTC/London. Physical printing not available.
+
 ## Due Visits Create visit corrections
 - [x] A specifically chosen riser is always the only initial tick, including future or already-booked rows; site creation still ticks only overdue unbooked risers.
 - [x] The initial type matches the chosen due-visit row (or a unanimous site selection); missing customers have an inline Link a customer action, and both creation actions are disabled with an explanation when no risers are ticked.
