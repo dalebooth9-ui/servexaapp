@@ -19,9 +19,11 @@ const RULES: SlugRule[] = [
   { test: (p) => p === "/admin/error-log", slug: "error-log" },
 
   { test: (p) => p === "/jobs", slug: "jobs" },
+  // Due Visits creation pre-ticks only overdue, unbooked risers (or the chosen
+  // single riser); Sites New job still pre-ticks every active site riser.
   { test: (p) => p === '/due-visits', slug: 'riser-visits' },
-  // Pressure/Visual riser PDF sheets: larger centred logo, right QR, one A4;
-  // pressure/hold reading rows omitted only from Pressure test printouts.
+  // Pressure/Visual riser PDF sheets: unchanged larger logo with visible ink 5mm
+  // from the top, 3.5mm title gap and aligned QR; one A4. Pressure/hold rows omitted.
   { test: (p) => p === '/printed-paperwork', slug: 'printed-paperwork' },
   // Job guide includes Print reports beside Print sticker pack for per-riser engineer sheets,
   // both also in the top button row on riser jobs; saved Risers on this job selections,

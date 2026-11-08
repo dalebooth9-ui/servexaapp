@@ -160,6 +160,8 @@ type LoadedImage = {
   height: number;
   format: "PNG" | "JPEG";
   bitmap?: ImageBitmap;
+  visibleTop?: number;
+  visibleBottom?: number;
 };
 
 function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined): number {
@@ -211,6 +213,34 @@ async function loadImage(url: string | null | undefined): Promise<LoadedImage | 
     return { dataUrl, width, height, format, bitmap };
   } catch {
     return null;
+  }
+}
+
+/** Locate visible ink so transparent logo padding does not become page spacing. */
+async function measureVisibleLogoBounds(image: LoadedImage): Promise<LoadedImage> {
+  if (!image.bitmap || typeof OffscreenCanvas === "undefined") return image;
+  try {
+    const canvas = new OffscreenCanvas(image.width, image.height);
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return image;
+    context.drawImage(image.bitmap, 0, 0);
+    const pixels = context.getImageData(0, 0, image.width, image.height).data;
+    let top = image.height;
+    let bottom = -1;
+    for (let y = 0; y < image.height; y++) {
+      for (let x = 0; x < image.width; x++) {
+        const i = (y * image.width + x) * 4;
+        if (pixels[i + 3] > 16 && Math.min(255 - pixels[i], 255 - pixels[i + 1], 255 - pixels[i + 2]) > 15) {
+          top = Math.min(top, y);
+          bottom = y;
+          break;
+        }
+      }
+    }
+    if (bottom < top) return image;
+    return { ...image, visibleTop: top / image.height, visibleBottom: (bottom + 1) / image.height };
+  } catch {
+    return image;
   }
 }
 
@@ -531,6 +561,7 @@ async function buildPdf(payload: WorkerPayload) {
   // bypasses the generic renderer entirely so the field labels are
   // preserved verbatim and the scan classifier stays locked on.
   const usePaperForm = isPaperFormTemplate(cleanTemplateName);
+  const paperLogoImage = usePaperForm && logoImage ? await measureVisibleLogoBounds(logoImage) : logoImage;
   if (usePaperForm) {
     for (let sysIdx = 0; sysIdx < systemQty; sysIdx++) {
       if (sysIdx > 0) doc.addPage();
@@ -541,7 +572,7 @@ async function buildPdf(payload: WorkerPayload) {
           branding: template.branding,
         },
         jobInfo,
-        logo: logoImage,
+        logo: paperLogoImage,
         accreditationLogos: (accreditationLogos.filter(Boolean) as LoadedImage[]),
         handfill,
         brandColor:accentColor,

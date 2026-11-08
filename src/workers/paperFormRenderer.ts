@@ -25,6 +25,9 @@ export type LoadedImage = {
   width: number;
   height: number;
   format: "PNG" | "JPEG";
+  /** Visible ink bounds as image-height ratios; transparent padding is excluded. */
+  visibleTop?: number;
+  visibleBottom?: number;
 };
 
 export type PaperFormJobInfo = {
@@ -258,25 +261,31 @@ export function renderPaperFormPage(
   const visit = jobInfo?.riserVisit;
 
   // ─── HEADER ────────────────────────────────────────────────────────
-  // Logo centred; the Viva logo image already carries the strapline.
-  const logoTop = margin;
+  // Keep the logo's drawn dimensions unchanged. Its visible ink starts 5mm
+  // from the top on riser sheets, excluding transparent source-image padding.
+  const logoTop = isRiserInspection ? 5 : margin;
   const logoScale = isRiserInspection ? 2.5 : 1;
   const logoMaxH = (bodyCount > 30 ? 16 : bodyCount > 24 ? 19 : 22) * logoScale;
   // Centred logo stops before the right-hand QR, even with wide company logos.
   const logoMaxW = isRiserInspection ? Math.min(70 * logoScale, pageWidth - 2 * (margin + 26)) : 70;
   let cursorY = logoTop;
+  let riserLogoVisibleBottom: number | null = null;
   if (logo) {
     const aspect = logo.width / logo.height;
     let lw = logoMaxH * aspect;
     let lh = logoMaxH;
     if (lw > logoMaxW) { lw = logoMaxW; lh = lw / aspect; }
-    doc.addImage(logo.dataUrl, logo.format, (pageWidth - lw) / 2, logoTop, lw, lh);
-    cursorY = logoTop + lh + (isRiserInspection ? 0 : 2);
+    const visibleTop = isRiserInspection ? (logo.visibleTop ?? 0) : 0;
+    const visibleBottom = isRiserInspection ? (logo.visibleBottom ?? 1) : 1;
+    const imageTop = logoTop - lh * visibleTop;
+    doc.addImage(logo.dataUrl, logo.format, (pageWidth - lw) / 2, imageTop, lw, lh);
+    riserLogoVisibleBottom = imageTop + lh * visibleBottom;
+    cursorY = isRiserInspection ? riserLogoVisibleBottom : logoTop + lh + 2;
   } else {
     cursorY = logoTop + 12;
   }
   // Keep room above the details box for the riser QR + "Riser ID" caption.
-  if (visit?.asset_tag) cursorY = Math.max(cursorY, 28);
+  if (visit?.asset_tag && !isRiserInspection) cursorY = Math.max(cursorY, 28);
 
   // Bold underlined SCOPE OF WORK line.
   const scopeText = derivedScopeLine(template.name);
@@ -285,7 +294,9 @@ export function renderPaperFormPage(
   doc.setTextColor(0, 0, 0);
   const scopeW = doc.getTextWidth(scopeText);
   const scopeX = (pageWidth - scopeW) / 2;
-  const scopeY = cursorY + (isRiserInspection ? 3.5 : 5);
+  // 12pt Helvetica cap height puts the visible title 3.5mm below the logo ink.
+  const riserScopeBaselineOffset = riserLogoVisibleBottom !== null ? 3.5 + 12 * 0.352777778 * 0.72 : 3.5;
+  const scopeY = cursorY + (isRiserInspection ? riserScopeBaselineOffset : 5);
   doc.text(scopeText, scopeX, scopeY);
   doc.setDrawColor(0);
   doc.setLineWidth(0.4);
@@ -389,9 +400,10 @@ export function renderPaperFormPage(
   cursorY = detailsTop + leftBlockH + 1;
   if (visit) {
     if (visit.asset_tag) {
-      drawQr(doc, stickerUrl(visit.asset_tag), pageWidth - margin - 23, 10, 20);
+      const qrTop = isRiserInspection ? logoTop : 10;
+      drawQr(doc, stickerUrl(visit.asset_tag), pageWidth - margin - 23, qrTop, 20);
       doc.setTextColor(0); doc.setFontSize(9); doc.setFont('helvetica','bold');
-      doc.text(`Riser ID ${visit.asset_tag}`, pageWidth-margin-13, 34, {align:'center'});
+      doc.text(`Riser ID ${visit.asset_tag}`, pageWidth-margin-13, qrTop + 24, {align:'center'});
     }
     doc.setTextColor(0); doc.setFontSize(9); doc.setFont('helvetica','normal');
     const previous = printInspectionDate(visit.last_inspection_at);
