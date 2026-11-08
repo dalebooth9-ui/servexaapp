@@ -572,7 +572,7 @@ async function buildPdf(payload: WorkerPayload) {
           branding: template.branding,
         },
         jobInfo,
-        logo: logoImage,
+        logo: paperLogoImage,
         accreditationLogos: (accreditationLogos.filter(Boolean) as LoadedImage[]),
         handfill,
         brandColor:accentColor,
