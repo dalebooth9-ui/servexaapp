@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import jsPDF from 'jspdf';
 import { renderPaperFormPage } from '@/workers/paperFormRenderer';
 import templates from './fixtures/riserSheetTemplates.json';
