@@ -1,5 +1,10 @@
 # Roadmap
 
+## Due Visits Create visit corrections
+- [ ] A specifically chosen riser is always the only initial tick, including future or already-booked rows; site creation still ticks only overdue unbooked risers.
+- [ ] Match the initial job type to the chosen due-visit row (or a unanimous site selection), warn and link missing customers inline, and disable both creation actions with an explanation when no risers are ticked.
+- [ ] Update focused tests, Help and memory; verify the live form without creating jobs or changing customer links.
+
 ## Context-specific create-job riser selection
 - [x] Sites New job ticks all site risers; Due Visits single-riser creation ticks only that overdue unbooked riser; site creation ticks only overdue unbooked risers. Open-job detection now includes saved job-riser links without requiring a job due date.
 - [x] Selection reasons appear above the list; Help and memory updated. Forty-one focused tests pass. Signed-in checks verified four of four ticks from Sites, one overdue tick from single-riser Due Visits, zero ticks for a future riser, and two booked risers excluded while two eligible risers were ticked. No jobs created; build clean.
