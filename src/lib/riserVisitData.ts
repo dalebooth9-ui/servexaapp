@@ -10,7 +10,8 @@ export async function loadRiserVisitData() {
     fetchAllRows<any>('sites','id,name,parent_id,address,postcode,no_longer_serviced'), fetchAllRows<any>('customers','id,name'),
     fetchAllRows<any>('customer_sites','id,customer_id,site_id'), fetchAllRows<any>('asset_service_history','id,asset_id,job_id,inspection_date,inspection_type,template_name,result_summary'),
     fetchAllRows<any>('defects','id,asset_id,site_id,job_id,title,status,created_at'),
-    fetchAllRows<any>('job_sheet_responses','id,job_id,responses,status'), fetchAllRows<any>('jobs','id,reference_number,status,due_date,source')
+    fetchAllRows<any>('job_sheet_responses','id,job_id,responses,status'), fetchAllRows<any>('jobs','id,reference_number,status,due_date,source'),
+    fetchAllRows<any>('job_risers','id,job_id,asset_id,selected')
   ]);
   const siteMap = new Map(sites.map(s=>[s.id,s])); const customerMap = new Map(customers.map(c=>[c.id,c]));
   return assets.filter(a=>isDryRiserAsset(a) && a.status !== 'decommissioned').map(asset=>{

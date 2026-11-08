@@ -17,7 +17,7 @@ import { Briefcase, CalendarPlus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 type Riser = {id:string;name:string;riser_location:string|null;asset_tag:string|null;outlets_count:number|null};
-export default function SiteJobDialog({siteId, siteName, open, onOpenChange}: {siteId:string;siteName:string;open:boolean;onOpenChange:(open:boolean)=>void}) {
+export default function SiteJobDialog({siteId, siteName, initialIds, selectionNote, open, onOpenChange}: {siteId:string;siteName:string;initialIds?:string[];selectionNote?:string;open:boolean;onOpenChange:(open:boolean)=>void}) {
   const { userRole } = useAuth();
   const navigate = useNavigate();
   const [risers, setRisers] = useState<Riser[]>([]);

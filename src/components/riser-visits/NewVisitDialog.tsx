@@ -10,5 +10,5 @@ export default function NewVisitDialog({siteId,siteName,initialIds,selectionNote
   const [localOpen,setLocalOpen]=useState(false);
   const setOpen=(v:boolean)=>{setLocalOpen(v);onOpenChange?.(v);};
   if(userRole!=='admin')return null;
-  return <>{controlled===undefined&&<Button variant="outline" onClick={()=>setOpen(true)}><CalendarPlus className="mr-2 h-4 w-4"/>New visit</Button>}<SiteJobDialog siteId={siteId} siteName={siteName} open={controlled??localOpen} onOpenChange={setOpen}/></>;
+  return <>{controlled===undefined&&<Button variant="outline" onClick={()=>setOpen(true)}><CalendarPlus className="mr-2 h-4 w-4"/>New visit</Button>}<SiteJobDialog siteId={siteId} siteName={siteName} initialIds={initialIds} selectionNote={selectionNote} open={controlled??localOpen} onOpenChange={setOpen}/></>;
 }

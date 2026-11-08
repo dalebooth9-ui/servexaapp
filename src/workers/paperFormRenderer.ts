@@ -261,25 +261,31 @@ export function renderPaperFormPage(
   const visit = jobInfo?.riserVisit;
 
   // ─── HEADER ────────────────────────────────────────────────────────
-  // Logo centred; the Viva logo image already carries the strapline.
-  const logoTop = margin;
+  // Keep the logo's drawn dimensions unchanged. Its visible ink starts 5mm
+  // from the top on riser sheets, excluding transparent source-image padding.
+  const logoTop = isRiserInspection ? 5 : margin;
   const logoScale = isRiserInspection ? 2.5 : 1;
   const logoMaxH = (bodyCount > 30 ? 16 : bodyCount > 24 ? 19 : 22) * logoScale;
   // Centred logo stops before the right-hand QR, even with wide company logos.
   const logoMaxW = isRiserInspection ? Math.min(70 * logoScale, pageWidth - 2 * (margin + 26)) : 70;
   let cursorY = logoTop;
+  let riserLogoVisibleBottom: number | null = null;
   if (logo) {
     const aspect = logo.width / logo.height;
     let lw = logoMaxH * aspect;
     let lh = logoMaxH;
     if (lw > logoMaxW) { lw = logoMaxW; lh = lw / aspect; }
-    doc.addImage(logo.dataUrl, logo.format, (pageWidth - lw) / 2, logoTop, lw, lh);
-    cursorY = logoTop + lh + (isRiserInspection ? 0 : 2);
+    const visibleTop = isRiserInspection ? (logo.visibleTop ?? 0) : 0;
+    const visibleBottom = isRiserInspection ? (logo.visibleBottom ?? 1) : 1;
+    const imageTop = logoTop - lh * visibleTop;
+    doc.addImage(logo.dataUrl, logo.format, (pageWidth - lw) / 2, imageTop, lw, lh);
+    riserLogoVisibleBottom = imageTop + lh * visibleBottom;
+    cursorY = isRiserInspection ? riserLogoVisibleBottom : logoTop + lh + 2;
   } else {
     cursorY = logoTop + 12;
   }
   // Keep room above the details box for the riser QR + "Riser ID" caption.
-  if (visit?.asset_tag) cursorY = Math.max(cursorY, 28);
+  if (visit?.asset_tag && !isRiserInspection) cursorY = Math.max(cursorY, 28);
 
   // Bold underlined SCOPE OF WORK line.
   const scopeText = derivedScopeLine(template.name);
