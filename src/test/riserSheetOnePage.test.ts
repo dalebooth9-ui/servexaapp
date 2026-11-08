@@ -55,8 +55,8 @@ describe('riser inspection sheets print on one A4 page', () => {
     const scopeCall = text.mock.calls.find(call => String(call[0]).startsWith('SCOPE OF WORK:'))!;
     const titleTop = Number(scopeCall[2]) - 12 * 0.352777778 * 0.72;
     expect(titleTop - visibleBottom).toBeCloseTo(3.5, 5);
-    const qrCall = addImage.mock.calls.find(call => Number(call[4]) === 20 && Number(call[5]) === 20)!;
-    expect(Number(qrCall[3])).toBeCloseTo(5, 5);
+    const qrCall = rect.mock.calls.find((call: any[]) => Number(call[2]) === 20 && Number(call[3]) === 20 && call[4] === 'F')!;
+    expect(Number(qrCall[1])).toBeCloseTo(5, 5);
     const riserIdCall = text.mock.calls.find(call => String(call[0]).startsWith('Riser ID '))!;
     expect(Number(riserIdCall[2])).toBeCloseTo(29, 5);
   });
