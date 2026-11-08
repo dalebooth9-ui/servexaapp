@@ -496,7 +496,7 @@ export function renderPaperFormPage(
   if (isRiserInspection) {
     const external = sectionOrder.find(section => /^external equipment\b/i.test(section)) ?? 'External Equipment';
     if (!bySection.has(external)) { bySection.set(external, []); sectionOrder.unshift(external); }
-    bySection.get(external)?.unshift({ id: 'cabinet_keys', label: 'Cabinet keys:', type: 'text', section: external });
+    bySection.get(external)?.unshift({ id: 'cabinet_keys', label: 'Cabinet keys:', type: 'text', section: external, required: true });
   }
 
   // Build render list of section-header + field rows so the fitter can
