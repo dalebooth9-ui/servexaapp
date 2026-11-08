@@ -1,11 +1,12 @@
 # Roadmap
 
 ## Context-specific create-job riser selection
-- [ ] Sites New job ticks all site risers; Due Visits single-riser creation ticks only that riser; site unbooked-riser creation ticks only overdue unbooked risers, never not-due or already-booked open-job risers.
-- [ ] Explain the selection above the list, preserve exact server-side membership, update Help and verify each entry point plus build time.
+- [x] Sites New job ticks all site risers; Due Visits single-riser creation ticks only that overdue unbooked riser; site creation ticks only overdue unbooked risers. Open-job detection now includes saved job-riser links without requiring a job due date.
+- [x] Selection reasons appear above the list; Help and memory updated. Forty-one focused tests pass. Signed-in checks verified four of four ticks from Sites, one overdue tick from single-riser Due Visits, zero ticks for a future riser, and two booked risers excluded while two eligible risers were ticked. No jobs created; build clean.
 
 ## Riser report top spacing
-- [ ] Keep the enlarged logo unchanged; set a 5mm top margin and 3–4mm logo/title gap with the QR block aligned, then verify Pressure and Visual sheets with 8 and 10 outlets remain one A4.
+- [x] Logo dimensions unchanged; visible logo ink starts at 5mm, SCOPE OF WORK has a 3.5mm visible gap and the QR/Riser ID block shares the top alignment. Transparent logo padding no longer adds page spacing.
+- [x] Pressure and Visual 8/10-outlet fixtures and a real downloaded 10-outlet sheet remain one A4 each and were visually checked; Help and memory updated, typecheck/build clean. Physical printing not available.
 
 ## Larger riser report logo
 - [x] Enlarged centred riser sheet logo 2.5× with right QR, tighter title spacing, print-only pressure/hold row omissions and 8pt body minimum. All four 8/10-outlet Pressure/Visual PDFs remain one A4; rendered sheets visually checked, 18 tests pass, Help updated and build clean. Physical printing not available.
