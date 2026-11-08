@@ -38,11 +38,11 @@ export function dueVisitRiserSelection(rows: DueRiserChoice[], today: string, on
   const notDue = rows.filter(row => !row.booked && !isOverdue(row)).length;
   const booked = rows.filter(row => row.booked).length;
   const reasons = [
-    `${notDue} ${notDue === 1 ? 'other is' : 'others are'} not due`,
+    notDue ? `${notDue} ${notDue === 1 ? 'other is' : 'others are'} not due` : '',
     booked ? `${booked} ${booked === 1 ? 'is' : 'are'} already booked on another open job` : '',
   ].filter(Boolean).join('; ');
   return {
     selectedIds,
-    note: `${selectedIds.length} overdue ${selectedIds.length === 1 ? 'riser' : 'risers'} ticked. ${reasons}.`,
+    note: `${selectedIds.length} overdue ${selectedIds.length === 1 ? 'riser' : 'risers'} ticked.${reasons ? ` ${reasons}.` : ' All visible risers at this site are included.'}`,
   };
 }
