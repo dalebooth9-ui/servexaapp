@@ -41,8 +41,14 @@ describe('site job creation rules', () => {
     ];
     expect(dueVisitRiserSelection(rows,'2026-11-08').selectedIds).toEqual(['overdue']);
   });
-  it('a booked or not-due single riser starts unticked with the reason', () => {
-    expect(dueVisitRiserSelection([{id:'a',due:'2026-11-01',booked:true}],'2026-11-08','a')).toEqual({selectedIds:[],note:'This riser is already booked on another open job, so it is not ticked.'});
-    expect(dueVisitRiserSelection([{id:'b',due:'2026-12-01',booked:false}],'2026-11-08','b')).toEqual({selectedIds:[],note:'This riser is not overdue, so it is not ticked.'});
+  it('a specifically chosen pressure row opens as Pressure test', () => {
+    expect(dueVisitJobType([{id:'a',type:'pressure'},{id:'b',type:'visual'}],['a'],'a')).toBe('pressure');
+  });
+  it('a specifically chosen visual row opens as Visual inspection', () => {
+    expect(dueVisitJobType([{id:'a',type:'pressure'},{id:'b',type:'visual'}],['b'],'b')).toBe('visual');
+  });
+  it('site creation uses a unanimous eligible type and falls back to Visual for mixed types', () => {
+    expect(dueVisitJobType([{id:'a',type:'pressure'},{id:'b',type:'pressure'}],['a','b'])).toBe('pressure');
+    expect(dueVisitJobType([{id:'a',type:'pressure'},{id:'b',type:'visual'}],['a','b'])).toBe('visual');
   });
 });
