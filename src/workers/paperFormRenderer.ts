@@ -265,7 +265,7 @@ export function renderPaperFormPage(
   const bodyFields = template.fields.filter((f) => !skipInBody(f) && !(isRiserPressure && (
     ['test_pressure_bar', 'hold_time_minutes'].includes(f.id.toLowerCase()) ||
     /^(?:test pressure\s*\(bar\)|hold time\s*\(minutes\))\s*:?$/i.test(f.label.trim())
-  )));
+  )) && !(isRiserInspection && /^\s*general\s*$/i.test(f.section || "General")));
   const margin = bodyCount > 30 ? 6 : bodyCount > 24 ? 8 : 10;
   const maxWidth = pageWidth - margin * 2;
   const visit = jobInfo?.riserVisit;
