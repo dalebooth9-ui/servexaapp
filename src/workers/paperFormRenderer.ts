@@ -400,9 +400,10 @@ export function renderPaperFormPage(
   cursorY = detailsTop + leftBlockH + 1;
   if (visit) {
     if (visit.asset_tag) {
-      drawQr(doc, stickerUrl(visit.asset_tag), pageWidth - margin - 23, 10, 20);
+      const qrTop = isRiserInspection ? logoTop : 10;
+      drawQr(doc, stickerUrl(visit.asset_tag), pageWidth - margin - 23, qrTop, 20);
       doc.setTextColor(0); doc.setFontSize(9); doc.setFont('helvetica','bold');
-      doc.text(`Riser ID ${visit.asset_tag}`, pageWidth-margin-13, 34, {align:'center'});
+      doc.text(`Riser ID ${visit.asset_tag}`, pageWidth-margin-13, qrTop + 24, {align:'center'});
     }
     doc.setTextColor(0); doc.setFontSize(9); doc.setFont('helvetica','normal');
     const previous = printInspectionDate(visit.last_inspection_at);

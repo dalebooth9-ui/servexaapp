@@ -53,7 +53,8 @@ export default function SiteJobDialog({siteId, siteName, initialIds, selectionNo
       if (!live) return;
       const rows = assets.filter(a => a.site_id === siteId && ['Dry Riser','Wet Riser'].includes(a.asset_type) && a.status !== 'decommissioned' && !a.merged_into_asset_id);
       rows.sort((a,b) => String(a.riser_location || a.name).localeCompare(String(b.riser_location || b.name)));
-      setRisers(rows); setIds(rows.map(a=>a.id)); setCustomers(cs.sort((a,b)=>a.name.localeCompare(b.name))); setCustomer(owner.data || '');
+      const allowedIds = new Set(rows.map(row=>row.id));
+      setRisers(rows); setIds(initialIds === undefined ? siteRiserInitialIds(rows) : initialIds.filter(id=>allowedIds.has(id))); setCustomers(cs.sort((a,b)=>a.name.localeCompare(b.name))); setCustomer(owner.data || '');
     })().catch(e => {if(live)setError(e.message);}).finally(()=>{if(live)setLoading(false);});
     return () => {live = false;};
   }, [open,siteId,siteName,userRole]);

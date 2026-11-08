@@ -160,6 +160,8 @@ type LoadedImage = {
   height: number;
   format: "PNG" | "JPEG";
   bitmap?: ImageBitmap;
+  visibleTop?: number;
+  visibleBottom?: number;
 };
 
 function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined): number {

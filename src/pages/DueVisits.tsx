@@ -13,7 +13,7 @@ import {Badge} from '@/components/ui/badge';
 import {toast} from 'sonner';
 import {RefreshCw} from 'lucide-react';
 import NewVisitDialog from '@/components/riser-visits/NewVisitDialog';
-export default function DueVisits(){const [rows,setRows]=useState<RiserVisitRow[]>([]);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [windowFilter,setWindow]=useState('all');const [customer,setCustomer]=useState('all');const [hidden,setHidden]=useState(false);const [lost,setLost]=useState<RiserVisitRow|null>(null);const [reason,setReason]=useState('');const [creating,setCreating]=useState<RiserVisitRow[]|null>(null);
+export default function DueVisits(){const [rows,setRows]=useState<RiserVisitRow[]>([]);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [windowFilter,setWindow]=useState('all');const [customer,setCustomer]=useState('all');const [hidden,setHidden]=useState(false);const [lost,setLost]=useState<RiserVisitRow|null>(null);const [reason,setReason]=useState('');const [creating,setCreating]=useState<{rows:RiserVisitRow[];onlyId?:string}|null>(null);
  const load=async()=>{setBusy(true);setError('');try{setRows(await loadRiserVisitData());}catch(e:any){setError(e.message);}finally{setBusy(false);}};
  useEffect(()=>{load();const changed=()=>load();window.addEventListener('riser-visits:changed',changed);return()=>window.removeEventListener('riser-visits:changed',changed);},[]);
  const update=async(r:RiserVisitRow,state:any)=>{const {error}=await supabase.rpc('set_riser_reminder_state',{_asset_id:r.asset.id,_state:state});if(error){toast.error('Reminder not saved',{description:error.message});return;}toast.success('Reminder updated');load();window.dispatchEvent(new Event('riser-visits:changed'));};

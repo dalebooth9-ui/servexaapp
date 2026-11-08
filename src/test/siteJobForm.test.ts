@@ -9,7 +9,7 @@ describe('site job creation rules', () => {
   it('warns on same names despite spacing, punctuation or Limited', () => {expect(duplicateCustomerNames('a',[{id:'a',name:'Viva Fire Ltd'},{id:'b',name:' Viva Fire Limited '},{id:'c',name:'Other Fire Ltd'}]).map(c=>c.id)).toEqual(['b']);});
   it('site creation has no Due Visits filter and can tick every site riser', () => {
     const rows = [{id:'a',due:null,booked:false},{id:'b',due:'2027-01-01',booked:true}];
-    expect(rows.map(row => row.id)).toEqual(['a','b']);
+    expect(siteRiserInitialIds(rows)).toEqual(['a','b']);
   });
   it('single-riser Due Visits creation ticks only that overdue unbooked riser', () => {
     const rows = [{id:'a',due:'2026-11-01',booked:false},{id:'b',due:'2026-11-01',booked:false}];
