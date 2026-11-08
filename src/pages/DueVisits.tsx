@@ -4,6 +4,7 @@ import {format,addDays} from 'date-fns';
 import {supabase} from '@/integrations/supabase/client';
 import {loadRiserVisitData,type RiserVisitRow} from '@/lib/riserVisitData';
 import {reminderVisible,snoozeUntil,VISIT_LABELS,type VisitType} from '@/lib/riserVisits';
+import {dueVisitRiserSelection} from '@/lib/siteJobForm';
 import {Button} from '@/components/ui/button';
 import {Select,SelectTrigger,SelectValue,SelectContent,SelectItem} from '@/components/ui/select';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogFooter} from '@/components/ui/dialog';

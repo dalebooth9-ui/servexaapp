@@ -294,7 +294,9 @@ export function renderPaperFormPage(
   doc.setTextColor(0, 0, 0);
   const scopeW = doc.getTextWidth(scopeText);
   const scopeX = (pageWidth - scopeW) / 2;
-  const scopeY = cursorY + (isRiserInspection ? 3.5 : 5);
+  // 12pt Helvetica cap height puts the visible title 3.5mm below the logo ink.
+  const riserScopeBaselineOffset = riserLogoVisibleBottom !== null ? 3.5 + 12 * 0.352777778 * 0.72 : 3.5;
+  const scopeY = cursorY + (isRiserInspection ? riserScopeBaselineOffset : 5);
   doc.text(scopeText, scopeX, scopeY);
   doc.setDrawColor(0);
   doc.setLineWidth(0.4);

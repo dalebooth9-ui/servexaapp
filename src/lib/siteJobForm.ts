@@ -17,6 +17,10 @@ export function duplicateCustomerNames(customerId: string, customers: {id:string
 
 export type DueRiserChoice = { id: string; due: string | null; booked: boolean };
 
+export function siteRiserInitialIds(rows: { id: string }[]) {
+  return rows.map(row => row.id);
+}
+
 /** Initial ticks only: office users can still adjust the list before saving. */
 export function dueVisitRiserSelection(rows: DueRiserChoice[], today: string, onlyId?: string) {
   const isOverdue = (row: DueRiserChoice) => Boolean(row.due && row.due < today);

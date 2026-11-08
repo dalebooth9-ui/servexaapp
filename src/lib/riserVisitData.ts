@@ -20,7 +20,10 @@ export async function loadRiserVisitData() {
     while (parent && !seen.has(parent.id)) { seen.add(parent.id); excluded ||= Boolean(parent.no_longer_serviced); customerId ||= links.find(l=>l.site_id===parent.id)?.customer_id; parent = siteMap.get(parent.parent_id); }
     const customer = customerMap.get(customerId);
     const h = history.filter(h=>h.asset_id===asset.id); const cycle = visitCycle(asset,h);
-    const booked = sheets.map(s=>({ sheet:s,job:jobs.find(j=>j.id===s.job_id) })).find(({sheet,job})=>sheet.responses?._riser_visit?.asset_id===asset.id && !['completed','archived','submitted_for_review','pending_review'].includes(job?.status) && job?.due_date && (!cycle.last || job.due_date>=cycle.last) && (!cycle.type || sheet.responses._riser_visit.visit_type===cycle.type));
+    const isOpen = (job:any) => job && !['completed','archived','submitted_for_review','pending_review'].includes(job.status);
+    const bookedLink = jobRisers.map(link=>({link,job:jobs.find(j=>j.id===link.job_id)})).find(({link,job})=>link.selected && link.asset_id===asset.id && isOpen(job));
+    const bookedSheet = sheets.map(s=>({ sheet:s,job:jobs.find(j=>j.id===s.job_id) })).find(({sheet,job})=>sheet.responses?._riser_visit?.asset_id===asset.id && isOpen(job) && job?.due_date && (!cycle.last || job.due_date>=cycle.last) && (!cycle.type || sheet.responses._riser_visit.visit_type===cycle.type));
+    const booked = bookedLink || bookedSheet;
     return { asset,site:site ? {...site,no_longer_serviced:excluded} : site,customer,history:h,cycle,booked:booked?.job || null, defects:defects.filter(d=>d.asset_id===asset.id && ['open','in_progress'].includes(d.status)) };
   });
 }
