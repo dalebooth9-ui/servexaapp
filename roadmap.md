@@ -1,5 +1,12 @@
 # Roadmap
 
+## Context-specific create-job riser selection
+- [ ] Sites New job ticks all site risers; Due Visits single-riser creation ticks only that riser; site unbooked-riser creation ticks only overdue unbooked risers, never not-due or already-booked open-job risers.
+- [ ] Explain the selection above the list, preserve exact server-side membership, update Help and verify each entry point plus build time.
+
+## Riser report top spacing
+- [ ] Keep the enlarged logo unchanged; set a 5mm top margin and 3–4mm logo/title gap with the QR block aligned, then verify Pressure and Visual sheets with 8 and 10 outlets remain one A4.
+
 ## Larger riser report logo
 - [x] Enlarged centred riser sheet logo 2.5× with right QR, tighter title spacing, print-only pressure/hold row omissions and 8pt body minimum. All four 8/10-outlet Pressure/Visual PDFs remain one A4; rendered sheets visually checked, 18 tests pass, Help updated and build clean. Physical printing not available.
 
