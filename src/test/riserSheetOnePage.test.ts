@@ -17,7 +17,7 @@ describe('riser inspection sheets print on one A4 page', () => {
   for (const t of templates as any[]) for (const outlets of [8, 10]) {
     it(`${t.name} with ${outlets} outlets, full logo and footer remains one A4`, () => {
       const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-      const logo = { dataUrl: `data:image/png;base64,${readFileSync('src/assets/vivafire-logo.png').toString('base64')}`, width: 1536, height: 1024, format: 'PNG' as const };
+      const logo = { dataUrl: `data:image/png;base64,${readFileSync('src/assets/vivafire-logo.png').toString('base64')}`, width: 1536, height: 1024, format: 'PNG' as const, visibleTop: 173 / 1024, visibleBottom: 649 / 1024 };
       const info = job(false);
       const accreditationLogos = ['bafe-logo.jpeg', 'constructionline-logo.png', 'iso-9001-logo.jpg', 'smas-logo.png'].map(file => {
         const jpeg = /jpe?g$/.test(file);

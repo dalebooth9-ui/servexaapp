@@ -216,6 +216,34 @@ async function loadImage(url: string | null | undefined): Promise<LoadedImage | 
   }
 }
 
+/** Locate visible ink so transparent logo padding does not become page spacing. */
+async function measureVisibleLogoBounds(image: LoadedImage): Promise<LoadedImage> {
+  if (!image.bitmap || typeof OffscreenCanvas === "undefined") return image;
+  try {
+    const canvas = new OffscreenCanvas(image.width, image.height);
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return image;
+    context.drawImage(image.bitmap, 0, 0);
+    const pixels = context.getImageData(0, 0, image.width, image.height).data;
+    let top = image.height;
+    let bottom = -1;
+    for (let y = 0; y < image.height; y++) {
+      for (let x = 0; x < image.width; x++) {
+        const i = (y * image.width + x) * 4;
+        if (pixels[i + 3] > 16 && Math.min(255 - pixels[i], 255 - pixels[i + 1], 255 - pixels[i + 2]) > 15) {
+          top = Math.min(top, y);
+          bottom = y;
+          break;
+        }
+      }
+    }
+    if (bottom < top) return image;
+    return { ...image, visibleTop: top / image.height, visibleBottom: (bottom + 1) / image.height };
+  } catch {
+    return image;
+  }
+}
+
 function resolveWatermark(base: WorkerPayload["watermarkSettings"], override: WorkerPayload["watermarkOverride"]) {
   return {
     mode: override?.mode ?? base.mode,
