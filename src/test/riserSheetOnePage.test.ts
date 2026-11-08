@@ -43,8 +43,9 @@ describe('riser inspection sheets print on one A4 page', () => {
   it('places visible riser logo ink at 5mm with a 3.5mm title gap and aligned QR', () => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const logo = { dataUrl: `data:image/png;base64,${readFileSync('src/assets/vivafire-logo.png').toString('base64')}`, width: 1536, height: 1024, format: 'PNG' as const, visibleTop: 173 / 1024, visibleBottom: 649 / 1024 };
-    const addImage = vi.spyOn(doc, 'addImage');
-    const text = vi.spyOn(doc, 'text');
+    const addImage = vi.spyOn(doc as any, 'addImage') as any;
+    const text = vi.spyOn(doc as any, 'text') as any;
+    const rect = vi.spyOn(doc as any, 'rect') as any;
     renderPaperFormPage(doc, { template: templates[0] as any, jobInfo: job(false) as any, logo, accreditationLogos: [], handfill: true });
     const logoCall = addImage.mock.calls.find(call => call[0] === logo.dataUrl)!;
     const imageTop = Number(logoCall[3]);
