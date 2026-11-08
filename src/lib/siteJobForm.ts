@@ -16,6 +16,7 @@ export function duplicateCustomerNames(customerId: string, customers: {id:string
 }
 
 export type DueRiserChoice = { id: string; due: string | null; booked: boolean };
+export type DueVisitTypeChoice = { id: string; type: 'visual' | 'pressure' | null };
 
 export function siteRiserInitialIds(rows: { id: string }[]) {
   return rows.map(row => row.id);
@@ -24,17 +25,17 @@ export function siteRiserInitialIds(rows: { id: string }[]) {
 /** Initial ticks only: office users can still adjust the list before saving. */
 export function dueVisitRiserSelection(rows: DueRiserChoice[], today: string, onlyId?: string) {
   const isOverdue = (row: DueRiserChoice) => Boolean(row.due && row.due < today);
-  const eligible = rows.filter(row => isOverdue(row) && !row.booked);
-  const selectedIds = eligible.filter(row => !onlyId || row.id === onlyId).map(row => row.id);
   if (onlyId) {
     const chosen = rows.find(row => row.id === onlyId);
-    const note = selectedIds.length
-      ? '1 overdue riser ticked because you chose Create visit for this riser.'
-      : chosen?.booked
-        ? 'This riser is already booked on another open job, so it is not ticked.'
-        : 'This riser is not overdue, so it is not ticked.';
-    return { selectedIds, note };
+    return {
+      selectedIds: chosen ? [chosen.id] : [],
+      note: chosen
+        ? '1 riser ticked because you chose Create visit for this riser. Other risers stay unticked.'
+        : 'The chosen riser is not available at this site.',
+    };
   }
+  const eligible = rows.filter(row => isOverdue(row) && !row.booked);
+  const selectedIds = eligible.map(row => row.id);
   const notDue = rows.filter(row => !row.booked && !isOverdue(row)).length;
   const booked = rows.filter(row => row.booked).length;
   const reasons = [
@@ -45,4 +46,10 @@ export function dueVisitRiserSelection(rows: DueRiserChoice[], today: string, on
     selectedIds,
     note: `${selectedIds.length} overdue ${selectedIds.length === 1 ? 'riser' : 'risers'} ticked.${reasons ? ` ${reasons}.` : ' All visible risers at this site are included.'}`,
   };
+}
+
+export function dueVisitJobType(rows: DueVisitTypeChoice[], selectedIds: string[], onlyId?: string): SiteJobType {
+  const relevant = onlyId ? rows.filter(row => row.id === onlyId) : rows.filter(row => selectedIds.includes(row.id));
+  const types = [...new Set(relevant.map(row => row.type).filter((type): type is 'visual' | 'pressure' => Boolean(type)))];
+  return types.length === 1 ? types[0] : DEFAULT_SITE_JOB_TYPE;
 }

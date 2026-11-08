@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SITE_JOB_TYPE, SITE_JOB_TYPES, siteJobQuantities, duplicateCustomerNames, dueVisitRiserSelection, siteRiserInitialIds } from '@/lib/siteJobForm';
+import { DEFAULT_SITE_JOB_TYPE, SITE_JOB_TYPES, siteJobQuantities, duplicateCustomerNames, dueVisitRiserSelection, dueVisitJobType, siteRiserInitialIds } from '@/lib/siteJobForm';
 describe('site job creation rules', () => {
   it('defaults to visual, never installation', () => {expect(DEFAULT_SITE_JOB_TYPE).toBe('visual');});
   it('offers exactly visual, pressure or other', () => {expect(SITE_JOB_TYPES.map(t=>t.value)).toEqual(['visual','pressure','other']);});
