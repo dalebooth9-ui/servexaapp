@@ -5,7 +5,7 @@ import { visitCycle } from './riserVisits';
 export async function loadRiserVisitData() {
   const orgId=await requireCurrentOrgId();
   const fetchAllRows=<T=any>(table:string,columns:string)=>fetchOrgRows<T>(table,columns,'id',supabase,orgId);
-  const [assets,sites,customers,links,history,defects,sheets,jobs] = await Promise.all([
+  const [assets,sites,customers,links,history,defects,sheets,jobs,jobRisers] = await Promise.all([
     fetchAllRows<any>('assets','id,name,asset_type,category,asset_tag,site_id,riser_location,outlets_count,status,last_inspection_at,last_inspection_type,last_inspection_result,last_job_id,no_longer_serviced,due_visit_state'),
     fetchAllRows<any>('sites','id,name,parent_id,address,postcode,no_longer_serviced'), fetchAllRows<any>('customers','id,name'),
     fetchAllRows<any>('customer_sites','id,customer_id,site_id'), fetchAllRows<any>('asset_service_history','id,asset_id,job_id,inspection_date,inspection_type,template_name,result_summary'),

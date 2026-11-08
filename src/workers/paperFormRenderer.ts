@@ -25,6 +25,9 @@ export type LoadedImage = {
   width: number;
   height: number;
   format: "PNG" | "JPEG";
+  /** Visible ink bounds as image-height ratios; transparent padding is excluded. */
+  visibleTop?: number;
+  visibleBottom?: number;
 };
 
 export type PaperFormJobInfo = {
