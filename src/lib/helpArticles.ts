@@ -19,8 +19,9 @@ const RULES: SlugRule[] = [
   { test: (p) => p === "/admin/error-log", slug: "error-log" },
 
   { test: (p) => p === "/jobs", slug: "jobs" },
-  // Due Visits creation pre-ticks only overdue, unbooked risers (or the chosen
-  // single riser); Sites New job still pre-ticks every active site riser.
+  // Due Visits row creation always pre-ticks only the chosen riser and matches its
+  // Visual/Pressure type; site creation ticks overdue unbooked risers only. The
+  // shared form links missing customers and requires at least one ticked riser.
   { test: (p) => p === '/due-visits', slug: 'riser-visits' },
   // Pressure/Visual riser PDF sheets: unchanged larger logo with visible ink 5mm
   // from the top, 3.5mm title gap and aligned QR; one A4. Pressure/hold rows omitted.
