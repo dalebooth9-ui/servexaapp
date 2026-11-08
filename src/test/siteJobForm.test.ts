@@ -11,9 +11,16 @@ describe('site job creation rules', () => {
     const rows = [{id:'a',due:null,booked:false},{id:'b',due:'2027-01-01',booked:true}];
     expect(siteRiserInitialIds(rows)).toEqual(['a','b']);
   });
-  it('single-riser Due Visits creation ticks only that overdue unbooked riser', () => {
+  it('single-riser Due Visits creation ticks only the chosen riser', () => {
     const rows = [{id:'a',due:'2026-11-01',booked:false},{id:'b',due:'2026-11-01',booked:false}];
-    expect(dueVisitRiserSelection(rows,'2026-11-08','a').selectedIds).toEqual(['a']);
+    expect(dueVisitRiserSelection(rows,'2026-11-08','a')).toEqual({
+      selectedIds:['a'],
+      note:'1 riser ticked because you chose Create visit for this riser. Other risers stay unticked.',
+    });
+  });
+  it('single-riser creation respects a future or already-booked choice', () => {
+    expect(dueVisitRiserSelection([{id:'future',due:'2026-12-01',booked:false},{id:'other',due:'2026-11-01',booked:false}],'2026-11-08','future').selectedIds).toEqual(['future']);
+    expect(dueVisitRiserSelection([{id:'booked',due:'2026-11-01',booked:true},{id:'other',due:'2026-11-01',booked:false}],'2026-11-08','booked').selectedIds).toEqual(['booked']);
   });
   it('site Due Visits creation ticks three overdue risers and excludes four not-due risers', () => {
     const rows = [
