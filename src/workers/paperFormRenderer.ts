@@ -311,10 +311,11 @@ export function renderPaperFormPage(
   const rightW = maxWidth - leftW;
   const rightX = margin + leftW;
   const detailRowH = 7;
-  const rightRowCount = 3; // date/po, riser, keys
+  const rightRowCount = isRiserInspection ? 2 : 3;
   // CABINET KEYS row grows to hold access info (priority order), max ~24mm,
   // shrinking to 7pt then trimming with "(see site record)". Never fails.
-  const accessLinesIn = jobInfo?.engineerAccess?.lines || [];
+  const accessLinesIn = (jobInfo?.engineerAccess?.lines || []).filter(line =>
+    !isRiserInspection || !/^cabinet\s+keys?\s*:/i.test(line));
   const accessFit = accessLinesIn.length ? fitAccessLines(doc, accessLinesIn, rightW - 4, 24 - 5) : null;
   const keysH = accessFit ? Math.max(detailRowH, 5 + accessFit.lines.length * accessFit.lineH + 1) : detailRowH;
   const rightBlockH = (rightRowCount - 1) * detailRowH + keysH;
@@ -329,7 +330,7 @@ export function renderPaperFormPage(
   const detailLines = siteDetailLines({ customer: custName, siteName, address: siteAddr, postcode: sitePc });
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
   const contentLines = detailLines.flatMap(text=>doc.splitTextToSize(text,leftW-4) as string[]);
-  const leftBlockH = Math.max(rightBlockH, visit ? 30 : 26, 10 + contentLines.length*4.2);
+  const leftBlockH = Math.max(rightBlockH, isRiserInspection ? 14 : visit ? 30 : 26, 10 + contentLines.length*4.2);
 
   doc.setDrawColor(0);
   doc.setLineWidth(0.3);
@@ -390,12 +391,23 @@ export function renderPaperFormPage(
   const riserLoc = printName(jobInfo?.site?.riser_location);
   doc.text(doc.splitTextToSize(riserLoc, rightW - 4).slice(0, 1)[0] || "", rightX + 2, riserY + 6.2);
 
-  // RIGHT row 3: CABINET KEYS (blank line to write on)
-  const keysY = detailsTop + detailRowH * 2;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text("CABINET KEYS:", rightX + 2, keysY + 3.2);
-  if(accessFit){doc.setFont('helvetica','normal');doc.setFontSize(accessFit.pt);accessFit.lines.forEach((ln,i)=>doc.text(ln,rightX+2,keysY+5+accessFit.lineH*0.8+i*accessFit.lineH));doc.setFontSize(9);}
+  // Riser location fills the remaining right-hand cell. Keep engineer access
+  // below the location, but Cabinet keys itself is a blank body answer row.
+  if (isRiserInspection) {
+    const locationAccess = accessLinesIn.length
+      ? fitAccessLines(doc, accessLinesIn, rightW - 4, leftBlockH - detailRowH - 9)
+      : null;
+    if (locationAccess) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(locationAccess.pt);
+      locationAccess.lines.forEach((line, i) => doc.text(line, rightX + 2, riserY + 8 + locationAccess.lineH * 0.8 + i * locationAccess.lineH));
+      doc.setFontSize(9);
+    }
+  } else {
+    const keysY = detailsTop + detailRowH * 2;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+    doc.text("CABINET KEYS:", rightX + 2, keysY + 3.2);
+    if(accessFit){doc.setFont('helvetica','normal');doc.setFontSize(accessFit.pt);accessFit.lines.forEach((ln,i)=>doc.text(ln,rightX+2,keysY+5+accessFit.lineH*0.8+i*accessFit.lineH));doc.setFontSize(9);}
+  }
 
   cursorY = detailsTop + leftBlockH + 1;
   if (visit) {
@@ -480,6 +492,11 @@ export function renderPaperFormPage(
     const sec = f.section || "General";
     if (!bySection.has(sec)) { bySection.set(sec, []); sectionOrder.push(sec); }
     bySection.get(sec)?.push(f);
+  }
+  if (isRiserInspection) {
+    const external = sectionOrder.find(section => /^external equipment\b/i.test(section)) ?? 'External Equipment';
+    if (!bySection.has(external)) { bySection.set(external, []); sectionOrder.unshift(external); }
+    bySection.get(external)?.unshift({ id: 'cabinet_keys', label: 'Cabinet keys:', type: 'text', section: external });
   }
 
   // Build render list of section-header + field rows so the fitter can

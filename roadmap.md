@@ -1,5 +1,9 @@
 # Roadmap
 
+## Compact printed Cabinet keys
+- [ ] Remove the riser-sheet Cabinet keys header box, fill the details table and add a blank first External Equipment row without changing digital records.
+- [ ] Verify Pressure/Visual 8/10-outlet A4 PDFs, retain logo geometry/readable text, update Help and report build time.
+
 ## Due Visits Create visit corrections
 - [x] A specifically chosen riser is always the only initial tick, including future or already-booked rows; site creation still ticks only overdue unbooked risers.
 - [x] The initial type matches the chosen due-visit row (or a unanimous site selection); missing customers have an inline Link a customer action, and both creation actions are disabled with an explanation when no risers are ticked.
