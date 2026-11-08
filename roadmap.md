@@ -1,8 +1,8 @@
 # Roadmap
 
 ## Compact printed Cabinet keys
-- [ ] Remove the riser-sheet Cabinet keys header box, fill the details table and add a blank first External Equipment row without changing digital records.
-- [ ] Verify Pressure/Visual 8/10-outlet A4 PDFs, retain logo geometry/readable text, update Help and report build time.
+- [x] Removed the riser-sheet Cabinet keys header box, filled the details table and added a blank first External Equipment row without changing digital records.
+- [x] Fifteen focused tests pass; all four Pressure/Visual 8/10-outlet PDFs remain one A4 and were visually checked. Signed-in VFP-00278 Download PDF produced seven A4 sheets with seven Cabinet keys rows. Help updated; build OK 12:36 UTC/London. Physical printing not available.
 
 ## Due Visits Create visit corrections
 - [x] A specifically chosen riser is always the only initial tick, including future or already-booked rows; site creation still ticks only overdue unbooked risers.
