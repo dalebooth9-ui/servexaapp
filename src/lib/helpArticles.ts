@@ -26,6 +26,9 @@ const RULES: SlugRule[] = [
   // Pressure/Visual riser PDF sheets: unchanged larger logo with visible ink 5mm
   // from the top, 3.5mm title gap and aligned QR; one A4. Pressure/hold rows omitted.
   // Cabinet keys is a blank first External Equipment row, not a large header box.
+  // The GENERAL section (incl. Materials required) is removed; the declaration matches
+  // the job type — Pressure: BS 9990:2015 at 12 bar for 15 minutes; Visual: BS 9990:2015
+  // visual inspection with no pressure/bar/minutes wording.
   { test: (p) => p === '/printed-paperwork', slug: 'printed-paperwork' },
   // Job guide includes Print reports beside Print sticker pack for per-riser engineer sheets,
   // both also in the top button row on riser jobs; saved Risers on this job selections,
