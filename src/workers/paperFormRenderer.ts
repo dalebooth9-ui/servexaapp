@@ -144,6 +144,16 @@ function derivedScopeLine(templateName: string): string {
 
 function complianceSentence(templateName: string): string {
   const n = templateName.toLowerCase();
+  // Dry riser sheets use exact declaration wording per job type. Visual
+  // sheets must never mention pressure, bar or minutes.
+  if (/dry\s*riser/.test(n)) {
+    if (/pressure\s*test/.test(n)) {
+      return "We have, today, carried out a dry riser pressure test to the requirements of BS 9990:2015 at 12 bar for 15 minutes.";
+    }
+    if (/visual/.test(n)) {
+      return "We have, today, carried out a dry riser visual inspection to the requirements of BS 9990:2015.";
+    }
+  }
   const asset = /dry\s*riser/.test(n)
     ? "dry riser"
     : /wet\s*riser/.test(n)
@@ -255,7 +265,7 @@ export function renderPaperFormPage(
   const bodyFields = template.fields.filter((f) => !skipInBody(f) && !(isRiserPressure && (
     ['test_pressure_bar', 'hold_time_minutes'].includes(f.id.toLowerCase()) ||
     /^(?:test pressure\s*\(bar\)|hold time\s*\(minutes\))\s*:?$/i.test(f.label.trim())
-  )));
+  )) && !(isRiserInspection && /^\s*general\s*$/i.test(f.section || "General")));
   const margin = bodyCount > 30 ? 6 : bodyCount > 24 ? 8 : 10;
   const maxWidth = pageWidth - margin * 2;
   const visit = jobInfo?.riserVisit;
