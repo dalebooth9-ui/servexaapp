@@ -9,9 +9,9 @@ import { Printer, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { fetchSiteRisers, type SiteRiser } from "./siteRisers";
 import { buildStickerPackPdf, loadOffsets, saveOffsets, LABEL_STATUS_LABEL, type StickerOffsets } from "@/lib/riserStickers";
-import { getGeneratingOrgBranding, getGeneratingOrgFallbackLogoUrl } from "@/lib/generatingOrgBranding";
+import { resolveStickerBranding, missingStickerLogoNote, type StickerLogoChoice } from "@/lib/stickerBranding";
+import { Link } from "react-router-dom";
 import {loadJobRisers} from '@/lib/jobRisers';
-import { resolveToSignedUrl } from "@/lib/durableStorageRef";
 
 const inletKey = (id: string) => `i:${id}`;
 const outletKey = (id: string, n: number) => `o:${id}:${n}`;
@@ -68,12 +68,12 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
   const setKeys = (keys: string[], on: boolean) => setPicked((p) => { const n = new Set(p); keys.forEach((k) => on ? n.add(k) : n.delete(k)); return n; });
   const riserKeys = (r: SiteRiser) => [...(r.asset_tag ? [inletKey(r.id)] : []), ...outletNums(r,outletTags).map((n) => outletKey(r.id, n))];
 
-  const resolveLogo = async (): Promise<string | null> => {
-    if (customerLogoUrl && customerLogoUrl.trim()) return null; // customer branding → QR + ID only
-    const g = await getGeneratingOrgBranding();
-    if (!g.isViva && g.logoUrl) return (await resolveToSignedUrl(g.logoUrl, "submissions").catch(() => null)) || g.logoUrl;
-    return (await getGeneratingOrgFallbackLogoUrl()) || null;
-  };
+  // Same opt-in as report branding: customer logo, plain when missing, else company logo.
+  const [branding, setBranding] = useState<{ choice: StickerLogoChoice; logoUrl: string | null } | null>(null);
+  useEffect(() => { if (!open) return; let alive = true; setBranding(null);
+    resolveStickerBranding({ jobId, siteId }).then(b => { if (alive) setBranding(b); }).catch(() => { if (alive) setBranding(null); });
+    return () => { alive = false; }; }, [open, jobId, siteId]);
+  const resolveLogo = async (): Promise<string | null> => (branding || await resolveStickerBranding({ jobId, siteId })).logoUrl;
 
   const print = async (test: boolean) => {
     if (!test && total === 0) { toast.error("Nothing ticked to print"); return; }
@@ -147,6 +147,7 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
         <DialogHeader>
           <DialogTitle>Riser sticker pack</DialogTitle>
           <DialogDescription>Avery L4778 sheets (45.7 × 21.2 mm, 48 per A4). One inlet sticker per riser plus one per outlet (landing valve), dry and wet risers at {siteName || "this site"}.</DialogDescription>
+          {branding?.choice.kind === "missing" && <p role="alert" className="text-sm rounded border border-destructive/40 bg-destructive/10 p-2">{missingStickerLogoNote(branding.choice.customerName)}{" "}{branding.choice.customerId && <Link className="underline font-medium" to={`/customers/${branding.choice.customerId}`}>Upload a logo</Link>}</p>}
         </DialogHeader>
 
         {!siteId ? <p className="text-sm text-muted-foreground">This job has no site, so there are no risers to print stickers for.</p> : risers === null ? <p className="text-sm text-muted-foreground">Loading…</p> : risers.length === 0 ? (
