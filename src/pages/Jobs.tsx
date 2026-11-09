@@ -59,6 +59,7 @@ import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import DroppedPoFilesReorder from "@/components/jobs/DroppedPoFilesReorder";
 import { UKDateInput } from "@/components/ui/uk-date-input";
 import DuplicateJobWarningDialog from "@/components/jobs/DuplicateJobWarningDialog";
+import CustomerSiteSelect from "@/components/jobs/CustomerSiteSelect";
 import { findDuplicateJobs, type DuplicateJob } from "@/lib/duplicateJobs";
 
 const jobSchema = z.object({
@@ -99,6 +100,7 @@ export default function Jobs() {
   const [duplicateJobs, setDuplicateJobs] = useState<DuplicateJob[]>([]);
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
   const [pendingCreateStatus, setPendingCreateStatus] = useState<string | null>(null);
+  const [newJobSiteId, setNewJobSiteId] = useState("");
   const [activeJob, setActiveJob] = useState<any>(null);
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -1170,6 +1172,7 @@ export default function Jobs() {
       ...(parsed.data.reference_number ? { reference_number: parsed.data.reference_number } : {}),
       customer_po: (form.customer_po || "").trim() || null,
       customer_id: form.customer_id || null,
+      ...(newJobSiteId && form.customer_id ? { site_id: newJobSiteId } : {}),
       customer: customerName,
       address: form.address || null,
       priority: form.priority,
@@ -1202,6 +1205,7 @@ export default function Jobs() {
         ) : undefined,
       });
       clearJobFormDraft();
+      setNewJobSiteId("");
       setForm({ name: "", reference_number: "", customer_po: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
       setDialogOpen(false);
       const capturedPoFiles = dialogParsedFiles;
@@ -1946,7 +1950,18 @@ export default function Jobs() {
                   <CustomerCombobox
                     value={form.customer_id}
                     customers={customers}
-                    onChange={(v) => setForm({ ...form, customer_id: v })}
+                    onChange={(v) => { setForm({ ...form, customer_id: v }); setNewJobSiteId(""); }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Site <span className="text-muted-foreground text-xs font-normal">(needed for Print reports and QR stickers)</span></Label>
+                  <CustomerSiteSelect
+                    customerId={form.customer_id}
+                    value={newJobSiteId}
+                    onChange={(s) => {
+                      setNewJobSiteId(s?.id || "");
+                      if (s && !form.address) setForm({ ...form, address: [s.address, s.postcode].filter(Boolean).join(", ") || s.name });
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
