@@ -518,7 +518,7 @@ export function renderPaperFormPage(
       let valveAdded = false;
       for (const f of cleaned) {
         if (/cabinets?\s+in\s+good\s+condition/i.test(f.label)) {
-          out.push({ ...f, type: 'select', options: ['GOOD', 'FAIR', 'POOR'] } as PdfTemplateField);
+          out.push({ ...f, type: 'select', options: ['GOOD', 'FAIR', 'POOR'], _printOptions: true } as PdfTemplateField);
           out.push({ id: 'outlet_cabinet_keys', label: 'CABINET KEYS:', type: 'text', section: sec } as PdfTemplateField);
           continue;
         }
@@ -665,7 +665,7 @@ export function renderPaperFormPage(
       const fieldH = itemHeight(it,fit.rowH,fit.secH);
       const label = it.field.label;
       const ans = visit && /outlet/i.test(it.field.label) && it.field.type === 'number'
-        ? String(visit.outlets_count ?? '') : handfill ? "" : answerCellText(it.field);
+        ? String(visit.outlets_count ?? '') : (it.field as any)._printOptions ? 'GOOD / FAIR / POOR' : handfill ? "" : answerCellText(it.field);
       drawCell(label, ans, y, fieldH, false, it.field);
       y += fieldH;
     }
