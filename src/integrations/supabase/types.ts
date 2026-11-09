@@ -644,6 +644,7 @@ export type Database = {
           no_longer_serviced: boolean
           notes: string | null
           org_id: string
+          outlet_number_high_water: number
           outlets_count: number | null
           riser_location: string | null
           serial_number: string | null
@@ -683,6 +684,7 @@ export type Database = {
           no_longer_serviced?: boolean
           notes?: string | null
           org_id: string
+          outlet_number_high_water?: number
           outlets_count?: number | null
           riser_location?: string | null
           serial_number?: string | null
@@ -722,6 +724,7 @@ export type Database = {
           no_longer_serviced?: boolean
           notes?: string | null
           org_id?: string
+          outlet_number_high_water?: number
           outlets_count?: number | null
           riser_location?: string | null
           serial_number?: string | null
