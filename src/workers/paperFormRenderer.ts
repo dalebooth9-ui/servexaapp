@@ -586,9 +586,12 @@ export function renderPaperFormPage(
     fit.forced = Math.max(2.5, availH / Math.max(1, items.length));
     fit.rowH = fit.secH = fit.forced;
   }
-  if (process.env.RISER_FIT_DEBUG) console.log("FIT", template.name, JSON.stringify(fit), availH);
+  // Riser sheets: spread any leftover space over the checklist rows so only a small gap remains above ISSUES FOUND.
+  const rowCount = items.filter(it => it.kind === 'row').length;
+  const usedH = items.reduce((sum, it) => sum + itemHeightAt(it, fit.rowH, fit.secH, fit.font.label), 0);
+  const rowExtra = isRiserInspection && !fit.forced && rowCount ? Math.max(0, fitH - usedH) / rowCount : 0;
   const itemHeight = (it: BodyItem, rowH: number, secH: number) =>
-    fit.forced ? fit.forced : itemHeightAt(it, rowH, secH, fit.font.label);
+    fit.forced ? fit.forced : itemHeightAt(it, rowH, secH, fit.font.label) + (it.kind === 'row' ? rowExtra : 0);
 
   // Render body table.
   const tableTop = cursorY;
