@@ -517,7 +517,7 @@ export function renderPaperFormPage(
       const out: PdfTemplateField[] = [];
       let valveAdded = false;
       for (const f of cleaned) {
-        if (/cabinets?\s+in\s+good\s+condition/i.test(f.label)) {
+        if (/outlet\s+cabinets?\s+in\s+good\s+condition/i.test(f.label)) {
           out.push({ ...f, type: 'select', options: ['GOOD', 'FAIR', 'POOR'], _printOptions: true } as PdfTemplateField);
           out.push({ id: 'outlet_cabinet_keys', label: 'CABINET KEYS:', type: 'text', section: sec } as PdfTemplateField);
           continue;
