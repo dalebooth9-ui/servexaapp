@@ -507,6 +507,12 @@ export function renderPaperFormPage(
     const external = sectionOrder.find(section => /^external equipment\b/i.test(section)) ?? 'External Equipment';
     if (!bySection.has(external)) { bySection.set(external, []); sectionOrder.unshift(external); }
     bySection.get(external)?.unshift({ id: 'cabinet_keys', label: 'Cabinet keys:', type: 'text', section: external, required: true });
+    {
+      const ext = bySection.get(external)!;
+      const records = { id: 'inspection_records_complete', label: 'BS9990:2015 7.4.6 Have all inspection and test records been filled in?', type: 'select', options: ['YES', 'NO'], section: external, _printText: 'YES / NO' } as PdfTemplateField;
+      const summaryIdx = ext.findIndex(f => /^\s*external\s+equipment\s*:?\s*$/i.test(f.label));
+      ext.splice(summaryIdx >= 0 ? summaryIdx : ext.length, 0, records);
+    }
     // Internal equipment: outlet valve type choices under Number of outlets,
     // GOOD/FAIR/POOR outlet cabinets with a CABINET KEYS write-in line.
     for (const sec of sectionOrder) {
@@ -675,7 +681,7 @@ export function renderPaperFormPage(
       const fieldH = itemHeight(it,fit.rowH,fit.secH);
       const label = it.field.label;
       const ans = visit && /outlet/i.test(it.field.label) && it.field.type === 'number'
-        ? String(visit.outlets_count ?? '') : (it.field as any)._printOptions ? 'GOOD / FAIR / POOR' : handfill ? "" : answerCellText(it.field);
+        ? String(visit.outlets_count ?? '') : (it.field as any)._printText ? (it.field as any)._printText : (it.field as any)._printOptions ? 'GOOD / FAIR / POOR' : handfill ? "" : answerCellText(it.field);
       drawCell(label, ans, y, fieldH, false, it.field);
       y += fieldH;
     }
