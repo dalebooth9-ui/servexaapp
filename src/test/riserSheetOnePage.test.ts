@@ -77,6 +77,19 @@ describe('riser inspection sheets print on one A4 page', () => {
     expect(printed).toContain('We have, today, carried out a dry riser visual inspection to the requirements of BS 9990:2015.');
     expect(printed).not.toMatch(/pressure|\bbar\b|minutes/i);
   });
+  it('prints outlet valve choices, GOOD/FAIR/POOR outlet cabinets with CABINET KEYS, and no visit history', () => {
+    for (const t of templates as any[]) {
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const text = vi.spyOn(doc as any, 'text') as any;
+      const info = job(false) as any;
+      info.riserVisit = { ...info.riserVisit, last_inspection_at: '2026-01-01', last_inspection_type: 'visual', last_inspection_result: 'pass' };
+      renderPaperFormPage(doc, { template: t, jobInfo: info, logo: null, accreditationLogos: [], handfill: true });
+      const printed = text.mock.calls.map((c: any[]) => String(c[0])).join('\n');
+      for (const c of ['PN16 FLANGE', 'TABLE D FLANGE', 'MALE THREAD', 'FEMALE THREAD', 'GOOD / FAIR / POOR', 'CABINET KEYS:']) expect(printed).toContain(c);
+      expect(printed).not.toMatch(/^Valve type:/m);
+      expect(printed).not.toMatch(/Last inspection|Result:/);
+    }
+  });
   it('removes the GENERAL section and its Materials required row from both sheets', () => {
     for (const t of templates as any[]) {
       const doc = new jsPDF({ unit: 'mm', format: 'a4' });
