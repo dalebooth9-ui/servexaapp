@@ -6145,9 +6145,11 @@ export type Database = {
       }
       job_visits: {
         Row: {
+          auto_engineer_ids: string[]
           completed_at: string | null
           created_at: string
           engineer_id: string | null
+          extra_engineer_ids: string[]
           id: string
           job_id: string
           notes: string | null
@@ -6158,9 +6160,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_engineer_ids?: string[]
           completed_at?: string | null
           created_at?: string
           engineer_id?: string | null
+          extra_engineer_ids?: string[]
           id?: string
           job_id: string
           notes?: string | null
@@ -6171,9 +6175,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_engineer_ids?: string[]
           completed_at?: string | null
           created_at?: string
           engineer_id?: string | null
+          extra_engineer_ids?: string[]
           id?: string
           job_id?: string
           notes?: string | null
@@ -12375,6 +12381,10 @@ export type Database = {
       }
       verify_org_intake_secret: {
         Args: { _org_id: string; _secret: string }
+        Returns: boolean
+      }
+      visit_is_open: {
+        Args: { v: Database["public"]["Tables"]["job_visits"]["Row"] }
         Returns: boolean
       }
     }

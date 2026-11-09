@@ -81,6 +81,18 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
   };
 
   useEffect(() => {
+    const reload = async () => {
+      const { data } = await supabase.from("job_visits").select("*").eq("job_id", jobId).order("scheduled_date", { ascending: true });
+      const list = (data as Visit[]) || [];
+      setVisits(list);
+      fetchEngineers(list.flatMap((v: any) => [v.engineer_id, ...(v.extra_engineer_ids || [])]).filter(Boolean));
+    };
+    const onChange = (e: Event) => { if ((e as CustomEvent).detail?.jobId === jobId) reload(); };
+    window.addEventListener("job-assignments:changed", onChange);
+    return () => window.removeEventListener("job-assignments:changed", onChange);
+  }, [jobId]);
+
+  useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from("job_visits")
@@ -125,6 +137,10 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
       notes: editForm.notes || null,
       status: editForm.status,
     };
+    if ((editForm.engineer_id || null) !== editVisit.engineer_id) {
+      update.extra_engineer_ids = [];
+      update.auto_engineer_ids = [];
+    }
     if (editForm.status === "completed" && editVisit.status !== "completed") {
       update.completed_at = new Date().toISOString();
     } else if (editForm.status !== "completed") {
@@ -427,7 +443,7 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
                   <TableRow key={v.id}>
                     <TableCell className="font-medium whitespace-nowrap">{format(new Date(v.scheduled_date), "dd MMM yyyy")}</TableCell>
                     <TableCell className="text-muted-foreground">{v.scheduled_time || "—"}</TableCell>
-                    <TableCell className="text-sm">{engineerName(v.engineer_id)}</TableCell>
+                    <TableCell className="text-sm">{[v.engineer_id, ...(((v as any).extra_engineer_ids as string[]) || [])].filter(Boolean).map((id) => engineerName(id as string)).join(", ") || "Unassigned"}</TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={`gap-1 ${cfg.color}`}>
                         {cfg.icon} {v.status}

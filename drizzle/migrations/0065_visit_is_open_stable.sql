@@ -1,0 +1,1 @@
+ALTER FUNCTION public.visit_is_open(public.job_visits) STABLE;
