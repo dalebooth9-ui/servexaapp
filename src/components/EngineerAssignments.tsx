@@ -137,7 +137,13 @@ export default function EngineerAssignments({ jobId }: { jobId: string }) {
 
     // Replace temp with real record
     setAssignments((prev) => prev.map((a) => a.id === tempAssignment.id ? { ...inserted, profile: eng } : a));
-    toast({ title: "Engineer assigned" });
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+    const { count } = await supabase.from("job_visits").select("id", { count: "exact", head: true })
+      .eq("job_id", jobId).eq("status", "upcoming").gte("scheduled_date", today)
+      .or(`engineer_id.eq.${inserted.engineer_id},extra_engineer_ids.cs.{${inserted.engineer_id}}`);
+    const n = count || 0;
+    toast({ title: `${eng?.full_name || "Engineer"} assigned to the job${n ? ` and ${n} upcoming visit${n === 1 ? "" : "s"}` : ""}` });
+    window.dispatchEvent(new CustomEvent("job-assignments:changed", { detail: { jobId } }));
     setLoading(false);
 
     // Fetch engineer's docs and offer to attach
@@ -153,7 +159,8 @@ export default function EngineerAssignments({ jobId }: { jobId: string }) {
       toast({ title: "Error", description: "Failed to unassign.", variant: "destructive" });
       if (removed) setAssignments((prev) => [...prev, removed]);
     } else {
-      toast({ title: "Engineer unassigned" });
+      toast({ title: "Engineer unassigned", description: "Removed from upcoming visits they were added to automatically." });
+      window.dispatchEvent(new CustomEvent("job-assignments:changed", { detail: { jobId } }));
     }
   };
 
