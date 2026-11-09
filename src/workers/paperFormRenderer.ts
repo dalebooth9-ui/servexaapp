@@ -519,7 +519,7 @@ export function renderPaperFormPage(
       for (const f of cleaned) {
         if (/outlet\s+cabinets?\s+in\s+good\s+condition/i.test(f.label)) {
           out.push({ ...f, type: 'select', options: ['GOOD', 'FAIR', 'POOR'], _printOptions: true } as PdfTemplateField);
-          out.push({ id: 'outlet_cabinet_keys', label: 'CABINET KEYS:', type: 'text', section: sec } as PdfTemplateField);
+          out.push({ id: 'outlet_cabinet_keys', label: 'Cabinet keys:', type: 'text', section: sec } as PdfTemplateField);
           continue;
         }
         out.push(f);
@@ -552,14 +552,18 @@ export function renderPaperFormPage(
     }
   }
 
-  const colSplit = margin + maxWidth * 0.70;
+  const colSplit = margin + maxWidth * (isRiserInspection ? 0.63 : 0.70);
   const availH = bodyBottom - cursorY;
 
   // Adaptive fit — always one A4 page per sheet. Try the largest row
   // height and font that fit; shrink font/rows/spacing; last resort divides
   // the space evenly and clips labels to the lines that fit.
-  const rowCandidates = [7, 6.5, 6, 5.5, 5, 4.6, 4.2, 3.8, 3.5];
-  const ptCandidates = isRiserInspection ? [9, 8.5, 8] : [9, 8.5, 8, 7.5, 7, 6.5, 6];
+  const rowCandidates = isRiserInspection
+    ? Array.from({ length: 56 }, (_, i) => +(9 - i * 0.1).toFixed(1))
+    : [7, 6.5, 6, 5.5, 5, 4.6, 4.2, 3.8, 3.5];
+  // Riser sheets keep only a small gap (~2mm) above ISSUES FOUND.
+  const fitH = isRiserInspection ? availH - 2 : availH;
+  const ptCandidates = isRiserInspection ? [11, 10.5, 10, 9.5, 9, 8.5, 8] : [9, 8.5, 8, 7.5, 7, 6.5, 6];
   const itemHeightAt = (it: BodyItem, rowH: number, secH: number, pt: number) => {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(pt);
     const text = it.kind === 'section' ? it.label : it.field.label;
@@ -572,9 +576,9 @@ export function renderPaperFormPage(
   let fit = { rowH: 3.5, secH: 3.5, font: { label: minBodyPt, ans: minBodyPt, sec: minBodyPt }, forced: 0 };
   outer: for (const pt of ptCandidates) {
     for (const rowH of rowCandidates) {
-      const secH = Math.max(rowH, Math.min(6.5, rowH + 0.5));
-      if (items.reduce((sum, it) => sum + itemHeightAt(it, rowH, secH, pt), 0) <= availH) {
-        fit = { rowH, secH, font: { label: pt, ans: pt, sec: pt }, forced: 0 }; break outer;
+      const secH = isRiserInspection ? Math.max(4.5, Math.min(6.5, rowH)) : Math.max(rowH, Math.min(6.5, rowH + 0.5));
+      if (items.reduce((sum, it) => sum + itemHeightAt(it, rowH, secH, pt), 0) <= fitH) {
+        fit = { rowH, secH, font: { label: pt, ans: pt, sec: isRiserInspection ? Math.min(pt, 10) : pt }, forced: 0 }; break outer;
       }
     }
   }
@@ -582,8 +586,12 @@ export function renderPaperFormPage(
     fit.forced = Math.max(2.5, availH / Math.max(1, items.length));
     fit.rowH = fit.secH = fit.forced;
   }
+  // Riser sheets: spread any leftover space over the checklist rows so only a small gap remains above ISSUES FOUND.
+  const rowCount = items.filter(it => it.kind === 'row').length;
+  const usedH = items.reduce((sum, it) => sum + itemHeightAt(it, fit.rowH, fit.secH, fit.font.label), 0);
+  const rowExtra = isRiserInspection && !fit.forced && rowCount ? Math.max(0, fitH - usedH) / rowCount : 0;
   const itemHeight = (it: BodyItem, rowH: number, secH: number) =>
-    fit.forced ? fit.forced : itemHeightAt(it, rowH, secH, fit.font.label);
+    fit.forced ? fit.forced : itemHeightAt(it, rowH, secH, fit.font.label) + (it.kind === 'row' ? rowExtra : 0);
 
   // Render body table.
   const tableTop = cursorY;
@@ -632,14 +640,16 @@ export function renderPaperFormPage(
       const ansMaxW = margin + maxWidth - colSplit - 4;
       if (field?.id === 'outlet_valve_type') {
         doc.setFont("helvetica", "normal");
-        const fs = Math.max(minBodyPt - 1, 7);
-        doc.setFontSize(fs);
         const colW = ansMaxW / 2;
+        let fs = fit.font.ans;
+        doc.setFontSize(fs);
+        // Same size as other answers where it fits; shrink only if a choice would overflow its half.
+        while (fs > 7 && Math.max(...VALVE_CHOICES.map(c => doc.getTextWidth(c))) + fs * 0.33 + 1.5 > colW) { fs -= 0.25; doc.setFontSize(fs); }
         const half = rowH / 2;
         VALVE_CHOICES.forEach((c, i) => {
           const cx = ansX + (i % 2) * colW;
           const cy = yy + Math.floor(i / 2) * half;
-          const box = Math.min(2.6, half - 1);
+          const box = Math.min(fs * 0.33, half - 0.8);
           doc.setDrawColor(0); doc.rect(cx, cy + (half - box) / 2, box, box);
           doc.text(c, cx + box + 1, cy + half / 2 + fs * 0.14);
         });
