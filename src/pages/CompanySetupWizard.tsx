@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Check, Loader2, Upload, X } from "lucide-react";
@@ -151,7 +151,7 @@ export default function CompanySetupWizard() {
   const summary = (s: number, rows: [string, string][]) => (
     <div className="rounded-md border p-3">
       <div className="flex items-center justify-between mb-1"><span className="font-medium text-sm">{SETUP_STEPS[s]}</span><button className="text-sm text-primary hover:underline" onClick={() => go(s, false)}>Edit</button></div>
-      <dl className="grid grid-cols-[auto,1fr] gap-x-3 text-sm">{rows.map(([a, b]) => <><dt className="text-muted-foreground">{a}</dt><dd className="truncate">{b || "—"}</dd></>)}</dl>
+      <dl className="grid grid-cols-[auto,1fr] gap-x-3 text-sm">{rows.map(([a, b]) => <Fragment key={a}><dt className="text-muted-foreground">{a}</dt><dd className="truncate">{b || "—"}</dd></Fragment>)}</dl>
     </div>
   );
 

@@ -24,6 +24,13 @@ export default function SetupGuide() {
         )}
       </div>
 
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-6">
+          <div><p className="font-medium">Set up your company</p><p className="text-sm text-muted-foreground">Five short steps: details, branding, reports, team and a final check.</p></div>
+          <Button asChild><Link to="/setup/company">Start company setup</Link></Button>
+        </CardContent>
+      </Card>
+
       <SetupChecklist variant="page" hideDismiss />
 
       <Card>

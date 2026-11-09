@@ -102,6 +102,7 @@ const VanClock = lazy(() => import("@/pages/VanClock"));
 const SyncStatus = lazy(() => import("@/pages/SyncStatus"));
 const HelpGuides = lazy(() => import("@/pages/HelpGuides"));
 const SetupGuide = lazy(() => import("@/pages/SetupGuide"));
+const CompanySetupWizard = lazy(() => import("@/pages/CompanySetupWizard"));
 const ErrorLog = lazy(() => import("@/pages/ErrorLog"));
 const SupportTickets = lazy(() => import("@/pages/SupportTickets"));
 const ImportWizard = lazy(() => import("@/pages/ImportWizard"));
@@ -220,6 +221,7 @@ const App = () => (
               <Route path="/sync-status" element={<ProtectedRoute><SyncStatus /></ProtectedRoute>} />
 
               <Route path="/setup" element={<AdminRoute><SetupGuide /></AdminRoute>} />
+              <Route path="/setup/company" element={<AdminRoute><CompanySetupWizard /></AdminRoute>} />
               <Route path="/admin/error-log" element={<AdminRoute><ErrorLog /></AdminRoute>} />
               <Route path="/admin/support-tickets" element={<AdminRoute><SupportTickets /></AdminRoute>} />
               <Route path="/timesheets" element={<AdminRoute><Timesheets /></AdminRoute>} />
