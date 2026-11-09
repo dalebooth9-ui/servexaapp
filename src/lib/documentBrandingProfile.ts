@@ -1,5 +1,5 @@
 import type {RgbTriple} from '@/lib/extractLogoColors';
-import {getGeneratingOrgFallbackLogoUrl,getGeneratingOrgBranding,getGeneratingOrgWatermarkUrl,servicedByText} from '@/lib/generatingOrgBranding';
+import {getGeneratingOrgFallbackLogoUrl,getGeneratingOrgBranding,getGeneratingOrgWatermarkUrl} from '@/lib/generatingOrgBranding';
 import {resolveToSignedUrl} from '@/lib/durableStorageRef';
 import {printBrandingChoice,printColourChoice,type PrintCustomer} from './printBrandingRules';
 import {loadHeaderLogo} from './loadHeaderLogo';
@@ -33,5 +33,5 @@ export async function resolveDocumentBrandingProfile(input:BrandingInput):Promis
  const source=await image(sourceUrl);
  const watermarkColour=watermarkTint((choice.enabled?parseHexColor(customer?.brand_colour):null)||parseHexColor(org.primaryColor));
  const watermarkUrl=source?tintedPrintWatermark(source,watermarkColour):null;
- return {logoUrl,logoImage,accentColor,isCustomerBranded:choice.enabled,companyName:choice.enabled?customer?.name||org.name||undefined:org.name||undefined,companySubtitle:input.template?.branding?.company_subtitle,footerText:input.template?.branding?.footer_text,servicedBy:choice.enabled?servicedByText(org):undefined,watermarkUrl};
+ return {logoUrl,logoImage,accentColor,isCustomerBranded:choice.enabled,companyName:choice.enabled?customer?.name||org.name||undefined:org.name||undefined,companySubtitle:input.template?.branding?.company_subtitle,footerText:choice.enabled&&/viva/i.test(input.template?.branding?.footer_text||'')?undefined:input.template?.branding?.footer_text,servicedBy:undefined,watermarkUrl};
 }
