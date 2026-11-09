@@ -4,6 +4,7 @@ import { useEffect, useState, lazy, Suspense } from "react";
 import JobStageTimeline from "@/components/jobs/JobStageTimeline";
 import ComplianceRecord from "@/components/jobs/ComplianceRecord";
 import JobRiserSelection from '@/components/riser-visits/JobRiserSelection';
+import JobNoSiteBanner from '@/components/jobs/JobNoSiteBanner';
 import PossibleDuplicates from "@/components/jobs/PossibleDuplicates";
 import ChunkErrorBoundary from "@/components/ChunkErrorBoundary";
 import { useAutoSave } from "@/hooks/useAutoSave";
@@ -714,7 +715,10 @@ export default function JobDetail() {
         customerId={job.customer_id}
       />
 
-      <JobRiserSelection jobId={job.id} siteId={job.site_id} />
+      {userRole === "admin" && (
+        <JobNoSiteBanner key={job.site_id || "none"} jobId={job.id} siteId={job.site_id || null} customerId={job.customer_id || null} address={job.address || null} onChanged={() => void fetchData()} />
+      )}
+      <JobRiserSelection key={`r-${job.site_id || "none"}`} jobId={job.id} siteId={job.site_id} />
       <JobStageTimeline jobId={job.id} status={job.status} />
 
       {/* Tab navigation — sections are lazy-mounted; only the active tab is in the DOM.
