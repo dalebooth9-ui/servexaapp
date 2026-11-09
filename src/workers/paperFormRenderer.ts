@@ -538,6 +538,21 @@ export function renderPaperFormPage(
       bySection.set(sec, out);
     }
   }
+  // Remedial works carried forward from an earlier visit (office "Add to next service report").
+  const remedials = (isRiserInspection && Array.isArray(visit?.remedials) ? visit!.remedials : []) as any[];
+  if (remedials.length) {
+    const sec = 'REMEDIAL WORKS OUTSTANDING FROM PREVIOUS VISIT';
+    const shown = remedials.slice(0, 4);
+    const rows: PdfTemplateField[] = [];
+    for (const r of shown) {
+      const works = r.works_required || r.title || '';
+      const parts = [r.riser ? `${r.riser}: ${works}` : works, r.materials_required ? `Materials: ${r.materials_required}` : ''].filter(Boolean);
+      rows.push({ id: `remedial_${r.id}`, label: parts.join(' | '), type: 'select', section: sec, _printText: 'DONE / NOT DONE' } as PdfTemplateField);
+      rows.push({ id: `remedial_comment_${r.id}`, label: 'Comments:', type: 'text', section: sec } as PdfTemplateField);
+    }
+    if (remedials.length > shown.length) rows.push({ id: 'remedial_more', label: `+${remedials.length - shown.length} more outstanding. See the job on the tablet.`, type: 'text', section: sec } as PdfTemplateField);
+    bySection.set(sec, rows); sectionOrder.push(sec);
+  }
   const VALVE_CHOICES = ['PN16 FLANGE', 'TABLE D FLANGE', 'MALE THREAD', 'FEMALE THREAD'];
 
   // Build render list of section-header + field rows so the fitter can
@@ -551,7 +566,7 @@ export function renderPaperFormPage(
     const fields = bySection.get(sec) || [];
     if (fields.length === 0) continue;
     // Uppercase, formatted section header (e.g. "EXTERNAL EQUIPMENT: VISUAL").
-    const secLabel = sec.toUpperCase() + (/visual|pressure test|test/i.test(template.name) && !/:/.test(sec) ? `: ${/pressure/i.test(template.name) ? "PRESSURE TEST" : "VISUAL"}` : "");
+    const secLabel = sec.toUpperCase() + (!/^REMEDIAL WORKS/.test(sec) && /visual|pressure test|test/i.test(template.name) && !/:/.test(sec) ? `: ${/pressure/i.test(template.name) ? "PRESSURE TEST" : "VISUAL"}` : "");
     items.push({ kind: "section", label: secLabel });
     for (const f of fields) {
       items.push({ kind: "row", field: f });

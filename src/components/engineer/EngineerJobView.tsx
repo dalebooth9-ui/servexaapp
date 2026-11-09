@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, CheckCircle2, Eye } from "lucide-react";
 import EngineerJobHero from "@/components/engineer/EngineerJobHero";
 import SiteVisitReportExtra from "@/components/jobs/SiteVisitReportExtra";
+import CarriedRemedialsPanel from "@/components/jobs/CarriedRemedialsPanel";
 import SiteAccessCard from '@/components/sites/SiteAccessCard';
 
 const JobDocuments = lazy(() => import("@/components/JobDocuments"));
@@ -253,6 +254,8 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
         isRemedial={!!job?.is_remedial}
         onNavigateTab={() => { /* no tabs in engineer view */ }}
       />
+
+      <CarriedRemedialsPanel jobId={jobId} />
 
       <SiteVisitReportExtra jobId={jobId} />
 
