@@ -509,7 +509,7 @@ export function renderPaperFormPage(
     bySection.get(external)?.unshift({ id: 'cabinet_keys', label: 'Cabinet keys:', type: 'text', section: external, required: true });
     {
       const ext = bySection.get(external)!;
-      const records = { id: 'inspection_records_complete', label: 'BS9990:2015 7.4.6 Have all inspection and test records been filled in?', type: 'select', options: ['YES', 'NO'], section: external, _printText: 'YES / NO' } as PdfTemplateField;
+      const records = { id: 'inspection_records_complete', label: 'BS9990:2015 7.4.6 Have all inspection and test records been filled in?', type: 'select', options: ['YES', 'NO'], section: external, required: false, _printText: 'YES / NO' } as PdfTemplateField;
       const summaryIdx = ext.findIndex(f => /^\s*external\s+equipment\s*:?\s*$/i.test(f.label));
       ext.splice(summaryIdx >= 0 ? summaryIdx : ext.length, 0, records);
     }
