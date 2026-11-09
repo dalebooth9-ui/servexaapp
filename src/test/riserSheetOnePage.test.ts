@@ -85,7 +85,9 @@ describe('riser inspection sheets print on one A4 page', () => {
       info.riserVisit = { ...info.riserVisit, last_inspection_at: '2026-01-01', last_inspection_type: 'visual', last_inspection_result: 'pass' };
       renderPaperFormPage(doc, { template: t, jobInfo: info, logo: null, accreditationLogos: [], handfill: true });
       const printed = text.mock.calls.map((c: any[]) => String(c[0])).join('\n');
-      for (const c of ['PN16 FLANGE', 'TABLE D FLANGE', 'MALE THREAD', 'FEMALE THREAD', 'GOOD / FAIR / POOR', 'CABINET KEYS:']) expect(printed).toContain(c);
+      for (const c of ['PN16 FLANGE', 'TABLE D FLANGE', 'MALE THREAD', 'FEMALE THREAD', 'GOOD / FAIR / POOR']) expect(printed).toContain(c);
+      expect(printed.match(/^Cabinet keys:/gm)?.length).toBe(2);
+      expect(printed).not.toContain('CABINET KEYS:');
       expect(printed).not.toMatch(/^Valve type:/m);
       expect(printed).not.toMatch(/Last inspection|Result:/);
     }
