@@ -547,7 +547,7 @@ export function renderPaperFormPage(
     for (const r of shown) {
       const works = r.works_required || r.title || '';
       const parts = [r.riser ? `${r.riser}: ${works}` : works, r.materials_required ? `Materials: ${r.materials_required}` : ''].filter(Boolean);
-      rows.push({ id: `remedial_${r.id}`, label: parts.join(' | '), type: 'select', section: sec, _printText: 'DONE / NOT DONE' } as PdfTemplateField);
+      rows.push({ id: `remedial_${r.id}`, label: parts.join(' | '), type: 'select', section: sec, required: false, _printText: 'DONE / NOT DONE' } as unknown as PdfTemplateField);
       rows.push({ id: `remedial_comment_${r.id}`, label: 'Comments:', type: 'text', section: sec } as PdfTemplateField);
     }
     if (remedials.length > shown.length) rows.push({ id: 'remedial_more', label: `+${remedials.length - shown.length} more outstanding. See the job on the tablet.`, type: 'text', section: sec } as PdfTemplateField);
