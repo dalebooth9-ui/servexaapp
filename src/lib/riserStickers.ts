@@ -97,7 +97,7 @@ export function stickerSlots(items: StickerItem[], startPosition = 1) {
   const ordered = [...items].sort((a, b) => {
     const aRiser = a.riserId ?? a.asset_tag.split('-')[0];
     const bRiser = b.riserId ?? b.asset_tag.split('-')[0];
-    return aRiser.localeCompare(bRiser) || (a.outletNumber ?? Number(a.asset_tag.split('-')[1]) || 0) - (b.outletNumber ?? Number(b.asset_tag.split('-')[1]) || 0);
+    return aRiser.localeCompare(bRiser) || (a.outletNumber ?? (Number(a.asset_tag.split('-')[1]) || 0)) - (b.outletNumber ?? (Number(b.asset_tag.split('-')[1]) || 0));
   });
   let slot = Math.max(1, Math.min(LABELS_PER_SHEET, Math.floor(startPosition))) - 1;
   let previous: string | undefined;

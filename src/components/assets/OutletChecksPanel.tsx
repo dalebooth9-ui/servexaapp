@@ -11,7 +11,7 @@ import {
 } from "@/lib/outletChecks";
 
 type TagInfo = { total: number; tags: Record<string, number> };
-const cacheKey = (id: string) => `outlet_tags_${id}`;
+const cacheKey = (id: string) => `outlet_tags_v2_${id}`;
 
 /** Load this riser's outlet count + sticker numbers; cached so it works offline. */
 async function loadTagInfo(assetId: string): Promise<TagInfo> {
@@ -36,7 +36,7 @@ const fmtTime = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "2
 
 export default function OutletChecksPanel({ assetId, checks, onChange, onTotal, locked, userId, userName }: {
   assetId: string; checks: OutletChecks; onChange: (c: OutletChecks) => void; onTotal?: (n: number) => void;
-  locked?: boolean; userId?: string | null; userName?: string | null;
+  onNumbers?: (numbers:number[]) => void; locked?: boolean; userId?: string | null; userName?: string | null;
 }) {
   const [info, setInfo] = useState<TagInfo | null>(null);
   const [failed, setFailed] = useState(false);

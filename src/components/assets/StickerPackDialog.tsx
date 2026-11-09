@@ -15,8 +15,8 @@ import { resolveToSignedUrl } from "@/lib/durableStorageRef";
 
 const inletKey = (id: string) => `i:${id}`;
 const outletKey = (id: string, n: number) => `o:${id}:${n}`;
-const outletNums = (r: SiteRiser) => Array.from({ length: Math.max(0, r.outlets_count || 0) }, (_, i) => i + 1);
-const allKeys = (list: SiteRiser[]) => list.flatMap((r) => [...(r.asset_tag ? [inletKey(r.id)] : []), ...outletNums(r).map((n) => outletKey(r.id, n))]);
+const outletNums = (r: SiteRiser, tags: Record<string,string>) => Object.keys(tags).filter(k=>k.startsWith(`o:${r.id}:`)).map(k=>Number(k.split(':')[2])).sort((a,b)=>a-b);
+const allKeys = (list: SiteRiser[], tags: Record<string,string>) => list.flatMap((r) => [...(r.asset_tag ? [inletKey(r.id)] : []), ...outletNums(r,tags).map((n) => outletKey(r.id, n))]);
 
 export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, trigger, jobId }: {
   jobId?:string; siteId: string | null; siteName: string | null; customerLogoUrl: string | null;
@@ -50,7 +50,7 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
       }
       setOutletTags(tags);
       setRisers(list); noteLast(list);
-      if (resetPick) {const membership=jobId?await loadJobRisers(jobId):null;setPicked(new Set(allKeys(membership?list.filter(r=>membership.some(m=>m.asset_id===r.id&&m.selected)):list)));}
+      if (resetPick) {const membership=jobId?await loadJobRisers(jobId):null;setPicked(new Set(allKeys(membership?list.filter(r=>membership.some(m=>m.asset_id===r.id&&m.selected)):list,tags)));}
     }).catch(() => { setRisers([]); toast.error("Couldn't load risers"); });
   };
   useEffect(() => { if (open) load(true); }, [open, siteId]);
@@ -61,12 +61,12 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
     [risers, picked],
   );
   const pickedOutlets = useMemo(
-    () => (risers || []).flatMap((r) => outletNums(r).filter((n) => picked.has(outletKey(r.id, n))).map((n) => ({ riser: r, n }))),
-    [risers, picked],
+    () => (risers || []).flatMap((r) => outletNums(r,outletTags).filter((n) => picked.has(outletKey(r.id, n))).map((n) => ({ riser: r, n }))),
+    [risers, picked, outletTags],
   );
   const total = selected.length + pickedOutlets.length;
   const setKeys = (keys: string[], on: boolean) => setPicked((p) => { const n = new Set(p); keys.forEach((k) => on ? n.add(k) : n.delete(k)); return n; });
-  const riserKeys = (r: SiteRiser) => [...(r.asset_tag ? [inletKey(r.id)] : []), ...outletNums(r).map((n) => outletKey(r.id, n))];
+  const riserKeys = (r: SiteRiser) => [...(r.asset_tag ? [inletKey(r.id)] : []), ...outletNums(r,outletTags).map((n) => outletKey(r.id, n))];
 
   const resolveLogo = async (): Promise<string | null> => {
     if (customerLogoUrl && customerLogoUrl.trim()) return null; // customer branding → QR + ID only
@@ -88,13 +88,13 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
         if (error) throw new Error("Couldn't create outlet sticker numbers: " + error.message);
         tagMap = Object.fromEntries((data || []).map((t: any) => [outletKey(t.asset_id, t.outlet_number), { id: t.id, tag: t.outlet_tag }]));
       }
-      const items: { asset_tag: string }[] = [];
+      const items: { asset_tag: string; riserId: string; outletNumber: number }[] = [];
       const outletIds: string[] = [];
       if (!test) for (const r of risers || []) {
-        if (r.asset_tag && picked.has(inletKey(r.id))) items.push({ asset_tag: r.asset_tag });
-        for (const n of outletNums(r)) {
+        if (r.asset_tag && picked.has(inletKey(r.id))) items.push({ asset_tag: r.asset_tag, riserId:r.id, outletNumber:0 });
+        for (const n of outletNums(r,outletTags)) {
           const t = picked.has(outletKey(r.id, n)) ? tagMap[outletKey(r.id, n)] : undefined;
-          if (t) { items.push({ asset_tag: t.tag }); outletIds.push(t.id); }
+          if (t) { items.push({ asset_tag: t.tag, riserId:r.id, outletNumber:n }); outletIds.push(t.id); }
         }
       }
       const doc = await buildStickerPackPdf({
@@ -165,15 +165,15 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
         ) : (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Button type="button" variant="ghost" size="sm" onClick={() => setPicked(new Set(allKeys(risers)))}>Select all</Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setKeys(risers.flatMap((r) => outletNums(r).map((n) => outletKey(r.id, n))), true)}>Select all outlets</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setPicked(new Set(allKeys(risers,outletTags)))}>Select all</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setKeys(risers.flatMap((r) => outletNums(r,outletTags).map((n) => outletKey(r.id, n))), true)}>Select all outlets</Button>
               <Button type="button" variant="ghost" size="sm" onClick={() => setPicked(new Set())}>Select none</Button>
             </div>
             <div className="rounded-md border divide-y max-h-60 overflow-y-auto">
               {risers.map((r) => {
                 const keys = riserKeys(r);
                 const onCount = keys.filter((k) => picked.has(k)).length;
-                const nums = outletNums(r);
+                const nums = outletNums(r,outletTags);
                 const open = expanded.has(r.id);
                 return (
                   <div key={r.id}>
