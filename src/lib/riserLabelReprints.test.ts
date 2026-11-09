@@ -2,6 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { existingRiserLabels, labelSelection } from './riserLabelReprints';
 const riser = { id: 'r1', asset_tag: '48W4EU', outlets_count: 8, riser_location: 'Stairwell', site_id: 's1' };
 describe('existing QR label reprinting', () => {
+  it('retains a newly allocated suffix above outlet count without restoring a removed number', () => {
+    const outlets=[{asset_id:'r1',outlet_number:1,outlet_tag:'48W4EU-1',is_fitted:true},{asset_id:'r1',outlet_number:2,outlet_tag:'48W4EU-2',is_fitted:false},{asset_id:'r1',outlet_number:3,outlet_tag:'48W4EU-3',is_fitted:true}];
+    expect(existingRiserLabels([{...riser,outlets_count:2}],outlets).map(l=>l.tag)).toEqual(['48W4EU','48W4EU-1','48W4EU-3']);
+  });
   it('reuses inlet and eight outlet codes without inventing replacements', () => {
     const outlets = Array.from({ length: 8 }, (_, i) => ({ asset_id: 'r1', outlet_number: i + 1, outlet_tag: `SAVED${i}` }));
     const labels = existingRiserLabels([riser], outlets);
