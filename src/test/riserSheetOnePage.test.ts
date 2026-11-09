@@ -88,10 +88,11 @@ describe('riser inspection sheets print on one A4 page', () => {
       for (const c of ['PN16 FLANGE', 'TABLE D FLANGE', 'MALE THREAD', 'FEMALE THREAD', 'GOOD / FAIR / POOR']) expect(printed).toContain(c);
       expect(printed.match(/^Cabinet keys:/gm)?.length).toBe(2);
       expect(printed).not.toContain('CABINET KEYS:');
-      const recs = printed.indexOf('BS9990:2015 7.4.6 Have all inspection and test records been filled in?');
+      const flat = printed.replace(/\n/g, ' ');
+      const recs = flat.indexOf('BS9990:2015 7.4.6 Have all inspection and test records been filled in?');
       expect(recs).toBeGreaterThan(-1);
-      expect(printed.indexOf('YES / NO', recs)).toBeGreaterThan(recs);
-      expect(printed.indexOf('External equipment', recs)).toBeGreaterThan(recs);
+      expect(flat.indexOf('YES / NO', recs)).toBeGreaterThan(recs);
+      expect(flat.indexOf('External equipment', recs)).toBeGreaterThan(recs);
       expect(printed).not.toMatch(/^Valve type:/m);
       expect(printed).not.toMatch(/Last inspection|Result:/);
     }
