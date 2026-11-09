@@ -810,7 +810,17 @@ export default function InvoiceDetail() {
                   .map((it: any) => (
                     <li key={it.id}>
                       <span className="font-medium">{it.description}</span>
-                      {it.price_match === "unmatched" && " — no price book match, add a price"}
+                      {it.price_match === "unmatched" && (
+                        <>
+                          {" — no price book match, "}
+                          <Link
+                            to={`/settings/price-book?add=${encodeURIComponent(it.description || "")}&line=${it.id}&returnTo=${encodeURIComponent(`/invoices/${id}`)}`}
+                            className="font-bold hover:underline"
+                          >
+                            add a price
+                          </Link>
+                        </>
+                      )}
                       {it.ai_flag && ` — ${it.ai_flag}`}
                     </li>
                   ))}

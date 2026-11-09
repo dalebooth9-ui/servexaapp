@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,12 @@ export default function PriceBook() {
   const [editing, setEditing] = useState<Item | null>(null);
   const [form, setForm] = useState<Omit<Item, "id">>(EMPTY);
   const [busy, setBusy] = useState(false);
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const addParam = params.get("add");
+  const lineParam = params.get("line");
+  const returnTo = params.get("returnTo");
+  const [prefilled, setPrefilled] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -60,6 +67,46 @@ export default function PriceBook() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Opened from an unmatched quote line: prefill the Add form with the line's
+  // description and, when one exists, the matching price-book category.
+  useEffect(() => {
+    if (prefilled || loading || !addParam) return;
+    setPrefilled(true);
+    const head = addParam.split(":")[0].trim().toLowerCase();
+    const cats = Array.from(new Set(items.map((i) => i.category).filter(Boolean))) as string[];
+    const cat = cats.find((c) => c.toLowerCase() === head)
+      || cats.find((c) => head && (head.includes(c.toLowerCase()) || c.toLowerCase().includes(head)))
+      || (addParam.includes(":") ? addParam.split(":")[0].trim() : "");
+    if (cat) setSearch(cat);
+    setEditing(null);
+    setForm({ ...EMPTY, description: addParam, category: cat });
+    setDialogOpen(true);
+  }, [prefilled, loading, addParam, items]);
+
+  // After saving from a quote, price that quote line and recalc its totals.
+  const applyToQuoteLine = async (itemId: string | null, price: number) => {
+    if (!lineParam) return;
+    const { data: line } = await supabase.from("invoice_line_items").select("id, invoice_id, quantity").eq("id", lineParam).maybeSingle();
+    if (!line) return;
+    const qty = Number((line as any).quantity) || 0;
+    const upd: any = { unit_price: price, amount: (qty * price).toFixed(2), price_match: "matched" };
+    if (itemId) upd.price_book_item_id = itemId;
+    let { error } = await supabase.from("invoice_line_items").update(upd).eq("id", lineParam);
+    if (error && itemId) {
+      delete upd.price_book_item_id;
+      ({ error } = await supabase.from("invoice_line_items").update(upd).eq("id", lineParam));
+    }
+    if (error) { toast.error(error.message); return; }
+    const invId = (line as any).invoice_id;
+    const [{ data: lines }, { data: inv }] = await Promise.all([
+      supabase.from("invoice_line_items").select("quantity, unit_price").eq("invoice_id", invId),
+      supabase.from("invoices").select("tax_rate").eq("id", invId).maybeSingle(),
+    ]);
+    const sub = (lines || []).reduce((s: number, l: any) => s + Number(l.quantity) * Number(l.unit_price), 0);
+    const tax = sub * (Number((inv as any)?.tax_rate) || 0) / 100;
+    await supabase.from("invoices").update({ subtotal: sub.toFixed(2), tax_amount: tax.toFixed(2), total: (sub + tax).toFixed(2) } as any).eq("id", invId);
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -106,12 +153,20 @@ export default function PriceBook() {
         .from("profiles").select("org_id").eq("user_id", user.id).maybeSingle();
       const org_id = (prof as any)?.org_id;
       if (!org_id) { setBusy(false); return toast.error("No organisation"); }
-      const { error } = await (supabase as any)
-        .from("price_book_items").insert({ ...payload, org_id, created_by: user.id });
+      const { data: created, error } = await (supabase as any)
+        .from("price_book_items").insert({ ...payload, org_id, created_by: user.id }).select("id").maybeSingle();
       err = error;
+      if (!error && lineParam) {
+        await applyToQuoteLine(created?.id ?? null, payload.unit_price);
+      }
     }
     setBusy(false);
     if (err) return toast.error(err.message);
+    if (!editing && lineParam && returnTo?.startsWith("/")) {
+      toast.success("Price added and applied to the quote");
+      navigate(returnTo);
+      return;
+    }
     toast.success(editing ? "Updated" : "Added");
     setDialogOpen(false);
     setEditing(null);
