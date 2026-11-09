@@ -435,9 +435,9 @@ export function renderPaperFormPage(
       riserName && `Riser: ${riserName}`,
       visit.outlets_count != null && `Outlets: ${visit.outlets_count}`,
       visit.job_reference && `Job: ${visit.job_reference}`,
-      visit.last_inspection_at && `Last inspection: ${previous}`,
-      visit.last_inspection_type && printInspectionType(visit.last_inspection_type),
-      visit.last_inspection_result && `Result: ${printInspectionResult(visit.last_inspection_result)}`,
+      !isRiserInspection && visit.last_inspection_at && `Last inspection: ${previous}`,
+      !isRiserInspection && visit.last_inspection_type && printInspectionType(visit.last_inspection_type),
+      !isRiserInspection && visit.last_inspection_result && `Result: ${printInspectionResult(visit.last_inspection_result)}`,
     ].filter(Boolean).join(' | ');
     const contextLines = [ctx, ...(visit.remedial_notes ? [`Open remedial work from last visit: ${visit.remedial_notes}`] : [])].filter(Boolean);
     for (const text of contextLines) {
@@ -507,7 +507,32 @@ export function renderPaperFormPage(
     const external = sectionOrder.find(section => /^external equipment\b/i.test(section)) ?? 'External Equipment';
     if (!bySection.has(external)) { bySection.set(external, []); sectionOrder.unshift(external); }
     bySection.get(external)?.unshift({ id: 'cabinet_keys', label: 'Cabinet keys:', type: 'text', section: external, required: true });
+    // Internal equipment: outlet valve type choices under Number of outlets,
+    // GOOD/FAIR/POOR outlet cabinets with a CABINET KEYS write-in line.
+    for (const sec of sectionOrder) {
+      const list = bySection.get(sec)!;
+      const isValveType = (f: PdfTemplateField) => /valve\s*type/i.test(f.label);
+      const hadValve = list.some(isValveType);
+      const cleaned = list.filter(f => !isValveType(f));
+      const out: PdfTemplateField[] = [];
+      let valveAdded = false;
+      for (const f of cleaned) {
+        if (/cabinets?\s+in\s+good\s+condition/i.test(f.label)) {
+          out.push({ ...f, type: 'select', options: ['GOOD', 'FAIR', 'POOR'] } as PdfTemplateField);
+          out.push({ id: 'outlet_cabinet_keys', label: 'CABINET KEYS:', type: 'text', section: sec } as PdfTemplateField);
+          continue;
+        }
+        out.push(f);
+        if (!valveAdded && /number\s+of\s+outlets|no\.?\s+of\s+outlets/i.test(f.label)) {
+          out.push({ id: 'outlet_valve_type', label: 'Outlet valve type:', type: 'valve_choice', section: sec } as PdfTemplateField);
+          valveAdded = true;
+        }
+      }
+      if (hadValve && !valveAdded) out.unshift({ id: 'outlet_valve_type', label: 'Outlet valve type:', type: 'valve_choice', section: sec } as PdfTemplateField);
+      bySection.set(sec, out);
+    }
   }
+  const VALVE_CHOICES = ['PN16 FLANGE', 'TABLE D FLANGE', 'MALE THREAD', 'FEMALE THREAD'];
 
   // Build render list of section-header + field rows so the fitter can
   // count everything up-front.
@@ -540,6 +565,7 @@ export function renderPaperFormPage(
     const text = it.kind === 'section' ? it.label : it.field.label;
     const width = it.kind === 'section' ? maxWidth - 4 : colSplit - margin - 4;
     const lines = doc.splitTextToSize(text, width) as string[];
+    if (it.kind === 'row' && it.field.id === 'outlet_valve_type') return Math.max(rowH * 1.6, 2 * (pt * 0.4 + 1.6));
     return Math.max(it.kind === 'section' ? secH : rowH, lines.length * pt * 0.4 + 1.2);
   };
   const minBodyPt = isRiserInspection ? 8 : 6;
@@ -604,7 +630,21 @@ export function renderPaperFormPage(
       // answer cell is unusable on site.
       const ansX = colSplit + 2;
       const ansMaxW = margin + maxWidth - colSplit - 4;
-      if (ans) {
+      if (field?.id === 'outlet_valve_type') {
+        doc.setFont("helvetica", "normal");
+        const fs = Math.max(minBodyPt - 1, 7);
+        doc.setFontSize(fs);
+        const colW = ansMaxW / 2;
+        const half = rowH / 2;
+        VALVE_CHOICES.forEach((c, i) => {
+          const cx = ansX + (i % 2) * colW;
+          const cy = yy + Math.floor(i / 2) * half;
+          const box = Math.min(2.6, half - 1);
+          doc.setDrawColor(0); doc.rect(cx, cy + (half - box) / 2, box, box);
+          doc.text(c, cx + box + 1, cy + half / 2 + fs * 0.14);
+        });
+        doc.setDrawColor(120);
+      } else if (ans) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(fit.font.ans);
         const aLineH = fit.font.ans * 0.4;
