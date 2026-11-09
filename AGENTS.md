@@ -37,3 +37,4 @@
 - Day clocking: engineers write `time_clock` only via clock_* RPCs; office edits via admin_edit_time_clock (logged) — why: identity is the login and hour changes are audited.
 - Sites summaries share siteSummary filtering/counts on RLS-loaded records — why: lists and totals must agree without data writes.
 - MapAddress owns map links — why: private notes/codes must never enter URLs.
+- Defects carried to a visit store scheduled_visit_id/scheduled_job_id and works/materials on the defect; scheduling and engineer Done/Not done go only through schedule_defects_on_next_visit / record_carried_remedial, and riser sheets read job_carried_remedials — why: one source for office list, tablet and printed report, with server-checked org/assignment.
