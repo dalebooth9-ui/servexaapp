@@ -2359,6 +2359,10 @@ export type Database = {
         Row: {
           asset_id: string | null
           bs_standard_reference: string | null
+          carry_comment: string | null
+          carry_outcome: string | null
+          carry_recorded_at: string | null
+          carry_recorded_by: string | null
           category: string | null
           created_at: string
           description: string | null
@@ -2367,6 +2371,7 @@ export type Database = {
           linked_photo_url: string | null
           linked_submission_id: string | null
           location_on_site: string | null
+          materials_required: string | null
           org_id: string
           photo_url: string | null
           photos: Json
@@ -2376,6 +2381,8 @@ export type Database = {
           resolution_notes: string | null
           resolved_at: string | null
           resolved_by: string | null
+          scheduled_job_id: string | null
+          scheduled_visit_id: string | null
           severity: string
           site_id: string | null
           site_visit_report_id: string | null
@@ -2385,10 +2392,15 @@ export type Database = {
           status: string
           title: string
           updated_at: string
+          works_required: string | null
         }
         Insert: {
           asset_id?: string | null
           bs_standard_reference?: string | null
+          carry_comment?: string | null
+          carry_outcome?: string | null
+          carry_recorded_at?: string | null
+          carry_recorded_by?: string | null
           category?: string | null
           created_at?: string
           description?: string | null
@@ -2397,6 +2409,7 @@ export type Database = {
           linked_photo_url?: string | null
           linked_submission_id?: string | null
           location_on_site?: string | null
+          materials_required?: string | null
           org_id?: string
           photo_url?: string | null
           photos?: Json
@@ -2406,6 +2419,8 @@ export type Database = {
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          scheduled_job_id?: string | null
+          scheduled_visit_id?: string | null
           severity?: string
           site_id?: string | null
           site_visit_report_id?: string | null
@@ -2415,10 +2430,15 @@ export type Database = {
           status?: string
           title: string
           updated_at?: string
+          works_required?: string | null
         }
         Update: {
           asset_id?: string | null
           bs_standard_reference?: string | null
+          carry_comment?: string | null
+          carry_outcome?: string | null
+          carry_recorded_at?: string | null
+          carry_recorded_by?: string | null
           category?: string | null
           created_at?: string
           description?: string | null
@@ -2427,6 +2447,7 @@ export type Database = {
           linked_photo_url?: string | null
           linked_submission_id?: string | null
           location_on_site?: string | null
+          materials_required?: string | null
           org_id?: string
           photo_url?: string | null
           photos?: Json
@@ -2436,6 +2457,8 @@ export type Database = {
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          scheduled_job_id?: string | null
+          scheduled_visit_id?: string | null
           severity?: string
           site_id?: string | null
           site_visit_report_id?: string | null
@@ -2445,6 +2468,7 @@ export type Database = {
           status?: string
           title?: string
           updated_at?: string
+          works_required?: string | null
         }
         Relationships: [
           {
@@ -2508,6 +2532,27 @@ export type Database = {
             columns: ["remedial_job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_scheduled_job_id_fkey"
+            columns: ["scheduled_job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_scheduled_job_id_fkey"
+            columns: ["scheduled_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_scheduled_visit_id_fkey"
+            columns: ["scheduled_visit_id"]
+            isOneToOne: false
+            referencedRelation: "job_visits"
             referencedColumns: ["id"]
           },
           {
@@ -11784,6 +11829,7 @@ export type Database = {
           skipped: number
         }[]
       }
+      can_act_on_job: { Args: { p_job: string }; Returns: boolean }
       cancel_organisation: {
         Args: { _org_id: string; _reason: string; _source?: string }
         Returns: undefined
@@ -12062,6 +12108,20 @@ export type Database = {
       is_org_active: { Args: { _org_id: string }; Returns: boolean }
       is_org_admin: { Args: { _org_id: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
+      job_carried_remedials: {
+        Args: { p_job: string }
+        Returns: {
+          asset_id: string
+          carry_comment: string
+          carry_outcome: string
+          id: string
+          materials_required: string
+          riser: string
+          title: string
+          visit_date: string
+          works_required: string
+        }[]
+      }
       job_merge_snapshot: { Args: { _ids: string[] }; Returns: Json }
       log_riser_label_reprints: { Args: { _labels: Json }; Returns: number }
       lookup_asset_by_tag: {
@@ -12129,6 +12189,20 @@ export type Database = {
           source_queue: string
         }
         Returns: number
+      }
+      next_visit_for_defect: {
+        Args: {
+          p_after_visit?: string
+          p_asset: string
+          p_org: string
+          p_site: string
+        }
+        Returns: {
+          job_id: string
+          job_ref: string
+          visit_date: string
+          visit_id: string
+        }[]
       }
       nextval_ppm_seq: { Args: never; Returns: number }
       normalise_template_name: { Args: { _name: string }; Returns: string }
@@ -12201,6 +12275,10 @@ export type Database = {
           read_ct: number
         }[]
       }
+      record_carried_remedial: {
+        Args: { p_comment: string; p_defect: string; p_done: boolean }
+        Returns: string
+      }
       record_outlet_scan: {
         Args: { _tag: string }
         Returns: {
@@ -12252,6 +12330,17 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      schedule_defects_on_next_visit: {
+        Args: { p_defect_ids: string[] }
+        Returns: {
+          defect_id: string
+          job_id: string
+          job_ref: string
+          outcome: string
+          visit_date: string
+          visit_id: string
+        }[]
       }
       seed_org_hazard_modules: { Args: { _org_id: string }; Returns: undefined }
       seed_org_reference_data: {

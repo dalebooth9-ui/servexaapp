@@ -24,6 +24,10 @@ import { toast } from "sonner";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { draftQuoteFromDefects } from "@/lib/draftDefectQuote";
 import DeleteRecordAction from "@/components/common/DeleteRecordAction";
+import NewVisitDialog from "@/components/riser-visits/NewVisitDialog";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { suggestWorksAndMaterials } from "@/lib/defectCarryForward";
+import { CalendarPlus, ClipboardList } from "lucide-react";
 
 
 type Defect = {
@@ -47,6 +51,11 @@ type Defect = {
   created_at: string;
   source_kind?: string | null;
   source_archived_document_id?: string | null;
+  works_required?: string | null;
+  materials_required?: string | null;
+  scheduled_visit_id?: string | null;
+  scheduled_job_id?: string | null;
+  carry_outcome?: string | null;
 };
 
 const SEVERITY_BADGE: Record<string, string> = {
@@ -65,7 +74,9 @@ const STATUS_BADGE: Record<string, string> = {
   approved: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400",
   job_created: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-400",
   declined: "bg-muted text-muted-foreground line-through",
+  scheduled: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
 };
+const STATUS_LABEL: Record<string, string> = { resolved: "completed", in_progress: "in progress", job_created: "job created" };
 
 const STATUS_ICON: Record<string, React.ElementType> = {
   open: AlertCircle, in_progress: Clock, resolved: CheckCircle2, deferred: XCircle, quoted: FileText,
@@ -126,17 +137,73 @@ export default function Defects() {
   // Batch quoting
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [quoting, setQuoting] = useState(false);
+  const [carrying, setCarrying] = useState(false);
+  const [visitInfo, setVisitInfo] = useState<Record<string, { date: string | null; ref: string | null }>>({});
+  const [noVisitSites, setNoVisitSites] = useState<string[]>([]);
+  const [createVisitSite, setCreateVisitSite] = useState<string | null>(null);
+  const [worksEdit, setWorksEdit] = useState<{ id: string; works: string; materials: string } | null>(null);
+
+  const addToNextServiceReport = async (list: Defect[]) => {
+    if (!list.length) return;
+    setCarrying(true);
+    try {
+      // Pre-fill works/materials from the defect wording where still blank.
+      for (const d of list) {
+        if (d.works_required || d.materials_required) continue;
+        const s = suggestWorksAndMaterials(d.title, d.description);
+        if (s.works || s.materials) {
+          await supabase.from("defects").update({ works_required: s.works || null, materials_required: s.materials || null } as any).eq("id", d.id);
+        }
+      }
+      const { data, error } = await (supabase as any).rpc("schedule_defects_on_next_visit", { p_defect_ids: list.map(d => d.id) });
+      if (error) throw error;
+      const rows = (data || []) as { defect_id: string; outcome: string; job_ref: string | null; visit_date: string | null }[];
+      const done = rows.filter(r => r.outcome === "scheduled").length;
+      const noSite = rows.filter(r => r.outcome === "no_site").length;
+      const missing = Array.from(new Set(rows.filter(r => r.outcome === "no_visit").map(r => list.find(d => d.id === r.defect_id)?.site_id).filter(Boolean))) as string[];
+      if (done) toast.success(`${done} defect${done === 1 ? "" : "s"} added to the next service report`);
+      if (noSite) toast.error(`${noSite} defect${noSite === 1 ? " has" : "s have"} no site. Link a site first.`);
+      setNoVisitSites(missing);
+      setSelectedIds(new Set());
+      fetchData();
+    } catch (e: any) {
+      toast.error(e.message || "Could not add to the next service report");
+    } finally {
+      setCarrying(false);
+    }
+  };
+
+  const linkSite = async (defectId: string, siteId: string) => {
+    const { error } = await supabase.from("defects").update({ site_id: siteId } as any).eq("id", defectId);
+    if (error) toast.error(error.message); else { toast.success("Site linked"); fetchData(); }
+  };
+
+  const saveWorks = async () => {
+    if (!worksEdit) return;
+    const { error } = await supabase.from("defects").update({ works_required: worksEdit.works.trim() || null, materials_required: worksEdit.materials.trim() || null } as any).eq("id", worksEdit.id);
+    if (error) return toast.error(error.message);
+    toast.success("Saved");
+    setWorksEdit(null);
+    fetchData();
+  };
 
   const fetchData = async () => {
     const [defRes, assetRes, siteRes] = await Promise.all([
       supabase.from("defects").select("*").order("created_at", { ascending: false }),
       supabase.from("assets").select("id, name").order("name"),
-      supabase.from("sites").select("id, name, address").order("name"),
+      fetchAllRows("sites", "id, name, address", "name").then(data => ({ data })),
     ]);
     const defs = (defRes.data || []) as any as Defect[];
     setDefects(defs);
     setAssets((assetRes.data || []) as any);
-    setSites((siteRes.data || []) as any);
+    setSites(((siteRes.data || []) as any[]).filter((x: any) => !x.deleted_at));
+    const sv = Array.from(new Set(defs.map(d => d.scheduled_visit_id).filter(Boolean))) as string[];
+    if (sv.length) {
+      const { data: vs } = await supabase.from("job_visits").select("id, scheduled_date, jobs(reference_number)").in("id", sv);
+      const vm: Record<string, { date: string | null; ref: string | null }> = {};
+      (vs || []).forEach((v: any) => { vm[v.id] = { date: v.scheduled_date, ref: v.jobs?.reference_number || null }; });
+      setVisitInfo(vm);
+    }
 
     const ids = new Set(defs.map(d => d.reported_by));
     if (ids.size > 0) {
@@ -326,6 +393,39 @@ export default function Defects() {
         </div>
       </div>
 
+      {isAdmin && selectedIds.size > 0 && (
+        <Card className="border-primary/40">
+          <CardContent className="flex flex-wrap items-center gap-3 p-3">
+            <span className="text-sm font-medium">{selectedIds.size} selected</span>
+            <Button size="sm" onClick={() => addToNextServiceReport(selectedDefects)} disabled={carrying}>
+              {carrying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ClipboardList className="mr-2 h-4 w-4" />}
+              Add to next service report
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Clear</Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {noVisitSites.length > 0 && (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="space-y-2 p-3 text-sm">
+            {noVisitSites.map(sid => (
+              <div key={sid} className="flex flex-wrap items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-600" />
+                <span>No upcoming visit for this site: <span className="font-medium">{siteLookup[sid] || "Unknown site"}</span></span>
+                <Button size="sm" variant="outline" onClick={() => setCreateVisitSite(sid)}>
+                  <CalendarPlus className="mr-1.5 h-3.5 w-3.5" /> Create visit
+                </Button>
+              </div>
+            ))}
+            <Button size="sm" variant="ghost" onClick={() => setNoVisitSites([])}>Dismiss</Button>
+          </CardContent>
+        </Card>
+      )}
+      {createVisitSite && (
+        <NewVisitDialog siteId={createVisitSite} siteName={siteLookup[createVisitSite] || ""} open onOpenChange={v => { if (!v) { setCreateVisitSite(null); fetchData(); } }} />
+      )}
+
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {(["open", "in_progress", "resolved", "deferred", "quoted"] as const).map(s => {
@@ -420,7 +520,7 @@ export default function Defects() {
                   <TableRow key={d.id}>
                     {isAdmin && (
                       <TableCell>
-                        <Checkbox checked={selectedIds.has(d.id)} onCheckedChange={() => toggleSelected(d.id)} disabled={!!d.quote_id} />
+                        <Checkbox checked={selectedIds.has(d.id)} onCheckedChange={() => toggleSelected(d.id)} />
                       </TableCell>
                     )}
                     <TableCell>
@@ -435,6 +535,16 @@ export default function Defects() {
                         {d.location_on_site && <span className="text-[10px] text-muted-foreground">{d.location_on_site}</span>}
                       </div>
                       {d.description && <p className="text-xs text-muted-foreground line-clamp-1">{d.description}</p>}
+                      <div className="mt-1 text-xs">
+                        <span className="text-muted-foreground">Works:</span> {d.works_required || <span className="text-muted-foreground">—</span>}
+                        <span className="ml-3 text-muted-foreground">Materials:</span> {d.materials_required || <span className="text-muted-foreground">—</span>}
+                        {isAdmin && (
+                          <button type="button" className="ml-2 text-primary hover:underline" onClick={() => {
+                            const s = suggestWorksAndMaterials(d.title, d.description);
+                            setWorksEdit({ id: d.id, works: d.works_required ?? s.works, materials: d.materials_required ?? s.materials });
+                          }}>Edit</button>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {photos.length > 0 ? (
@@ -450,10 +560,30 @@ export default function Defects() {
                       <Badge variant="outline" className={SEVERITY_BADGE[d.severity]}>{d.severity}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={STATUS_BADGE[d.status]}>{d.status.replace("_", " ")}</Badge>
+                      <Badge variant="outline" className={STATUS_BADGE[d.status]}>{STATUS_LABEL[d.status] ?? d.status.replace("_", " ")}</Badge>
+                      {d.status === "scheduled" && d.scheduled_visit_id && visitInfo[d.scheduled_visit_id] && (
+                        <div className="mt-1 text-[11px] text-muted-foreground">
+                          {visitInfo[d.scheduled_visit_id].date ? format(new Date(visitInfo[d.scheduled_visit_id].date!), "dd MMM yyyy") : ""}
+                          {visitInfo[d.scheduled_visit_id].ref ? ` · ${visitInfo[d.scheduled_visit_id].ref}` : ""}
+                        </div>
+                      )}
+                      {d.carry_outcome === "not_done" && d.status !== "resolved" && (
+                        <div className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">Not done last visit</div>
+                      )}
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-xs">
                       <div className="text-foreground">{d.site_id ? siteLookup[d.site_id] || "—" : d.asset_id ? assetLookup[d.asset_id] || "—" : "—"}</div>
+                      {!d.site_id && isAdmin && (
+                        <div className="mt-1 space-y-1">
+                          <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400">Link a site first</span>
+                          <Select onValueChange={v => linkSite(d.id, v)}>
+                            <SelectTrigger className="h-7 w-44 text-xs"><SelectValue placeholder="Pick a site" /></SelectTrigger>
+                            <SelectContent>
+                              {sites.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                       <div className="text-muted-foreground">{d.site_id ? customerSites[d.site_id]?.customer_name || "" : ""}</div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-xs">
@@ -515,6 +645,22 @@ export default function Defects() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={!!worksEdit} onOpenChange={o => { if (!o) setWorksEdit(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Works and materials</DialogTitle></DialogHeader>
+          {worksEdit && (
+            <div className="space-y-3">
+              <div><Label>Works required</Label><Textarea value={worksEdit.works} onChange={e => setWorksEdit({ ...worksEdit, works: e.target.value })} /></div>
+              <div><Label>Materials required</Label><Textarea value={worksEdit.materials} onChange={e => setWorksEdit({ ...worksEdit, materials: e.target.value })} /></div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setWorksEdit(null)}>Cancel</Button>
+                <Button onClick={saveWorks}>Save</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Create dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

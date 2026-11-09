@@ -463,6 +463,13 @@
       "when": 1794236829275,
       "tag": "0065_visit_is_open_stable",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1794238728188,
+      "tag": "0066_carry_defects_to_next_visit",
+      "breakpoints": true
     }
   ]
 }

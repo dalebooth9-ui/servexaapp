@@ -115,3 +115,18 @@ describe('riser inspection sheets print on one A4 page', () => {
     expect(doc.getNumberOfPages()).toBe(1);
   });
 });
+
+describe('carried-forward remedial works', () => {
+  const remedials = [1, 2, 3].map(i => ({ id: `d${i}`, riser: 'Block G', title: 'Inlet box loose', works_required: 'Secure inlet box', materials_required: 'Fixings' }));
+  for (const t of templates as any[]) it(`${t.name} with 10 outlets and 3 remedials stays one A4 and lists them`, () => {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const info = job(false);
+    let fs = 99; const orig = doc.text.bind(doc); const texts: string[] = [];
+    (doc as any).text = (s: any, ...r: any[]) => { texts.push(String(s)); if (/Secure inlet box/.test(String(s))) fs = doc.getFontSize(); return orig(s, ...r); };
+    renderPaperFormPage(doc, { template: t, jobInfo: { ...info, riserVisit: { ...info.riserVisit, outlets_count: 10, remedials } }, logo: null, accreditationLogos: [], handfill: true });
+    expect(doc.getNumberOfPages()).toBe(1);
+    expect(texts.some(s => s.includes('REMEDIAL WORKS OUTSTANDING FROM PREVIOUS VISIT'))).toBe(true);
+    expect(fs).toBeGreaterThanOrEqual(8);
+    console.log(t.name, 'remedial font', fs);
+  });
+});
