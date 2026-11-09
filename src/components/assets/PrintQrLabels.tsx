@@ -7,11 +7,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { buildStickerPackPdf, loadOffsets, stickerUrl, stickerLogoUrl } from '@/lib/riserStickers';
+import { buildStickerPackPdf, loadOffsets, stickerUrl } from '@/lib/riserStickers';
 import { existingRiserLabels, labelSelection, type ExistingRiser, type ReprintLabel } from '@/lib/riserLabelReprints';
 import { riserOrFilter } from '@/lib/dryRisers';
-import { resolvePrintCustomer } from '@/lib/documentBrandingProfile';
-import { getGeneratingOrgFallbackLogoUrl } from '@/lib/generatingOrgBranding';
+import { resolveStickerBranding, missingStickerLogoNote } from '@/lib/stickerBranding';
+import { Link } from 'react-router-dom';
 
 export default function PrintQrLabels({ assetId, siteId, onlyOutlet, iconOnly = false, onPrinted }: {
   assetId?: string; siteId?: string; onlyOutlet?: number; iconOnly?: boolean; onPrinted?: () => void;
@@ -22,6 +22,7 @@ export default function PrintQrLabels({ assetId, siteId, onlyOutlet, iconOnly = 
   const [labels, setLabels] = useState<ReprintLabel[]>([]);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [logos, setLogos] = useState<Record<string, string | null>>({});
+  const [missing, setMissing] = useState<{ id?: string; name: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -54,13 +55,15 @@ export default function PrintQrLabels({ assetId, siteId, onlyOutlet, iconOnly = 
         if (!data || data.length < 1000) break;
       }
       const list = existingRiserLabels(rows, outlets).filter(l => onlyOutlet === undefined || l.outlet_number === onlyOutlet);
-      const logo = await getGeneratingOrgFallbackLogoUrl();
+      // Each riser's own site customer decides its sticker logo (mixed packs supported).
       const bySite: Record<string, string | null> = {};
+      const noLogo = new Map<string, { id?: string; name: string }>();
       for (const id of new Set(rows.map(r => r.site_id))) {
-        const customer = id ? await resolvePrintCustomer({ siteId: id }) : null;
-        bySite[id || ''] = customer?.print_logo_url || customer?.logo_url ? null : stickerLogoUrl(logo);
+        const b = await resolveStickerBranding({ siteId: id || null });
+        bySite[id || ''] = b.logoUrl;
+        if (b.choice.kind === 'missing') noLogo.set(b.choice.customerId || b.choice.customerName, { id: b.choice.customerId, name: b.choice.customerName });
       }
-      if (alive) { setRisers(rows); setLabels(list); setPicked(labelSelection(list, 'all')); setLogos(bySite); }
+      if (alive) { setRisers(rows); setLabels(list); setPicked(labelSelection(list, 'all')); setLogos(bySite); setMissing([...noLogo.values()]); }
     })().catch(() => { if (alive) toast.error('Could not load existing QR labels. Please try again.'); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
@@ -105,9 +108,10 @@ export default function PrintQrLabels({ assetId, siteId, onlyOutlet, iconOnly = 
         {selected.length > 0 && <div aria-label="Label preview" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {selected.map(l => <div key={l.tag} className="flex items-center gap-3 border rounded p-3 bg-background">
             <QRCodeSVG value={stickerUrl(l.tag)} size={72} />
-            <div className="flex-1 text-center"><p className="font-mono font-bold text-lg">{l.tag}</p>{logos[l.site_id || ''] && <img src={logos[l.site_id || ''] || ''} alt="Company logo" className="mx-auto mt-2 h-10 max-w-28 object-contain" />}</div>
+            <div className="flex-1 text-center"><p className="font-mono font-bold text-lg">{l.tag}</p>{logos[l.site_id || ''] && <img src={logos[l.site_id || ''] || ''} alt="Sticker logo" className="mx-auto mt-2 h-10 max-w-28 object-contain" />}</div>
           </div>)}
         </div>}
+        {missing.map(m => <p key={m.id || m.name} role="alert" className="text-sm rounded border border-destructive/40 bg-destructive/10 p-2">{missingStickerLogoNote(m.name)}{' '}{m.id && <Link className="underline font-medium" to={`/customers/${m.id}`}>Upload a logo</Link>}</p>)}
         <Button onClick={print} disabled={busy || !selected.length}><Printer className="h-4 w-4 mr-2" />{busy ? 'Preparing…' : `Print ${selected.length} label(s)`}</Button>
       </>}
     </DialogContent>
