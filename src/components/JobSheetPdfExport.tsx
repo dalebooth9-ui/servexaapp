@@ -1332,9 +1332,12 @@ export async function generateJobSheetPdf(
   const outletChecks = readOutletChecks(formData);
   if ((isDryRiser || isWetRiser) && /^[0-9a-f-]{36}$/i.test(riserAssetId)) {
     let total = 0;
+    let references: Record<string,number> = {};
     try {
       const { data: oa } = await supabase.from("assets").select("outlets_count").eq("id", riserAssetId).maybeSingle();
       total = Math.max(0, Math.min(200, Number(oa?.outlets_count) || 0));
+      const {data: codes} = await supabase.rpc('asset_outlet_codes',{_asset_id:riserAssetId});
+      references = (codes as {tags?:Record<string,number>} | null)?.tags || {};
     } catch { /* fall back to recorded outlets */ }
     if (!total) total = Math.max(0, ...Object.keys(outletChecks).map(Number).filter((n) => n > 0));
     if (total > 0) {
@@ -1347,19 +1350,20 @@ export async function generateJobSheetPdf(
       };
       head();
       doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-      doc.text(outletSummaryLine(total, outletChecks), margin, y); y += 7;
-      const cols = [margin, margin + 25, margin + 70, margin + 110];
+      const numbers = Object.keys(references).length ? Object.values(references).sort((a,b)=>a-b) : Array.from({length:total},(_,i)=>i+1);
+      doc.text(outletSummaryLine(numbers, outletChecks), margin, y); y += 7;
+      const cols = [margin, margin + 32, margin + 70, margin + 110];
       const row = (cells: string[], bold: boolean) => {
         doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(8.5);
         cells.forEach((c, i) => doc.text(doc.splitTextToSize(c, (cols[i + 1] ?? margin + maxWidth) - cols[i] - 2)[0] || "", cols[i] + 1, y));
         doc.setDrawColor(210, 214, 220); doc.line(margin, y + 2, margin + maxWidth, y + 2); y += 6;
       };
       row(["Outlet", "Status", "Time", "By / reason"], true);
-      for (let n = 1; n <= total; n++) {
+      for (const n of numbers) {
         if (y > pageHeight - 30) { head(); row(["Outlet", "Status", "Time", "By / reason"], true); }
         const c = outletChecks[String(n)];
         const t = c?.at ? new Date(c.at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
-        row([`Outlet ${n}`, c ? OUTLET_STATUS_LABEL[c.status] : "Not checked", c?.status === "missing" ? "" : t, [c?.by_name, c?.reason].filter(Boolean).join(" – ")], false);
+        row([Object.keys(references).find(t=>references[t]===n) || c?.tag || `Outlet ${n}`, c ? OUTLET_STATUS_LABEL[c.status] : "Not checked", c?.status === "missing" ? "" : t, [c?.by_name, c?.reason].filter(Boolean).join(" – ")], false);
       }
     }
   }

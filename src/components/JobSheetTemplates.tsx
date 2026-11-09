@@ -162,6 +162,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   const scanMode=scanParams.get('riserScan')==='1';
   const { user, userRole, profile } = useAuth();
   const [outletTotal, setOutletTotal] = useState(0);
+  const [outletNumbers, setOutletNumbers] = useState<number[]>([]);
   const [outletGate, setOutletGate] = useState<{ missing: number[]; reasons: Record<number, string>; step: "warn" | "reasons" } | null>(null);
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
@@ -1456,7 +1457,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   const isRiserReport = !!activeTemplate && (isDryRiserTemplate(activeTemplate) || isWetRiserTemplate(activeTemplate)) && /^[0-9a-f-]{36}$/i.test(String(formData.riser_asset_id || ""));
   const requestSubmit = () => {
     if (isRiserReport && outletTotal > 0) {
-      const missing = unresolvedOutlets(outletTotal, readOutletChecks(formData));
+      const missing = unresolvedOutlets(outletNumbers, readOutletChecks(formData));
       if (missing.length) { setOutletGate({ missing, reasons: {}, step: "warn" }); return; }
     }
     handleSubmit();
@@ -2484,6 +2485,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                 checks={readOutletChecks(formData)}
                 onChange={(c) => setFormData((prev) => ({ ...prev, _outlet_checks: c }))}
                 onTotal={setOutletTotal}
+                onNumbers={setOutletNumbers}
                 locked={activeResponse?.status === "submitted"}
                 userId={user?.id}
                 userName={(profile as any)?.full_name ?? null}
@@ -2783,7 +2785,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                 </DialogHeader>
                 {outletGate && (outletGate.step === "warn" ? (
                   <div className="space-y-3">
-                    <p className="text-sm">You've scanned {countChecked(outletTotal, readOutletChecks(formData))} of {outletTotal} outlets. Outlet{outletGate.missing.length > 1 ? "s" : ""} {outletGate.missing.join(", ")} {outletGate.missing.length > 1 ? "are" : "is"} missing.</p>
+                    <p className="text-sm">You've scanned {countChecked(outletNumbers, readOutletChecks(formData))} of {outletTotal} outlets. Outlet{outletGate.missing.length > 1 ? "s" : ""} {outletGate.missing.join(", ")} {outletGate.missing.length > 1 ? "are" : "is"} missing.</p>
                     <Button className="w-full h-12" onClick={() => setOutletGate(null)}>Go back and scan it</Button>
                     <Button variant="outline" className="w-full h-12" onClick={() => setOutletGate({ ...outletGate, step: "reasons" })}>Submit with a reason</Button>
                   </div>
