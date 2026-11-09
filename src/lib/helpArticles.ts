@@ -59,7 +59,9 @@ const RULES: SlugRule[] = [
   { test: (p) => p === '/assets/duplicates', slug: 'assets.duplicates' },
   { test: (p) => p.startsWith("/r/"), slug: "assets.stickers" },
   { test: (p) => p === '/riser-scan-service', slug: 'assets.stickers' },
-  // Asset guide includes permanent auto-created outlet codes, count changes/No longer fitted,
+  // Outlet references are RISER-N, inlet codes unchanged; suffixes are never reused.
+  // Sticker packs start each riser on a new row, inlet first, numeric outlet order,
+  // retaining selected-only printing. Asset guide covers count changes/No longer fitted,
   // Print QR labels, outlet checks, map links and reprint history; sticker guide covers
   // the original tagline-free Viva logo, large numbers, 20mm QR and plain customer labels.
   { test: (p) => p.startsWith("/assets/"), slug: "assets.detail" },

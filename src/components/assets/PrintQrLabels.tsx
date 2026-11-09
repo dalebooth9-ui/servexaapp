@@ -48,7 +48,7 @@ export default function PrintQrLabels({ assetId, siteId, onlyOutlet, iconOnly = 
       }
       const outlets = [];
       for (const r of rows) for (let from = 0; ; from += 1000) {
-        const { data, error } = await supabase.from('riser_outlet_tags').select('asset_id,outlet_number,outlet_tag').eq('org_id', orgId).eq('asset_id', r.id).order('id').range(from, from + 999);
+        const { data, error } = await supabase.from('riser_outlet_tags').select('asset_id,outlet_number,outlet_tag,is_fitted').eq('org_id', orgId).eq('asset_id', r.id).order('id').range(from, from + 999);
         if (error) throw error;
         outlets.push(...(data || []));
         if (!data || data.length < 1000) break;
@@ -76,7 +76,7 @@ export default function PrintQrLabels({ assetId, siteId, onlyOutlet, iconOnly = 
       const groups = new Map<string | null, ReprintLabel[]>();
       for (const l of selected) { const logo = logos[l.site_id || ''] || null; groups.set(logo, [...(groups.get(logo) || []), l]); }
       const docs = [];
-      for (const [logoUrl, items] of groups) docs.push(await buildStickerPackPdf({ items: items.map(l => ({ asset_tag: l.tag })), logoUrl, offsets: loadOffsets() }));
+      for (const [logoUrl, items] of groups) docs.push(await buildStickerPackPdf({ items: items.map(l => ({ asset_tag: l.tag, riserId: l.asset_id, outletNumber: l.outlet_number })), logoUrl, offsets: loadOffsets() }));
       const { error } = await supabase.rpc('log_riser_label_reprints', { _labels: selected.map(l => ({ asset_id: l.asset_id, outlet_number: l.outlet_number, tag: l.tag })) });
       if (error) throw error;
       docs.forEach((doc, i) => doc.save(`qr-label-reprints${docs.length > 1 ? `-${i + 1}` : ''}.pdf`));

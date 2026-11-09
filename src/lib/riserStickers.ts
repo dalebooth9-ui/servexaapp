@@ -90,7 +90,24 @@ async function loadImage(url: string): Promise<{ data: string; w: number; h: num
   } catch { return null; }
 }
 
-export type StickerItem = { asset_tag: string };
+export type StickerItem = { asset_tag: string; riserId?: string; outletNumber?: number };
+
+/** Selected labels only; sort numerically and leave unused cells before the next riser. */
+export function stickerSlots(items: StickerItem[], startPosition = 1) {
+  const ordered = [...items].sort((a, b) => {
+    const aRiser = a.riserId ?? a.asset_tag.split('-')[0];
+    const bRiser = b.riserId ?? b.asset_tag.split('-')[0];
+    return aRiser.localeCompare(bRiser) || (a.outletNumber ?? Number(a.asset_tag.split('-')[1]) || 0) - (b.outletNumber ?? Number(b.asset_tag.split('-')[1]) || 0);
+  });
+  let slot = Math.max(1, Math.min(LABELS_PER_SHEET, Math.floor(startPosition))) - 1;
+  let previous: string | undefined;
+  return ordered.map(item => {
+    const riser = item.riserId ?? item.asset_tag.split('-')[0];
+    if (previous !== undefined && riser !== previous) slot = Math.ceil(slot / L4778.cols) * L4778.cols;
+    previous = riser;
+    return { item, index: slot++ };
+  });
+}
 
 /**
  * Build the sticker pack PDF. `logoUrl` null → QR + ID only.
@@ -119,9 +136,8 @@ export async function buildStickerPackPdf(opts: {
   }
 
   let currentSheet = 0;
-  items.forEach((item, idx) => {
-    const start=Math.max(1,Math.min(LABELS_PER_SHEET,Math.floor(opts.startPosition||1)))-1;
-    const p = labelPosition(idx+start, opts.offsets);
+  stickerSlots(items, opts.startPosition).forEach(({item, index}) => {
+    const p = labelPosition(index, opts.offsets);
     if (p.sheet > currentSheet) {
       doc.addPage();
       currentSheet = p.sheet;
