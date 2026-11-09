@@ -85,18 +85,13 @@ export default function PriceBook() {
   }, [prefilled, loading, addParam, items]);
 
   // After saving from a quote, price that quote line and recalc its totals.
-  const applyToQuoteLine = async (itemId: string | null, price: number) => {
+  const applyToQuoteLine = async (_itemId: string | null, price: number) => {
     if (!lineParam) return;
     const { data: line } = await supabase.from("invoice_line_items").select("id, invoice_id, quantity").eq("id", lineParam).maybeSingle();
     if (!line) return;
     const qty = Number((line as any).quantity) || 0;
     const upd: any = { unit_price: price, amount: (qty * price).toFixed(2), price_match: "matched" };
-    if (itemId) upd.price_book_item_id = itemId;
-    let { error } = await supabase.from("invoice_line_items").update(upd).eq("id", lineParam);
-    if (error && itemId) {
-      delete upd.price_book_item_id;
-      ({ error } = await supabase.from("invoice_line_items").update(upd).eq("id", lineParam));
-    }
+    const { error } = await supabase.from("invoice_line_items").update(upd).eq("id", lineParam);
     if (error) { toast.error(error.message); return; }
     const invId = (line as any).invoice_id;
     const [{ data: lines }, { data: inv }] = await Promise.all([
