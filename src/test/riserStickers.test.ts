@@ -1,7 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { labelPosition, LABELS_PER_SHEET, L4778, stickerUrl,STICKER_CONTENT,stickerLogoSize,buildStickerPackPdf } from "@/lib/riserStickers";
+import { labelPosition, LABELS_PER_SHEET, L4778, stickerUrl,STICKER_CONTENT,stickerLogoSize,buildStickerPackPdf,stickerSlots } from "@/lib/riserStickers";
 
 describe("riser sticker layout (Avery L4778)", () => {
+  it('sorts each inlet before numeric outlets and starts the next riser on a new row', () => {
+    const slots=stickerSlots(['DNK27Z-10','ZZZ234-2','DNK27Z-2','DNK27Z','DNK27Z-1','ZZZ234'].map(asset_tag=>({asset_tag})));
+    expect(slots.map(s=>s.item.asset_tag)).toEqual(['DNK27Z','DNK27Z-1','DNK27Z-2','DNK27Z-10','ZZZ234','ZZZ234-2']);
+    expect(slots[4].index).toBe(4);
+  });
+  it('retains only selected labels and leaves spare cells before the next riser', () => {
+    const slots=stickerSlots([{asset_tag:'DNK27Z-10'},{asset_tag:'ZZZ234-3'}]);
+    expect(slots.map(s=>s.index)).toEqual([0,4]);
+    expect(slots.map(s=>s.item.asset_tag)).toEqual(['DNK27Z-10','ZZZ234-3']);
+  });
   it("is 4 across x 12 down of 45.7 x 21.2 mm labels", () => {
     expect(LABELS_PER_SHEET).toBe(48);
     expect(L4778.labelW).toBe(45.7);

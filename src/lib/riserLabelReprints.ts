@@ -5,9 +5,8 @@ export type ReprintLabel = { asset_id: string; outlet_number: number; tag: strin
 export function existingRiserLabels(risers: ExistingRiser[], outlets: ExistingOutlet[]): ReprintLabel[] {
   return risers.flatMap(r => {
     const labels: ReprintLabel[] = r.asset_tag ? [{ asset_id: r.id, outlet_number: 0, tag: r.asset_tag, name: 'Inlet', site_id: r.site_id }] : [];
-    for (let n = 1; n <= (r.outlets_count || 0); n++) {
-      const t = outlets.find(o => o.asset_id === r.id && o.outlet_number === n && o.is_fitted !== false);
-      if (t?.outlet_tag) labels.push({ asset_id: r.id, outlet_number: n, tag: t.outlet_tag, name: `Outlet ${n}`, site_id: r.site_id });
+    for (const t of outlets.filter(o => o.asset_id === r.id && o.is_fitted !== false).sort((a,b) => a.outlet_number-b.outlet_number)) {
+      if (t.outlet_tag) labels.push({ asset_id: r.id, outlet_number: t.outlet_number, tag: t.outlet_tag, name: `Outlet ${t.outlet_number}`, site_id: r.site_id });
     }
     return labels;
   });

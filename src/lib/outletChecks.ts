@@ -31,15 +31,19 @@ export function readOutletChecks(answers: any): OutletChecks {
 /** Pull the sticker number out of a scanned QR (servexa /r/<tag> URL or bare tag). */
 export function parseStickerTag(text: string): string | null {
   const s = (text || "").trim();
-  const m = s.match(/^https?:\/\/(?:www\.)?servexaapp\.com\/r\/([A-Za-z0-9]{4,12})\/?$/i);
+  const m = s.match(/^https?:\/\/(?:www\.)?servexaapp\.com\/r\/([A-Za-z0-9]{4,12}(?:-[1-9][0-9]*)?)\/?$/i);
   if (m) return m[1].toUpperCase();
   return null;
 }
 
 /** Outlets that are proven on this visit (scanned or manually confirmed). */
-export function countChecked(total: number, checks: OutletChecks) {
+export function outletNumbers(total: number | number[]) {
+  return Array.isArray(total) ? [...total].sort((a,b)=>a-b) : Array.from({length:total},(_,i)=>i+1);
+}
+
+export function countChecked(total: number | number[], checks: OutletChecks) {
   let n = 0;
-  for (let i = 1; i <= total; i++) {
+  for (const i of outletNumbers(total)) {
     const c = checks[String(i)];
     if (c && (c.status === "scanned" || c.status === "manual")) n++;
   }
@@ -47,9 +51,9 @@ export function countChecked(total: number, checks: OutletChecks) {
 }
 
 /** Outlet numbers with no scan/manual confirmation and no saved missing reason. */
-export function unresolvedOutlets(total: number, checks: OutletChecks): number[] {
+export function unresolvedOutlets(total: number | number[], checks: OutletChecks): number[] {
   const out: number[] = [];
-  for (let i = 1; i <= total; i++) if (!checks[String(i)]) out.push(i);
+  for (const i of outletNumbers(total)) if (!checks[String(i)]) out.push(i);
   return out;
 }
 
@@ -71,8 +75,9 @@ export function judgeScan(text: string, riserTags: Record<string, number>, check
   return { kind: "other_riser" };
 }
 
-export function outletSummaryLine(total: number, checks: OutletChecks) {
-  const scanned = Object.entries(checks).filter(([k, c]) => Number(k) <= total && c.status === "scanned").length;
-  const manual = Object.entries(checks).filter(([k, c]) => Number(k) <= total && c.status === "manual").length;
-  return `${scanned} of ${total} outlets scanned${manual ? `, ${manual} manually confirmed` : ""}`;
+export function outletSummaryLine(total: number | number[], checks: OutletChecks) {
+  const numbers = outletNumbers(total);
+  const scanned = numbers.filter(n => checks[String(n)]?.status === 'scanned').length;
+  const manual = numbers.filter(n => checks[String(n)]?.status === 'manual').length;
+  return `${scanned} of ${numbers.length} outlets scanned${manual ? `, ${manual} manually confirmed` : ""}`;
 }

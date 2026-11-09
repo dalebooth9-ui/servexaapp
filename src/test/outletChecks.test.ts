@@ -3,6 +3,16 @@ import { judgeScan, unresolvedOutlets, countChecked, parseStickerTag } from "@/l
 
 const tags = { ABC234: 1, DEF567: 2 };
 describe("outlet checks", () => {
+  it('recognises riser-suffixed references including outlet ten', () => {
+    expect(parseStickerTag('https://servexaapp.com/r/DNK27Z-10')).toBe('DNK27Z-10');
+    expect(judgeScan('https://servexaapp.com/r/DNK27Z-10', {'DNK27Z-10':10}, {})).toEqual({kind:'ok',outlet:10});
+    expect(parseStickerTag('https://servexaapp.com/r/DNK27Z-0')).toBeNull();
+  });
+  it('counts fitted suffixes with gaps without counting retired outlets', () => {
+    const checks = {'1':{status:'scanned' as const,at:'x'},'2':{status:'scanned' as const,at:'x'},'4':{status:'manual' as const,at:'x'}};
+    expect(countChecked([1,3,4],checks)).toBe(2);
+    expect(unresolvedOutlets([1,3,4],checks)).toEqual([3]);
+  });
   it("records a valid outlet of this riser", () => {
     expect(judgeScan("https://servexaapp.com/r/ABC234", tags, {})).toEqual({ kind: "ok", outlet: 1 });
   });

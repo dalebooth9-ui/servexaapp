@@ -11,7 +11,7 @@ import {
 } from "@/lib/outletChecks";
 
 type TagInfo = { total: number; tags: Record<string, number> };
-const cacheKey = (id: string) => `outlet_tags_${id}`;
+const cacheKey = (id: string) => `outlet_tags_v2_${id}`;
 
 /** Load this riser's outlet count + sticker numbers; cached so it works offline. */
 async function loadTagInfo(assetId: string): Promise<TagInfo> {
@@ -34,9 +34,9 @@ async function loadTagInfo(assetId: string): Promise<TagInfo> {
 
 const fmtTime = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
-export default function OutletChecksPanel({ assetId, checks, onChange, onTotal, locked, userId, userName }: {
+export default function OutletChecksPanel({ assetId, checks, onChange, onTotal, onNumbers, locked, userId, userName }: {
   assetId: string; checks: OutletChecks; onChange: (c: OutletChecks) => void; onTotal?: (n: number) => void;
-  locked?: boolean; userId?: string | null; userName?: string | null;
+  onNumbers?: (numbers:number[]) => void; locked?: boolean; userId?: string | null; userName?: string | null;
 }) {
   const [info, setInfo] = useState<TagInfo | null>(null);
   const [failed, setFailed] = useState(false);
@@ -47,7 +47,7 @@ export default function OutletChecksPanel({ assetId, checks, onChange, onTotal, 
 
   useEffect(() => {
     setInfo(null); setFailed(false);
-    loadTagInfo(assetId).then((i) => { setInfo(i); onTotal?.(i.total); }).catch(() => setFailed(true));
+    loadTagInfo(assetId).then((i) => { setInfo(i); onTotal?.(i.total); onNumbers?.(Object.values(i.tags)); }).catch(() => setFailed(true));
   }, [assetId]);
 
   const handleCode = async (text: string) => {
@@ -66,7 +66,7 @@ export default function OutletChecksPanel({ assetId, checks, onChange, onTotal, 
     }
     if (verdict.kind === "ok") {
       onChange({ ...checksRef.current, [String(verdict.outlet)]: { status: "scanned", at: new Date().toISOString(), by: userId, by_name: userName, tag } });
-      setMsg({ tone: "ok", text: `Outlet ${verdict.outlet} scanned` });
+      setMsg({ tone: "ok", text: `${tag} scanned` });
       if (tag && navigator.onLine) supabase.rpc("record_outlet_scan", { _tag: tag }).then(() => {}, () => {});
     } else if (verdict.kind === "already") {
       setMsg({ tone: "warn", text: `Already scanned – outlet ${verdict.outlet} is counted once` });
@@ -79,7 +79,7 @@ export default function OutletChecksPanel({ assetId, checks, onChange, onTotal, 
   };
 
   const confirmManual = (n: number, reason: string) => {
-    onChange({ ...checks, [String(n)]: { status: "manual", at: new Date().toISOString(), by: userId, by_name: userName, reason } });
+    onChange({ ...checks, [String(n)]: { status: "manual", at: new Date().toISOString(), by: userId, by_name: userName, tag: Object.keys(info?.tags || {}).find(t=>info?.tags[t]===n), reason } });
     setManualFor(null);
     setMsg({ tone: "ok", text: `Outlet ${n} manually confirmed` });
   };
@@ -88,7 +88,8 @@ export default function OutletChecksPanel({ assetId, checks, onChange, onTotal, 
   if (!info) return <Section><p className="text-xs text-muted-foreground">Loading outlets…</p></Section>;
   if (info.total === 0) return <Section><p className="text-xs text-muted-foreground">This riser has no outlets recorded. Ask the office to set the number of outlets on the riser.</p></Section>;
 
-  const done = countChecked(info.total, checks);
+  const numbers = Object.values(info.tags).sort((a,b)=>a-b);
+  const done = countChecked(numbers, checks);
   return (
     <Section>
       <div className="space-y-1">
@@ -106,14 +107,14 @@ export default function OutletChecksPanel({ assetId, checks, onChange, onTotal, 
         </div>
       )}
       <ul className="divide-y rounded-md border">
-        {Array.from({ length: info.total }, (_, i) => i + 1).map((n) => {
+        {numbers.map((n) => {
           const c = checks[String(n)];
           const ok = c && c.status !== "missing";
           return (
             <li key={n} className="flex items-center gap-3 px-3 py-2 min-h-12">
               {ok ? <CheckCircle2 className="h-6 w-6 text-primary shrink-0" /> : <Circle className="h-6 w-6 text-muted-foreground shrink-0" />}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">Outlet {n}</p>
+                <p className="text-sm font-medium">{Object.keys(info.tags).find(t=>info.tags[t]===n) || `Outlet ${n}`}</p>
                 <p className={`text-xs ${ok ? "text-muted-foreground" : "text-destructive font-medium"}`}>
                   {c ? `${STATUS_LABEL[c.status]} · ${fmtTime(c.at)}${c.reason ? ` · ${c.reason}` : ""}` : "Not scanned"}
                 </p>

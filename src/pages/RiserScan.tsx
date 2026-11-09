@@ -21,7 +21,7 @@ type Found = {
   customer_id: string | null; customer_name: string | null; open_defects: number;
 };
 
-const cleanTag = (t: string | undefined) => (t || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
+const cleanTag = (t: string | undefined) => (t || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
 
 /** Sticker scan page. Signed out (or customer portal users) see only the ID. */
 export default function RiserScan() {
