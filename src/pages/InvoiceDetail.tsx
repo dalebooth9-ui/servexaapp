@@ -66,6 +66,8 @@ export default function InvoiceDetail() {
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const printRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
 
   // Edit mode state
   const [editing, setEditing] = useState(false);
@@ -390,20 +392,77 @@ export default function InvoiceDetail() {
   };
 
 
+  // A4 portrait PDF: content is captured at the 186mm printable width, sliced
+  // between rows onto as many pages as needed, with the watermark centred and
+  // the accreditation footer repeated at the bottom of every page.
   const generatePdf = async (): Promise<jsPDF | null> => {
-    if (!printRef.current) return null;
+    if (!printRef.current || !contentRef.current) return null;
     setGeneratingPdf(true);
     try {
-      const canvas = await html2canvas(printRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
+      const PAGE_W = 210, PAGE_H = 297, M = 12, CW = PAGE_W - 2 * M;
+      const breaks: number[] = [];
+      let contentCssW = 0;
+      const prep = (d: Document) => {
+        const r = d.querySelector("[data-doc-root]") as HTMLElement | null;
+        if (r) { r.style.width = "210mm"; r.style.maxWidth = "none"; r.style.minHeight = "0"; r.style.padding = "12mm"; }
+        d.querySelectorAll("[data-print-hide],[data-doc-watermark],[data-doc-spacer]").forEach((e) => ((e as HTMLElement).style.display = "none"));
+      };
+      const contentCanvas = await html2canvas(contentRef.current, {
+        scale: 2, useCORS: true, backgroundColor: null,
+        onclone: (d) => {
+          prep(d);
+          const c = d.querySelector("[data-doc-content]") as HTMLElement | null;
+          if (!c) return;
+          const top = c.getBoundingClientRect().top;
+          contentCssW = c.getBoundingClientRect().width;
+          c.querySelectorAll("[data-pdf-row]").forEach((e) => breaks.push((e as HTMLElement).getBoundingClientRect().bottom - top));
+        },
       });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      const footerCanvas = footerRef.current
+        ? await html2canvas(footerRef.current, { scale: 2, useCORS: true, backgroundColor: null, onclone: prep })
+        : null;
+      const pxPerMm = contentCanvas.width / CW;
+      const cssToPx = contentCssW ? contentCanvas.width / contentCssW : 2;
+      const breakPx = breaks.map((b) => Math.round(b * cssToPx)).sort((a, b) => a - b);
+      const footerMm = footerCanvas ? (footerCanvas.height / footerCanvas.width) * CW : 0;
+      const usablePx = Math.floor((PAGE_H - 2 * M - footerMm - (footerCanvas ? 4 : 0)) * pxPerMm);
+
+      let wm: HTMLImageElement | null = null;
+      if (brandWatermark) {
+        wm = await new Promise((res) => {
+          const img = new Image(); img.crossOrigin = "anonymous";
+          img.onload = () => res(img); img.onerror = () => res(null); img.src = brandWatermark;
+        });
+      }
+
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageWpx = Math.round(PAGE_W * pxPerMm), pageHpx = Math.round(PAGE_H * pxPerMm), mPx = Math.round(M * pxPerMm);
+      let start = 0, pageNo = 0;
+      while (start < contentCanvas.height || pageNo === 0) {
+        let end = Math.min(start + usablePx, contentCanvas.height);
+        if (end < contentCanvas.height) {
+          const fit = breakPx.filter((b) => b > start + 20 && b <= end);
+          if (fit.length) end = fit[fit.length - 1];
+        }
+        const page = document.createElement("canvas");
+        page.width = pageWpx; page.height = pageHpx;
+        const ctx = page.getContext("2d")!;
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, pageWpx, pageHpx);
+        if (wm) {
+          const w = pageWpx * 0.7, h = (wm.height / wm.width) * w;
+          ctx.globalAlpha = 0.07; ctx.drawImage(wm, (pageWpx - w) / 2, (pageHpx - h) / 2, w, h); ctx.globalAlpha = 1;
+        }
+        ctx.drawImage(contentCanvas, 0, start, contentCanvas.width, end - start, mPx, mPx, contentCanvas.width, end - start);
+        if (footerCanvas) {
+          const fw = contentCanvas.width, fh = (footerCanvas.height / footerCanvas.width) * fw;
+          ctx.drawImage(footerCanvas, mPx, pageHpx - mPx - fh, fw, fh);
+        }
+        if (pageNo > 0) pdf.addPage("a4", "portrait");
+        pdf.addImage(page.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, PAGE_W, PAGE_H);
+        pageNo++;
+        if (end >= contentCanvas.height) break;
+        start = end;
+      }
       return pdf;
     } catch (err) {
       console.error("PDF generation error:", err);
@@ -868,12 +927,16 @@ export default function InvoiceDetail() {
             {/* Watermark + content wrapper */}
             <div
               ref={printRef}
-              className="bg-white text-foreground"
+              data-doc-root
+              className="bg-white text-foreground quote-a4-doc"
               style={{
                 color: "#1a1a1a",
                 position: "relative",
-                padding: "2rem",
-                minHeight: "1100px",
+                padding: "12mm",
+                width: "210mm",
+                maxWidth: "100%",
+                margin: "0 auto",
+                minHeight: "297mm",
                 display: "flex",
                 flexDirection: "column",
               }}
@@ -882,6 +945,7 @@ export default function InvoiceDetail() {
               {brandWatermark && (
                 <div
                   aria-hidden="true"
+                  data-doc-watermark
                   style={{
                     position: "absolute",
                     inset: 0,
@@ -897,7 +961,9 @@ export default function InvoiceDetail() {
               )}
 
               {/* All content sits above the watermark */}
+              <style>{`@page { size: A4 portrait; margin: 12mm; } @media print { .quote-a4-doc { width: auto !important; min-height: 0 !important; padding: 0 !important; } .quote-a4-doc [data-print-hide] { display: none !important; } }`}</style>
               <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column" }}>
+              <div ref={contentRef} data-doc-content style={{ display: "flex", flexDirection: "column" }}>
 
                 {/* ── Generating-org branded header ────────────────────── */}
               <div className="mb-6 flex flex-col items-center">
@@ -924,8 +990,8 @@ export default function InvoiceDetail() {
               <div style={{ borderTop: "2px solid #213D63", marginBottom: "1.5rem" }} />
 
               {/* Doc meta row */}
-              <div className="mb-6 flex justify-between items-start">
-                <div>
+              <div className="mb-6 flex justify-between items-start gap-4" data-pdf-row>
+                <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase" style={{ color: "#888" }}>{isQuote ? "Quote For" : "Bill To"}</p>
                   <p className="font-semibold" style={{ color: "#1a1a1a" }}>{invoice.customer_name}</p>
                   {invoice.customer_email && <p className="text-sm" style={{ color: "#555" }}>{invoice.customer_email}</p>}
@@ -942,14 +1008,21 @@ export default function InvoiceDetail() {
               </div>
 
               {/* Line items */}
-              <table className="w-full mb-6" style={{ borderCollapse: "collapse" }}>
+              <table className="w-full mb-6" style={{ borderCollapse: "collapse", tableLayout: "fixed" }}>
+                <colgroup>
+                  <col />
+                  <col style={{ width: "12%" }} />
+                  <col style={{ width: "18%" }} />
+                  <col style={{ width: "18%" }} />
+                  {userRole === "admin" && <col data-print-hide style={{ width: "5rem" }} />}
+                </colgroup>
                 <thead>
-                  <tr style={{ borderBottom: "2px solid #213D63" }}>
+                  <tr data-pdf-row style={{ borderBottom: "2px solid #213D63" }}>
                     <th className="py-2 text-left text-xs font-semibold uppercase" style={{ color: "#213D63" }}>Description</th>
                     <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#213D63" }}>Qty</th>
                     <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#213D63" }}>Unit Price</th>
                     <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#213D63" }}>Amount</th>
-                    {userRole === "admin" && <th className="py-2 w-20" />}
+                    {userRole === "admin" && <th data-print-hide className="py-2 w-20" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -996,16 +1069,17 @@ export default function InvoiceDetail() {
                     ) : (
                       <tr
                         key={item.id}
+                        data-pdf-row
                         style={{ borderBottom: "1px solid #f0f0f0" }}
                         className={userRole === "admin" ? "cursor-pointer hover:bg-muted/20 transition-colors" : ""}
                         onClick={() => userRole === "admin" && startInlineEdit(idx)}
                       >
-                        <td className="py-2.5 text-sm" style={{ color: "#1a1a1a" }}>{item.description}</td>
+                        <td className="py-2.5 pr-3 text-sm whitespace-pre-line" style={{ color: "#1a1a1a", overflowWrap: "anywhere" }}>{item.description}</td>
                         <td className="py-2.5 text-sm text-right" style={{ color: "#555" }}>{Number(item.quantity)}</td>
                         <td className="py-2.5 text-sm text-right" style={{ color: "#555" }}>£{Number(item.unit_price).toFixed(2)}</td>
                         <td className="py-2.5 text-sm text-right font-medium" style={{ color: "#1a1a1a" }}>£{Number(item.amount).toFixed(2)}</td>
                         {userRole === "admin" && (
-                          <td className="py-2.5 text-right">
+                          <td data-print-hide className="py-2.5 text-right">
                             <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 inline-block" />
                           </td>
                         )}
@@ -1016,7 +1090,7 @@ export default function InvoiceDetail() {
               </table>
 
               {/* Totals */}
-              <div className="flex justify-end mb-8">
+              <div className="flex justify-end mb-8" data-pdf-row>
                 <div className="w-64 space-y-1 text-sm">
                   <div className="flex justify-between" style={{ color: "#555" }}>
                     <span>Subtotal</span>
@@ -1037,7 +1111,7 @@ export default function InvoiceDetail() {
 
               {/* Notes */}
               {invoice.notes && (
-                <div className="mb-8 rounded border p-3 text-sm" style={{ borderColor: "#e5e5e5", color: "#555" }}>
+                <div data-pdf-row className="mb-8 rounded border p-3 text-sm" style={{ borderColor: "#e5e5e5", color: "#555", breakInside: "avoid" }}>
                   <p className="text-xs font-semibold uppercase mb-1" style={{ color: "#888" }}>Notes</p>
                   <p className="whitespace-pre-line">{invoice.notes}</p>
                 </div>
@@ -1050,12 +1124,13 @@ export default function InvoiceDetail() {
                 </p>
               )}
 
+              </div>{/* end content */}
                 {/* Spacer pushes footer to bottom */}
-                <div style={{ flex: 1 }} />
+                <div data-doc-spacer style={{ flex: 1 }} />
 
                 {/* ── Accreditation footer ──────────────────────────────── */}
                 {custAccredLogos.length > 0 && (
-                <div style={{ borderTop: "2px solid #213D63", paddingTop: "0.6rem", marginTop: "2rem" }}>
+                <div ref={footerRef} style={{ borderTop: "2px solid #213D63", paddingTop: "0.6rem", marginTop: "2rem" }}>
                   <div className="flex items-center justify-center gap-6">
                     {custAccredLogos.map((src) => (
                       <img
@@ -1063,7 +1138,7 @@ export default function InvoiceDetail() {
                         src={src}
                         alt=""
                         crossOrigin="anonymous"
-                        style={{ height: 60, objectFit: "contain", opacity: 0.22 }}
+                        style={{ height: 48, maxWidth: "18%", objectFit: "contain", opacity: 0.22 }}
                       />
                     ))}
                   </div>
