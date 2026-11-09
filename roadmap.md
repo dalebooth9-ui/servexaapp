@@ -1,5 +1,10 @@
 # Roadmap
 
+## Permanent riser-based outlet references
+- [ ] Replace random outlet references across all companies without changing inlet codes; retire removed numbers permanently and allocate only fresh suffixes.
+- [ ] Update outlet lists, scanner, reports and grouped row-aligned sticker packs, retaining selected-only printing.
+- [ ] Verify numbering, live outlet totals and print layout, update Help, report renumbered count and build time.
+
 ## Compact printed Cabinet keys
 - [x] Removed the riser-sheet Cabinet keys header box, filled the details table and added a blank first External Equipment row without changing digital records.
 - [x] Fifteen focused tests pass; all four Pressure/Visual 8/10-outlet PDFs remain one A4 and were visually checked. Signed-in VFP-00278 Download PDF produced seven A4 sheets with seven Cabinet keys rows. Help updated; build OK 12:36 UTC/London. Physical printing not available.
