@@ -552,7 +552,7 @@ export function renderPaperFormPage(
     }
   }
 
-  const colSplit = margin + maxWidth * 0.70;
+  const colSplit = margin + maxWidth * (isRiserInspection ? 0.63 : 0.70);
   const availH = bodyBottom - cursorY;
 
   // Adaptive fit — always one A4 page per sheet. Try the largest row
@@ -636,9 +636,11 @@ export function renderPaperFormPage(
       const ansMaxW = margin + maxWidth - colSplit - 4;
       if (field?.id === 'outlet_valve_type') {
         doc.setFont("helvetica", "normal");
-        const fs = fit.font.ans;
-        doc.setFontSize(fs);
         const colW = ansMaxW / 2;
+        let fs = fit.font.ans;
+        doc.setFontSize(fs);
+        // Same size as other answers where it fits; shrink only if a choice would overflow its half.
+        while (fs > 7 && Math.max(...VALVE_CHOICES.map(c => doc.getTextWidth(c))) + fs * 0.33 + 1.5 > colW) { fs -= 0.25; doc.setFontSize(fs); }
         const half = rowH / 2;
         VALVE_CHOICES.forEach((c, i) => {
           const cx = ansX + (i % 2) * colW;
