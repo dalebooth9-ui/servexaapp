@@ -586,6 +586,7 @@ export function renderPaperFormPage(
     fit.forced = Math.max(2.5, availH / Math.max(1, items.length));
     fit.rowH = fit.secH = fit.forced;
   }
+  if (process.env.RISER_FIT_DEBUG) console.log("FIT", template.name, JSON.stringify(fit), availH);
   const itemHeight = (it: BodyItem, rowH: number, secH: number) =>
     fit.forced ? fit.forced : itemHeightAt(it, rowH, secH, fit.font.label);
 
