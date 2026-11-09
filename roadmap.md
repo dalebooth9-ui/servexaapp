@@ -1,9 +1,9 @@
 # Roadmap
 
 ## Permanent riser-based outlet references
-- [ ] Replace random outlet references across all companies without changing inlet codes; retire removed numbers permanently and allocate only fresh suffixes.
-- [ ] Update outlet lists, scanner, reports and grouped row-aligned sticker packs, retaining selected-only printing.
-- [ ] Verify numbering, live outlet totals and print layout, update Help, report renumbered count and build time.
+- [x] Replaced all 5,344 random outlet references across companies; inlet codes unchanged. Allocation locks the riser and records its highest-ever suffix; count decreases retire highest fitted outlets and later additions get fresh suffixes.
+- [x] Lists, scanner, report export and office check results consume saved fitted numbers. Shared sticker printing sorts inlet first then numeric outlets, starts each riser on a new row and retains selected-only printing and text fitting.
+- [x] Twenty-two focused tests pass; database confirms all 5,344 references match and high-water marks cover every suffix. Signed-in scan/list/mobile picker and eight-outlet-only downloaded PDF checked; sample DNK27Z-10 PDF visibly fits on one line with the next riser starting a new row. Help updated; build OK 09:28 UTC, completion 09:30 UTC/London. Physical printing and a saved customer-report export were not exercised.
 
 ## Compact printed Cabinet keys
 - [x] Removed the riser-sheet Cabinet keys header box, filled the details table and added a blank first External Equipment row without changing digital records.
