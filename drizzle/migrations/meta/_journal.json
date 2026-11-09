@@ -449,6 +449,13 @@
       "when": 1794224818412,
       "tag": "0063_sync_job_visits_to_planner",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1794236816926,
+      "tag": "0064_carry_job_engineers_to_visits",
+      "breakpoints": true
     }
   ]
 }
