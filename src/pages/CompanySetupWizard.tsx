@@ -42,18 +42,18 @@ export default function CompanySetupWizard() {
 
   useEffect(() => { (async () => {
     const id = await requireCurrentOrgId(); setOrgId(id);
-    const [org, brand, prog, cats] = await Promise.all([
+    const [org, brand, prog, cats, mail] = await Promise.all([
       supabase.from("organisations").select("name, logo_url, primary_color, office_email").eq("id", id).maybeSingle(),
       supabase.from("app_settings").select("value").eq("org_id", id).eq("key", "org_branding").maybeSingle(),
       supabase.from("app_settings").select("value").eq("org_id", id).eq("key", PROGRESS_KEY).maybeSingle(),
       supabase.from("job_categories").select("id, name").eq("org_id", id).order("sort_order"),
       supabase.from("email_branding").select("address, phone, reply_to, from_address, website").eq("org_id", id).maybeSingle(),
     ]);
-    const eb: any = (arguments as any, (await Promise.resolve(null)), null);
+    const eb: any = mail.data || {};
     const b: any = brand.data?.value || {}; const o: any = org.data || {}; const p: any = prog.data?.value || {};
     setD({
-      company_name: b.company_name || o.name || "", address: b.address || "", phone: b.phone || "", email: b.email || o.office_email || "",
-      website: b.website || "", logo_url: o.logo_url || "", primary_color: o.primary_color || "",
+      company_name: b.company_name || o.name || "", address: b.address || eb.address || "", phone: b.phone || eb.phone || "", email: b.email || o.office_email || eb.reply_to || eb.from_address || "",
+      website: b.website || eb.website || "", logo_url: o.logo_url || "", primary_color: o.primary_color || "",
       report_footer_text: b.report_footer_text || "", accreditation_logo_urls: Array.isArray(b.accreditation_logo_urls) ? b.accreditation_logo_urls : [],
     });
     if (typeof p.step === "number") setStep(Math.min(4, Math.max(0, p.step)));
