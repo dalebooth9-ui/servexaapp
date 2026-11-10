@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2, Plus, BookOpen, Search, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 type Item = {
   id: string;
@@ -27,6 +28,10 @@ type Item = {
   unit_price: number;
   notes: string | null;
   is_active: boolean;
+  customer_id: string | null;
+  rate_list: string | null;
+  pricing_kind: string;
+  price_needed: boolean;
 };
 
 const EMPTY: Omit<Item, "id"> = {
@@ -37,6 +42,7 @@ const EMPTY: Omit<Item, "id"> = {
   unit_price: 0,
   notes: "",
   is_active: true,
+  customer_id: null, rate_list: null, pricing_kind: 'remedial', price_needed: false,
 };
 
 export default function PriceBook() {
@@ -54,15 +60,14 @@ export default function PriceBook() {
   const lineParam = params.get("line");
   const returnTo = params.get("returnTo");
   const [prefilled, setPrefilled] = useState(false);
+  const [customers,setCustomers]=useState<{id:string;name:string}[]>([]);
+  const [rules,setRules]=useState({threshold:95,local_fee:40,distant_fee:60});
+  useEffect(()=>{fetchAllRows<{id:string;name:string}>('customers','id,name','id').then(setCustomers);supabase.from('app_settings').select('value').eq('key','remedial_quote_pricing').maybeSingle().then(({data})=>{if(data)setRules(data.value as any);});},[]);
+  const saveRules=async()=>{const {data:o,error:oe}=await supabase.rpc('get_user_org_id');if(oe || !o)return toast.error('Company unavailable');const {error}=await supabase.from('app_settings').upsert({org_id:o,key:'remedial_quote_pricing',value:rules});if(error)toast.error(error.message);else toast.success('Attendance settings saved');};
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await (supabase as any)
-      .from("price_book_items")
-      .select("*")
-      .order("description", { ascending: true });
-    if (error) toast.error(error.message);
-    setItems((data as Item[]) || []);
+    try { setItems(await fetchAllRows<Item>('price_book_items','*','id')); } catch(e:any){toast.error(e.message);}
     setLoading(false);
   };
 
@@ -87,6 +92,7 @@ export default function PriceBook() {
   // After saving from a quote, price that quote line and recalc its totals.
   const applyToQuoteLine = async (_itemId: string | null, price: number) => {
     if (!lineParam) return;
+    if (_itemId) { const {error}=await supabase.rpc('apply_quote_price',{p_line:lineParam,p_item:_itemId});if(error)throw error;return; }
     const { data: line } = await supabase.from("invoice_line_items").select("id, invoice_id, quantity").eq("id", lineParam).maybeSingle();
     if (!line) return;
     const qty = Number((line as any).quantity) || 0;
@@ -110,7 +116,8 @@ export default function PriceBook() {
       it.description.toLowerCase().includes(q) ||
       (it.code || "").toLowerCase().includes(q) ||
       (it.category || "").toLowerCase().includes(q),
-    );
+      // Customer/rate list names are included below.
+    ) || items.filter(it => (it.rate_list || '').toLowerCase().includes(q));
   }, [items, search]);
 
   const openNew = () => {
