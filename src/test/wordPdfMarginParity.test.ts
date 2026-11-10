@@ -39,9 +39,17 @@ const PNG_1x1 = Uint8Array.from([
 (globalThis as unknown as { fetch: typeof fetch }).fetch = (async (input: any) => {
   const url = typeof input === "string" ? input : String(input?.url ?? input);
   if (url.includes("/rest/v1/")) {
-    const body = url.includes("/rpc/get_user_org_id")
-      ? JSON.stringify("11111111-1111-1111-1111-111111111111")
-      : "[]";
+    let body = "[]";
+    if (url.includes("/rpc/get_user_org_id")) {
+      body = JSON.stringify("11111111-1111-1111-1111-111111111111");
+    } else if (url.includes("/organisations")) {
+      body = JSON.stringify({
+        id: "11111111-1111-1111-1111-111111111111",
+        name: "Viva Fire",
+        logo_url: null,
+        primary_color: "#1F4E79",
+      });
+    }
     return new Response(body, { status: 200, headers: { "content-type": "application/json" } });
   }
   return new Response(PNG_1x1, { status: 200, headers: { "content-type": "image/png" } });
