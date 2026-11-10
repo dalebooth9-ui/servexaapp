@@ -86,7 +86,13 @@ export default function PriceBook() {
       || (addParam.includes(":") ? addParam.split(":")[0].trim() : "");
     if (cat) setSearch(cat);
     setEditing(null);
-    setForm({ ...EMPTY, description: addParam, category: cat });
+    setForm({ ...EMPTY, description: addParam, category: cat || 'Remedial works' });
+    if(lineParam) supabase.from('invoice_line_items').select('invoice_id,price_book_item_id').eq('id',lineParam).maybeSingle().then(async({data})=>{
+      if(!data)return;
+      if(data.price_book_item_id){const existing=items.find(i=>i.id===data.price_book_item_id);if(existing){setEditing(existing);const {id,...rest}=existing;setForm(rest);return;}}
+      const {data:q}=await supabase.from('invoices').select('customer_id').eq('id',data.invoice_id).maybeSingle();
+      if(q?.customer_id){const customer=customers.find(c=>c.id===q.customer_id);setForm(prev=>({...prev,customer_id:q.customer_id,rate_list:customer?.name || null}));}
+    });
     setDialogOpen(true);
   }, [prefilled, loading, addParam, items]);
 
@@ -136,6 +142,7 @@ export default function PriceBook() {
   const save = async () => {
     if (!user) return;
     if (!form.description.trim()) return toast.error("Description is required");
+    if(!Number.isFinite(form.unit_price) || form.unit_price<0)return toast.error('Enter a price of zero or more, or leave it blank');
     setBusy(true);
     const payload: any = {
       code: form.code?.trim() || null,
@@ -153,6 +160,7 @@ export default function PriceBook() {
       const { error } = await (supabase as any)
         .from("price_book_items").update(payload).eq("id", editing.id);
       err = error;
+      if(!error && lineParam && !payload.price_needed){try{await applyToQuoteLine(editing.id,payload.unit_price);}catch(e:any){err=e;}}
     } else {
       const { data: prof } = await supabase
         .from("profiles").select("org_id").eq("user_id", user.id).maybeSingle();
@@ -167,7 +175,7 @@ export default function PriceBook() {
     }
     setBusy(false);
     if (err) return toast.error(err.message);
-    if (!editing && lineParam && !payload.price_needed && returnTo?.startsWith("/") && !returnTo.startsWith('//')) {
+    if (lineParam && !payload.price_needed && returnTo?.startsWith("/") && !returnTo.startsWith('//')) {
       toast.success("Price added and applied to the quote");
       navigate(returnTo);
       return;
