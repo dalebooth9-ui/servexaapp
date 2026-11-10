@@ -11974,6 +11974,7 @@ export type Database = {
         Args: { _customer_ids: string[] }
         Returns: Json
       }
+      delete_jobs_safely: { Args: { _job_ids: string[] }; Returns: number }
       draft_quote_from_defects: {
         Args: { _defect_ids: string[] }
         Returns: string
@@ -12241,6 +12242,7 @@ export type Database = {
           role: string
         }[]
       }
+      preview_job_delete: { Args: { _job_ids: string[] }; Returns: Json }
       preview_job_merge: {
         Args: { _job_ids: string[]; _keep_id: string }
         Returns: Json

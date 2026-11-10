@@ -1,4 +1,5 @@
 import { isQueued, readQueue } from "@/lib/reportReview";
+import JobDeleteDialog from "@/components/jobs/JobDeleteDialog";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import PoImportDialog from "@/components/PoImportDialog";
@@ -159,7 +160,8 @@ export default function Jobs() {
       return changed ? next : prev;
     });
   }, [jobs]);
-  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [deleteIds, setDeleteIds] = useState<string[]>([]);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [bulkStatusValue, setBulkStatusValue] = useState("");
   const [bulkPriorityValue, setBulkPriorityValue] = useState("");
   const [bulkEngineerValue, setBulkEngineerValue] = useState("");
@@ -428,55 +430,13 @@ export default function Jobs() {
     }
   };
 
-  const handleDeleteJob = async (jobId: string) => {
-    const deletedJob = jobs.find((j) => j.id === jobId);
-    if (!deletedJob) return;
-    setJobs((prev) => prev.filter((j) => j.id !== jobId));
-    deleteWithUndo({
-      key: jobId,
-      label: "Job deleted",
-      onConfirm: async () => {
-        await blockMellorRef(deletedJob.reference_number);
-        const { error } = await supabase.from("jobs").delete().eq("id", jobId);
-        if (error) {
-          toast({ title: "Error", description: "Failed to delete job.", variant: "destructive" });
-          setJobs((prev) => [...prev, deletedJob]);
-        }
-      },
-      onUndo: async () => {
-        // Re-insert the job so it comes back after undo
-        const { id, customers, ...jobData } = deletedJob;
-        await supabase.from("jobs").insert({ ...jobData, id } as any);
-        setJobs((prev) => [...prev, deletedJob]);
-      },
-    });
-  };
+  const handleDeleteJob = (jobId: string) => { setDeleteIds([jobId]); setDeleteOpen(true); };
 
-  const handleBulkDelete = async () => {
-    const ids = Array.from(selectedJobIds);
-    const deletedJobs = jobs.filter((j) => ids.includes(j.id));
-    setJobs((prev) => prev.filter((j) => !selectedJobIds.has(j.id)));
-    setSelectedJobIds(new Set());
-    setBulkDeleteOpen(false);
-    deleteWithUndo({
-      key: `bulk-${ids.join(",")}`,
-      label: `${ids.length} job(s) deleted`,
-      onConfirm: async () => {
-        await Promise.all(deletedJobs.map((j) => blockMellorRef(j.reference_number)));
-        const { error } = await supabase.from("jobs").delete().in("id", ids);
-        if (error) {
-          toast({ title: "Error", description: "Failed to delete jobs.", variant: "destructive" });
-          setJobs((prev) => [...prev, ...deletedJobs]);
-        }
-      },
-      onUndo: async () => {
-        for (const job of deletedJobs) {
-          const { id, customers, ...jobData } = job;
-          await supabase.from("jobs").insert({ ...jobData, id } as any);
-        }
-        setJobs((prev) => [...prev, ...deletedJobs]);
-      },
-    });
+  const handleBulkDelete = () => { setDeleteIds(Array.from(selectedJobIds)); setDeleteOpen(true); };
+
+  const handleDeleteDone = (ids: string[]) => {
+    setJobs((prev) => prev.filter((j) => !ids.includes(j.id)));
+    setSelectedJobIds((prev) => { const n = new Set(prev); ids.forEach((i) => n.delete(i)); return n; });
   };
 
   const handleSelectJob = (id: string, checked: boolean) => {
@@ -2388,27 +2348,10 @@ export default function Jobs() {
                 <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleBulkExportCsv}>
                   <Download className="mr-1.5 h-3 w-3" /> Export CSV
                 </Button>
-                <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" className="h-7 text-xs ml-auto">
-                      <Trash2 className="mr-1.5 h-3 w-3" /> Delete {selectedJobIds.size}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete {selectedJobIds.size} job(s)?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete the selected jobs and all associated data. This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleBulkDelete}>
-                        Delete {selectedJobIds.size} Job(s)
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+<Button variant="destructive" size="sm" className="h-7 text-xs ml-auto" onClick={handleBulkDelete}>
+                  <Trash2 className="mr-1.5 h-3 w-3" /> Delete {selectedJobIds.size}
+                </Button>
+
               </>
             )}
           </div>
@@ -2416,6 +2359,14 @@ export default function Jobs() {
       )}
 
 
+
+<JobDeleteDialog
+                  jobIds={deleteIds}
+                  open={deleteOpen}
+                  onOpenChange={setDeleteOpen}
+                  onDone={handleDeleteDone}
+                  beforeDelete={async (ids) => { await Promise.all(jobs.filter((j) => ids.includes(j.id)).map((j) => blockMellorRef(j.reference_number))); }}
+                />
 
       {filtered.length === 0 ? (
         <Card>
