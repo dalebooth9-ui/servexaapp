@@ -55,7 +55,7 @@ describe('scope of work underline covers the whole heading', () => {
 
   it('falls back to the library measurement for fonts it does not know', () => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-    doc.setFont('helvetica', 'bold');
+    doc.setFont('courier', 'normal');
     doc.setFontSize(12);
     expect(pdfTextWidthUnits(doc, 'Riser')).toBeCloseTo(doc.getTextWidth('Riser'), 3);
   });
