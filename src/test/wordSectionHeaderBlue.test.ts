@@ -63,7 +63,7 @@ describe("Word section-header banner styling", () => {
       new RegExp(`<w:shd[^/]*w:fill="${SECTION_HEADER_BLUE}"`, "g"),
     ) || [];
     // 2 sections × 2 cells (label + RESULT) = 4 shaded cells minimum.
-    console.log("BLUECELLS>>", blueShadingMatches.length, "RESULTRUN>>", !!resultRun);
+    console.log("BLUECELLS>>", blueShadingMatches.length);
     expect(blueShadingMatches.length).toBeGreaterThanOrEqual(4);
 
     // The "RESULT" header label is rendered bold white on the blue band.
