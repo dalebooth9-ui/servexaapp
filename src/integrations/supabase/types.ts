@@ -12054,6 +12054,7 @@ export type Database = {
       customer_user_org_id: { Args: { _uid: string }; Returns: string }
       customer_user_portal_enabled: { Args: { _uid: string }; Returns: boolean }
       defect_customer: { Args: { p_defect: string }; Returns: string }
+      defect_customer_for_quote: { Args: { p_defect: string }; Returns: string }
       defect_job_candidates: {
         Args: { p_defect: string }
         Returns: {

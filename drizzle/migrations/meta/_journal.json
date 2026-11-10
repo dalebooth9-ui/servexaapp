@@ -498,6 +498,13 @@
       "when": 1794305784671,
       "tag": "0070_customer_price_book_and_quote_charges",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1794305845812,
+      "tag": "0071_resolve_defect_quote_customer",
+      "breakpoints": true
     }
   ]
 }
