@@ -505,6 +505,13 @@
       "when": 1794305845812,
       "tag": "0071_resolve_defect_quote_customer",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1794324540393,
+      "tag": "0072_restore_org_read_grant",
+      "breakpoints": true
     }
   ]
 }
