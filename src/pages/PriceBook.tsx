@@ -18,6 +18,7 @@ import {
 import { Loader2, Plus, BookOpen, Search, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { fetchAllRows } from '@/lib/fetchAllRows';
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from '@/components/ui/select';
 
 type Item = {
   id: string;
@@ -161,7 +162,7 @@ export default function PriceBook() {
         .from("price_book_items").insert({ ...payload, org_id, created_by: user.id }).select("id").maybeSingle();
       err = error;
       if (!error && lineParam && !payload.price_needed) {
-        await applyToQuoteLine(created?.id ?? null, payload.unit_price);
+        try { await applyToQuoteLine(created?.id ?? null, payload.unit_price); } catch(e:any){err=e;}
       }
     }
     setBusy(false);
@@ -298,8 +299,8 @@ export default function PriceBook() {
             <DialogTitle>{editing ? "Edit price line" : "New price line"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3">
-            <label className="text-xs">Customer price list<select className="w-full border rounded-md p-2 bg-background" value={form.customer_id || ''} onChange={e=>{const c=customers.find(c=>c.id===e.target.value);setForm({...form,customer_id:c?.id || null,rate_list:c?.name || null});}}><option value="">General prices / unassigned</option>{customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-            <label className="text-xs">Type<select className="w-full border rounded-md p-2 bg-background" value={form.pricing_kind} onChange={e=>setForm({...form,pricing_kind:e.target.value})}><option value="remedial">Remedial works</option><option value="servicing">Extinguisher servicing</option></select></label>
+            <label className="text-xs">Customer price list<Select value={form.customer_id || 'general'} onValueChange={id=>{const c=customers.find(c=>c.id===id);setForm({...form,customer_id:c?.id || null,rate_list:c?.name || null});}}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="general">General prices / unassigned</SelectItem>{customers.map(c=><SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></label>
+            <label className="text-xs">Type<Select value={form.pricing_kind} onValueChange={v=>setForm({...form,pricing_kind:v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="remedial">Remedial works</SelectItem><SelectItem value="servicing">Extinguisher servicing</SelectItem></SelectContent></Select></label>
             <div className="grid grid-cols-3 gap-2">
               <div className="col-span-1">
                 <label className="text-xs text-muted-foreground">Code (optional)</label>

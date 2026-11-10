@@ -176,6 +176,11 @@ export default function InvoiceDetail() {
       if (invErr) throw invErr;
 
       // Delete existing line items and re-insert
+      if(isQuote && lineItems.some(it=>it.automated_charge)) {
+        const previous=lineItems.find(it=>it.automated_charge);const next=editItems.find(it=>it.automated_charge);
+        const mode=!next?'removed':Number(next.unit_price)!==Number(previous.unit_price)?'override':invoice.attendance_mode;
+        if(mode!==invoice.attendance_mode){const {error}=await supabase.from('invoices').update({attendance_mode:mode}).eq('id',id);if(error)throw error;}
+      }
       await supabase.from("invoice_line_items").delete().eq("invoice_id", id);
 
       const validItems = editItems.filter((it) => it.description?.trim());
@@ -820,7 +825,7 @@ export default function InvoiceDetail() {
                           {" — no price book match, "}
                           <Link
                             to={`/settings/price-book?add=${encodeURIComponent(it.description || "")}&line=${it.id}&returnTo=${encodeURIComponent(`/invoices/${id}`)}`}
-                            className="font-bold hover:underline"
+                            className="font-bold text-accent hover:underline"
                           >
                             add a price
                           </Link>
