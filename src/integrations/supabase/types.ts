@@ -2381,6 +2381,7 @@ export type Database = {
           resolution_notes: string | null
           resolved_at: string | null
           resolved_by: string | null
+          scheduled_asset_id: string | null
           scheduled_job_id: string | null
           scheduled_visit_id: string | null
           severity: string
@@ -2419,6 +2420,7 @@ export type Database = {
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          scheduled_asset_id?: string | null
           scheduled_job_id?: string | null
           scheduled_visit_id?: string | null
           severity?: string
@@ -2457,6 +2459,7 @@ export type Database = {
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          scheduled_asset_id?: string | null
           scheduled_job_id?: string | null
           scheduled_visit_id?: string | null
           severity?: string
@@ -2532,6 +2535,13 @@ export type Database = {
             columns: ["remedial_job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_scheduled_asset_id_fkey"
+            columns: ["scheduled_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
             referencedColumns: ["id"]
           },
           {
@@ -11817,6 +11827,18 @@ export type Database = {
         Returns: Json
       }
       asset_outlet_codes: { Args: { _asset_id: string }; Returns: Json }
+      attach_defects_to_job: {
+        Args: { p_defect_ids: string[]; p_job?: string }
+        Returns: {
+          defect_id: string
+          job_id: string
+          job_ref: string
+          outcome: string
+          report_name: string
+          site_name: string
+          visit_date: string
+        }[]
+      }
       attach_defects_to_quote: {
         Args: { _defect_ids: string[]; _quote_id: string }
         Returns: string
@@ -11966,6 +11988,17 @@ export type Database = {
       customer_user_customer_id: { Args: { _uid: string }; Returns: string }
       customer_user_org_id: { Args: { _uid: string }; Returns: string }
       customer_user_portal_enabled: { Args: { _uid: string }; Returns: boolean }
+      defect_customer: { Args: { p_defect: string }; Returns: string }
+      defect_job_candidates: {
+        Args: { p_defect: string }
+        Returns: {
+          id: string
+          reference_number: string
+          same_site: boolean
+          site_name: string
+          visit_date: string
+        }[]
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -12210,6 +12243,54 @@ export type Database = {
       notify_admins_visual_fallback: {
         Args: { _job_id: string; _template_name: string }
         Returns: undefined
+      }
+      outstanding_defects_for_job: {
+        Args: { p_job: string }
+        Returns: {
+          asset_id: string | null
+          bs_standard_reference: string | null
+          carry_comment: string | null
+          carry_outcome: string | null
+          carry_recorded_at: string | null
+          carry_recorded_by: string | null
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          job_id: string | null
+          linked_photo_url: string | null
+          linked_submission_id: string | null
+          location_on_site: string | null
+          materials_required: string | null
+          org_id: string
+          photo_url: string | null
+          photos: Json
+          quote_id: string | null
+          remedial_job_id: string | null
+          reported_by: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          scheduled_asset_id: string | null
+          scheduled_job_id: string | null
+          scheduled_visit_id: string | null
+          severity: string
+          site_id: string | null
+          site_visit_report_id: string | null
+          source_archived_document_id: string | null
+          source_kind: string
+          source_response_id: string | null
+          status: string
+          title: string
+          updated_at: string
+          works_required: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "defects"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       platform_list_organisations: {
         Args: never
