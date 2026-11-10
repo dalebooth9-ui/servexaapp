@@ -17,9 +17,59 @@
  * spacer with a default Paragraph, or inserts a second paragraph between
  * tables, this test fails with a precise diagnostic.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { Packer } from "docx";
 import JSZip from "jszip";
+
+// Word export resolves the signed-in company's branding, so the test runs as
+// Viva Fire (primary colour #1F4E79) with the company's data stubbed.
+vi.mock("@/integrations/supabase/client", async (importOriginal) => {
+  const mod = await importOriginal<any>();
+  const fakeAuth = {
+    getUser: async () => ({ data: { user: { id: "00000000-0000-0000-0000-000000000001" } }, error: null }),
+  };
+  return {
+    ...mod,
+    supabase: new Proxy(mod.supabase, {
+      get: (target, prop, receiver) => (prop === "auth" ? fakeAuth : Reflect.get(target, prop, receiver)),
+    }),
+  };
+});
+
+const PNG_1x1 = Uint8Array.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+  0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+  0x89, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
+  0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
+  0x42, 0x60, 0x82,
+]);
+// Supabase REST calls must answer with JSON; only image loads get the PNG stub.
+(globalThis as unknown as { fetch: typeof fetch }).fetch = (async (input: any) => {
+  const url = typeof input === "string" ? input : String(input?.url ?? input);
+  if (url.includes("/rest/v1/")) {
+    let body = "[]";
+    if (url.includes("/rpc/get_user_org_id")) {
+      body = JSON.stringify("11111111-1111-1111-1111-111111111111");
+    } else if (url.includes("/organisations")) {
+      body = JSON.stringify({
+        id: "11111111-1111-1111-1111-111111111111",
+        name: "Viva Fire",
+        logo_url: null,
+        primary_color: "#1F4E79",
+      });
+    }
+    return new Response(body, { status: 200, headers: { "content-type": "application/json" } });
+  }
+  return new Response(PNG_1x1, { status: 200, headers: { "content-type": "image/png" } });
+}) as unknown as typeof fetch;
+class StubImage {
+  naturalWidth = 80;
+  naturalHeight = 40;
+  set src(_: string) { queueMicrotask(() => this.onload?.()); }
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+}
+(globalThis as unknown as { Image: typeof StubImage }).Image = StubImage;
 
 import { buildBlankTemplateDoc, type WordTemplateInput } from "@/lib/wordTemplateBuilder";
 
