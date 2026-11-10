@@ -82,10 +82,10 @@ describe("Word section-header banner styling", () => {
     const xml = (await zip.file("word/document.xml")!.async("string")) as string;
 
     // Every section header row sets cell shading with the brand blue.
+    // The brand colour reaches the doc as a lowercase hex, so match either case.
     const blueShadingMatches = xml.match(
-      new RegExp(`<w:shd[^/]*w:fill="${SECTION_HEADER_BLUE}"`, "g"),
+      new RegExp(`<w:shd[^/]*w:fill="${SECTION_HEADER_BLUE}"`, "gi"),
     ) || [];
-    console.log("FILLS>>", JSON.stringify((xml.match(/<w:shd[^/]*w:fill="[^"]*"/g) || []).slice(0, 8)));
     // 2 sections × 2 cells (label + RESULT) = 4 shaded cells minimum.
     expect(blueShadingMatches.length).toBeGreaterThanOrEqual(4);
 
