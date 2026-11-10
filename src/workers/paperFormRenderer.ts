@@ -15,6 +15,7 @@
  */
 import jsPDF from "jspdf";
 import {fitAccessLines} from '@/lib/siteAccessPdf';
+import {pdfTextWidthUnits} from '@/lib/pdfTextMetrics';
 import type { PdfTemplateField } from "@/lib/pdfBody";
 import { drawQr, stickerUrl } from '@/lib/riserStickers';
 import { printName, printInspectionDate, printInspectionType, printInspectionResult } from '@/lib/printText';
@@ -302,7 +303,9 @@ export function renderPaperFormPage(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(0, 0, 0);
-  const scopeW = doc.getTextWidth(scopeText);
+  // jsPDF's own table is up to ~1% narrow per glyph, which left the underline
+  // short of the last letter; measure with the metrics viewers paint with.
+  const scopeW = pdfTextWidthUnits(doc, scopeText);
   const scopeX = (pageWidth - scopeW) / 2;
   // 12pt Helvetica cap height puts the visible title 3.5mm below the logo ink.
   const riserScopeBaselineOffset = riserLogoVisibleBottom !== null ? 3.5 + 12 * 0.352777778 * 0.72 : 3.5;
