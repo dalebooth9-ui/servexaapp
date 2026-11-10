@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { customerCatalogue, priceSuggestions } from "../_shared/remedialPricing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,10 +47,11 @@ const TOOL = {
               description: { type: "string", description: "Quotable line description including the location suffix where relevant." },
               quantity: { type: "number", description: "Only a count stated in the defect text, else 1." },
               price_ref: { type: ["string", "null"], description: "Exact ref of a price book item, or null when nothing matches." },
+              alternative_price_ref: { type: ["string", "null"], description: "Second plausible item ref when the works could mean either item. Inlet box needs securing: Bracket or Padlocks & straps. Otherwise null." },
               flag: { type: ["string", "null"], description: "Short ambiguity note for the estimator, or null." },
               defect_ids: { type: "array", items: { type: "string" } },
             },
-            required: ["group", "description", "quantity", "price_ref", "flag", "defect_ids"],
+            required: ["group", "description", "quantity", "price_ref", "alternative_price_ref", "flag", "defect_ids"],
             additionalProperties: false,
           },
         },
@@ -97,19 +99,29 @@ serve(async (req) => {
       return json({ error: "One or more of those defects is already on a quote." }, 400);
     }
 
-    // ---- 2. Load the price book (RLS-scoped) ----------------------------
+    const { data: customerId, error: customerError } = await db.rpc("defect_customer_for_quote", { p_defect: defects[0].id });
+    if (customerError) return json({ error: customerError.message }, 400);
+    // ---- 2. Load the price book (RLS-scoped and customer-first) ----------
+    const priceRows: any[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await db.from("price_book_items").select("*").eq("is_active", true).order("id").range(offset, offset+999);
+      if (error) throw error;
+      priceRows.push(...(data || [])); if (!data || data.length<1000) break;
+    }
+    const effectivePrices = customerCatalogue(priceRows, customerId);
     const [{ data: pb }, { data: parts }] = await Promise.all([
-      db.from("price_book_items").select("id, code, description, category, unit, unit_price").eq("is_active", true).limit(400),
+      Promise.resolve({ data: effectivePrices }),
       db.from("parts_library").select("id, name, part_number, category, sell_price").limit(400),
     ]);
 
-    type Cat = { ref: string; label: string; unit: string; price: number };
+    type Cat = { ref: string; label: string; unit: string; price: number; priceNeeded?: boolean };
     const catalogue: Cat[] = [
       ...(pb || []).map((p: any) => ({
         ref: `PB:${p.id}`,
         label: [p.code, p.description, p.category].filter(Boolean).join(" — "),
         unit: p.unit || "each",
         price: Number(p.unit_price) || 0,
+        priceNeeded: p.price_needed,
       })),
       ...(parts || []).map((p: any) => ({
         ref: `PL:${p.id}`,
@@ -173,7 +185,9 @@ serve(async (req) => {
       .filter((l) => typeof l?.description === "string" && l.description.trim())
       .slice(0, 60)
       .map((l) => {
-        const cat = typeof l.price_ref === "string" ? catByRef.get(l.price_ref) : undefined;
+        const suggestions = priceSuggestions(l.description, effectivePrices);
+        const refs = Array.from(new Set([l.price_ref, l.alternative_price_ref, ...suggestions.map(p => `PB:${p.id}`)].filter((ref): ref is string => typeof ref === "string" && catByRef.has(ref)))).slice(0,2);
+        const cat = refs.length === 1 ? catByRef.get(refs[0]) : undefined;
         const qtyRaw = Number(l.quantity);
         const quantity = Number.isFinite(qtyRaw) && qtyRaw > 0 ? Math.min(Math.round(qtyRaw * 100) / 100, 999) : 1;
         const sources = Array.isArray(l.defect_ids) ? l.defect_ids.filter((id: string) => allowedIds.has(id)) : [];
@@ -182,8 +196,10 @@ serve(async (req) => {
           description: group ? `${group}: ${l.description.trim()}` : l.description.trim(),
           quantity,
           // Prices NEVER come from the model — only from the price book row.
-          unit_price: cat ? cat.price : 0,
-          price_match: cat ? "matched" : "unmatched",
+          unit_price: cat && !cat.priceNeeded ? cat.price : 0,
+          price_match: refs.length > 1 ? "choice_needed" : cat && !cat.priceNeeded ? "matched" : "unmatched",
+          price_book_item_id: cat?.ref.startsWith('PB:') ? cat.ref.slice(3) : null,
+          price_candidates: refs.length > 1 ? refs.filter(r => r.startsWith('PB:')).map(r => r.slice(3)) : [],
           ai_flag: typeof l.flag === "string" && l.flag.trim() ? l.flag.trim() : null,
           source_defect_ids: sources,
         };
@@ -215,6 +231,8 @@ serve(async (req) => {
         price_match: l.price_match,
         ai_flag: l.ai_flag,
         source_defect_ids: l.source_defect_ids,
+        price_book_item_id: l.price_book_item_id,
+        price_candidates: l.price_candidates,
       })) as any,
     );
     if (insErr) return json({ error: insErr.message }, 400);
@@ -237,6 +255,8 @@ serve(async (req) => {
       ].filter(Boolean).join(" "),
       notes: drafted.summary && typeof drafted.summary === "string" ? drafted.summary.trim().slice(0, 500) : null,
     } as any).eq("id", quoteId as string);
+    const { error: chargesError } = await db.rpc("refresh_quote_charges", { p_quote: quoteId });
+    if (chargesError) throw chargesError;
 
     return json({
       invoice_id: quoteId,
