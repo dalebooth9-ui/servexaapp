@@ -2,9 +2,24 @@
  * Visual snapshot regression — section header rows MUST render with the solid
  * brand-blue fill (#1F4E79) and white bold text. Mirrors the PDF reference.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { Packer } from "docx";
 import JSZip from "jszip";
+
+// The section banner colour comes from the signed-in company's brand colour, so
+// the test runs as Viva Fire (primary colour #1F4E79) with the real client.
+vi.mock("@/integrations/supabase/client", async (importOriginal) => {
+  const mod = await importOriginal<any>();
+  const fakeAuth = {
+    getUser: async () => ({ data: { user: { id: "00000000-0000-0000-0000-000000000001" } }, error: null }),
+  };
+  return {
+    ...mod,
+    supabase: new Proxy(mod.supabase, {
+      get: (target, prop, receiver) => (prop === "auth" ? fakeAuth : Reflect.get(target, prop, receiver)),
+    }),
+  };
+});
 
 import {
   buildBlankTemplateDoc,
@@ -71,7 +86,6 @@ describe("Word section-header banner styling", () => {
       new RegExp(`<w:shd[^/]*w:fill="${SECTION_HEADER_BLUE}"`, "g"),
     ) || [];
     // 2 sections × 2 cells (label + RESULT) = 4 shaded cells minimum.
-    console.log("BLUECELLS>>", blueShadingMatches.length);
     expect(blueShadingMatches.length).toBeGreaterThanOrEqual(4);
 
     // The "RESULT" header label is rendered bold white on the blue band.
