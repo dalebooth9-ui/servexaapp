@@ -26,7 +26,8 @@ import { draftQuoteFromDefects } from "@/lib/draftDefectQuote";
 import DeleteRecordAction from "@/components/common/DeleteRecordAction";
 import NewVisitDialog from "@/components/riser-visits/NewVisitDialog";
 import { fetchAllRows } from "@/lib/fetchAllRows";
-import { suggestWorksAndMaterials } from "@/lib/defectCarryForward";
+import { attachmentMessage, suggestWorksAndMaterials, type DefectAttachmentResult } from "@/lib/defectCarryForward";
+import DefectJobPicker from "@/components/jobs/DefectJobPicker";
 import { CalendarPlus, ClipboardList } from "lucide-react";
 
 
@@ -138,6 +139,9 @@ export default function Defects() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [quoting, setQuoting] = useState(false);
   const [carrying, setCarrying] = useState(false);
+  const [attachmentResults, setAttachmentResults] = useState<DefectAttachmentResult[]>([]);
+  const [pickJobDefect, setPickJobDefect] = useState<string | null>(null);
+  const [jobInfo, setJobInfo] = useState<Record<string, { ref: string; reports: string }>>({});
   const [visitInfo, setVisitInfo] = useState<Record<string, { date: string | null; ref: string | null }>>({});
   const [noVisitSites, setNoVisitSites] = useState<string[]>([]);
   const [createVisitSite, setCreateVisitSite] = useState<string | null>(null);
@@ -152,12 +156,15 @@ export default function Defects() {
         if (d.works_required || d.materials_required) continue;
         const s = suggestWorksAndMaterials(d.title, d.description);
         if (s.works || s.materials) {
-          await supabase.from("defects").update({ works_required: s.works || null, materials_required: s.materials || null } as any).eq("id", d.id);
+          const { error } = await supabase.from("defects").update({ works_required: s.works || null, materials_required: s.materials || null } as any).eq("id", d.id);
+          if (error) throw error;
         }
       }
-      const { data, error } = await (supabase as any).rpc("schedule_defects_on_next_visit", { p_defect_ids: list.map(d => d.id) });
+      const { data, error } = await supabase.rpc("attach_defects_to_job", { p_defect_ids: list.map(d => d.id) });
       if (error) throw error;
-      const rows = (data || []) as { defect_id: string; outcome: string; job_ref: string | null; visit_date: string | null }[];
+      const returned = (data || []) as DefectAttachmentResult[];
+      const rows = list.map(d => returned.find(r => r.defect_id === d.id) || { defect_id: d.id, outcome: "not_found", job_id: null, job_ref: null, visit_date: null, site_name: null, report_name: null });
+      setAttachmentResults(rows);
       const done = rows.filter(r => r.outcome === "scheduled").length;
       const noSite = rows.filter(r => r.outcome === "no_site").length;
       const missing = Array.from(new Set(rows.filter(r => r.outcome === "no_visit").map(r => list.find(d => d.id === r.defect_id)?.site_id).filter(Boolean))) as string[];
@@ -197,6 +204,14 @@ export default function Defects() {
     setDefects(defs);
     setAssets((assetRes.data || []) as any);
     setSites(((siteRes.data || []) as any[]).filter((x: any) => !x.deleted_at));
+    const jobIds = Array.from(new Set(defs.map(d => d.scheduled_job_id).filter(Boolean))) as string[];
+    if (jobIds.length) {
+      const [js, reports] = await Promise.all([
+        supabase.from("jobs").select("id, reference_number").in("id", jobIds),
+        supabase.from("job_sheet_responses").select("job_id, job_sheet_templates(name)").in("job_id", jobIds).neq("status", "not_used"),
+      ]);
+      setJobInfo(Object.fromEntries((js.data || []).map(j => [j.id, { ref: j.reference_number, reports: Array.from(new Set((reports.data || []).filter(r => r.job_id === j.id).map((r: any) => r.job_sheet_templates?.name).filter(Boolean))).join(", ") || "Service report" }])));
+    } else setJobInfo({});
     const sv = Array.from(new Set(defs.map(d => d.scheduled_visit_id).filter(Boolean))) as string[];
     if (sv.length) {
       const { data: vs } = await supabase.from("job_visits").select("id, scheduled_date, jobs(reference_number)").in("id", sv);
@@ -422,6 +437,15 @@ export default function Defects() {
           </CardContent>
         </Card>
       )}
+      {attachmentResults.length > 0 && <div className="space-y-3 border-y py-3">
+        {attachmentResults.map(r => <div key={r.defect_id} className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-medium">{defects.find(d => d.id === r.defect_id)?.title}</span>
+          <span role="status" className={r.outcome === "scheduled" ? "text-primary" : "text-destructive"}>{attachmentMessage(r)}</span>
+          {r.outcome !== "scheduled" && <Button size="sm" variant="outline" onClick={() => setPickJobDefect(r.defect_id)}>Choose job manually</Button>}
+        </div>)}
+        <Button size="sm" variant="ghost" onClick={() => setAttachmentResults([])}>Dismiss results</Button>
+      </div>}
+      {pickJobDefect && <DefectJobPicker defectId={pickJobDefect} onClose={() => setPickJobDefect(null)} onAdded={r => { setAttachmentResults(prev => prev.map(x => x.defect_id === r.defect_id ? r : x)); fetchData(); }} />}
       {createVisitSite && (
         <NewVisitDialog siteId={createVisitSite} siteName={siteLookup[createVisitSite] || ""} open onOpenChange={v => { if (!v) { setCreateVisitSite(null); fetchData(); } }} />
       )}
@@ -535,6 +559,7 @@ export default function Defects() {
                         {d.location_on_site && <span className="text-[10px] text-muted-foreground">{d.location_on_site}</span>}
                       </div>
                       {d.description && <p className="text-xs text-muted-foreground line-clamp-1">{d.description}</p>}
+                      {d.scheduled_job_id && <Button variant="link" size="sm" className="h-auto px-0 whitespace-normal text-left" onClick={() => navigate(`/jobs/${d.scheduled_job_id}`)}>Added to {jobInfo[d.scheduled_job_id]?.ref || "job"} · {jobInfo[d.scheduled_job_id]?.reports || "Service report"}</Button>}
                       <div className="mt-1 text-xs">
                         <span className="text-muted-foreground">Works:</span> {d.works_required || <span className="text-muted-foreground">—</span>}
                         <span className="ml-3 text-muted-foreground">Materials:</span> {d.materials_required || <span className="text-muted-foreground">—</span>}
@@ -563,7 +588,7 @@ export default function Defects() {
                       <Badge variant="outline" className={STATUS_BADGE[d.status]}>{STATUS_LABEL[d.status] ?? d.status.replace("_", " ")}</Badge>
                       {d.status === "scheduled" && d.scheduled_visit_id && visitInfo[d.scheduled_visit_id] && (
                         <div className="mt-1 text-[11px] text-muted-foreground">
-                          {visitInfo[d.scheduled_visit_id].date ? format(new Date(visitInfo[d.scheduled_visit_id].date!), "dd MMM yyyy") : ""}
+                          {visitInfo[d.scheduled_visit_id].date ? format(new Date(String(visitInfo[d.scheduled_visit_id].date)), "dd MMM yyyy") : ""}
                           {visitInfo[d.scheduled_visit_id].ref ? ` · ${visitInfo[d.scheduled_visit_id].ref}` : ""}
                         </div>
                       )}

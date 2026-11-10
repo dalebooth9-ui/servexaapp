@@ -19,9 +19,10 @@ export default function CarriedRemedialsPanel({ jobId }: { jobId: string }) {
       const all = await loadCarriedRemedials(jobId);
       setRows(all);
       setComments(c => Object.fromEntries(all.map(r => [r.id, c[r.id] ?? r.carry_comment ?? ""])));
-    } catch { setRows([]); }
+    } catch (e: any) { toast.error(`Could not load outstanding defects: ${e.message || "Try again when online"}`); }
   };
   useEffect(() => { load(); }, [jobId]);
+  useEffect(() => { const refresh = () => { load(); }; window.addEventListener("carried-defects-changed", refresh); return () => window.removeEventListener("carried-defects-changed", refresh); }, [jobId]);
 
   const record = async (id: string, done: boolean) => {
     setBusy(id);

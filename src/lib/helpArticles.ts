@@ -33,6 +33,8 @@ const RULES: SlugRule[] = [
   // Job guide includes Print reports beside Print sticker pack for per-riser engineer sheets,
   // both also in the top button row on riser jobs; saved Risers on this job selections,
   // exact duplicate warnings and confirmed Merge jobs archival are in jobs.detail.
+  // Office Add outstanding defects attaches selected customer/site defects directly
+  // to this job, with unmatched risers kept as general report items.
   { test: (p) => /^\/jobs\/[^/]+$/.test(p), slug: "jobs.detail" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/rams"), slug: "rams" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/site-visit-report"), slug: "site-visit-report" },
@@ -68,6 +70,8 @@ const RULES: SlugRule[] = [
   { test: (p) => p === "/engineers", slug: "engineers" },
   { test: (p) => p === "/planner", slug: "planner" },
   { test: (p) => p === "/leave", slug: "leave" },
+  // Each next-report result names its job/report or failure; Choose job manually
+  // supports duplicate/missing sites while enforcing the customer's ownership.
   { test: (p) => p === "/defects", slug: "defects" },
   { test: (p) => p === "/defects/review", slug: "defects.review" },
   { test: (p) => p === "/compliance", slug: "compliance" },
