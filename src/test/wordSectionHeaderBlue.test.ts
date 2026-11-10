@@ -85,6 +85,7 @@ describe("Word section-header banner styling", () => {
     const blueShadingMatches = xml.match(
       new RegExp(`<w:shd[^/]*w:fill="${SECTION_HEADER_BLUE}"`, "g"),
     ) || [];
+    console.log("FILLS>>", JSON.stringify((xml.match(/<w:shd[^/]*w:fill="[^"]*"/g) || []).slice(0, 8)));
     // 2 sections × 2 cells (label + RESULT) = 4 shaded cells minimum.
     expect(blueShadingMatches.length).toBeGreaterThanOrEqual(4);
 
