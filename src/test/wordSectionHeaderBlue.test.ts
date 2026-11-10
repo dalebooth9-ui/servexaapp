@@ -19,8 +19,17 @@ const PNG_1x1 = Uint8Array.from([
   0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
   0x42, 0x60, 0x82,
 ]);
-(globalThis as unknown as { fetch: typeof fetch }).fetch = (async () =>
-  new Response(PNG_1x1, { status: 200, headers: { "content-type": "image/png" } })) as unknown as typeof fetch;
+// Supabase REST calls must answer with JSON; only image loads get the PNG stub.
+(globalThis as unknown as { fetch: typeof fetch }).fetch = (async (input: any) => {
+  const url = typeof input === "string" ? input : String(input?.url ?? input);
+  if (url.includes("/rest/v1/")) {
+    const body = url.includes("/rpc/get_user_org_id")
+      ? JSON.stringify("11111111-1111-1111-1111-111111111111")
+      : "[]";
+    return new Response(body, { status: 200, headers: { "content-type": "application/json" } });
+  }
+  return new Response(PNG_1x1, { status: 200, headers: { "content-type": "image/png" } });
+}) as unknown as typeof fetch;
 class StubImage {
   naturalWidth = 16;
   naturalHeight = 16;
