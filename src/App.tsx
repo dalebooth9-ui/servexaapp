@@ -54,6 +54,7 @@ const PartsLibrary = lazy(() => import("@/pages/PartsLibrary"));
 const VanStock = lazy(() => import("@/pages/VanStock"));
 const IndustryTemplates = lazy(() => import("@/pages/IndustryTemplates"));
 const PriceBook = lazy(() => import("@/pages/PriceBook"));
+const ExtinguisherRates = lazy(() => import("@/pages/ExtinguisherRates"));
 const Install = lazy(() => import("@/pages/Install"));
 const CustomerSignOff = lazy(() => import("@/pages/CustomerSignOff"));
 const CustomerPortal = lazy(() => import("@/pages/CustomerPortal"));
@@ -284,6 +285,7 @@ const App = () => (
               <Route path="/billing" element={<AdminRoute><BillingPage /></AdminRoute>} />
               <Route path="/settings/billing" element={<AdminRoute><BillingPage /></AdminRoute>} />
               <Route path="/settings/price-book" element={<AdminRoute><PriceBook /></AdminRoute>} />
+              <Route path="/settings/extinguisher-rates" element={<AdminRoute><ExtinguisherRates /></AdminRoute>} />
               <Route path="/settings/import" element={<AdminRoute><ImportWizard /></AdminRoute>} />
               <Route path="/settings/import-historic-reports" element={<AdminRoute><HistoricReportsImport /></AdminRoute>} />
               <Route path="/settings/storage-migration" element={<AdminRoute><div className="p-6"><StorageMigrationPanel /></div></AdminRoute>} />

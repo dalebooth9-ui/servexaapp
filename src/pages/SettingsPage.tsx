@@ -361,6 +361,12 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
           </Card>
+          <Card className="cursor-pointer hover:border-primary transition" onClick={() => navigate("/settings/extinguisher-rates")}>
+            <CardHeader>
+              <CardTitle className="text-lg">Extinguisher servicing rates</CardTitle>
+              <CardDescription>Customer servicing rates and extinguisher removal prices, ready to add to quotes.</CardDescription>
+            </CardHeader>
+          </Card>
           <EngineerSignatureSettings />
 
           <Card className="cursor-pointer hover:border-primary transition" onClick={() => navigate("/settings/import-historic-reports")}>

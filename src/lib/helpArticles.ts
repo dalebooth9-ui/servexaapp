@@ -80,6 +80,7 @@ const RULES: SlugRule[] = [
   { test: (p) => p === "/audits", slug: "audits" },
   { test: (p) => p === "/quotes", slug: "quotes" },
   { test: (p) => p === '/settings/price-book', slug: 'price-book' },
+  { test: (p) => p === '/settings/extinguisher-rates', slug: 'price-book' },
   // Quote guides include customer-first pricing, meaning-match choices and
   // automatic/overridden/removed remedial attendance charges.
   { test: (p) => /^\/invoices\/[^/]+$/.test(p), slug: 'quotes' },
