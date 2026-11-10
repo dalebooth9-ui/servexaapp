@@ -240,7 +240,7 @@ serve(async (req) => {
     const subtotal = lines.reduce((s, l) => s + l.quantity * l.unit_price, 0);
     const taxRate = Number(quote?.tax_rate) || 0;
     const taxAmount = subtotal * (taxRate / 100);
-    const unpriced = lines.filter((l) => l.price_match === "unmatched").length;
+    const unpriced = lines.filter((l) => l.price_match !== "matched").length;
     const flagged = lines.filter((l) => l.ai_flag).length;
 
     await db.from("invoices").update({
@@ -250,7 +250,7 @@ serve(async (req) => {
       ai_drafted: true,
       ai_draft_notes: [
         `AI-drafted from ${defects.length} defect${defects.length === 1 ? "" : "s"} on ${new Date().toLocaleDateString("en-GB")}.`,
-        unpriced ? `${unpriced} line${unpriced === 1 ? "" : "s"} had no price book match.` : "All lines matched the price book.",
+        unpriced ? `${unpriced} line${unpriced === 1 ? " needs" : "s need"} a price or an office match choice.` : "All lines matched the price book.",
         flagged ? `${flagged} line${flagged === 1 ? "" : "s"} flagged for checking.` : null,
       ].filter(Boolean).join(" "),
       notes: drafted.summary && typeof drafted.summary === "string" ? drafted.summary.trim().slice(0, 500) : null,
