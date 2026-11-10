@@ -18,6 +18,7 @@ import {
 import { Loader2, Plus, BookOpen, Search, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { fetchAllRows } from '@/lib/fetchAllRows';
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from '@/components/ui/select';
 
 type Item = {
   id: string;
@@ -85,7 +86,13 @@ export default function PriceBook() {
       || (addParam.includes(":") ? addParam.split(":")[0].trim() : "");
     if (cat) setSearch(cat);
     setEditing(null);
-    setForm({ ...EMPTY, description: addParam, category: cat });
+    setForm({ ...EMPTY, description: addParam, category: cat || 'Remedial works' });
+    if(lineParam) supabase.from('invoice_line_items').select('invoice_id,price_book_item_id').eq('id',lineParam).maybeSingle().then(async({data})=>{
+      if(!data)return;
+      if(data.price_book_item_id){const existing=items.find(i=>i.id===data.price_book_item_id);if(existing){setEditing(existing);const {id,...rest}=existing;setForm(rest);return;}}
+      const {data:q}=await supabase.from('invoices').select('customer_id').eq('id',data.invoice_id).maybeSingle();
+      if(q?.customer_id){const customer=customers.find(c=>c.id===q.customer_id);setForm(prev=>({...prev,customer_id:q.customer_id,rate_list:customer?.name || null}));}
+    });
     setDialogOpen(true);
   }, [prefilled, loading, addParam, items]);
 
@@ -135,6 +142,7 @@ export default function PriceBook() {
   const save = async () => {
     if (!user) return;
     if (!form.description.trim()) return toast.error("Description is required");
+    if(!Number.isFinite(form.unit_price) || form.unit_price<0)return toast.error('Enter a price of zero or more, or leave it blank');
     setBusy(true);
     const payload: any = {
       code: form.code?.trim() || null,
@@ -152,6 +160,7 @@ export default function PriceBook() {
       const { error } = await (supabase as any)
         .from("price_book_items").update(payload).eq("id", editing.id);
       err = error;
+      if(!error && lineParam && !payload.price_needed){try{await applyToQuoteLine(editing.id,payload.unit_price);}catch(e:any){err=e;}}
     } else {
       const { data: prof } = await supabase
         .from("profiles").select("org_id").eq("user_id", user.id).maybeSingle();
@@ -161,12 +170,12 @@ export default function PriceBook() {
         .from("price_book_items").insert({ ...payload, org_id, created_by: user.id }).select("id").maybeSingle();
       err = error;
       if (!error && lineParam && !payload.price_needed) {
-        await applyToQuoteLine(created?.id ?? null, payload.unit_price);
+        try { await applyToQuoteLine(created?.id ?? null, payload.unit_price); } catch(e:any){err=e;}
       }
     }
     setBusy(false);
     if (err) return toast.error(err.message);
-    if (!editing && lineParam && !payload.price_needed && returnTo?.startsWith("/") && !returnTo.startsWith('//')) {
+    if (lineParam && !payload.price_needed && returnTo?.startsWith("/") && !returnTo.startsWith('//')) {
       toast.success("Price added and applied to the quote");
       navigate(returnTo);
       return;
@@ -298,8 +307,8 @@ export default function PriceBook() {
             <DialogTitle>{editing ? "Edit price line" : "New price line"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3">
-            <label className="text-xs">Customer price list<select className="w-full border rounded-md p-2 bg-background" value={form.customer_id || ''} onChange={e=>{const c=customers.find(c=>c.id===e.target.value);setForm({...form,customer_id:c?.id || null,rate_list:c?.name || null});}}><option value="">General prices / unassigned</option>{customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-            <label className="text-xs">Type<select className="w-full border rounded-md p-2 bg-background" value={form.pricing_kind} onChange={e=>setForm({...form,pricing_kind:e.target.value})}><option value="remedial">Remedial works</option><option value="servicing">Extinguisher servicing</option></select></label>
+            <label className="text-xs">Customer price list<Select value={form.customer_id || 'general'} onValueChange={id=>{const c=customers.find(c=>c.id===id);setForm({...form,customer_id:c?.id || null,rate_list:c?.name || null});}}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="general">General prices / unassigned</SelectItem>{customers.map(c=><SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></label>
+            <label className="text-xs">Type<Select value={form.pricing_kind} onValueChange={v=>setForm({...form,pricing_kind:v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="remedial">Remedial works</SelectItem><SelectItem value="servicing">Extinguisher servicing</SelectItem></SelectContent></Select></label>
             <div className="grid grid-cols-3 gap-2">
               <div className="col-span-1">
                 <label className="text-xs text-muted-foreground">Code (optional)</label>

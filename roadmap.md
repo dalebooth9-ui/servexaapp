@@ -1,9 +1,9 @@
 # Roadmap
 
 ## Remedial Price Book and quote rules
-- [ ] Import supplied general/customer remedial and separate servicing rates, with missing prices flagged.
-- [ ] Add editable attendance rules and per-quote override/removal, customer-first meaning matches and two-choice selectors.
-- [ ] Update Help and verify exact pricing rules, office quote flows and build time. Wayne's customer is unspecified: retain an unassigned servicing list; customer fixed fees replace low-value attendance to avoid double charging.
+- [x] Imported 62 supplied general/customer remedial and separate servicing rates; Safely Comply powder/water additive stay blank in the UI with price_needed, not free rates. Wayne's servicing list remains unassigned; all values GBP ex VAT.
+- [x] Added editable attendance threshold/local/distant rates, persistent auto/override/removed modes, customer-first meaning matches and two-choice selectors. Customer fixed fees replace low-value attendance to avoid double charging.
+- [x] Updated Help; 13 exact pricing tests pass. Actual office AI drafts verified £25 inlet sign + £40 local attendance, Newquay £60 lock + £60 distant fee, Safely Comply unpriced powder + one £40 fee, and Bracket/Padlocks dropdown selection. Remove and £45 override persist; missing-price link opens existing customer row; settings save and desktop/phone views checked. Four unsent temporary quotes and their temporary sites/defects removed; no real quote sent. Build OK 10:23:02 UTC/London. Servicing rates stored separately, not automatically applied to remedial quotes.
 
 ## Job-linked outstanding defects
 - [x] Wade Court had no visit; additionally the validation trigger rejected scheduled defects. Fixed both attachment paths with org/customer checks, explicit manual selection and named per-defect results.
