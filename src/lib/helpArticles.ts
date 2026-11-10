@@ -79,6 +79,10 @@ const RULES: SlugRule[] = [
   { test: (p) => p === '/settings/email-health', slug: 'settings' },
   { test: (p) => p === "/audits", slug: "audits" },
   { test: (p) => p === "/quotes", slug: "quotes" },
+  { test: (p) => p === '/settings/price-book', slug: 'price-book' },
+  // Quote guides include customer-first pricing, meaning-match choices and
+  // automatic/overridden/removed remedial attendance charges.
+  { test: (p) => /^\/invoices\/[^/]+$/.test(p), slug: 'quotes' },
   { test: (p) => p === "/reports-to-check", slug: "reports-to-check" },
   { test: (p) => p === "/invoices" || p.startsWith("/invoices/"), slug: "invoices" },
   { test: (p) => p === "/contracts" || p.startsWith("/contracts/"), slug: "contracts" },

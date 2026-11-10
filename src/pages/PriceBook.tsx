@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2, Plus, BookOpen, Search, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 type Item = {
   id: string;
@@ -27,6 +28,10 @@ type Item = {
   unit_price: number;
   notes: string | null;
   is_active: boolean;
+  customer_id: string | null;
+  rate_list: string | null;
+  pricing_kind: string;
+  price_needed: boolean;
 };
 
 const EMPTY: Omit<Item, "id"> = {
@@ -37,6 +42,7 @@ const EMPTY: Omit<Item, "id"> = {
   unit_price: 0,
   notes: "",
   is_active: true,
+  customer_id: null, rate_list: null, pricing_kind: 'remedial', price_needed: false,
 };
 
 export default function PriceBook() {
@@ -54,15 +60,14 @@ export default function PriceBook() {
   const lineParam = params.get("line");
   const returnTo = params.get("returnTo");
   const [prefilled, setPrefilled] = useState(false);
+  const [customers,setCustomers]=useState<{id:string;name:string}[]>([]);
+  const [rules,setRules]=useState({threshold:95,local_fee:40,distant_fee:60});
+  useEffect(()=>{fetchAllRows<{id:string;name:string}>('customers','id,name','id').then(setCustomers);supabase.from('app_settings').select('value').eq('key','remedial_quote_pricing').maybeSingle().then(({data})=>{if(data)setRules(data.value as any);});},[]);
+  const saveRules=async()=>{const {data:o,error:oe}=await supabase.rpc('get_user_org_id');if(oe || !o)return toast.error('Company unavailable');const {error}=await supabase.from('app_settings').upsert({org_id:o,key:'remedial_quote_pricing',value:rules});if(error)toast.error(error.message);else toast.success('Attendance settings saved');};
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await (supabase as any)
-      .from("price_book_items")
-      .select("*")
-      .order("description", { ascending: true });
-    if (error) toast.error(error.message);
-    setItems((data as Item[]) || []);
+    try { setItems(await fetchAllRows<Item>('price_book_items','*','id')); } catch(e:any){toast.error(e.message);}
     setLoading(false);
   };
 
@@ -87,6 +92,7 @@ export default function PriceBook() {
   // After saving from a quote, price that quote line and recalc its totals.
   const applyToQuoteLine = async (_itemId: string | null, price: number) => {
     if (!lineParam) return;
+    if (_itemId) { const {error}=await supabase.rpc('apply_quote_price',{p_line:lineParam,p_item:_itemId});if(error)throw error;return; }
     const { data: line } = await supabase.from("invoice_line_items").select("id, invoice_id, quantity").eq("id", lineParam).maybeSingle();
     if (!line) return;
     const qty = Number((line as any).quantity) || 0;
@@ -109,7 +115,8 @@ export default function PriceBook() {
     return items.filter((it) =>
       it.description.toLowerCase().includes(q) ||
       (it.code || "").toLowerCase().includes(q) ||
-      (it.category || "").toLowerCase().includes(q),
+      (it.category || "").toLowerCase().includes(q) ||
+      (it.rate_list || '').toLowerCase().includes(q),
     );
   }, [items, search]);
 
@@ -137,6 +144,8 @@ export default function PriceBook() {
       unit_price: Number(form.unit_price) || 0,
       notes: form.notes?.trim() || null,
       is_active: form.is_active,
+      customer_id: form.customer_id, rate_list: form.rate_list,
+      pricing_kind: form.pricing_kind, price_needed: form.price_needed,
     };
     let err: any = null;
     if (editing) {
@@ -151,13 +160,13 @@ export default function PriceBook() {
       const { data: created, error } = await (supabase as any)
         .from("price_book_items").insert({ ...payload, org_id, created_by: user.id }).select("id").maybeSingle();
       err = error;
-      if (!error && lineParam) {
+      if (!error && lineParam && !payload.price_needed) {
         await applyToQuoteLine(created?.id ?? null, payload.unit_price);
       }
     }
     setBusy(false);
     if (err) return toast.error(err.message);
-    if (!editing && lineParam && returnTo?.startsWith("/")) {
+    if (!editing && lineParam && !payload.price_needed && returnTo?.startsWith("/") && !returnTo.startsWith('//')) {
       toast.success("Price added and applied to the quote");
       navigate(returnTo);
       return;
@@ -193,6 +202,7 @@ export default function PriceBook() {
         </Button>
       </div>
 
+      <section className="border-y py-3 space-y-2"><h2 className="font-medium text-sm">Remedial attendance charges · excluding VAT</h2><div className="flex flex-wrap items-end gap-3">{([['threshold','Quote threshold (£)'],['local_fee','Manchester / Oldham (£)'],['distant_fee','Further away (£)']] as const).map(([key,label])=><label key={key} className="text-xs">{label}<Input type="number" min="0" step="0.01" value={rules[key]} onChange={e=>setRules({...rules,[key]:Math.max(0,Number(e.target.value))})} /></label>)}<Button size="sm" onClick={saveRules}>Save charges</Button></div></section>
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -232,6 +242,7 @@ export default function PriceBook() {
                       </Badge>
                     )}
                     {!it.is_active && <Badge variant="secondary">inactive</Badge>}
+                    {it.rate_list && <Badge variant="secondary">{it.rate_list}{!it.customer_id ? ' · unassigned' : ''}</Badge>}
                   </div>
                   {it.notes && (
                     <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{it.notes}</p>
@@ -239,7 +250,7 @@ export default function PriceBook() {
                 </div>
                 <div className="text-right">
                   <div className="font-semibold">
-                    £{Number(it.unit_price).toLocaleString("en-GB", { minimumFractionDigits: 2 })}
+                    {it.price_needed ? 'Price needed' : `£${Number(it.unit_price).toLocaleString("en-GB", { minimumFractionDigits: 2 })}`}
                   </div>
                   <div className="text-[10px] text-muted-foreground">per {it.unit}</div>
                 </div>
@@ -287,6 +298,8 @@ export default function PriceBook() {
             <DialogTitle>{editing ? "Edit price line" : "New price line"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3">
+            <label className="text-xs">Customer price list<select className="w-full border rounded-md p-2 bg-background" value={form.customer_id || ''} onChange={e=>{const c=customers.find(c=>c.id===e.target.value);setForm({...form,customer_id:c?.id || null,rate_list:c?.name || null});}}><option value="">General prices / unassigned</option>{customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+            <label className="text-xs">Type<select className="w-full border rounded-md p-2 bg-background" value={form.pricing_kind} onChange={e=>setForm({...form,pricing_kind:e.target.value})}><option value="remedial">Remedial works</option><option value="servicing">Extinguisher servicing</option></select></label>
             <div className="grid grid-cols-3 gap-2">
               <div className="col-span-1">
                 <label className="text-xs text-muted-foreground">Code (optional)</label>
@@ -327,8 +340,9 @@ export default function PriceBook() {
                 <Input
                   type="number"
                   step="0.01"
-                  value={String(form.unit_price)}
-                  onChange={(e) => setForm({ ...form, unit_price: Number(e.target.value) })}
+                  value={form.price_needed ? '' : String(form.unit_price)}
+                  placeholder="Price needed"
+                  onChange={(e) => setForm({ ...form, unit_price: Number(e.target.value), price_needed: e.target.value === '' })}
                 />
               </div>
             </div>

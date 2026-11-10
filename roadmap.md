@@ -1,5 +1,10 @@
 # Roadmap
 
+## Remedial Price Book and quote rules
+- [ ] Import supplied general/customer remedial and separate servicing rates, with missing prices flagged.
+- [ ] Add editable attendance rules and per-quote override/removal, customer-first meaning matches and two-choice selectors.
+- [ ] Update Help and verify exact pricing rules, office quote flows and build time. Wayne's customer is unspecified: retain an unassigned servicing list; customer fixed fees replace low-value attendance to avoid double charging.
+
 ## Job-linked outstanding defects
 - [x] Wade Court had no visit; additionally the validation trigger rejected scheduled defects. Fixed both attachment paths with org/customer checks, explicit manual selection and named per-defect results.
 - [x] Added office job-page picker, works/material editing and visible job/report links. General defects appear on riser PDFs and all live/blank PDF paths propagate load errors.

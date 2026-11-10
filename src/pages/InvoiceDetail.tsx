@@ -19,6 +19,7 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { useRef } from "react";
 import DeleteRecordAction from "@/components/common/DeleteRecordAction";
+import QuotePricingControls from '@/components/invoices/QuotePricingControls';
 
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import { UKDateInput } from "@/components/ui/uk-date-input";
@@ -186,11 +187,13 @@ export default function InvoiceDetail() {
           unit_price: Number(it.unit_price) || 0,
           amount: ((Number(it.quantity) || 0) * (Number(it.unit_price) || 0)).toFixed(2),
           sort_order: idx,
+          org_id: invoice.org_id, automated_charge: !!it.automated_charge, price_match: it.price_match, price_candidates: it.price_candidates || [], price_book_item_id: it.price_book_item_id || null, source_defect_ids: it.source_defect_ids,
         }));
         const { error: itemsErr } = await supabase.from("invoice_line_items").insert(rows as any);
         if (itemsErr) throw itemsErr;
       }
 
+      if(isQuote){const {error}=await supabase.rpc('refresh_quote_charges',{p_quote:id});if(error)throw error;}
       toast({ title: "Changes saved" });
       setEditing(false);
       await fetchData();
@@ -245,8 +248,10 @@ export default function InvoiceDetail() {
       } as any).eq("id", id);
       if (invErr) throw invErr;
 
+      if(isQuote){const {error}=await supabase.rpc('refresh_quote_charges',{p_quote:id});if(error)throw error;await fetchData();}
       setLineItems(updatedItems);
-      setInvoice((prev: any) => ({ ...prev, subtotal: newSubtotal, tax_amount: newTax, total: newTotal }));
+      if(!isQuote)setInvoice((prev: any) => ({ ...prev, subtotal: newSubtotal, tax_amount: newTax, total: newTotal }));
+      if(isQuote)await fetchData();
       cancelInlineEdit();
       toast({ title: "Line item updated" });
     } catch (err: any) {
@@ -833,6 +838,7 @@ export default function InvoiceDetail() {
 
 
       {/* Edit form */}
+      {isQuote && invoice.status==='draft' && userRole==='admin' && (linkedDefects.length>0 || lineItems.some(l=>l.price_candidates?.length)) && <QuotePricingControls invoice={invoice} lines={lineItems} onChanged={fetchData} />}
       {editing ? (
         <Card>
           <CardContent className="p-6 space-y-5">
