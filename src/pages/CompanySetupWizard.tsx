@@ -49,6 +49,7 @@ export default function CompanySetupWizard() {
       supabase.from("job_categories").select("id, name").eq("org_id", id).order("sort_order"),
       supabase.from("email_branding").select("address, phone, reply_to, from_address, website").eq("org_id", id).maybeSingle(),
     ]);
+    if (org.error) throw org.error;
     const eb: any = mail.data || {};
     const b: any = brand.data?.value || {}; const o: any = org.data || {}; const p: any = prog.data?.value || {};
     setD({
