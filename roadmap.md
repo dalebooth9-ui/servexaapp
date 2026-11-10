@@ -1,5 +1,10 @@
 # Roadmap
 
+## Job-linked outstanding defects
+- [ ] Diagnose Wade Court attachment and repair job/customer matching with explicit manual selection and per-defect results.
+- [ ] Add office job-page defect picker and visible job/report links; include works/materials in print outputs without silent load failures.
+- [ ] Update Help, test matching/printing and verify the real office flow; report build time.
+
 ## Permanent riser-based outlet references
 - [x] Replaced all 5,344 random outlet references across companies; inlet codes unchanged. Allocation locks the riser and records its highest-ever suffix; count decreases retire highest fitted outlets and later additions get fresh suffixes.
 - [x] Lists, scanner, report export and office check results consume saved fitted numbers. Shared sticker printing sorts inlet first then numeric outlets, starts each riser on a new row and retains selected-only printing and text fitting.
