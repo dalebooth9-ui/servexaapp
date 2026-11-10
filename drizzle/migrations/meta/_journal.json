@@ -484,6 +484,13 @@
       "when": 1794305109088,
       "tag": "0068_job_linked_outstanding_defects",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1794305379688,
+      "tag": "0069_allow_scheduled_defect_status",
+      "breakpoints": true
     }
   ]
 }
