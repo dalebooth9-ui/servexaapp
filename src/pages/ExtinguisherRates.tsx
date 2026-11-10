@@ -46,7 +46,7 @@ export default function ExtinguisherRates() {
 
   const openAdd = async (it: RateItem) => {
     setAdding(it); setQty("1"); setQuoteId("");
-    let q = supabase.from("invoices").select("id,invoice_number,customer_id,customers(name),tax_rate,org_id").eq("type", "quote").eq("status", "draft").order("created_at", { ascending: false }).limit(200);
+    let q = supabase.from("invoices").select("id,invoice_number,customer_id,customers(name),tax_rate,org_id").eq("document_type", "quote").eq("status", "draft").order("created_at", { ascending: false }).limit(200);
     const { data, error } = await q;
     if (error) return toast.error(error.message);
     const list = (data || []) as any[];
