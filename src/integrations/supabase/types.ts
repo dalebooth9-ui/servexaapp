@@ -4347,10 +4347,13 @@ export type Database = {
         Row: {
           ai_flag: string | null
           amount: number
+          automated_charge: boolean
           description: string
           id: string
           invoice_id: string
           org_id: string
+          price_book_item_id: string | null
+          price_candidates: string[]
           price_match: string | null
           quantity: number
           sort_order: number
@@ -4360,10 +4363,13 @@ export type Database = {
         Insert: {
           ai_flag?: string | null
           amount?: number
+          automated_charge?: boolean
           description?: string
           id?: string
           invoice_id: string
           org_id?: string
+          price_book_item_id?: string | null
+          price_candidates?: string[]
           price_match?: string | null
           quantity?: number
           sort_order?: number
@@ -4373,10 +4379,13 @@ export type Database = {
         Update: {
           ai_flag?: string | null
           amount?: number
+          automated_charge?: boolean
           description?: string
           id?: string
           invoice_id?: string
           org_id?: string
+          price_book_item_id?: string | null
+          price_candidates?: string[]
           price_match?: string | null
           quantity?: number
           sort_order?: number
@@ -4405,17 +4414,27 @@ export type Database = {
             referencedRelation: "organisations_safe"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "invoice_line_items_price_book_item_id_fkey"
+            columns: ["price_book_item_id"]
+            isOneToOne: false
+            referencedRelation: "price_book_items"
+            referencedColumns: ["id"]
+          },
         ]
       }
       invoices: {
         Row: {
           ai_draft_notes: string | null
           ai_drafted: boolean
+          attendance_locality: string
+          attendance_mode: string
           contract_id: string | null
           created_at: string
           created_by: string
           customer_address: string | null
           customer_email: string | null
+          customer_id: string | null
           customer_name: string
           document_type: string
           due_date: string | null
@@ -4432,6 +4451,7 @@ export type Database = {
           sage_invoice_id: string | null
           sage_synced_at: string | null
           sent_at: string | null
+          site_id: string | null
           status: string
           subtotal: number
           tax_amount: number
@@ -4444,11 +4464,14 @@ export type Database = {
         Insert: {
           ai_draft_notes?: string | null
           ai_drafted?: boolean
+          attendance_locality?: string
+          attendance_mode?: string
           contract_id?: string | null
           created_at?: string
           created_by: string
           customer_address?: string | null
           customer_email?: string | null
+          customer_id?: string | null
           customer_name?: string
           document_type?: string
           due_date?: string | null
@@ -4465,6 +4488,7 @@ export type Database = {
           sage_invoice_id?: string | null
           sage_synced_at?: string | null
           sent_at?: string | null
+          site_id?: string | null
           status?: string
           subtotal?: number
           tax_amount?: number
@@ -4477,11 +4501,14 @@ export type Database = {
         Update: {
           ai_draft_notes?: string | null
           ai_drafted?: boolean
+          attendance_locality?: string
+          attendance_mode?: string
           contract_id?: string | null
           created_at?: string
           created_by?: string
           customer_address?: string | null
           customer_email?: string | null
+          customer_id?: string | null
           customer_name?: string
           document_type?: string
           due_date?: string | null
@@ -4498,6 +4525,7 @@ export type Database = {
           sage_invoice_id?: string | null
           sage_synced_at?: string | null
           sent_at?: string | null
+          site_id?: string | null
           status?: string
           subtotal?: number
           tax_amount?: number
@@ -4513,6 +4541,13 @@ export type Database = {
             columns: ["contract_id"]
             isOneToOne: false
             referencedRelation: "service_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {
@@ -4541,6 +4576,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -7857,12 +7899,16 @@ export type Database = {
           code: string | null
           created_at: string
           created_by: string | null
+          customer_id: string | null
           description: string
           id: string
           is_active: boolean
           notes: string | null
           org_id: string
+          price_needed: boolean
+          pricing_kind: string
           quickbooks_item_id: string | null
+          rate_list: string | null
           sage_product_id: string | null
           unit: string
           unit_price: number
@@ -7873,12 +7919,16 @@ export type Database = {
           code?: string | null
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           description: string
           id?: string
           is_active?: boolean
           notes?: string | null
           org_id: string
+          price_needed?: boolean
+          pricing_kind?: string
           quickbooks_item_id?: string | null
+          rate_list?: string | null
           sage_product_id?: string | null
           unit?: string
           unit_price?: number
@@ -7889,18 +7939,29 @@ export type Database = {
           code?: string | null
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           description?: string
           id?: string
           is_active?: boolean
           notes?: string | null
           org_id?: string
+          price_needed?: boolean
+          pricing_kind?: string
           quickbooks_item_id?: string | null
+          rate_list?: string | null
           sage_product_id?: string | null
           unit?: string
           unit_price?: number
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "price_book_items_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "price_book_items_org_id_fkey"
             columns: ["org_id"]
@@ -11820,6 +11881,10 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_quote_price: {
+        Args: { p_item: string; p_line: string }
+        Returns: undefined
+      }
       approve_site_visit_report: { Args: { _report_id: string }; Returns: Json }
       asset_duplicate_review: { Args: never; Returns: Json }
       asset_identity_refs: {
@@ -12369,6 +12434,7 @@ export type Database = {
           outlet_number: number
         }[]
       }
+      refresh_quote_charges: { Args: { p_quote: string }; Returns: undefined }
       report_wrong_riser: {
         Args: { _asset_id: string; _note: string }
         Returns: undefined
@@ -12436,6 +12502,15 @@ export type Database = {
       }
       set_job_riser: {
         Args: { _asset_id: string; _job_id: string; _selected: boolean }
+        Returns: undefined
+      }
+      set_quote_attendance: {
+        Args: {
+          p_amount?: number
+          p_locality?: string
+          p_mode: string
+          p_quote: string
+        }
         Returns: undefined
       }
       set_riser_reminder_state: {
