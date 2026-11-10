@@ -2,9 +2,24 @@
  * Visual snapshot regression — section header rows MUST render with the solid
  * brand-blue fill (#1F4E79) and white bold text. Mirrors the PDF reference.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { Packer } from "docx";
 import JSZip from "jszip";
+
+// The section banner colour comes from the signed-in company's brand colour, so
+// the test runs as Viva Fire (primary colour #1F4E79) with the real client.
+vi.mock("@/integrations/supabase/client", async (importOriginal) => {
+  const mod = await importOriginal<any>();
+  const fakeAuth = {
+    getUser: async () => ({ data: { user: { id: "00000000-0000-0000-0000-000000000001" } }, error: null }),
+  };
+  return {
+    ...mod,
+    supabase: new Proxy(mod.supabase, {
+      get: (target, prop, receiver) => (prop === "auth" ? fakeAuth : Reflect.get(target, prop, receiver)),
+    }),
+  };
+});
 
 import {
   buildBlankTemplateDoc,
@@ -19,8 +34,25 @@ const PNG_1x1 = Uint8Array.from([
   0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
   0x42, 0x60, 0x82,
 ]);
-(globalThis as unknown as { fetch: typeof fetch }).fetch = (async () =>
-  new Response(PNG_1x1, { status: 200, headers: { "content-type": "image/png" } })) as unknown as typeof fetch;
+// Supabase REST calls must answer with JSON; only image loads get the PNG stub.
+(globalThis as unknown as { fetch: typeof fetch }).fetch = (async (input: any) => {
+  const url = typeof input === "string" ? input : String(input?.url ?? input);
+  if (url.includes("/rest/v1/")) {
+    let body = "[]";
+    if (url.includes("/rpc/get_user_org_id")) {
+      body = JSON.stringify("11111111-1111-1111-1111-111111111111");
+    } else if (url.includes("/organisations")) {
+      body = JSON.stringify({
+        id: "11111111-1111-1111-1111-111111111111",
+        name: "Viva Fire",
+        logo_url: null,
+        primary_color: "#1F4E79",
+      });
+    }
+    return new Response(body, { status: 200, headers: { "content-type": "application/json" } });
+  }
+  return new Response(PNG_1x1, { status: 200, headers: { "content-type": "image/png" } });
+}) as unknown as typeof fetch;
 class StubImage {
   naturalWidth = 16;
   naturalHeight = 16;
@@ -50,8 +82,9 @@ describe("Word section-header banner styling", () => {
     const xml = (await zip.file("word/document.xml")!.async("string")) as string;
 
     // Every section header row sets cell shading with the brand blue.
+    // The brand colour reaches the doc as a lowercase hex, so match either case.
     const blueShadingMatches = xml.match(
-      new RegExp(`<w:shd[^/]*w:fill="${SECTION_HEADER_BLUE}"`, "g"),
+      new RegExp(`<w:shd[^/]*w:fill="${SECTION_HEADER_BLUE}"`, "gi"),
     ) || [];
     // 2 sections × 2 cells (label + RESULT) = 4 shaded cells minimum.
     expect(blueShadingMatches.length).toBeGreaterThanOrEqual(4);
