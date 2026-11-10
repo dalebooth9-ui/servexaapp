@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { loadCarriedRemedials, carriedReportFields } from "@/lib/defectCarryForward";
 import { Button } from "@/components/ui/button";
 import { Printer, Loader2, Download, Eye } from "lucide-react";
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
@@ -198,6 +199,12 @@ export async function generateJobSheetPdf(
   const reportName = customerReportName(template.name, formData);
   const normalizeFieldLabel = (label: string) => label.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const hasValue = (value: unknown) => value !== undefined && value !== null && value !== "";
+  // Load saved job attachments for every live print path; never silently omit them.
+  if (/^[0-9a-f-]{36}$/i.test(jobId)) {
+    const carried = carriedReportFields(await loadCarriedRemedials(jobId, formData.riser_asset_id || null));
+    template = { ...template, fields: [...template.fields, ...carried.fields] };
+    Object.assign(resolvedFormData, carried.answers);
+  }
 
   if (categoryName) {
     template.fields.forEach((f) => {

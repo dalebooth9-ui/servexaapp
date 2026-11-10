@@ -1,4 +1,5 @@
 import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
+import { loadCarriedRemedials } from "@/lib/defectCarryForward";
 import {resolveToSignedUrl} from '@/lib/durableStorageRef';
 import {engineerAccessForPrint} from '@/lib/siteAccess';
 import { useState, forwardRef, useImperativeHandle } from "react";
@@ -70,6 +71,7 @@ const blankCacheKey = (tpl: { id?: string; updated_at?: string; name?: string },
 
 type JobInfo = {
   id?:string;site_id?:string;
+  riserVisit?: Record<string, any> | null;
   engineerAccess?:import('@/lib/siteAccessPdf').EngineerAccessPrint|null;
   address: string | null;
   customer: string | null;
@@ -383,7 +385,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       console.time(label);
       const { blob: builtBlob, fileName, duration } = await runBlankTemplatePdfWorker({
         template: {...template,branding:{...template.branding,logo_url:profile.logoUrl}},
-        jobInfo:jobInfo?{...jobInfo,engineerAccess:await engineerAccessForPrint({siteId:jobInfo.site_id,jobId:jobInfo.id}).catch(()=>null)}:null,
+        jobInfo:jobInfo?{...jobInfo,riserVisit:jobInfo.id?{remedials:await loadCarriedRemedials(jobInfo.id)}:null,engineerAccess:await engineerAccessForPrint({siteId:jobInfo.site_id,jobId:jobInfo.id}).catch(()=>null)}:null,
         printBranding:{enabled:profile.isCustomerBranded,logoUrl:profile.logoUrl,watermarkUrl:profile.watermarkUrl,servicedBy:profile.servicedBy},
         handfill,
         watermarkOverride:{mode:"untinted",opacity:0.11},

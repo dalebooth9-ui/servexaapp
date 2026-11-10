@@ -1,5 +1,10 @@
 # Roadmap
 
+## Job-linked outstanding defects
+- [x] Wade Court had no visit; additionally the validation trigger rejected scheduled defects. Fixed both attachment paths with org/customer checks, explicit manual selection and named per-defect results.
+- [x] Added office job-page picker, works/material editing and visible job/report links. General defects appear on riser PDFs and all live/blank PDF paths propagate load errors.
+- [x] Updated Help; 14 focused tests pass. Office flow attached the requested real defect to VFP-00283, saved works/materials and read back its row; actual generated PDF visibly contains the section and stays one A4. Phone picker checked. Build OK 10:09:42 UTC/London. No visit date invented; physical printing not available.
+
 ## Permanent riser-based outlet references
 - [x] Replaced all 5,344 random outlet references across companies; inlet codes unchanged. Allocation locks the riser and records its highest-ever suffix; count decreases retire highest fitted outlets and later additions get fresh suffixes.
 - [x] Lists, scanner, report export and office check results consume saved fitted numbers. Shared sticker printing sorts inlet first then numeric outlets, starts each riser on a new row and retains selected-only printing and text fitting.

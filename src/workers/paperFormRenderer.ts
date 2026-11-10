@@ -542,14 +542,14 @@ export function renderPaperFormPage(
     }
   }
   // Remedial works carried forward from an earlier visit (office "Add to next service report").
-  const remedials = (isRiserInspection && Array.isArray(visit?.remedials) ? visit!.remedials : []) as any[];
+  const remedials = (Array.isArray(visit?.remedials) ? visit.remedials : []) as any[];
   if (remedials.length) {
     const sec = 'REMEDIAL WORKS OUTSTANDING FROM PREVIOUS VISIT';
     const shown = remedials.slice(0, 4);
     const rows: PdfTemplateField[] = [];
     for (const r of shown) {
       const works = r.works_required || r.title || '';
-      const parts = [r.riser ? `${r.riser}: ${works}` : works, r.materials_required ? `Materials: ${r.materials_required}` : ''].filter(Boolean);
+      const parts = [r.riser ? `${r.riser}: ${r.title}` : r.title, `Works: ${works}`, r.materials_required ? `Materials: ${r.materials_required}` : 'Materials: —'].filter(Boolean);
       rows.push({ id: `remedial_${r.id}`, label: parts.join(' | '), type: 'select', section: sec, required: false, _printText: 'DONE / NOT DONE' } as unknown as PdfTemplateField);
       rows.push({ id: `remedial_comment_${r.id}`, label: 'Comments:', type: 'text', section: sec } as PdfTemplateField);
     }

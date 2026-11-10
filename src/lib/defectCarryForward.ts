@@ -1,4 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { PdfTemplateField } from "@/lib/pdfBody";
+import { format } from "date-fns";
 
 const VERB_BASE: Record<string, string> = {
   securing: "secure", replacing: "replace", repairing: "repair", cleaning: "clean",
@@ -45,9 +47,28 @@ export type CarriedRemedial = {
   visit_date: string | null; carry_outcome: string | null; carry_comment: string | null;
 };
 
+export type DefectAttachmentResult = { defect_id: string; outcome: string; job_id: string | null; job_ref: string | null; site_name: string | null; visit_date: string | null; report_name: string | null };
+export function attachmentMessage(r: DefectAttachmentResult): string {
+  if (r.outcome === "scheduled") return `Added to Job ${r.job_ref} (${r.site_name || "No site"}, ${r.visit_date ? format(new Date(`${r.visit_date}T12:00:00`), "d MMM") : "visit not scheduled"}) · ${r.report_name || "Service report"}`;
+  return ({ no_site: "No site linked", no_visit: "No upcoming visit", site_mismatch: "Site doesn't match any job", customer_mismatch: "Customer doesn't match this job", closed: "Defect is already closed", not_found: "Defect not found or unavailable", job_unavailable: "Job is closed or unavailable" } as Record<string, string>)[r.outcome] || "Defect was not added";
+}
+
+export function remedialsForRiser(rows: CarriedRemedial[], assetId?: string | null) {
+  return rows.filter(r => r.carry_outcome !== "done" && (!assetId || !r.asset_id || r.asset_id === assetId));
+}
+
+export function carriedReportFields(rows: CarriedRemedial[]): { fields: PdfTemplateField[]; answers: Record<string, string> } {
+  const fields: PdfTemplateField[] = []; const answers: Record<string, string> = {};
+  for (const r of rows) {
+    const id = `carried_${r.id}`;
+    fields.push({ id, label: `${r.riser || "General item"}: ${r.title}`, type: "textarea", required: false, section: "REMEDIAL WORKS OUTSTANDING FROM PREVIOUS VISIT" });
+    answers[id] = [`Works required: ${r.works_required || r.title}`, `Materials required: ${r.materials_required || "—"}`, r.carry_outcome === "not_done" ? "Not done" : "Done / Not done", r.carry_comment ? `Comments: ${r.carry_comment}` : ""].filter(Boolean).join("\n");
+  }
+  return { fields, answers };
+}
+
 export async function loadCarriedRemedials(jobId: string, assetId?: string | null): Promise<CarriedRemedial[]> {
   const { data, error } = await (supabase as any).rpc("job_carried_remedials", { p_job: jobId });
   if (error) throw error;
-  const rows = ((data || []) as CarriedRemedial[]).filter((r) => r.carry_outcome !== "done");
-  return assetId ? rows.filter((r) => !r.asset_id || r.asset_id === assetId) : rows;
+  return remedialsForRiser((data || []) as CarriedRemedial[], assetId);
 }

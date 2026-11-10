@@ -56,6 +56,7 @@ import { buildAttachPlan, insertDraftResponses, lockJobTemplate, type MatchSlot,
 import { useJobPhotoCount } from "@/hooks/useJobPhotoCount";
 import JobCompleteAction from "@/components/jobs/JobCompleteAction";
 import JobRemedialChecklist from "@/components/jobs/JobRemedialChecklist";
+import OutstandingDefectsDialog from "@/components/jobs/OutstandingDefectsDialog";
 import JobTemplateMismatchBanner from "@/components/jobs/JobTemplateMismatchBanner";
 import VisualOnlyReportNotice from "@/components/jobs/VisualOnlyReportNotice";
 import { Switch } from "@/components/ui/switch";
@@ -577,6 +578,7 @@ export default function JobDetail() {
                 customerLogoUrl={(job as any).customers?.logo_url || null}
               />
             </Suspense>
+            {id && <OutstandingDefectsDialog jobId={id} siteId={job.site_id || null} onAdded={fetchData} />}
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5">
