@@ -47,7 +47,9 @@ export default function CompanySetupWizard() {
       supabase.from("app_settings").select("value").eq("org_id", id).eq("key", "org_branding").maybeSingle(),
       supabase.from("app_settings").select("value").eq("org_id", id).eq("key", PROGRESS_KEY).maybeSingle(),
       supabase.from("job_categories").select("id, name").eq("org_id", id).order("sort_order"),
+      supabase.from("email_branding").select("address, phone, reply_to, from_address, website").eq("org_id", id).maybeSingle(),
     ]);
+    const eb: any = (arguments as any, (await Promise.resolve(null)), null);
     const b: any = brand.data?.value || {}; const o: any = org.data || {}; const p: any = prog.data?.value || {};
     setD({
       company_name: b.company_name || o.name || "", address: b.address || "", phone: b.phone || "", email: b.email || o.office_email || "",
