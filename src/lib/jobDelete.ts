@@ -30,7 +30,7 @@ export function jobDeleteSummary(p: JobDeletePreview): string {
 export function plainDeleteError(msg: string): string {
   const m = msg || "";
   if (/violates foreign key constraint.*on table "([^"]+)"/i.test(m)) {
-    const t = m.match(/on table "([^"]+)"/i)?.[1]?.replace(/_/g, " ") ?? "another record";
+    const t = m.match(/foreign key constraint.*on table "([^"]+)"/i)?.[1]?.replace(/_/g, " ") ?? "another record";
     return `Couldn't delete: the job is still linked to ${t}.`;
   }
   if (/permission denied|row-level security|Only admins/i.test(m)) return "Couldn't delete: only admins can delete jobs.";
