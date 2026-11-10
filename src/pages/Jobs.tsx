@@ -2351,13 +2351,7 @@ export default function Jobs() {
 <Button variant="destructive" size="sm" className="h-7 text-xs ml-auto" onClick={handleBulkDelete}>
                   <Trash2 className="mr-1.5 h-3 w-3" /> Delete {selectedJobIds.size}
                 </Button>
-                <JobDeleteDialog
-                  jobIds={deleteIds}
-                  open={deleteOpen}
-                  onOpenChange={setDeleteOpen}
-                  onDone={handleDeleteDone}
-                  beforeDelete={async (ids) => { await Promise.all(jobs.filter((j) => ids.includes(j.id)).map((j) => blockMellorRef(j.reference_number))); }}
-                />
+
               </>
             )}
           </div>
@@ -2365,6 +2359,14 @@ export default function Jobs() {
       )}
 
 
+
+<JobDeleteDialog
+                  jobIds={deleteIds}
+                  open={deleteOpen}
+                  onOpenChange={setDeleteOpen}
+                  onDone={handleDeleteDone}
+                  beforeDelete={async (ids) => { await Promise.all(jobs.filter((j) => ids.includes(j.id)).map((j) => blockMellorRef(j.reference_number))); }}
+                />
 
       {filtered.length === 0 ? (
         <Card>
