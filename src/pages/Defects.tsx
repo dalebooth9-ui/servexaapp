@@ -104,8 +104,9 @@ export default function Defects() {
   const [defects, setDefects] = useState<Defect[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [severityFilter, setSeverityFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "all");
+  const [severityFilter, setSeverityFilter] = useState(() => searchParams.get("severity") || "all");
+  const createdThisWeek = searchParams.get("created") === "this-week";
   const [quotedFilter, setQuotedFilter] = useState<"all" | "unquoted" | "quoted">(
     searchParams.get("filter") === "unquoted" ? "unquoted" : "all"
   );
@@ -358,6 +359,10 @@ export default function Defects() {
       if (cid !== linkedCustomerId) return false;
     }
     if (statusFilter !== "all" && d.status !== statusFilter) return false;
+    if (createdThisWeek) {
+      const ws = new Date(); ws.setDate(ws.getDate() - ((ws.getDay() + 6) % 7)); ws.setHours(0, 0, 0, 0);
+      if (!(d as any).created_at || new Date((d as any).created_at) < ws) return false;
+    }
     if (severityFilter !== "all" && d.severity !== severityFilter) return false;
     if (quotedFilter === "unquoted" && d.quote_id) return false;
     if (quotedFilter === "quoted" && !d.quote_id) return false;
