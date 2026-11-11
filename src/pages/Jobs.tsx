@@ -1,5 +1,6 @@
 import { isQueued, readQueue } from "@/lib/reportReview";
 import JobDeleteDialog from "@/components/jobs/JobDeleteDialog";
+import { createInvoiceForJob } from "@/lib/createInvoiceForJob";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import PoImportDialog from "@/components/PoImportDialog";
@@ -228,10 +229,10 @@ export default function Jobs() {
   const [showFilters, setShowFilters] = useState(false);
 
   // ---- Smart views (one-tap chips) -------------------------------------
-  type SmartView = "due-today" | "overdue" | "awaiting-report" | "defects" | "ready-to-invoice" | "unassigned";
+  type SmartView = "due-today" | "overdue" | "awaiting-report" | "defects" | "ready-to-invoice" | "unassigned" | "completed-this-week";
   const [smartView, setSmartView] = useState<SmartView | null>(() => {
     const v = new URLSearchParams(window.location.search).get("view");
-    const allowed = ["due-today", "overdue", "awaiting-report", "defects", "ready-to-invoice", "ready-to-invoice", "unassigned"];
+    const allowed = ["due-today", "overdue", "awaiting-report", "defects", "ready-to-invoice", "unassigned", "completed-this-week"];
     return allowed.includes(v || "") ? (v as SmartView) : null;
   });
   const [smartSets, setSmartSets] = useState<{ assigned: Set<string>; scheduledToday: Set<string>; withDefects: Set<string>; invoiced: Set<string> }>({
@@ -273,6 +274,11 @@ export default function Jobs() {
         return smartSets.withDefects.has(j.id);
       case "ready-to-invoice":
         return j.status === "completed" && !smartSets.invoiced.has(j.id);
+      case "completed-this-week": {
+        if (j.status !== "completed" || !j.completed_at) return false;
+        const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); d.setHours(0, 0, 0, 0);
+        return new Date(j.completed_at) >= d;
+      }
       case "unassigned":
         return !smartSets.assigned.has(j.id) && !CLOSED_STATUSES.includes(j.status);
       default:
@@ -286,9 +292,16 @@ export default function Jobs() {
     { key: "defects", label: "Defects raised" },
     { key: "ready-to-invoice", label: "Ready to invoice" },
     { key: "unassigned", label: "Unassigned" },
+    { key: "completed-this-week", label: "Completed this week" },
   ];
   // Visible primary status tab — Active (default), Pending Review, Completed, All
-  const [statusTab, setStatusTab] = useState<"active" | "pending_review" | "completed" | "rejected" | "all">("active");
+  const [statusTab, setStatusTab] = useState<"active" | "pending_review" | "completed" | "rejected" | "all">(() => {
+    const v = new URLSearchParams(window.location.search).get("view");
+    if (v === "ready-to-invoice" || v === "completed-this-week") return "completed";
+    if (v === "awaiting-report") return "pending_review";
+    if (v && ["due-today", "overdue", "defects", "unassigned"].includes(v)) return "all";
+    return "active";
+  });
   const includeArchived = statusTab === "completed" || statusTab === "all";
 
   const [pageSize, setPageSize] = useState(300);
@@ -349,7 +362,7 @@ export default function Jobs() {
     // never fall through to the admin's full company-wide job list.
     if (isGenericEngineerPreview) { setJobs([]); setHasMore(false); return; }
 
-    const COLUMNS = "id, org_id, category_suggestion, category_other_types, reference_number, customer_po, name, customer, customer_id, site_id, address, status, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, template_mismatch_reason, detected_work_types, submissions(id, type), customers(id, name, email), sites(id, name, address, postcode)";
+    const COLUMNS = "id, org_id, category_suggestion, category_other_types, reference_number, customer_po, name, customer, customer_id, site_id, address, status, completed_at, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, template_mismatch_reason, detected_work_types, submissions(id, type), customers(id, name, email), sites(id, name, address, postcode)";
     let query = supabase.from("jobs").select(COLUMNS).order("created_at", { ascending: false });
     // When user is actively searching, fetch across ALL statuses so completed jobs
     // still surface regardless of the current tab. Otherwise, scope by tab.
@@ -2135,7 +2148,7 @@ export default function Jobs() {
               onClick={() => {
                 const next = active ? null : v.key;
                 setSmartView(next);
-                if (next === "ready-to-invoice") setStatusTab("completed");
+                if (next === "ready-to-invoice" || next === "completed-this-week") setStatusTab("completed");
                 else if (next === "awaiting-report") setStatusTab("pending_review");
                 else if (next) setStatusTab("all");
               }}
@@ -2519,6 +2532,16 @@ export default function Jobs() {
                           </Badge>
                         )}
                       </Link>
+                      {isAdmin && smartView === "ready-to-invoice" && j.status === "completed" && !smartSets.invoiced.has(j.id) && (
+                        <Button size="sm" variant="outline" className="h-7 shrink-0 text-xs" onClick={async () => {
+                          try {
+                            const id = await createInvoiceForJob(j as any);
+                            navigate(`/invoices/${id}`);
+                          } catch (err: any) {
+                            toast({ title: "Couldn't create the invoice", description: err?.message || "Please try again.", variant: "destructive" });
+                          }
+                        }}>Create invoice</Button>
+                      )}
                       {isAdmin && (j as any).org_id && (
                         <JobTypePicker
                           compact
