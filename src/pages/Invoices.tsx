@@ -29,7 +29,7 @@ export default function Invoices() {
   const { userRole } = useAuth();
   const [allRecords, setAllRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(() => new URLSearchParams(window.location.search).get("status") || "all");
   const [search, setSearch] = useState("");
   const [docTab, setDocTab] = useState<"invoice" | "quote">("invoice");
 
@@ -76,7 +76,9 @@ export default function Invoices() {
 
 
   const filtered = records.filter((inv) => {
-    if (statusFilter !== "all" && inv.status !== statusFilter) return false;
+    if (statusFilter === "unpaid") {
+      if (inv.status === "paid" || inv.status === "cancelled" || inv.paid_at) return false;
+    } else if (statusFilter !== "all" && inv.status !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
       return (
