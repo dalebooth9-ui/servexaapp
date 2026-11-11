@@ -172,6 +172,7 @@ export default function Invoices() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
+            {docTab === "invoice" && <SelectItem value="unpaid">Unpaid</SelectItem>}
             {currentStatuses.map((s) => (
               <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
             ))}
