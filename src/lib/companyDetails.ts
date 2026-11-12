@@ -1,13 +1,16 @@
 export type CompanyDetails = { name: string; logo_url: string | null; primary_color: string | null };
-export function companyDetailsErrors(d: CompanyDetails) {
+export function companyDetailsErrors(d: CompanyDetails, isViva = false) {
   return {
     name: d.name.trim() ? '' : 'Enter your company name.',
-    logo_url: d.logo_url ? '' : 'Upload your company logo.',
+    logo_url: companyLogoFallback({ isViva, logoUrl: d.logo_url }) ? '' : 'Upload your company logo.',
     primary_color: /^#[0-9a-f]{6}$/i.test(d.primary_color || '') ? '' : 'Pick a brand colour.',
   };
 }
-export function companyDetailsComplete(d: CompanyDetails) {
-  return Object.values(companyDetailsErrors(d)).every(value => !value);
+export function companyDetailsComplete(d: CompanyDetails, isViva = false) {
+  return Object.values(companyDetailsErrors(d, isViva)).every(value => !value);
+}
+export function visibleCompanyDetailsErrors(d: CompanyDetails, attempted: boolean, isViva = false) {
+  return attempted ? companyDetailsErrors(d, isViva) : { name: '', logo_url: '', primary_color: '' };
 }
 export function companyLogoFallback(d: { isViva: boolean; logoUrl: string | null }) {
   return d.logoUrl || (d.isViva ? '/images/vivafire-logo-new.png' : '');

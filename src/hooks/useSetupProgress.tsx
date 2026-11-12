@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { companyDetailsComplete } from '@/lib/companyDetails';
+import { VIVA_ORG_ID } from '@/lib/generatingOrgBranding';
 
 export type SetupStepId =
   | "company"
@@ -144,7 +145,7 @@ export function useSetupProgress(): SetupState {
     const org = orgRes.data as { name: string; logo_url: string | null; primary_color: string | null } | null;
 
     setCompleted({
-      company: !!org && companyDetailsComplete(org),
+      company: !!org && companyDetailsComplete(org, oid === VIVA_ORG_ID),
       engineers: (engRes.count ?? 0) > 0,
       customer: (custRes.count ?? 0) > 0,
       site: (siteRes.count ?? 0) > 0,
