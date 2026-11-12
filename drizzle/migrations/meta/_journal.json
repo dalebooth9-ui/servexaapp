@@ -540,6 +540,13 @@
       "when": 1794515656114,
       "tag": "0076_riser_outlets_on_new_job",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1794515674885,
+      "tag": "0077_fix_engineer_outlet_access_call",
+      "breakpoints": true
     }
   ]
 }
