@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,6 +41,7 @@ export default function RiserScan() {
   const [visitType,setVisitType]=useState<VisitType>('visual');
   const [chosenJob,setChosenJob]=useState<string|null>(null);
   const [outlet,setOutlet]=useState<number|null>(null);
+  const [outletDraft,setOutletDraft]=useState('');
   const isStaff = !!user && (userRole === "admin" || userRole === "engineer");
 
   useEffect(() => {
@@ -103,6 +105,17 @@ export default function RiserScan() {
     );
   }
 
+  const saveOutletCount = async () => {
+    const n = Number(outletDraft);
+    if (!Number.isInteger(n) || n < 1 || n > 200) { toast.error("Enter the number of outlets (1 to 200)"); return; }
+    setBusy(true);
+    const { error } = await supabase.rpc("set_riser_outlet_count", { _asset_id: asset.id, _count: n, _confirmed: false });
+    setBusy(false);
+    if (error) { toast.error("Outlets not saved", { description: error.message }); return; }
+    setAsset({ ...asset, outlets_count: n });
+    toast.success(`${n} outlets saved`, { description: "Outlet codes created. The report now has a row for each outlet." });
+  };
+
   const labelFitted = async () => {
     setBusy(true);
     const { error } = await supabase.rpc("mark_asset_label_placed", { _asset_id: asset.id });
@@ -156,6 +169,11 @@ export default function RiserScan() {
           : "None recorded"} />
         <Info label="Sticker" value={asset.label_status} />
       </div>
+      {!asset.outlets_count && <div className="mt-4 rounded-md border p-3 text-left space-y-2">
+        <p className="text-sm font-semibold">Number of outlets not recorded</p>
+        <p className="text-xs text-muted-foreground">Count the outlets on site and enter the number. Each outlet gets its own code and a row on the report.</p>
+        <div className="flex gap-2"><Input type="number" inputMode="numeric" min={1} max={200} aria-label="Number of outlets" value={outletDraft} onChange={e=>setOutletDraft(e.target.value)} /><Button onClick={()=>void saveOutletCount()} disabled={busy||!outletDraft}>Save</Button></div>
+      </div>}
       <div className="mt-4 text-left">
         <p className="text-sm font-semibold">Open defects ({asset.open_defects})</p>
         {defects.length > 0 && (
