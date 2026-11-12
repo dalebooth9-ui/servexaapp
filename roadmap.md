@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Company details and exact setup links
+- [x] Saved logo validation corrected: Viva default counts as configured, untouched saved fields complete Step 1, errors wait for Save/Next, and preview shows Logo saved with Replace logo. Admin Save/reload and required-name checks verified; 13 focused tests passed.
 - [x] Grouped name, PNG/JPG/SVG logo and colour under Documents with a single atomic save and missing-field messages.
 - [x] Corrected setup tab/section links and live completion; saved company logo feeds shared exports, QR labels and device-remembered login branding. Viva defaults restored after testing; existing saved documents unchanged.
 - [x] Updated Help; 17 tests pass. Admin name validation, real JPG/PNG/SVG uploads/save/readback, completion tick and Step 2 banner, engineer/WhatsApp links, sticker resolver and login logo verified on desktop/phone. New report/quote PDF generation not re-exercised. Build OK 09:28:00 UTC/London.

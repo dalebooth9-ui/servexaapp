@@ -100,7 +100,8 @@ const RULES: SlugRule[] = [
   { test: (p) => p === '/settings/company-isolation', slug: 'settings.company-isolation' },
   { test: (p) => p === "/settings/integrations", slug: "integrations.quickbooks" },
   // Company details is at the top of Documents: name, logo and colour saved together;
-  // setup links use exact tabs/sections and Step 1 requires all three saved fields.
+  // setup links use exact tabs/sections; saved branding (including Viva's default
+  // logo) completes Step 1 without edits. Missing-field errors wait for Save/Next.
   { test: (p) => p === "/settings", slug: "settings" },
 
   { test: (p) => p === "/fleet", slug: "fleet" },
