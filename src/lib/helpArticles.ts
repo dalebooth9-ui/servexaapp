@@ -35,7 +35,8 @@ const RULES: SlugRule[] = [
   // both also in the top button row on riser jobs; saved Risers on this job selections,
   // exact duplicate warnings and confirmed Merge jobs archival are in jobs.detail.
   // Office Add outstanding defects attaches selected customer/site defects directly
-  // to this job, with unmatched risers kept as general report items.
+  // to this job, with unmatched risers kept as general report items. Each riser row
+  // has a Number of outlets stepper that creates/retires outlet QR codes in place.
   { test: (p) => /^\/jobs\/[^/]+$/.test(p), slug: "jobs.detail" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/rams"), slug: "rams" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/site-visit-report"), slug: "site-visit-report" },
