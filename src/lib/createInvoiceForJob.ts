@@ -9,6 +9,9 @@ export async function createInvoiceForJob(job: {
   id: string; customer_id?: string | null; site_id?: string | null;
   customer?: string | null; customers?: { name?: string | null; email?: string | null } | null;
 }): Promise<string> {
+  const { data: auth, error: authError } = await supabase.auth.getUser();
+  if (authError) throw authError;
+  if (!auth.user) throw new Error('Please sign in again before creating an invoice.');
   const { data: existing } = await supabase.from("invoices").select("id")
     .eq("document_type", "invoice").eq("job_id", job.id).limit(1);
   if (existing && existing.length) return existing[0].id;
@@ -19,6 +22,7 @@ export async function createInvoiceForJob(job: {
   const q: any = quotes?.[0];
 
   const { data: inv, error } = await supabase.from("invoices").insert({
+    created_by: auth.user.id,
     job_id: job.id,
     customer_id: q?.customer_id ?? job.customer_id ?? null,
     site_id: q?.site_id ?? job.site_id ?? null,

@@ -18,6 +18,7 @@ import {
 import { Loader2, Plus, BookOpen, Search, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { fetchAllRows } from '@/lib/fetchAllRows';
+import { alphabeticalPriceBook } from '@/lib/priceBookOrder';
 import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from '@/components/ui/select';
 
 type Item = {
@@ -68,7 +69,7 @@ export default function PriceBook() {
 
   const load = async () => {
     setLoading(true);
-    try { setItems(await fetchAllRows<Item>('price_book_items','*','id')); } catch(e:any){toast.error(e.message);}
+    try { setItems(alphabeticalPriceBook(await fetchAllRows<Item>('price_book_items','*','id'))); } catch(e:any){toast.error(e.message);}
     setLoading(false);
   };
 

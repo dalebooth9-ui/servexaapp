@@ -1,5 +1,9 @@
 # Roadmap
 
+## Project monitoring invoice and Price Book fixes
+- [x] Confirmed missing created_by invoice error and UUID-ordered prices in the signed-in app; added authenticated creator and A–Z ordering after stable pagination.
+- [x] Five regression tests pass; real signed-in helper created an invoice, its draft screen loaded and creator read back correctly. Temporary unsent invoices removed. Price Book A–Z order verified; Help updated. Jobs button itself was not clicked in the browser check.
+
 ## Company details and exact setup links
 - [x] Saved logo validation corrected: Viva default counts as configured, untouched saved fields complete Step 1, errors wait for Save/Next, and preview shows Logo saved with Replace logo. Admin Save/reload and required-name checks verified; 13 focused tests passed.
 - [x] Grouped name, PNG/JPG/SVG logo and colour under Documents with a single atomic save and missing-field messages.

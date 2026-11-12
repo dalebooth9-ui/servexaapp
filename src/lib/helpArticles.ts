@@ -18,6 +18,7 @@ const RULES: SlugRule[] = [
   { test: (p) => p === "/", slug: "dashboard" },
   { test: (p) => p === "/admin/error-log", slug: "error-log" },
 
+  // Ready to invoice creates a draft attributed to the signed-in office user.
   { test: (p) => p === "/jobs", slug: "jobs" },
   // Due Visits row creation always pre-ticks only the chosen riser and matches its
   // Visual/Pressure type; site creation ticks overdue unbooked risers only. The
@@ -79,6 +80,7 @@ const RULES: SlugRule[] = [
   { test: (p) => p === '/settings/email-health', slug: 'settings' },
   { test: (p) => p === "/audits", slug: "audits" },
   { test: (p) => p === "/quotes", slug: "quotes" },
+  // Price Book retains stable pagination and displays all prices A–Z by description.
   { test: (p) => p === '/settings/price-book', slug: 'price-book' },
   { test: (p) => p === '/settings/extinguisher-rates', slug: 'price-book' },
   // Quote guides include customer-first pricing, meaning-match choices and
