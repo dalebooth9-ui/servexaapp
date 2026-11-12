@@ -1,5 +1,10 @@
 # Roadmap
 
+## Company details and exact setup links
+- [ ] Group name, PNG/JPG/SVG logo and colour under Documents; validate and save together.
+- [ ] Correct every setup destination, refresh completion and use saved company branding while preserving Viva defaults.
+- [ ] Update Help and verify admin saving, setup navigation and branding tests.
+
 ## Remedial Price Book and quote rules
 - [x] Imported 62 supplied general/customer remedial and separate servicing rates; Safely Comply powder/water additive stay blank in the UI with price_needed, not free rates. Wayne's servicing list remains unassigned; all values GBP ex VAT.
 - [x] Added editable attendance threshold/local/distant rates, persistent auto/override/removed modes, customer-first meaning matches and two-choice selectors. Customer fixed fees replace low-value attendance to avoid double charging.
