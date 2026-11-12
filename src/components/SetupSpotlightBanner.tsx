@@ -21,7 +21,9 @@ export default function SetupSpotlightBanner() {
   const raw = params.get("setup");
   const stepIndex = raw ? parseInt(raw, 10) : NaN;
   const step = SETUP_STEPS.find((s) => s.index === stepIndex) ?? null;
-  const shownStep = step && progress.completed[step.id] ? progress.nextStep || step : step;
+  const shownStep = step?.id === 'company' && progress.completed.company
+    ? SETUP_STEPS.find(s => s.index === 2) || step
+    : step && progress.completed[step.id] ? progress.nextStep || step : step;
 
   // Old bookmarks with only ?setup must still open the intended tab/section.
   useEffect(() => {

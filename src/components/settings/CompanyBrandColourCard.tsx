@@ -9,7 +9,6 @@ import { requireCurrentOrgId } from '@/lib/tenantQueries';
 import { buildDurableRef, resolveToSignedUrl } from '@/lib/durableStorageRef';
 import { companyDetailsErrors, companyLogoFallback, type CompanyDetails } from '@/lib/companyDetails';
 import { VIVA_ORG_ID } from '@/lib/generatingOrgBranding';
-import { Upload } from 'lucide-react';
 
 export default function CompanyBrandColourCard() {
   const [params] = useSearchParams();
