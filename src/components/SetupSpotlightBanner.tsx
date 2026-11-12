@@ -79,14 +79,14 @@ export default function SetupSpotlightBanner() {
     <div className={cn(
       "sticky top-0 z-40 -mx-4 md:-mx-6 lg:-mx-8 mb-4 border-b bg-primary/10 backdrop-blur",
     )}>
-      <div className="px-4 md:px-6 lg:px-8 py-2.5 flex items-center gap-3">
+      <div className="px-4 md:px-6 lg:px-8 py-2.5 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 shrink-0">
           <Rocket className="h-4 w-4 text-primary" />
           <span className="text-xs font-semibold text-primary uppercase tracking-wide">
             Setup · Step {shownStep?.index}
           </span>
         </div>
-        <Button variant="ghost" className="text-sm text-foreground flex-1 min-w-0 h-auto whitespace-normal justify-start text-left" onClick={() => shownStep && navigate(setupStepUrl(shownStep))}>
+        <Button variant="ghost" className="text-sm text-foreground order-last sm:order-none basis-full sm:basis-auto flex-1 min-w-0 h-auto whitespace-normal justify-start text-left" onClick={() => shownStep && navigate(setupStepUrl(shownStep))}>
           {step.id === 'company' && progress.completed.company && <CheckCircle2 aria-label="Step 1 complete" className="h-4 w-4 mr-2 shrink-0 text-primary" />}
           {shownStep?.spotlightInstruction}
         </Button>
