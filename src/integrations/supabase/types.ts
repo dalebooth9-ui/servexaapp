@@ -12464,6 +12464,10 @@ export type Database = {
       riser_scan_jobs: { Args: { _asset_id: string }; Returns: Json }
       riser_type_by_tag: { Args: { _tag: string }; Returns: string }
       riser_visit_customer: { Args: { _site_id: string }; Returns: string }
+      save_company_details: {
+        Args: { p_logo_url: string; p_name: string; p_primary_color: string }
+        Returns: undefined
+      }
       save_site_access_info: {
         Args: { p_confirm?: boolean; p_details: Json; p_site_id: string }
         Returns: {
