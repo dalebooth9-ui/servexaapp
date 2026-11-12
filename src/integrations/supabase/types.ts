@@ -623,9 +623,11 @@ export type Database = {
           created_by: string | null
           creation_source: string | null
           due_visit_state: Json
+          floors_served: string | null
           id: string
           import_batch_id: string | null
           imported_at: string | null
+          inlets_count: number | null
           install_date: string | null
           label_placed_at: string | null
           label_placed_by: string | null
@@ -663,9 +665,11 @@ export type Database = {
           created_by?: string | null
           creation_source?: string | null
           due_visit_state?: Json
+          floors_served?: string | null
           id?: string
           import_batch_id?: string | null
           imported_at?: string | null
+          inlets_count?: number | null
           install_date?: string | null
           label_placed_at?: string | null
           label_placed_by?: string | null
@@ -703,9 +707,11 @@ export type Database = {
           created_by?: string | null
           creation_source?: string | null
           due_visit_state?: Json
+          floors_served?: string | null
           id?: string
           import_batch_id?: string | null
           imported_at?: string | null
+          inlets_count?: number | null
           install_date?: string | null
           label_placed_at?: string | null
           label_placed_by?: string | null
@@ -12022,6 +12028,16 @@ export type Database = {
         }
         Returns: string
       }
+      create_site_riser_job_with_new_risers: {
+        Args: {
+          _details: Json
+          _new_risers: Json
+          _request_id: string
+          _riser_ids: string[]
+          _site_id: string
+        }
+        Returns: string
+      }
       current_user_org_status: {
         Args: never
         Returns: {
@@ -12517,6 +12533,10 @@ export type Database = {
           p_quote: string
         }
         Returns: undefined
+      }
+      set_riser_outlet_count: {
+        Args: { _asset_id: string; _confirmed?: boolean; _count: number }
+        Returns: Json
       }
       set_riser_reminder_state: {
         Args: { _asset_id: string; _state: Json }

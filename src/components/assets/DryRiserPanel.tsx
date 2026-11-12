@@ -52,6 +52,7 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
   const [mergeId, setMergeId] = useState("");
   const [busy, setBusy] = useState(false);
   const [reprintRevision, setReprintRevision] = useState(0);
+  const [removeConfirm, setRemoveConfirm] = useState<{ outlet_tag: string; printed: boolean; history: boolean }[] | null>(null);
   const onPrinted = () => setReprintRevision(r => r + 1);
 
   const load = async () => {
@@ -70,12 +71,18 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
     setForm({ riser_location: a.riser_location || "", outlets_count: a.outlets_count?.toString() ?? "", status: a.status, notes: a.notes || "", cabinet_key_type: (a as any).cabinet_key_type || "" });
     setEditOpen(true);
   };
-  const saveEdit = async () => {
+  const saveEdit = async (confirmed = false) => {
     setBusy(true);
     const outlets = form.outlets_count.trim() === "" ? null : parseInt(form.outlets_count, 10);
     if (outlets != null && (isNaN(outlets) || outlets < 0)) { setBusy(false); toast({ title: "Outlets must be a whole number", variant: "destructive" }); return; }
+    if (outlets !== a.outlets_count) {
+      const { data: res, error: oe } = await supabase.rpc("set_riser_outlet_count", { _asset_id: a.id, _count: outlets as any, _confirmed: confirmed });
+      if (oe) { setBusy(false); toast({ title: "Outlets not saved", description: oe.message, variant: "destructive" }); return; }
+      if ((res as any)?.needs_confirmation) { setBusy(false); setRemoveConfirm((res as any).outlets || []); return; }
+    }
+    setRemoveConfirm(null);
     const { error } = await supabase.from("assets").update({
-      riser_location: form.riser_location.trim() || null, outlets_count: outlets, status: form.status, notes: form.notes.trim() || null, cabinet_key_type: form.cabinet_key_type.trim() || null, updated_at: new Date().toISOString(),
+      riser_location: form.riser_location.trim() || null, status: form.status, notes: form.notes.trim() || null, cabinet_key_type: form.cabinet_key_type.trim() || null, updated_at: new Date().toISOString(),
     }).eq("id", a.id);
     setBusy(false);
     if (error) { toast({ title: "Not saved", description: error.message, variant: "destructive" }); return; }
@@ -197,7 +204,16 @@ export default function DryRiserPanel({ assetId, isAdmin, onChanged }: { assetId
             </div>
             <div className="space-y-1"><label className="text-sm font-medium">Notes</label><Textarea rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button><Button onClick={saveEdit} disabled={busy}>Save</Button></DialogFooter>
+          <DialogFooter><Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button><Button onClick={() => saveEdit()} disabled={busy}>Save</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!removeConfirm} onOpenChange={(v) => { if (!v) setRemoveConfirm(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Remove outlets with history?</DialogTitle></DialogHeader>
+          <p className="text-sm">Lowering the count marks these outlets as "No longer fitted". Their codes are never reused and their history is kept.</p>
+          <ul className="list-disc pl-5 text-sm">{removeConfirm?.map(o => <li key={o.outlet_tag}><span className="font-mono">{o.outlet_tag}</span> – {[o.printed && "sticker printed", o.history && "has service history"].filter(Boolean).join(", ")}</li>)}</ul>
+          <DialogFooter><Button variant="outline" onClick={() => setRemoveConfirm(null)}>Keep outlets</Button><Button variant="destructive" disabled={busy} onClick={() => saveEdit(true)}>Remove outlets</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
