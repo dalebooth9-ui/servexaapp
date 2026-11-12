@@ -53,3 +53,24 @@ export function dueVisitJobType(rows: DueVisitTypeChoice[], selectedIds: string[
   const types = [...new Set(relevant.map(row => row.type).filter((type): type is 'visual' | 'pressure' => Boolean(type)))];
   return types.length === 1 ? types[0] : DEFAULT_SITE_JOB_TYPE;
 }
+export type NewRiserDraft = { key: string; location: string; outlets: string; inlets: string; floors: string; cabinetKeys: string };
+export const blankNewRiser = (): NewRiserDraft => ({ key: crypto.randomUUID(), location: '', outlets: '', inlets: '1', floors: '', cabinetKeys: '' });
+
+/** Outlet code scheme preview: inlet keeps the plain riser code; outlets are CODE-1..CODE-n. */
+export function outletCodePreview(code: string, outlets: number) {
+  return { inlet: code, outlets: Array.from({ length: Math.max(0, outlets) }, (_, i) => `${code}-${i + 1}`) };
+}
+
+/** Validates new-riser rows; blank outlets means "unknown, set on site". */
+export function newRiserPayload(rows: NewRiserDraft[]) {
+  const errors: Record<string, string> = {};
+  const payload = rows.map(r => {
+    const outlets = r.outlets.trim() === '' ? null : Number(r.outlets);
+    const inlets = r.inlets.trim() === '' ? 1 : Number(r.inlets);
+    if (!r.location.trim()) errors[r.key] = 'Enter a riser name or location.';
+    else if (outlets !== null && (!Number.isInteger(outlets) || outlets < 0 || outlets > 200)) errors[r.key] = 'Outlets must be a whole number from 0 to 200, or left blank.';
+    else if (!Number.isInteger(inlets) || inlets < 1 || inlets > 20) errors[r.key] = 'Inlets must be a whole number from 1 to 20.';
+    return { location: r.location.trim(), outlets, inlets, floors: r.floors.trim() || null, cabinet_keys: r.cabinetKeys.trim() || null };
+  });
+  return { payload, errors };
+}
