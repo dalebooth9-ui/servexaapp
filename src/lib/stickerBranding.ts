@@ -25,7 +25,7 @@ export async function resolveStickerBranding(input: { jobId?: string | null; sit
   if (choice.kind === 'missing') return { choice, logoUrl: null };
   if (choice.kind === 'customer') return { choice, logoUrl: (await resolveToSignedUrl(choice.logoRef).catch(() => null)) || choice.logoRef };
   const g = await getGeneratingOrgBranding();
-  if (!g.isViva && g.logoUrl) return { choice, logoUrl: (await resolveToSignedUrl(g.logoUrl, 'submissions').catch(() => null)) || g.logoUrl };
+  if (g.logoUrl) return { choice, logoUrl: (await resolveToSignedUrl(g.logoUrl, 'submissions').catch(() => null)) || g.logoUrl };
   const fallback = await getGeneratingOrgFallbackLogoUrl();
   return { choice, logoUrl: fallback ? stickerLogoUrl(fallback) : null };
 }

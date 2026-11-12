@@ -13,6 +13,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import {requireCurrentOrgId} from './tenantQueries';
+import {companyLogoFallback} from './companyDetails';
 
 export const VIVA_ORG_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -55,8 +56,7 @@ export async function getGeneratingOrgBranding(): Promise<GeneratingOrgBranding>
  *  Viva → their brand logo. Other orgs → their uploaded logo or "" (text). */
 export async function getGeneratingOrgFallbackLogoUrl(): Promise<string> {
   const g = await getGeneratingOrgBranding();
-  if (g.isViva) return "/images/vivafire-logo-new.png";
-  return g.logoUrl ?? "";
+  return companyLogoFallback(g);
 }
 
 /** Accreditation URLs to use when the customer has no branding of their own.
@@ -79,7 +79,7 @@ export async function getGeneratingOrgWatermarkUrl(): Promise<string | null> {
 }
 
 export function servicedByText(org: Pick<GeneratingOrgBranding,'isViva'|'name'>): string | undefined {
-  const name=org.isViva?'Viva Fire Protection Ltd':org.name;
+  const name=org.name || (org.isViva?'Viva Fire Protection Ltd':null);
   return name?`Serviced by ${name}`:undefined;
 }
 

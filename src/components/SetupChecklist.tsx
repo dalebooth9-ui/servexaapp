@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, Circle, ChevronRight, X, Rocket, PartyPopper } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SETUP_STEPS, useSetupProgress } from "@/hooks/useSetupProgress";
+import { setupStepUrl } from '@/lib/companyDetails';
 
 interface Props {
   variant?: "card" | "page";
@@ -26,7 +27,7 @@ export default function SetupChecklist({ variant = "card", hideDismiss }: Props)
   const pct = Math.round((completedCount / total) * 100);
 
   const go = (step: (typeof SETUP_STEPS)[number]) => {
-    navigate(`${step.href}?setup=${step.index}`);
+    navigate(setupStepUrl(step));
   };
 
   const Header = (
