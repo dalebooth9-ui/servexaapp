@@ -1,0 +1,1 @@
+CREATE POLICY company_logo_admin_upload ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id='customer-logos' AND split_part(name,'/',1)=public.get_user_org_id()::text AND split_part(name,'/',2)='print-logos' AND public.has_role_in_org(auth.uid(),public.get_user_org_id(),'admin') AND public.is_org_active(public.get_user_org_id()));
