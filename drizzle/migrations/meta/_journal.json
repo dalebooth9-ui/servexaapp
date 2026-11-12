@@ -533,6 +533,13 @@
       "when": 1794501043018,
       "tag": "0075_pin_email_queue_search_path_and_lock_marketing_bucket",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1794515656114,
+      "tag": "0076_riser_outlets_on_new_job",
+      "breakpoints": true
     }
   ]
 }
