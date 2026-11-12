@@ -512,6 +512,20 @@
       "when": 1794324540393,
       "tag": "0072_restore_org_read_grant",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1794475401709,
+      "tag": "0073_save_company_details_together",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1794475647572,
+      "tag": "0074_allow_admin_company_logo_uploads",
+      "breakpoints": true
     }
   ]
 }

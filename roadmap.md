@@ -1,5 +1,10 @@
 # Roadmap
 
+## Company details and exact setup links
+- [x] Grouped name, PNG/JPG/SVG logo and colour under Documents with a single atomic save and missing-field messages.
+- [x] Corrected setup tab/section links and live completion; saved company logo feeds shared exports, QR labels and device-remembered login branding. Viva defaults restored after testing; existing saved documents unchanged.
+- [x] Updated Help; 17 tests pass. Admin name validation, real JPG/PNG/SVG uploads/save/readback, completion tick and Step 2 banner, engineer/WhatsApp links, sticker resolver and login logo verified on desktop/phone. New report/quote PDF generation not re-exercised. Build OK 09:28:00 UTC/London.
+
 ## Remedial Price Book and quote rules
 - [x] Imported 62 supplied general/customer remedial and separate servicing rates; Safely Comply powder/water additive stay blank in the UI with price_needed, not free rates. Wayne's servicing list remains unassigned; all values GBP ex VAT.
 - [x] Added editable attendance threshold/local/distant rates, persistent auto/override/removed modes, customer-first meaning matches and two-choice selectors. Customer fixed fees replace low-value attendance to avoid double charging.

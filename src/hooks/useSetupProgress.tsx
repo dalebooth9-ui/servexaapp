@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { companyDetailsComplete } from '@/lib/companyDetails';
 
 export type SetupStepId =
   | "company"
@@ -27,7 +28,7 @@ export const SETUP_STEPS: SetupStep[] = [
     index: 1,
     title: "Company details",
     description: "Add your company name, logo and brand colour.",
-    href: "/settings",
+    href: "/settings?tab=documents&section=company-details",
     spotlightSelector: '[data-setup="company-details"]',
     spotlightInstruction: "Enter your company name, upload your logo, and pick a brand colour.",
   },
@@ -81,7 +82,8 @@ export const SETUP_STEPS: SetupStep[] = [
     index: 7,
     title: "File a photo via WhatsApp",
     description: "Send a photo from an engineer's WhatsApp with the job name in the caption.",
-    href: "/settings",
+    href: "/settings?tab=integrations&section=whatsapp",
+    spotlightSelector: '[data-setup="whatsapp"]',
     spotlightInstruction:
       "Message your Servexa WhatsApp number with a photo and a caption like: 'Cedartree Court — pump replaced, all tested OK'.",
   },
@@ -125,7 +127,7 @@ export function useSetupProgress(): SetupState {
 
     // Run checks in parallel
     const orgQ = oid
-      ? supabase.from("organisations").select("name, logo_url").eq("id", oid).maybeSingle()
+      ? supabase.from("organisations").select("name, logo_url, primary_color").eq("id", oid).maybeSingle()
       : Promise.resolve({ data: null } as any);
 
     const [orgRes, engRes, custRes, siteRes, tmplRes, jobRes, waRes] = await Promise.all([
@@ -139,10 +141,10 @@ export function useSetupProgress(): SetupState {
         .not("whatsapp_message_id", "is", null),
     ]);
 
-    const org = (orgRes as any).data as { name?: string; logo_url?: string | null } | null;
+    const org = orgRes.data as { name: string; logo_url: string | null; primary_color: string | null } | null;
 
     setCompleted({
-      company: !!(org?.name && org.name.trim() && org.logo_url),
+      company: !!org && companyDetailsComplete(org),
       engineers: (engRes.count ?? 0) > 0,
       customer: (custRes.count ?? 0) > 0,
       site: (siteRes.count ?? 0) > 0,
@@ -154,6 +156,7 @@ export function useSetupProgress(): SetupState {
   }, [user, userRole]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { const refresh = () => { void load(); }; window.addEventListener('company-details-saved', refresh); return () => window.removeEventListener('company-details-saved', refresh); }, [load]);
 
   const completedCount = Object.values(completed).filter(Boolean).length;
   const total = SETUP_STEPS.length;

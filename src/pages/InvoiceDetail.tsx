@@ -25,6 +25,7 @@ import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import { UKDateInput } from "@/components/ui/uk-date-input";
 import { getGeneratingOrgBranding, getGeneratingOrgFallbackLogoUrl, getGeneratingOrgWatermarkUrl } from "@/lib/generatingOrgBranding";
 import { fetchCustomerAccreditationLogos } from "@/lib/pdfAccreditations";
+import { resolveToSignedUrl } from '@/lib/durableStorageRef';
 
 
 
@@ -112,10 +113,12 @@ export default function InvoiceDetail() {
         getGeneratingOrgFallbackLogoUrl(),
         getGeneratingOrgWatermarkUrl(),
       ]);
+      const logoUrl = logo.startsWith('/') ? logo : await resolveToSignedUrl(logo);
+      const watermarkUrl = wm?.startsWith('/') ? wm : await resolveToSignedUrl(wm);
       if (!alive) return;
-      setBrandLogo(logo);
+      setBrandLogo(logoUrl || '');
       setBrandName(g.name ?? "");
-      setBrandWatermark(wm);
+      setBrandWatermark(watermarkUrl);
     })();
     return () => { alive = false; };
   }, []);

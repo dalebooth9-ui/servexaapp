@@ -3,6 +3,7 @@ import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { primeOrgIdCache } from "@/lib/orgStoragePath";
 import {resetGeneratingOrgBrandingCache} from '@/lib/generatingOrgBranding';
+import { rememberLoginCompanyBranding } from '@/lib/loginCompanyBranding';
 
 type Role = "admin" | "engineer" | null;
 
@@ -131,6 +132,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
   };
+
+  useEffect(() => {
+    if (!orgId || !user) return;
+    const remember = () => { void rememberLoginCompanyBranding().catch(() => {}); };
+    remember();
+    window.addEventListener('company-details-saved', remember);
+    return () => window.removeEventListener('company-details-saved', remember);
+  }, [orgId, user?.id]);
 
   const enterEngineerPreview = useCallback((engineerId: string | null, engineerName?: string | null) => {
     if (realUserRole !== "admin") return; // Only admins can enter preview

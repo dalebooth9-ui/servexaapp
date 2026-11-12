@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Wrench, CheckCircle2 } from "lucide-react";
 import { z } from "zod";
+import { readLoginCompanyBranding } from '@/lib/loginCompanyBranding';
 
 const loginSchema = z.object({
   email: z.string().trim().email("Please enter a valid email address").max(255),
@@ -27,6 +28,7 @@ const signupCreateOrgSchema = loginSchema.extend({
 type Mode = "login" | "signup-invite" | "signup-create-org" | "forgot";
 
 export default function Auth() {
+  const [companyBranding] = useState(readLoginCompanyBranding);
   const [searchParams] = useSearchParams();
   const initialInvite = searchParams.get("invite") || "";
   const nextRaw = searchParams.get("next") || "";
@@ -213,6 +215,10 @@ export default function Auth() {
 
           <Card className="border-border/60 shadow-lg">
             <CardHeader className="pb-4">
+              {companyBranding && <div className="mb-4 space-y-2">
+                {companyBranding.logo && <img src={companyBranding.logo} alt={`${companyBranding.name} logo`} className="h-16 w-full object-contain" />}
+                <p className="text-center font-semibold">{companyBranding.name}</p>
+              </div>}
               <CardTitle className="text-2xl font-bold">{titleMap[mode]}</CardTitle>
               <CardDescription className="flex items-center gap-1.5">
                 <Wrench className="h-3.5 w-3.5" />

@@ -99,7 +99,8 @@ const RULES: SlugRule[] = [
   { test: (p) => p === "/settings/import", slug: "settings.import" },
   { test: (p) => p === '/settings/company-isolation', slug: 'settings.company-isolation' },
   { test: (p) => p === "/settings/integrations", slug: "integrations.quickbooks" },
-  // Settings guide covers company-only default-off Digital Twin under Advanced, and Documents print templates.
+  // Company details is at the top of Documents: name, logo and colour saved together;
+  // setup links use exact tabs/sections and Step 1 requires all three saved fields.
   { test: (p) => p === "/settings", slug: "settings" },
 
   { test: (p) => p === "/fleet", slug: "fleet" },

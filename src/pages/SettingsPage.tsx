@@ -413,7 +413,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6 mt-0">
-          <Card>
+          <Card data-setup="whatsapp" id="whatsapp">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-accent" />
