@@ -14,13 +14,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { companyLogoFallback } from '@/lib/companyDetails';
+import { VIVA_ORG_ID } from '@/lib/generatingOrgBranding';
 
 const PROGRESS_KEY = "company_setup_wizard";
 type Member = { full_name: string; email: string; role: "engineer" | "admin" };
 
 function Img({ src, className }: { src: string; className?: string }) {
   const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => { let on = true; resolveToSignedUrl(src).then(u => on && setUrl(u || src)).catch(() => on && setUrl(src)); return () => { on = false; }; }, [src]);
+  useEffect(() => { let on = true; if (src.startsWith('/')) { setUrl(src); return; } resolveToSignedUrl(src).then(u => on && setUrl(u || src)).catch(() => on && setUrl(src)); return () => { on = false; }; }, [src]);
   return url ? <img src={url} alt="" className={className} /> : null;
 }
 
@@ -33,6 +35,7 @@ export default function CompanySetupWizard() {
   const [d, setD] = useState<SetupData>(EMPTY_SETUP);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [tried, setTried] = useState(false);
+  const [savedLogo, setSavedLogo] = useState('');
   const [busy, setBusy] = useState(false);
   const [types, setTypes] = useState<{ id: string; name: string }[]>([]);
   const [newType, setNewType] = useState("");
@@ -53,10 +56,11 @@ export default function CompanySetupWizard() {
     const eb: any = mail.data || {};
     const b: any = brand.data?.value || {}; const o: any = org.data || {}; const p: any = prog.data?.value || {};
     setD({
-      company_name: b.company_name || o.name || "", address: b.address || eb.address || "", phone: b.phone || eb.phone || "", email: b.email || o.office_email || eb.reply_to || eb.from_address || "",
+      company_name: o.name || b.company_name || "", address: b.address || eb.address || "", phone: b.phone || eb.phone || "", email: b.email || o.office_email || eb.reply_to || eb.from_address || "",
       website: b.website || eb.website || "", logo_url: o.logo_url || "", primary_color: o.primary_color || "",
       report_footer_text: b.report_footer_text || "", accreditation_logo_urls: Array.isArray(b.accreditation_logo_urls) ? b.accreditation_logo_urls : [],
     });
+    setSavedLogo(companyLogoFallback({ isViva: id === VIVA_ORG_ID, logoUrl: o.logo_url || null }));
     if (typeof p.step === "number") setStep(Math.min(4, Math.max(0, p.step)));
     if (Array.isArray(p.done)) setDone(p.done);
     setTypes((cats.data as any) || []);
@@ -78,6 +82,7 @@ export default function CompanySetupWizard() {
     ]);
     const err = results.find(r => r.error)?.error;
     if (err) { toast.error("Couldn't save this step", { description: "Only company admins can change company setup." }); return false; }
+    setSavedLogo(companyLogoFallback({ isViva: orgId === VIVA_ORG_ID, logoUrl: d.logo_url || null }));
     return true;
   };
 
@@ -186,10 +191,11 @@ export default function CompanySetupWizard() {
           <p className="text-sm text-muted-foreground">Add your logo and colour so paperwork looks like yours.</p>
           <div className="space-y-1"><Label>Logo</Label>
             <div className="flex items-center gap-3">
-              {d.logo_url && <Img src={d.logo_url} className="h-14 w-32 object-contain border rounded bg-background" />}
-              <Label className="flex items-center gap-2 cursor-pointer border rounded-md px-3 py-2"><Upload className="h-4 w-4" />{d.logo_url ? "Change logo" : "Upload logo"}
+              {(d.logo_url || savedLogo) && <Img src={d.logo_url || savedLogo} className="h-14 w-32 object-contain border rounded bg-background" />}
+              {savedLogo && savedLogo === companyLogoFallback({ isViva: orgId === VIVA_ORG_ID, logoUrl: d.logo_url || null }) && <span className="flex items-center gap-1 text-xs text-success"><Check className="h-4 w-4" />Logo saved</span>}
+              <Label className="flex items-center gap-2 cursor-pointer border border-input rounded-md px-3 py-2"><Upload className="h-4 w-4" />{d.logo_url || savedLogo ? "Replace logo" : "Upload logo"}
                 <Input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={busy} onChange={e => upload(e.target.files?.[0], "logo")} /></Label>
-              {d.logo_url && <Button variant="ghost" size="sm" onClick={() => set("logo_url", "")}>Remove</Button>}
+              {d.logo_url && <Button variant="ghost" size="sm" onClick={() => { set("logo_url", ""); setSavedLogo(''); }}>Remove</Button>}
             </div></div>
           <div className="space-y-1"><Label htmlFor="f-primary_color">Brand colour</Label>
             <div className="flex gap-2">
