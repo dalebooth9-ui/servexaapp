@@ -526,6 +526,13 @@
       "when": 1794475647572,
       "tag": "0074_allow_admin_company_logo_uploads",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1794501043018,
+      "tag": "0075_pin_email_queue_search_path_and_lock_marketing_bucket",
+      "breakpoints": true
     }
   ]
 }
