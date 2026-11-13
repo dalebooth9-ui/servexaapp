@@ -176,7 +176,7 @@ export default function Defects() {
       setSelectedIds(new Set());
       fetchData();
     } catch (e: any) {
-      toast.error(e.message || "Could not add to the next service report");
+      toast.error(defectStatusErrorMessage(e));
     } finally {
       setCarrying(false);
     }

@@ -1,3 +1,4 @@
+import { defectStatusErrorMessage } from "@/lib/defectStatus";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,7 @@ export default function OutstandingDefectsDialog({ jobId, siteId, onAdded }: { j
       const { data, error } = await supabase.rpc("attach_defects_to_job", { p_defect_ids: [...selected], p_job: jobId });
       if (error) throw error;
       setResults(data || []); onAdded?.(); window.dispatchEvent(new CustomEvent("carried-defects-changed", { detail: { jobId } }));
-    } catch (e: any) { toast.error(e.message || "Could not add outstanding defects"); }
+    } catch (e: any) { toast.error(defectStatusErrorMessage(e)); }
     finally { setBusy(false); }
   };
   return <>
