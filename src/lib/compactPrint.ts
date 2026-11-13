@@ -1,9 +1,10 @@
 /** Shared compact-print rules: no empty sections, fewest pages. */
 import type { OutletChecks } from "./outletChecks";
 
-/** Only outlets that were actually checked (scanned, manual or missing) are printed. */
+/** Only outlets that were checked (scanned or manually confirmed) print; "Not checked" ones are left out. */
 export function checkedOutletNumbers(numbers: number[], checks: OutletChecks): number[] {
-  return numbers.filter((n) => !!checks[String(n)]?.status);
+  const s = (n: number) => checks[String(n)]?.status;
+  return numbers.filter((n) => s(n) === "scanned" || s(n) === "manual");
 }
 
 export const PHOTO_GRID = { gapMm: 3, captionMm: 7, targetCellMm: 45 };
