@@ -1,9 +1,9 @@
 # Roadmap
 
 ## Online PDF logo and declaration clearance
-- [ ] Restore larger cover logo and consistent two-thirds continuation logos only on online PDFs.
-- [ ] Reserve full-size accreditation strip with declaration gap; verify Bosden and fuller visual/pressure PDFs without changing saved reports.
-- [ ] Run focused checks, update Help and confirm build time.
+- [x] Restored larger visible-ink cover logo and consistent two-thirds continuation logos only on online PDFs; later generic overlay cannot shrink them.
+- [x] Reserved full-size accreditation strip with 4mm declaration gap; tightened cell whitespace without reducing text or logos. Both saved Bosden PDFs and unsaved 12-outlet visual/fully populated pressure samples regenerated as office and visually checked: two pages each, signatures/declaration on page one, pressure wording intact; no reports changed.
+- [x] 31 focused checks passed; assistant note/Help guide and route guidance updated. Build OK 18:48:19 UTC/London.
 
 ## Compact Bosden online PDF
 - [x] PDF-only missing-outlet summaries by real reason, no empty notes, tighter checklist/photo spacing; branding/declarations unchanged. Site photos now load outside dwelling-gallery templates.
