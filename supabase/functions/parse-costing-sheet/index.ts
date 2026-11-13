@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveCaller } from "../_shared/callerOrg.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,11 +37,7 @@ async function fetchExcelBytes(
     if (!error && data) return await data.arrayBuffer();
     console.warn("Storage download failed, falling back to fetch:", error?.message);
   }
-  // Fallback: plain fetch (works for signed / public URLs)
-  console.log("Downloading via fetch:", fileUrl.slice(0, 100));
-  const res = await fetch(fileUrl, { signal: AbortSignal.timeout(20000) });
-  if (!res.ok) throw new Error(`Failed to fetch file: ${res.status} ${res.statusText}`);
-  return await res.arrayBuffer();
+  throw new Error("Costing sheet could not be opened");
 }
 
 async function fetchExcelText(
@@ -224,17 +221,35 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const deny = (error: string, status: number) => new Response(JSON.stringify({ error }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const caller = await resolveCaller(req);
+    if ("error" in caller) return deny(caller.error, caller.status);
+    const supabase = caller.admin as any;
 
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!lovableApiKey) throw new Error("LOVABLE_API_KEY not configured");
 
     const body = await req.json();
-    const { file_url, job_id, user_id, bucket = "submissions" } = body;
-    if (!file_url) throw new Error("file_url is required");
+    const { file_url, job_id, bucket = "submissions" } = body;
+    const user_id = caller.userId;
+    if (typeof file_url !== "string" || !file_url) return deny("file_url is required", 400);
+    if (bucket !== "submissions") return deny("This file is not allowed", 403);
+
+    // The file must live in this company's own storage folder.
+    let jobOk = false;
+    if (job_id) {
+      const { data: job } = await supabase.from("jobs").select("id, org_id").eq("id", job_id).maybeSingle();
+      if (!job || job.org_id !== caller.orgId) return deny("This job does not belong to your company", 403);
+      jobOk = true;
+    }
+    const path = extractStoragePath(file_url, bucket);
+    const ownFolder = !!path && !path.includes("..") && path.startsWith(`${caller.orgId}/`);
+    // Older uploads were signed without the company prefix; allow only that job's own folder.
+    const legacyJobFolder = !!path && jobOk && !path.includes("..") && path.startsWith(`costing-sheets/${job_id}/`);
+    if (!new URL(file_url).origin.startsWith(Deno.env.get("SUPABASE_URL")!) || !(ownFolder || legacyJobFolder)) {
+      console.warn("parse-costing-sheet rejected file outside company folder", { user: user_id });
+      return deny("This file does not belong to your company", 403);
+    }
 
     console.log("parse-costing-sheet called, job_id:", job_id, "file_url prefix:", file_url.slice(0, 80));
 
