@@ -57,6 +57,7 @@ Deno.serve(async (req) => {
     // ── Auth check — require valid admin JWT always (no header bypass) ──
     const authHeader = req.headers.get("Authorization");
     let callerIsAdmin = false;
+    let callerOrgId: string | null = null;
 
     if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.replace("Bearer ", "");
@@ -75,9 +76,11 @@ Deno.serve(async (req) => {
           .eq("role", "admin")
           .single();
         callerIsAdmin = !!roleData;
+        const { data: o } = await anonClient.rpc("get_user_org_id");
+        callerOrgId = (o as string) ?? null;
       }
     }
-    if (!callerIsAdmin) {
+    if (!callerIsAdmin || !callerOrgId) {
       return new Response(JSON.stringify({ error: "Admin access required" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -113,16 +116,16 @@ Deno.serve(async (req) => {
       assignmentsRes, submissionsRes,
       clockRes, profilesRes,
     ] = await Promise.all([
-      supabase.from("jobs").select("id,status,category,customer").gte("created_at", weekStart.toISOString()).lte("created_at", weekEnd.toISOString()),
-      supabase.from("jobs").select("id", { count: "exact", head: true }).gte("created_at", prevStart.toISOString()).lte("created_at", prevEnd.toISOString()),
-      supabase.from("jobs").select("id", { count: "exact", head: true }).eq("status", "completed").gte("updated_at", weekStart.toISOString()).lte("updated_at", weekEnd.toISOString()),
-      supabase.from("jobs").select("id", { count: "exact", head: true }).eq("status", "completed").gte("updated_at", prevStart.toISOString()).lte("updated_at", prevEnd.toISOString()),
-      supabase.from("invoices").select("id,total,status,customer_name").gte("created_at", weekStart.toISOString()).lte("created_at", weekEnd.toISOString()),
-      supabase.from("invoices").select("total,status").gte("created_at", prevStart.toISOString()).lte("created_at", prevEnd.toISOString()),
-      supabase.from("job_assignments").select("engineer_id,job_id").gte("assigned_at", weekStart.toISOString()).lte("assigned_at", weekEnd.toISOString()),
-      supabase.from("submissions").select("id,engineer_id").gte("created_at", weekStart.toISOString()).lte("created_at", weekEnd.toISOString()),
-      supabase.from("time_clock").select("user_id,total_minutes").gte("clock_in_at", weekStart.toISOString()).lte("clock_in_at", weekEnd.toISOString()),
-      supabase.from("profiles").select("user_id,full_name"),
+      supabase.from("jobs").select("id,status,category,customer").eq("org_id", callerOrgId).gte("created_at", weekStart.toISOString()).lte("created_at", weekEnd.toISOString()),
+      supabase.from("jobs").select("id", { count: "exact", head: true }).eq("org_id", callerOrgId).gte("created_at", prevStart.toISOString()).lte("created_at", prevEnd.toISOString()),
+      supabase.from("jobs").select("id", { count: "exact", head: true }).eq("org_id", callerOrgId).eq("status", "completed").gte("updated_at", weekStart.toISOString()).lte("updated_at", weekEnd.toISOString()),
+      supabase.from("jobs").select("id", { count: "exact", head: true }).eq("org_id", callerOrgId).eq("status", "completed").gte("updated_at", prevStart.toISOString()).lte("updated_at", prevEnd.toISOString()),
+      supabase.from("invoices").select("id,total,status,customer_name").eq("org_id", callerOrgId).gte("created_at", weekStart.toISOString()).lte("created_at", weekEnd.toISOString()),
+      supabase.from("invoices").select("total,status").eq("org_id", callerOrgId).gte("created_at", prevStart.toISOString()).lte("created_at", prevEnd.toISOString()),
+      supabase.from("job_assignments").select("engineer_id,job_id").eq("org_id", callerOrgId).gte("assigned_at", weekStart.toISOString()).lte("assigned_at", weekEnd.toISOString()),
+      supabase.from("submissions").select("id,engineer_id").eq("org_id", callerOrgId).gte("created_at", weekStart.toISOString()).lte("created_at", weekEnd.toISOString()),
+      supabase.from("time_clock").select("user_id,total_minutes").eq("org_id", callerOrgId).gte("clock_in_at", weekStart.toISOString()).lte("clock_in_at", weekEnd.toISOString()),
+      supabase.from("profiles").select("user_id,full_name").eq("org_id", callerOrgId),
     ]);
 
     const jobs = jobsRes.data || [];
@@ -179,7 +182,7 @@ Deno.serve(async (req) => {
     const topCustomers = Object.entries(custJobs).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
     // ── Get admin emails ──
-    const { data: adminRoles } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+    const { data: adminRoles } = await supabase.from("user_roles").select("user_id").eq("org_id", callerOrgId).eq("role", "admin");
     const adminIds = (adminRoles || []).map((r) => r.user_id);
     const adminProfiles = profiles.filter((p) => adminIds.includes(p.user_id));
 

@@ -85,6 +85,8 @@ serve(async (req) => {
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    const { data: callerOrgId } = await callerClient.rpc("get_user_org_id");
+    if (!callerOrgId) return new Response(JSON.stringify({ error: "Your account is not part of a company" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: claimsData.claims.sub, _role: "admin" });
     if (!isAdmin) {
       return new Response(JSON.stringify({ error: "Admin access required" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -117,7 +119,7 @@ serve(async (req) => {
     // Get all admins + their emails via auth schema
     const { data: admins } = await supabase
       .from("user_roles")
-      .select("user_id")
+      .select("user_id").eq("org_id", callerOrgId)
       .eq("role", "admin");
     const adminIds = (admins || []).map((a: any) => a.user_id);
 
@@ -127,7 +129,7 @@ serve(async (req) => {
       const { data: userData } = await supabase.auth.admin.getUserById(adminId);
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("full_name")
+        .select("full_name").eq("org_id", callerOrgId)
         .eq("user_id", adminId)
         .maybeSingle();
       if (userData?.user?.email) {
@@ -147,7 +149,7 @@ serve(async (req) => {
     // --- EXPIRED records: update status ---
     const { data: expired } = await supabase
       .from("compliance_records")
-      .select("id, title, record_type, expiry_date, status")
+      .select("id, title, record_type, expiry_date, status").eq("org_id", callerOrgId)
       .lt("expiry_date", todayStr)
       .not("status", "eq", "expired")
       .not("status", "eq", "not_applicable");
@@ -240,7 +242,7 @@ serve(async (req) => {
 
       const { data: upcoming } = await supabase
         .from("compliance_records")
-        .select("id, title, record_type, expiry_date, status")
+        .select("id, title, record_type, expiry_date, status").eq("org_id", callerOrgId)
         .gte("expiry_date", todayStr)
         .lte("expiry_date", maxDate.toISOString().split("T")[0])
         .not("status", "eq", "not_applicable");

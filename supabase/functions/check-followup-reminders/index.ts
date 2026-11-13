@@ -81,6 +81,8 @@ Deno.serve(async (req) => {
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    const { data: callerOrgId } = await callerClient.rpc("get_user_org_id");
+    if (!callerOrgId) return new Response(JSON.stringify({ error: "Your account is not part of a company" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: claimsData.claims.sub, _role: "admin" });
     if (!isAdmin) {
       return new Response(JSON.stringify({ error: "Admin access required" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -105,7 +107,7 @@ Deno.serve(async (req) => {
 
     const { data: visits, error: visitErr } = await supabase
       .from("job_visits")
-      .select("id, scheduled_date, job_id, jobs!inner(id, name, reference_number, status, customer_id, customer, address, customers(name, email))")
+      .select("id, scheduled_date, job_id, jobs!inner(id, name, reference_number, status, customer_id, customer, address, customers(name, email))").eq("org_id", callerOrgId)
       .eq("status", "upcoming")
       .gte("scheduled_date", todayStr)
       .lte("scheduled_date", cutoffStr);
@@ -125,7 +127,7 @@ Deno.serve(async (req) => {
 
     const { data: admins } = await supabase
       .from("user_roles")
-      .select("user_id")
+      .select("user_id").eq("org_id", callerOrgId)
       .eq("role", "admin");
     const adminIds = (admins || []).map((a: any) => a.user_id);
 
