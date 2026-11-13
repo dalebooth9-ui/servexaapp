@@ -125,7 +125,7 @@ export default function CustomerDefectsCard({ customerId }: { customerId: string
           {rows.map((d) => (
             <div
               key={d.id}
-              className={`flex items-start gap-3 p-3 transition-colors ${d.site_id ? "cursor-pointer hover:bg-accent/40" : ""}`}
+              className={`flex items-start gap-3 p-3 transition-colors ${d.site_id ? "cursor-pointer hover:bg-muted/60" : ""}`}
               {...(d.site_id ? openableLinkProps(`/defects?site=${d.site_id}`, navigate) : {})}
             >
               {isAdmin && !d.quote_id && (

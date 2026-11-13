@@ -1198,7 +1198,7 @@ export default function CustomerDetail() {
                 <Link
                   key={site.id}
                   to={`/sites?site=${site.id}`}
-                  className="group block rounded-lg border bg-card text-card-foreground shadow-sm transition-colors hover:border-primary/60 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="group block rounded-lg border bg-card text-card-foreground shadow-sm transition-colors hover:border-primary/60 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <CardContent className="p-3 flex items-start gap-3">
                     <div className={`mt-0.5 shrink-0 ${cfg.color}`}>
