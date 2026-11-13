@@ -1525,6 +1525,16 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     toast({ title: `Filled ${keys.length} field${keys.length === 1 ? "" : "s"} from the last visit`, description: "Check each one before you submit — condition answers stay blank." });
   };
 
+  // Office copy autosave every few seconds while the engineer fills in a draft.
+  useEffect(() => {
+    if (!activeTemplate || viewingResponse || !draftReportId) return;
+    if (activeResponse && activeResponse.status !== "draft") return;
+    if (Object.keys(formData).length === 0 || JSON.stringify(formData) === baselineRef.current) return;
+    const t = setTimeout(() => { void saveDraftToServer(); }, 4000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, activeTemplate?.id, draftReportId, viewingResponse, activeResponse?.status]);
+
   const handleSaveDraft = async () => {
     if (!activeTemplate) return;
     setSubmitting(true);
@@ -1539,9 +1549,11 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       if (activeResponse) {
         const wasSubmitted = activeResponse.status === "submitted";
         const previousResponses = (activeResponse.responses as Record<string, any>) || {};
-        await supabase.from("job_sheet_responses").update({
+        const { data: rows, error: upErr } = await supabase.from("job_sheet_responses").update({
           responses: payload as any,
-        } as any).eq("id", activeResponse.id);
+        } as any).eq("id", activeResponse.id).select("id");
+        if (upErr) throw upErr;
+        if (!rows || rows.length === 0) throw new Error("The office copy did not accept the change.");
         // Office edit audit trail — only when amending an already-submitted report.
         if (wasSubmitted && user?.id) {
           try {
@@ -1567,21 +1579,31 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
           }
         }
       } else {
-        const { data } = await supabase.from("job_sheet_responses").insert({
+        const { data, error: insErr } = await supabase.from("job_sheet_responses").upsert({
+          id: draftReportId ?? newReportId(),
           job_id: jobId,
           template_id: activeTemplate.id,
           responses: payload as any,
           submitted_by: user?.id,
           status: "draft",
-        } as any).select().single();
-        if (data) setActiveResponse(data as Response);
+        } as any, { onConflict: "id" }).select().single();
+        if (insErr) throw insErr;
+        if (!data) throw new Error("The office copy did not accept the draft.");
+        serverRowRef.current = true;
+        setActiveResponse(data as Response);
       }
+      // Keep the phone copy: the form is still open and the draft may change again.
+      baselineRef.current = JSON.stringify(payload);
       setFormData(payload);
+      setSubmitError(null);
+      setSaveState({ kind: "saved", at: Date.now() });
       toast({ title: "Draft saved" });
-      clearTemplateFormDraft();
       fetchData();
-    } catch {
-      toast({ title: "Error saving draft", variant: "destructive" });
+    } catch (err: any) {
+      console.error("[JobSheetTemplates] save draft failed", err);
+      setSaveState({ kind: "error" });
+      setSubmitError(NOT_SAVED_MESSAGE);
+      toast({ title: "Not saved yet", description: NOT_SAVED_MESSAGE, variant: "destructive" });
     }
     setSubmitting(false);
   };
@@ -1607,59 +1629,28 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   const handleSubmit = async (override?: Record<string, any>) => {
     if (!activeTemplate) return;
     // Allow all fields to be left blank — no required validation block
+    const photoBlock = photoSubmitBlocker(sitePhotosRef.current.map((p) => p.status));
+    if (photoBlock) {
+      toast({ title: "Photos not stored yet", description: photoBlock, variant: "destructive" });
+      return;
+    }
 
     setSubmitting(true);
+    submittingRef.current = true;
+    setSubmitError(null);
     try {
-      // Upload site photos if any
-      const photoUrls: string[] = [];
-      const photoPaths: string[] = [];
-      const photoCaptions: string[] = [];
-      if (sitePhotos.length > 0 && user) {
-        for (const photo of sitePhotos) {
-          const ext = photo.file.name.split(".").pop() || "jpg";
-          const fileName = `site-photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-          const filePath = `${jobId}/${fileName}`;
-          const storagePath = await buildOrgPathAsync(filePath);
-          const { error: upErr } = await supabase.storage
-            .from("submissions")
-            .upload(storagePath, photo.file, { contentType: photo.file.type });
-          if (upErr) {
-            console.error("Site photo upload failed", upErr);
-            toast({ title: "Photo upload failed", description: upErr.message, variant: "destructive" });
-            continue;
-          }
-          // Always record the path — signed URLs can be regenerated at render time
-          photoPaths.push(filePath);
-          photoCaptions.push((photo.caption || "").trim());
-          const signed = await createSubmissionPhotoSignedUrl(filePath, jobId, 60 * 60);
-          if (signed?.signedUrl) photoUrls.push(signed.signedUrl);
-          // Register as a job submission so it appears in the job folder/Documents
-          const { error: subErr } = await supabase.from("submissions").insert({
-            job_id: jobId,
-            engineer_id: user.id,
-            type: "photo",
-            file_url: buildDurableRef("submissions", storagePath),
-            file_name: fileName,
-            content: (photo.caption || "").trim() || null,
-          } as any);
-          if (subErr) console.error("Submission insert failed", subErr);
-        }
-      }
+      // Let any autosave in flight finish so it cannot land after the submit.
+      if (serverSaveRef.current) { try { await serverSaveRef.current; } catch { /* ignore */ } }
       const baseFormData = await withPreservedSitePhotos(override && !(override as any).nativeEvent ? override : formData);
       const existingPhotoUrls = Array.isArray(baseFormData._site_photo_urls) ? baseFormData._site_photo_urls : [];
       const existingPhotoPaths = Array.isArray(baseFormData._site_photo_paths) ? baseFormData._site_photo_paths : [];
       const existingPhotoCaptions = Array.isArray(baseFormData._site_photo_captions) ? baseFormData._site_photo_captions : [];
-      const finalFormData = (photoUrls.length > 0 || photoPaths.length > 0 || existingPhotoUrls.length > 0 || existingPhotoPaths.length > 0)
-        ? {
-            ...baseFormData,
-            _site_photo_urls: [...existingPhotoUrls, ...photoUrls],
-            _site_photo_paths: [...existingPhotoPaths, ...photoPaths],
-            _site_photo_captions: [...existingPhotoCaptions, ...photoCaptions],
-          }
-        : baseFormData;
+      // Photos are uploaded as they are taken; just make sure none are listed twice.
+      const finalFormData = dedupeSitePhotos(baseFormData);
       console.log("[JobSheetTemplates] submit report photos", {
         existingSitePhotos: existingPhotoUrls.length,
-        newSitePhotos: photoUrls.length,
+        existingSitePhotoPaths: existingPhotoPaths.length,
+        existingSitePhotoCaptions: existingPhotoCaptions.length,
         finalSitePhotos: Array.isArray((finalFormData as any)._site_photo_urls) ? (finalFormData as any)._site_photo_urls.length : 0,
       });
       // Guard: a "submitted" report must have an engineer signature on the job.
@@ -1675,7 +1666,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       let savedResponseId: string | null = activeResponse?.id ?? null;
       // Offline resilience: the row id is decided here so a failed send can be
       // replayed as an idempotent upsert without ever duplicating the report.
-      const targetId = activeResponse?.id ?? newReportId();
+      const targetId = activeResponse?.id ?? draftReportId ?? newReportId();
       const payload = {
         id: targetId,
         job_id: jobId,
@@ -1688,7 +1679,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
 
       let writeError: any = null;
       try {
-        const { error } = await supabase
+        const { data: savedRow, error } = await supabase
           .from("job_sheet_responses")
           .upsert(
             {
@@ -1696,8 +1687,11 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
               submitted_by: payload.submitted_by ?? (activeResponse as any)?.submitted_by ?? user?.id,
             } as any,
             { onConflict: "id" },
-          );
-        writeError = error;
+          )
+          .select("id, status")
+          .maybeSingle();
+        // Only a row read back from the server counts as saved.
+        writeError = error ?? (!savedRow ? new Error("The office copy was not confirmed.") : null);
       } catch (e) {
         writeError = e;
       }
@@ -1719,7 +1713,9 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
             title: "Saved on this device",
             description: "No signal right now — your report will send automatically when you're back in range.",
           });
+          setSaveState({ kind: "local" });
           setSubmitting(false);
+          submittingRef.current = false;
           return;
         }
         throw writeError;
@@ -1732,8 +1728,13 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
           title: "Saved as draft",
           description: "Add a signature at the bottom of the sheet to submit it.",
         });
-        clearTemplateFormDraft();
+        serverRowRef.current = true;
+        baselineRef.current = JSON.stringify(finalFormData);
+        setActiveResponse({ ...(activeResponse || {}), id: targetId, template_id: activeTemplate.id, responses: finalFormData, status: "draft", submitted_by: (activeResponse as any)?.submitted_by ?? user?.id, submitted_at: null, created_at: (activeResponse as any)?.created_at ?? new Date().toISOString() } as Response);
+        setFormData(finalFormData);
+        setSaveState({ kind: "saved", at: Date.now() });
         setSubmitting(false);
+        submittingRef.current = false;
         fetchData();
         return;
       }
@@ -1796,16 +1797,35 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
         toast({ title: "Report submitted" });
       }
 
+      // Server confirmed the save — only now clear the phone copy and close.
+      const savedResp = { ...(activeResponse || {}), id: targetId, template_id: activeTemplate.id, responses: finalFormData, status: finalStatus, submitted_by: (activeResponse as any)?.submitted_by ?? user?.id, submitted_at: payload.submitted_at, created_at: (activeResponse as any)?.created_at ?? new Date().toISOString() } as Response;
+      const riserIds = new Set<string>(responses.filter((r) => r.status === "submitted" && r.id !== targetId).map((r) => String(r.responses?.riser_asset_id || "")).filter(Boolean));
+      if (finalFormData.riser_asset_id) riserIds.add(String(finalFormData.riser_asset_id));
+      const visibleFields = (activeTemplate.fields || []).filter((f: any) => !hiddenFieldIds(finalFormData).includes(String(f.id)) && !["heading", "section", "info"].includes(String(f.type || "")));
+      setSubmittedSummary({
+        response: savedResp,
+        templateName: activeTemplate.name,
+        riserCount: riserIds.size,
+        answers: visibleFields.filter((f: any) => countAnswers({ [f.id]: finalFormData[f.id] }) > 0).length,
+        totalFields: visibleFields.length,
+        photos: countPhotos(finalFormData),
+      });
       clearTemplateFormDraft();
       try{localStorage.removeItem(openFormKey);}catch{/* optional cache */}
       window.dispatchEvent(new CustomEvent('job-sheet:submitted',{detail:{jobId,responseId:savedResponseId}}));
       setActiveTemplate(null);
       setActiveResponse(null);
+      setDraftReportId(null);
       setFormData({});
+      setSaveState({ kind: "idle" });
       fetchData();
-    } catch {
-      toast({ title: "Error submitting", variant: "destructive" });
+    } catch (err: any) {
+      console.error("[JobSheetTemplates] submit failed", err);
+      setSubmitError(NOT_SAVED_MESSAGE);
+      setSaveState({ kind: "error" });
+      toast({ title: "Not saved yet", description: NOT_SAVED_MESSAGE, variant: "destructive" });
     }
+    submittingRef.current = false;
     setSubmitting(false);
   };
 
@@ -1852,7 +1872,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     return { ...base, fields: base.fields.filter((f: any) => !omitted.includes(f.section || "General")) };
   };
 
-  const closeForm = () => { try { localStorage.removeItem(openFormKey); } catch { /* ignore */ } setActiveTemplate(null); setActiveResponse(null); setFormData({}); setViewingResponse(null); sitePhotos.forEach(p => URL.revokeObjectURL(p.preview)); setSitePhotos([]); };
+  const closeForm = () => { if (!viewingResponse && activeTemplate && JSON.stringify(formData) !== baselineRef.current) void saveDraftToServer(); try { localStorage.removeItem(openFormKey); } catch { /* ignore */ } setDraftReportId(null); setSubmitError(null); setActiveTemplate(null); setActiveResponse(null); setFormData({}); setViewingResponse(null); sitePhotos.forEach(p => URL.revokeObjectURL(p.preview)); setSitePhotos([]); };
 
   // ---- Wet ↔ visual mode switch (see src/lib/reportModeSwitch.ts) ----
   const switchState = getSwitchState(formData);
