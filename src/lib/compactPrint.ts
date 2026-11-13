@@ -7,13 +7,20 @@ export function checkedOutletNumbers(numbers: number[], checks: OutletChecks): n
   return numbers.filter((n) => s(n) === "scanned" || s(n) === "manual");
 }
 
-export const PHOTO_GRID = { gapMm: 3, captionMm: 7, targetCellMm: 45 };
+/** Collapse recorded missing checks by real reason; unrecorded outlets invent no reason. */
+export function uncheckedOutletSummary(numbers:number[], checks:OutletChecks):string {
+  const reasons=new Map<string,number>();
+  for(const n of numbers){const c=checks[String(n)];if(c?.status!=='missing')continue;const reason=c.reason?.trim() || 'reason not recorded';reasons.set(reason,(reasons.get(reason)||0)+1);}
+  return [...reasons].map(([reason,count])=>`${count} outlet${count===1?'':'s'} not checked: ${reason.charAt(0).toLowerCase()+reason.slice(1)}`).join('; ');
+}
+
+export const PHOTO_GRID = { gapMm: 2, captionMm: 6, targetCellMm: 45 };
 
 /** 3–4 photos per row, each ~45mm wide, with a short caption underneath. */
 export function photoGridLayout(count: number, maxWidth: number) {
   const { gapMm, captionMm, targetCellMm } = PHOTO_GRID;
   const cols = Math.max(3, Math.min(4, Math.round((maxWidth + gapMm) / (targetCellMm + gapMm))));
-  const cellW = (maxWidth - gapMm * (cols - 1)) / cols;
+  const cellW = Math.min(targetCellMm,(maxWidth - gapMm * (cols - 1)) / cols);
   const photoH = cellW * 0.7;
   const cellH = photoH + captionMm;
   const rows = count > 0 ? Math.ceil(count / cols) : 0;

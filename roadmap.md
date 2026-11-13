@@ -1,5 +1,9 @@
 # Roadmap
 
+## Compact Bosden online PDF
+- [x] PDF-only missing-outlet summaries by real reason, no empty notes, tighter checklist/photo spacing; branding/declarations unchanged. Site photos now load outside dwelling-gallery templates.
+- [x] Both saved Bosden reports regenerated as office: two pages each, including both evidence photos. Missing-status report prints “6 outlets not checked: sticker missing or damaged”; manual checks remain rows. PDFs visually checked; 22 tests passed, Help updated. Engineer account could not load these photos; office verification passed without changing access policies.
+
 ## QR report prefill
 - [x] Policies allow assigned Viva engineers and own-company admins; no access policies loosened. Incomplete visit-prefill and missing-response blank fallback predate today's security changes.
 - [x] Exact response and verified company/job/site/riser context gate opening; fill missing identity/counts without changing inspection results. Visible Retry and riser-code/reason logging; Help updated.

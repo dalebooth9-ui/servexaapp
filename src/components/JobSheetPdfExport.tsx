@@ -36,7 +36,7 @@ import {
 import { fetchOrientedImage } from "@/lib/exifOrient";
 import { ukDateifyRecord } from "@/lib/dateFormat";
 import { waitForSignatureSaves } from "@/lib/signatureSaveTracker";
-import { checkedOutletNumbers, photoGridLayout, PHOTO_GRID } from "@/lib/compactPrint";
+import { checkedOutletNumbers, uncheckedOutletSummary, photoGridLayout, PHOTO_GRID } from "@/lib/compactPrint";
 import { drawQr, stickerUrl } from "@/lib/riserStickers";
 import { readOutletChecks, STATUS_LABEL as OUTLET_STATUS_LABEL } from "@/lib/outletChecks";
 
@@ -742,8 +742,8 @@ export async function generateJobSheetPdf(
     const layout = computeSectionLayout(renderableFieldsForLayout, sections, skipIds, availableH, {
       extraSpaceUsed: commentsH,
       sectionHeaderH: isDryRiser ? DRY_RISER_LAYOUT.body.sectionHeaderRowMm : undefined,
-      minRowH: isDryRiser ? DRY_RISER_LAYOUT.body.fieldRowMm : undefined,
-      maxRowH: isDryRiser ? DRY_RISER_LAYOUT.body.fieldRowMm : undefined,
+      minRowH: isDryRiser ? 4.8 : undefined,
+      maxRowH: isDryRiser ? 5.2 : undefined,
     });
 
     for (const { sec, sf } of sectionData) {
@@ -753,7 +753,7 @@ export async function generateJobSheetPdf(
           margin, maxWidth, colSplit, rowH: layout.rowH,
         });
       }
-      y += 1;
+      y += 0.5;
     }
   } else {
     // Multi-page path (long templates like Sprinkler Service). Use comfortable
@@ -800,19 +800,15 @@ export async function generateJobSheetPdf(
   doc.setFontSize(7);
   doc.setFont("helvetica", "bold");
 
-  if (commentsVal || materialsVal) {
+  for(const [label,value] of [['Comments:',commentsVal],['Materials:',materialsVal]]) {
+    if(!String(value || '').trim())continue;
     const commentTextWidth = maxWidth - 19;
-    doc.text("Comments:", margin, y + 3);
+    doc.setFont('helvetica','bold');
+    doc.text(label, margin, y + 3);
     doc.setFont("helvetica", "normal");
-    const wrappedComments = doc.splitTextToSize(String(commentsVal) || "None", commentTextWidth);
+    const wrappedComments = doc.splitTextToSize(String(value), commentTextWidth);
     doc.text(wrappedComments, margin + 18, y + 3);
     y += Math.max(4, wrappedComments.length * 3);
-    doc.setFont("helvetica", "bold");
-    doc.text("Materials:", margin, y + 3);
-    doc.setFont("helvetica", "normal");
-    const wrappedMaterials = doc.splitTextToSize(String(materialsVal) || "None", commentTextWidth);
-    doc.text(wrappedMaterials, margin + 18, y + 3);
-    y += Math.max(4, wrappedMaterials.length * 3) + 1;
   }
 
   // --- Additional notes (freeform off-form handwritten notes from scan) ---
@@ -1154,6 +1150,10 @@ export async function generateJobSheetPdf(
       (doc as any)._dwellingPages.add(p);
     }
 
+  }
+
+  // Site evidence belongs to every live report, not only dwelling-gallery templates.
+  {
     // === PART D: Photographic Evidence (site photos with engineer captions) ===
     // Resolve site photo URLs (with submissions-table backfill for legacy data),
     // re-sign from storage paths when present, then render a 3-per-row grid
@@ -1258,6 +1258,7 @@ export async function generateJobSheetPdf(
   // Never print an empty section: unchecked outlets are dropped and the whole
   // block disappears when nothing was checked or photographed.
   const outletRows: string[][] = [];
+  let missingOutletSummary='';
   if ((isDryRiser || isWetRiser) && /^[0-9a-f-]{36}$/i.test(riserAssetId)) {
     const outletChecks = readOutletChecks(formData);
     let total = 0;
@@ -1270,6 +1271,7 @@ export async function generateJobSheetPdf(
     } catch { /* fall back to recorded outlets */ }
     if (!total) total = Math.max(0, ...Object.keys(outletChecks).map(Number).filter((n) => n > 0));
     const numbers = Object.keys(references).length ? Object.values(references).sort((a, b) => a - b) : Array.from({ length: total }, (_, i) => i + 1);
+    missingOutletSummary=uncheckedOutletSummary(numbers,outletChecks);
     for (const n of checkedOutletNumbers(numbers, outletChecks)) {
       const c = outletChecks[String(n)];
       const t = c?.at ? new Date(c.at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
@@ -1278,7 +1280,9 @@ export async function generateJobSheetPdf(
   }
   const grid = photoGridLayout(deferredSitePhotos.length, maxWidth);
   const OUT_ROW = 5;
-  const outletH = outletRows.length ? 9 + (outletRows.length + 1) * OUT_ROW + 2 : 0;
+  doc.setFontSize(9);
+  const summaryLines=missingOutletSummary ? doc.splitTextToSize(missingOutletSummary,maxWidth) as string[] : [];
+  const outletH = (outletRows.length ? 9 + (outletRows.length + 1) * OUT_ROW + 2 : 0) + summaryLines.length*4 + (summaryLines.length?2:0);
   const photosH = deferredSitePhotos.length ? 9 + grid.gridH + 2 : 0;
   const extrasH = outletH + photosH;
   const drawBar = (title: string) => {
@@ -1303,6 +1307,7 @@ export async function generateJobSheetPdf(
       for (const r of outletRows) { if (brk(OUT_ROW)) { drawBar("OUTLET CHECKS — continued"); row(["Outlet", "Status", "Time", "By / reason"], true); } row(r, false); }
       y += 2;
     }
+    if(summaryLines.length){brk(summaryLines.length*4+2);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(0,0,0);doc.text(summaryLines,margin,y+3);y+=summaryLines.length*4+2;}
     if (deferredSitePhotos.length) {
       brk(9 + grid.cellH);
       drawBar(`SITE PHOTOS (${deferredSitePhotos.length})`);
@@ -1311,13 +1316,11 @@ export async function generateJobSheetPdf(
         if (col === 0 && i > 0) y += grid.cellH + PHOTO_GRID.gapMm;
         if (col === 0 && brk(grid.cellH)) drawBar(`SITE PHOTOS (${deferredSitePhotos.length}) — continued`);
         const x = margin + col * (grid.cellW + PHOTO_GRID.gapMm);
-        doc.setFillColor(235, 238, 242); doc.rect(x, y, grid.cellW, grid.photoH, "F");
         try {
           const scale = Math.min(grid.cellW / p.w, grid.photoH / p.h);
           const dw = p.w * scale, dh = p.h * scale;
           doc.addImage(p.dataUrl, p.format, x + (grid.cellW - dw) / 2, y + (grid.photoH - dh) / 2, dw, dh, undefined, "FAST");
         } catch { /* skip broken image */ }
-        doc.setDrawColor(210, 214, 220); doc.setLineWidth(0.2); doc.rect(x, y, grid.cellW, grid.photoH);
         const cap = [p.takenAt ? formatTaken(p.takenAt) : "", p.caption || ""].filter(Boolean).join(" · ");
         if (cap) {
           doc.setFont("helvetica", "normal"); doc.setFontSize(6.5); doc.setTextColor(50, 55, 65);
