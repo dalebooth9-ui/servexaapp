@@ -1,3 +1,4 @@
+import { prepareReportPhoto, canSaveToPhone, saveToPhone, countSavedReportPhotos, REPORT_PHOTO_MAX_EDGE, PHOTO_TIP } from "@/lib/reportPhotoCapture";
 import ReportSitePhotos from "@/components/jobs/ReportSitePhotos";
 import { registerDraftSaver } from "@/lib/draftFlush";
 import SiteAccessCard from '@/components/sites/SiteAccessCard';
@@ -127,7 +128,7 @@ type Response = {
   system_label?: string | null;
 };
 
-type PendingSitePhoto = { id: string; file: File; preview: string; caption: string; status: "uploading" | "failed"; error?: string };
+type PendingSitePhoto = { id: string; file: File; preview: string; caption: string; status: "uploading" | "failed"; error?: string; source?: "camera" | "library"; progress?: number };
 type SubmittedSummary = { response: Response; templateName: string; riserCount: number; answers: number; totalFields: number; photos: number };
 
 type JobInfo = {
@@ -191,6 +192,10 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   const [sitePhotos, setSitePhotos] = useState<PendingSitePhoto[]>([]);
   const sitePhotosRef = useRef<PendingSitePhoto[]>([]);
   sitePhotosRef.current = sitePhotos;
+  // Camera shots kept in memory (by stored path) so "Save to phone" still works after upload.
+  const [cameraShots, setCameraShots] = useState<Record<string, File>>({});
+  const siteCameraInputRef = useRef<HTMLInputElement>(null);
+  const siteLibraryInputRef = useRef<HTMLInputElement>(null);
   // Report row id decided when the form opens, so the phone copy, server
   // autosave, photos and submit all point at the same report.
   const [draftReportId, setDraftReportId] = useState<string | null>(null);
@@ -1293,12 +1298,26 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     setSitePhotos((prev) => prev.map((x) => (x.id === photo.id ? { ...x, status: "uploading", error: undefined } : x)));
     try {
       if (!user) throw new Error("Signed out");
-      const ext = (photo.file.name.split(".").pop() || "jpg").toLowerCase();
+      const setProgress = (n: number) => setSitePhotos((prev) => prev.map((x) => (x.id === photo.id ? { ...x, progress: n } : x)));
+      setProgress(10);
+      // Upload a ~1600px copy; the full-quality phone copy stays in local storage until confirmed.
+      const small = await prepareReportPhoto(photo.file);
+      setProgress(35);
+      const ext = (small.name.split(".").pop() || "jpg").toLowerCase();
       const fileName = `site-photo-${photo.id}.${ext}`;
       const filePath = `${jobId}/${fileName}`;
       const storagePath = await buildOrgPathAsync(filePath);
-      const { error: upErr } = await supabase.storage.from("submissions").upload(storagePath, photo.file, { contentType: photo.file.type, upsert: true });
+      const { error: upErr } = await supabase.storage.from("submissions").upload(storagePath, small, { contentType: small.type, upsert: true });
       if (upErr) throw upErr;
+      setProgress(80);
+      // Library picks: also keep the original quality file in Servexa (best effort).
+      if (photo.source === "library" && small !== photo.file) {
+        const oExt = (photo.file.name.split(".").pop() || "jpg").toLowerCase();
+        const oPath = await buildOrgPathAsync(`${jobId}/originals/site-photo-${photo.id}.${oExt}`);
+        void supabase.storage.from("submissions").upload(oPath, photo.file, { contentType: photo.file.type || "image/jpeg", upsert: true })
+          .then(({ error }) => { if (error) console.warn("Original photo copy not stored", error); });
+      }
+      if (photo.source === "camera") setCameraShots((prev) => ({ ...prev, [filePath]: photo.file }));
       const caption = (sitePhotosRef.current.find((x) => x.id === photo.id)?.caption ?? photo.caption).trim();
       const signed = await createSubmissionPhotoSignedUrl(filePath, jobId, 60 * 60);
       const { error: subErr } = await supabase.from("submissions").insert({
@@ -1325,12 +1344,12 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     }
   };
 
-  const addSitePhotos = (files: File[]) => {
+  const addSitePhotos = (files: File[], source: "camera" | "library" = "library") => {
     if (!draftReportId) return;
     const reportId = draftReportId;
     const room = Math.max(0, 10 - sitePhotosRef.current.length);
     const added: PendingSitePhoto[] = files.filter((f) => f.type.startsWith("image/")).slice(0, room).map((file) => ({
-      id: newReportId(), file, preview: URL.createObjectURL(file), caption: "", status: "uploading",
+      id: newReportId(), file, preview: URL.createObjectURL(file), caption: "", status: "uploading", source, progress: 0,
     }));
     if (!added.length) return;
     setSitePhotos((prev) => [...prev, ...added]);
@@ -2631,6 +2650,16 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                 />
               </div>
             )}
+            {!viewingResponse && activeTemplate && (() => {
+              const saved = countSavedReportPhotos(formData, activeTemplate.fields.filter((f: any) => f.type === "photo").map((f: any) => f.id));
+              const pending = sitePhotos.length;
+              return (
+                <div className={`mb-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${pending ? "text-muted-foreground" : "text-primary"}`} aria-live="polite">
+                  {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                  {saved} photo{saved === 1 ? "" : "s"} saved{pending ? ` · ${pending} still uploading` : ""}
+                </div>
+              );
+            })()}
             {isRiserReport && (
               <OutletChecksPanel
                 assetId={String(formData.riser_asset_id)}
@@ -2774,6 +2803,9 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                               >×</button>
 
                             </div>
+                            {cameraShots[r.path] && canSaveToPhone(cameraShots[r.path]) && (
+                              <Button type="button" variant="outline" size="sm" className="h-6 w-full text-[10px]" onClick={() => void saveToPhone(cameraShots[r.path])}>Save to phone</Button>
+                            )}
                             <input
                               type="text"
                               maxLength={100}
@@ -2806,22 +2838,11 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                   if (files.length === 0) return;
                   addSitePhotos(files);
                 }}
-                onClick={() => {
-                  const input = document.createElement("input");
-                  input.type = "file";
-                  input.accept = "image/*";
-                  input.multiple = true;
-                  input.onchange = () => {
-                    const files = Array.from(input.files || []).filter(f => f.type.startsWith("image/"));
-                    addSitePhotos(files);
-                  };
-                  input.click();
-                }}
               >
                 {sitePhotos.length === 0 ? (
                   <>
                     <Camera className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
-                    <p className="text-xs text-muted-foreground">Drag & drop site photos here or click to browse</p>
+                    <p className="text-xs text-muted-foreground">No photos added yet — use the buttons below (or drag photos here on a computer)</p>
                   </>
                 ) : (
                   <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
@@ -2834,7 +2855,10 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                           <div className="relative">
                             <img src={photo.preview} alt={`Site ${i + 1}`} className="rounded border object-cover w-full aspect-[4/3]" />
                             {photo.status === "uploading" ? (
-                              <span className="absolute inset-x-1 bottom-1 inline-flex items-center gap-1 rounded bg-background/90 px-1.5 py-1 text-[10px] font-medium"><Loader2 className="h-3 w-3 animate-spin" /> Uploading…</span>
+                              <span className="absolute inset-x-1 bottom-1 rounded bg-background/90 px-1.5 py-1 text-[10px] font-medium">
+                                <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Uploading… {photo.progress ? `${photo.progress}%` : ""}</span>
+                                <span className="mt-0.5 block h-1 w-full overflow-hidden rounded bg-muted"><span className="block h-full bg-primary transition-all" style={{ width: `${photo.progress || 5}%` }} /></span>
+                              </span>
                             ) : (
                               <button type="button" onClick={() => draftReportId && void uploadSitePhoto(photo, draftReportId)}
                                 className="absolute inset-x-1 bottom-1 inline-flex items-center justify-center gap-1 rounded bg-destructive px-1.5 py-1 text-[11px] font-semibold text-destructive-foreground">
@@ -2853,6 +2877,9 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                             >×</button>
 
                           </div>
+                          {photo.source === "camera" && canSaveToPhone(photo.file) && (
+                            <Button type="button" variant="outline" size="sm" className="h-6 w-full text-[10px]" onClick={() => void saveToPhone(photo.file)}>Save to phone</Button>
+                          )}
                           <input
                             type="text"
                             maxLength={100}
@@ -2867,27 +2894,22 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                         </div>
                       )}
                     />
-                    {sitePhotos.length < 10 && (
-                      <div
-                        className="border border-dashed rounded flex items-center justify-center aspect-[4/3] text-muted-foreground hover:bg-muted/50 cursor-pointer max-w-[calc(50%-0.375rem)]"
-                        onClick={() => {
-                          const input = document.createElement("input");
-                          input.type = "file";
-                          input.accept = "image/*";
-                          input.multiple = true;
-                          input.onchange = () => {
-                            const files = Array.from(input.files || []).filter(f => f.type.startsWith("image/"));
-                            addSitePhotos(files);
-                          };
-                          input.click();
-                        }}
-                      >
-                        <Plus className="h-5 w-5" />
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
+              <input ref={siteCameraInputRef} type="file" accept="image/*" capture="environment" className="hidden"
+                onChange={(e) => { const f = Array.from(e.target.files || []); e.target.value = ""; addSitePhotos(f, "camera"); }} />
+              <input ref={siteLibraryInputRef} type="file" accept="image/*" multiple className="hidden"
+                onChange={(e) => { const f = Array.from(e.target.files || []); e.target.value = ""; addSitePhotos(f, "library"); }} />
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button type="button" size="sm" className="gap-1.5" disabled={!draftReportId || sitePhotos.length >= 10} onClick={() => siteCameraInputRef.current?.click()}>
+                  <Camera className="h-4 w-4" /> Take photo
+                </Button>
+                <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={!draftReportId || sitePhotos.length >= 10} onClick={() => siteLibraryInputRef.current?.click()}>
+                  <Plus className="h-4 w-4" /> Choose from library
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1.5">{PHOTO_TIP}</p>
               {sitePhotos.length > 0 && (
                 <p className="text-[10px] text-muted-foreground mt-1">{sitePhotos.length} photo(s) not stored yet — kept on this phone until the upload finishes</p>
               )}
@@ -3521,6 +3543,9 @@ function SignatureField({ value, onChange }: { value: any; onChange: (v: any) =>
 
 function PhotoField({ value, onChange, fieldId, jobId, userId }: { value: any; onChange: (v: any) => void; fieldId: string; jobId?: string; userId?: string }) {
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [cameraFile, setCameraFile] = useState<File | null>(null);
+  const { toast } = useToast();
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   // Two inputs so the engineer can choose live camera OR the gallery.
   // capture="environment" tells the OS to open the rear camera directly.
@@ -3537,9 +3562,11 @@ function PhotoField({ value, onChange, fieldId, jobId, userId }: { value: any; o
     }
   }, [value]);
 
-  const handleUpload = async (file: File) => {
+  const handleUpload = async (file: File, source: "camera" | "library" = "library") => {
     if (!file || !file.type.startsWith("image/")) return;
     setUploading(true);
+    setProgress(10);
+    setCameraFile(source === "camera" ? file : null);
     // Gentle one-off cellular data notice; matches the recently added
     // mobile-data warnings on other upload surfaces.
     try {
@@ -3553,7 +3580,7 @@ function PhotoField({ value, onChange, fieldId, jobId, userId }: { value: any; o
     let contentType = file.type || "image/jpeg";
     try {
       const { compressImageForUpload } = await import("@/lib/imageCompress");
-      const compressed = await compressImageForUpload(file, 2000, 0.85);
+      const compressed = await compressImageForUpload(file, REPORT_PHOTO_MAX_EDGE, 0.82);
       if (compressed) {
         toUpload = compressed;
         ext = "jpg";
@@ -3563,10 +3590,18 @@ function PhotoField({ value, onChange, fieldId, jobId, userId }: { value: any; o
     const fileName = `${fieldId}-${Date.now()}.${ext}`;
     const path = jobId ? `${jobId}/template-photos/${fileName}` : `template-photos/${fileName}`;
     const storagePath = await buildOrgPathAsync(path);
+    setProgress(40);
     const { error } = await supabase.storage.from("submissions").upload(storagePath, toUpload, { upsert: true, contentType });
     if (error) {
       console.error("Upload error:", error);
+      toast({ title: "Photo not uploaded", description: "Check your signal and try again.", variant: "destructive" });
     } else {
+      setProgress(90);
+      if (source === "library" && toUpload !== file) {
+        const oExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
+        const oPath = await buildOrgPathAsync(jobId ? `${jobId}/originals/${fieldId}-${Date.now()}.${oExt}` : `originals/${fieldId}-${Date.now()}.${oExt}`);
+        void supabase.storage.from("submissions").upload(oPath, file, { upsert: true, contentType: file.type || "image/jpeg" });
+      }
       onChange(path);
       // Register as a job submission so it appears in the job folder/Documents
       if (jobId && userId) {
@@ -3596,16 +3631,17 @@ function PhotoField({ value, onChange, fieldId, jobId, userId }: { value: any; o
         accept="image/*"
         capture="environment"
         className="hidden"
-        onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
+        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void handleUpload(f, "camera"); }}
       />
       <input
         ref={galleryRef}
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
+        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void handleUpload(f, "library"); }}
       />
       {signedUrl ? (
+        <div className="flex items-end gap-2">
         <div className="relative inline-block">
           <img src={signedUrl} alt="Captured" className="max-w-[120px] max-h-[80px] rounded border object-cover" />
           <Button
@@ -3616,8 +3652,14 @@ function PhotoField({ value, onChange, fieldId, jobId, userId }: { value: any; o
           >
             <X className="h-3 w-3" />
           </Button>
+          <span className="absolute bottom-1 left-1 inline-flex items-center gap-0.5 rounded bg-background/90 px-1 text-[10px] font-medium text-primary"><CheckCircle2 className="h-3 w-3" /> Stored</span>
+        </div>
+        {cameraFile && canSaveToPhone(cameraFile) && (
+          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => void saveToPhone(cameraFile)}>Save to phone</Button>
+        )}
         </div>
       ) : (
+        <>
         <div className="flex flex-wrap gap-1.5">
           <Button
             variant="outline"
@@ -3627,7 +3669,7 @@ function PhotoField({ value, onChange, fieldId, jobId, userId }: { value: any; o
             disabled={uploading}
           >
             {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
-            {uploading ? "Uploading..." : "Take photo"}
+            {uploading ? `Uploading… ${progress}%` : "Take photo"}
           </Button>
           <Button
             variant="ghost"
@@ -3636,9 +3678,11 @@ function PhotoField({ value, onChange, fieldId, jobId, userId }: { value: any; o
             onClick={() => galleryRef.current?.click()}
             disabled={uploading}
           >
-            Choose existing
+            Choose from library
           </Button>
         </div>
+        <p className="mt-1 text-[11px] text-muted-foreground">{PHOTO_TIP}</p>
+        </>
       )}
     </div>
   );
