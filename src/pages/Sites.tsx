@@ -355,9 +355,14 @@ export default function Sites() {
   };
 
   // Navigate to a site in the hierarchy: switch tab, clear search, expand all ancestors, highlight the target
-  const navigateToSite = (siteId: string) => {
+  const navigateToSite = async (siteId: string, holdMs = 1800) => {
     setActiveTab("hierarchy");
-    const target=sites.find(s=>s.id===siteId) ?? customerFolders.flatMap(f=>f.sites).find(s=>s.id===siteId);
+    let target = sites.find(s=>s.id===siteId) ?? customerFolders.flatMap(f=>f.sites).find(s=>s.id===siteId);
+    if (!target) {
+      // Deep link from another page: this site isn't loaded yet, so look it up by id.
+      const { data } = await supabase.from("sites").select("id, name, parent_id").eq("id", siteId).maybeSingle();
+      if (data) target = data as Site;
+    }
     setSearch(target?.name ?? '');
     // Collect all ancestor IDs
     const ancestors: string[] = [];
@@ -375,8 +380,17 @@ export default function Sites() {
     setTimeout(() => {
       document.getElementById(`site-row-${siteId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 80);
-    setTimeout(() => setHighlightedSiteId(null), 1800);
+    setTimeout(() => setHighlightedSiteId(null), holdMs);
   };
+
+  // Deep link: /sites?site=<id> opens the hierarchy focused on that site.
+  const focusSiteId = navigationParams.get("site");
+  const focusSiteDone = useRef(false);
+  useEffect(() => {
+    if (!focusSiteId || !userRole || focusSiteDone.current) return;
+    focusSiteDone.current = true;
+    void navigateToSite(focusSiteId, 6000);
+  }, [focusSiteId, userRole]);
 
   const toggleSiteCollapse = (siteId: string) => {
     if(!childPages[siteId])void loadChildren(siteId).then(()=>{

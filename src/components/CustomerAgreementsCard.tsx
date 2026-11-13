@@ -41,7 +41,7 @@ export default function CustomerAgreementsCard({ customerId }: { customerId: str
           <ul className="space-y-1.5">
             {rows.map((r) => (
               <li key={r.id} className="flex items-center justify-between gap-3 rounded border p-2 text-sm">
-                <Link to={`/agreements/${r.id}`} className="min-w-0">
+                <Link to={`/agreements/${r.id}`} className="min-w-0 flex-1 cursor-pointer rounded-sm hover:bg-accent/60">
                   <p className="font-medium truncate">{r.title}</p>
                   <p className="text-xs text-muted-foreground font-mono">
                     {r.reference} · {formatDate(r.start_date)} – {r.end_date ? formatDate(r.end_date) : "—"}
