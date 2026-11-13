@@ -52,9 +52,6 @@ export default function ReportsToCheck() {
       if ((data || []).length < 1000) break;
     }
     const jobs = reviewJobs;
-    /* const { data: jobs } = await supabase.from("jobs")
-      .select("id, name, reference_number, customer_po, address, sites(name,address,postcode)")
-      .eq("status", "submitted_for_review").limit(500); */
     const ids = (jobs || []).map((j: any) => j.id);
     const { data: evs } = ids.length
       ? await supabase.from("report_review_events").select("job_id, actor_id, created_at, pdf_path")

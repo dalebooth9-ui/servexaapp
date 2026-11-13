@@ -18,6 +18,7 @@ import { recordReportFailure } from '@/lib/reportFailureLog';
 
 const store = createStore("servexa-report-queue", "items");
 const MAX_ATTEMPTS = 5;
+let draining = false;
 
 export type ReportSubmissionItem = {
   /** client-generated job_sheet_responses.id — makes replay idempotent */
@@ -106,7 +107,9 @@ async function sendOne(item: ReportSubmissionItem): Promise<{ ok: boolean; retry
 
 /** Drains the queue. Returns how many reports were sent successfully. */
 export async function processReportQueue(): Promise<number> {
-  if (typeof navigator !== "undefined" && !navigator.onLine) return 0;
+  if (draining || (typeof navigator !== "undefined" && !navigator.onLine)) return 0;
+  draining = true;
+  try {
   const items = await readAll();
   let sent = 0;
   for (const item of items) {
@@ -126,4 +129,5 @@ export async function processReportQueue(): Promise<number> {
   }
   await notify();
   return sent;
+  } finally { draining = false; }
 }
