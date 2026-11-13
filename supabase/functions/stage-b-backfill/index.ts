@@ -44,13 +44,8 @@ async function authorize(req: Request): Promise<{ ok: true } | { ok: false; res:
   const { data: userRes, error } = await client.auth.getUser(token);
   if (error || !userRes?.user) return { ok: false, res: unauth("invalid_token") };
 
-  const { data: roleRow } = await client
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userRes.user.id)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!roleRow) return { ok: false, res: unauth("not_admin") };
+  const { data: isPlatformAdmin } = await client.rpc("has_role", { _user_id: userRes.user.id, _role: "platform_admin" });
+  if (!isPlatformAdmin) return { ok: false, res: unauth("not_platform_admin") };
   return { ok: true };
 }
 
