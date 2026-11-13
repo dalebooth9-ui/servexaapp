@@ -38,7 +38,7 @@ import { ukDateifyRecord } from "@/lib/dateFormat";
 import { waitForSignatureSaves } from "@/lib/signatureSaveTracker";
 import { checkedOutletNumbers, photoGridLayout, PHOTO_GRID } from "@/lib/compactPrint";
 import { drawQr, stickerUrl } from "@/lib/riserStickers";
-import { readOutletChecks, outletSummaryLine, STATUS_LABEL as OUTLET_STATUS_LABEL } from "@/lib/outletChecks";
+import { readOutletChecks, STATUS_LABEL as OUTLET_STATUS_LABEL } from "@/lib/outletChecks";
 
 /**
  * Load a stored signature as an in-memory image. Downloads the bytes through
