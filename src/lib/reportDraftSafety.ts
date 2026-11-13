@@ -19,7 +19,7 @@ export function countAnswers(data: Record<string, any> | null | undefined, ignor
 
 /** Stored report photos (one per storage path). */
 export function countPhotos(data: Record<string, any> | null | undefined): number {
-  const paths = Array.isArray(data?._site_photo_paths) ? data!._site_photo_paths : [];
+  const paths = Array.isArray(data?._site_photo_paths) ? data?._site_photo_paths : [];
   return new Set(paths.filter(Boolean)).size;
 }
 
@@ -90,4 +90,4 @@ export function photoSubmitBlocker(states: PhotoUploadState[]): string | null {
   return null;
 }
 
-export const NOT_SAVED_MESSAGE = "Not saved yet. Your answers and photos are kept on this phone. Tap Retry.";
+export const NOT_SAVED_MESSAGE = "Not sent yet. Your work is safe on this phone. Try again";
