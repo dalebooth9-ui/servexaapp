@@ -64,6 +64,7 @@ const RULES: SlugRule[] = [
   { test: (p) => p === "/assets", slug: "assets" },
   { test: (p) => p === "/assets/review", slug: "assets.review" },
   { test: (p) => p === '/assets/duplicates', slug: 'assets.duplicates' },
+  // QR reports require verified own-company job/riser/site context; failed reads offer Retry, never a blank replacement.
   { test: (p) => p.startsWith("/r/"), slug: "assets.stickers" },
   { test: (p) => p === '/riser-scan-service', slug: 'assets.stickers' },
   // Outlet references are RISER-N, inlet codes unchanged; suffixes are never reused.

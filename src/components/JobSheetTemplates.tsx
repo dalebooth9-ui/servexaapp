@@ -13,7 +13,8 @@ import SiteRiserStickerList from "@/components/assets/SiteRiserStickerList";
 import { QRCodeSVG } from 'qrcode.react';
 import { stickerUrl } from '@/lib/riserStickers';
 import {useSearchParams} from 'react-router-dom';
-import {isScanPrivateField} from '@/lib/riserScanFlow';
+import {isScanPrivateField,riserIdentityPrefill,RISER_LOAD_ERROR,type RiserReportContext} from '@/lib/riserScanFlow';
+import {logError} from '@/lib/errorLogger';
 import {printInspectionType,printInspectionResult} from '@/lib/printText';
 
 function isDryRiserTemplate(t: any): boolean {
@@ -170,6 +171,7 @@ function completedReportDetail(resp: Response, template?: Template): string | nu
 export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }: { jobId: string; hideSiteVisitExtra?: boolean }) {
   const [scanParams]=useSearchParams();
   const scanMode=scanParams.get('riserScan')==='1';
+  const [scanFailure,setScanFailure]=useState<(() => void)|null>(null);
   const { user, userRole, profile } = useAuth();
   const [outletTotal, setOutletTotal] = useState(0);
   const [outletNumbers, setOutletNumbers] = useState<number[]>([]);
@@ -1075,6 +1077,22 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   };
 
   const handleStartForm = async (template: Template, existingResponse?: Response, reuseDraftId?: string) => {
+    let scanIdentity: Record<string,any> = {};
+    if(scanMode){
+      try {
+        if(!existingResponse)throw new Error('The exact scanned report is missing');
+        const {data,error}=await supabase.rpc('get_riser_report_context',{_job_id:jobId,_response_id:existingResponse.id});
+        if(error)throw error;
+        const ctx=data as unknown as RiserReportContext;
+        scanIdentity=riserIdentityPrefill(template.fields,ctx);
+        setOutletTotal(ctx.outlet_codes.total);setOutletNumbers(Object.values(ctx.outlet_codes.tags));
+        setScanFailure(null);
+      }catch(error){
+        logError({error,message:'QR report details failed',context:{jobId,responseId:existingResponse?.id,riserCode:existingResponse?.responses?.riser_id || existingResponse?.responses?._riser_visit?.asset_tag,reason:error instanceof Error?error.message:String((error as any)?.message || error)}});
+        setScanFailure(()=>()=>void handleStartForm(template,existingResponse,reuseDraftId));
+        toast({title:RISER_LOAD_ERROR,variant:'destructive'});return;
+      }
+    }
     openingRef.current = true;
     setFormData({});
     const reportId = existingResponse?.id ?? reuseDraftId ?? newReportId();
@@ -1178,7 +1196,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       // Backfill EMPTY saved fields with fresh auto-populated values — but
       // never clobber a value the engineer has already typed.
       const merged: Record<string, any> = { ...saved };
-      Object.entries(saved._riser_visit ? {} : prefilled).forEach(([key, val]) => {
+      Object.entries({...(!saved._riser_visit ? prefilled : {}),...scanIdentity}).forEach(([key, val]) => {
         if (val === undefined || val === null || val === "") return;
         const existing = merged[key];
         const isEmpty = existing === undefined || existing === null || existing === "";
@@ -1191,6 +1209,8 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
         Object.assign(merged, r.merged);
         if (r.restored) announceRestore(localTs, r.answers, r.photos);
       }
+      // Even a stale local blank must not erase verified standing details.
+      for(const [key,value] of Object.entries(scanIdentity))if(merged[key]===undefined||merged[key]===null||merged[key]==='')merged[key]=value;
       // Visit drafts contain context only. Do not backfill checks or signatures
       // from generic defaults when opening a new per-riser visit sheet.
       if (saved._riser_visit) {
@@ -1490,12 +1510,23 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
 
       // Prefer the explicit responseId when the caller knows which record to open
       const targeted = detail.responseId ? responses.find((r) => r.id === detail.responseId) : undefined;
+      if(detail.responseId && !targeted){
+        const retry=async()=>{
+          const {data,error}=await supabase.from('job_sheet_responses').select('*').eq('id',detail.responseId as string).eq('job_id',jobId).is('archived_at',null).maybeSingle();
+          if(error || !data){
+            logError({error,message:'QR report lookup failed',context:{jobId,responseId:detail.responseId,reason:error?.message || 'Report missing or access refused'}});
+            setScanFailure(()=>()=>void retry());return;
+          }
+          void handleStartForm(template,data as Response);
+        };
+        void retry();return;
+      }
 
       if (targeted && detail.focusFieldId) {
         handleStartForm(template, targeted);
         return;
       }
-      if (targeted && (targeted.status === "submitted" || detail.mode === "view")) {
+      if (targeted && !scanMode && (targeted.status === "submitted" || detail.mode === "view")) {
         handleViewResponse(targeted);
         return;
       }
@@ -1513,7 +1544,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
               if (resp.template_id !== detail.templateId || resp.status !== "draft") return false;
               return userRole === "admin" || resp.submitted_by === user?.id;
             });
-      handleStartForm(template, existingDraft);
+      handleStartForm(template, scanMode ? targeted : existingDraft);
     };
 
     window.addEventListener("job-sheet:fill-online", handleFillOnline as EventListener);
