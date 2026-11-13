@@ -1,8 +1,8 @@
 # Roadmap
 
 ## Compact Bosden online PDF
-- [ ] Summarise unchecked outlets by actual reason, remove empty notes, tighten checklist/photo spacing without changing branding/declarations.
-- [ ] Regenerate VFP-00284 and verify two pages or fewer; tests, Help and build time.
+- [x] PDF-only missing-outlet summaries by real reason, no empty notes, tighter checklist/photo spacing; branding/declarations unchanged. Site photos now load outside dwelling-gallery templates.
+- [x] Both saved Bosden reports regenerated as office: two pages each, including both evidence photos. Missing-status report prints “6 outlets not checked: sticker missing or damaged”; manual checks remain rows. PDFs visually checked; 22 tests passed, Help updated. Engineer account could not load these photos; office verification passed without changing access policies.
 
 ## QR report prefill
 - [x] Policies allow assigned Viva engineers and own-company admins; no access policies loosened. Incomplete visit-prefill and missing-response blank fallback predate today's security changes.
