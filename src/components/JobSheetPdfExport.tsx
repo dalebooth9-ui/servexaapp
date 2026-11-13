@@ -754,16 +754,16 @@ export async function generateJobSheetPdf(
     // rowH is elastically compressed to fit everything on page 1.
     const layout = computeSectionLayout(renderableFieldsForLayout, sections, skipIds, availableH, {
       extraSpaceUsed: commentsH,
-      sectionHeaderH: isDryRiser ? DRY_RISER_LAYOUT.body.sectionHeaderRowMm : undefined,
-      minRowH: isDryRiser ? 4.8 : undefined,
-      maxRowH: isDryRiser ? 5.2 : undefined,
+      sectionHeaderH: isDryRiser ? 5 : undefined,
+      minRowH: isDryRiser ? 4.5 : undefined,
+      maxRowH: isDryRiser ? 4.5 : undefined,
     });
 
     for (const { sec, sf } of sectionData) {
       y = renderSectionHeader(doc, sec, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
       for (const field of sf) {
         y = renderFilledFieldRow(doc, field, resolvedFormData[field.id], resolvedFormData[`${field.id}_notes`], y, {
-          margin, maxWidth, colSplit, rowH: layout.rowH,
+          margin, maxWidth, colSplit, rowH: layout.rowH, verticalPadding: isDryRiser ? 1 : undefined,
         });
       }
       y += 0.5;
