@@ -1,3 +1,4 @@
+import { defectStatusErrorMessage } from "@/lib/defectStatus";
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -77,11 +78,11 @@ const STATUS_BADGE: Record<string, string> = {
   declined: "bg-muted text-muted-foreground line-through",
   scheduled: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
 };
-const STATUS_LABEL: Record<string, string> = { resolved: "completed", in_progress: "in progress", job_created: "job created" };
+const STATUS_LABEL: Record<string, string> = { resolved: "completed", in_progress: "in progress", job_created: "job created", scheduled: "on next report" };
 
 const STATUS_ICON: Record<string, React.ElementType> = {
   open: AlertCircle, in_progress: Clock, resolved: CheckCircle2, deferred: XCircle, quoted: FileText,
-  approved: CheckCircle2, job_created: Wrench, declined: Ban,
+  approved: CheckCircle2, job_created: Wrench, declined: Ban, scheduled: CalendarClock,
 };
 
 const CATEGORIES = [
@@ -319,8 +320,9 @@ export default function Defects() {
   };
 
   const handleStatusChange = async (defectId: string, newStatus: string) => {
-    const { error } = await supabase.from("defects").update({ status: newStatus } as any).eq("id", defectId);
-    if (error) toast.error(error.message);
+    const { data, error } = await supabase.from("defects").update({ status: newStatus } as any).eq("id", defectId).select("id");
+    if (error) toast.error(defectStatusErrorMessage(error));
+    else if (!data?.length) toast.error("The defect couldn't be updated: you don't have permission to change it, or it was removed.");
     else fetchData();
   };
 
@@ -496,6 +498,7 @@ export default function Defects() {
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="open">Open</SelectItem>
             <SelectItem value="in_progress">In Progress</SelectItem>
+            <SelectItem value="scheduled">Scheduled (on next report)</SelectItem>
             <SelectItem value="quoted">Quoted</SelectItem>
             <SelectItem value="approved">Approved</SelectItem>
             <SelectItem value="job_created">Job Created</SelectItem>

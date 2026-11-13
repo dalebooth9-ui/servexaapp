@@ -109,7 +109,7 @@ export default function NeedsAttentionToday() {
         .from("defects")
         .select("job_id")
         .eq("source_kind", "carried_forward")
-        .in("status", ["open", "in_progress", "quoted", "approved", "job_created"])
+        .in("status", ["open", "in_progress", "scheduled", "quoted", "approved", "job_created"])
         .not("job_id", "is", null)
         .limit(1000);
       const carriedJobIds = Array.from(new Set((carriedRows || []).map((d: any) => d.job_id)));
