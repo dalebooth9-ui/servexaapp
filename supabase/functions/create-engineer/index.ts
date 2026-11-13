@@ -155,7 +155,7 @@ serve(async (req) => {
       userId = newUser.user.id;
       // Put the new person in the admin's own company.
       await supabaseAdmin.from("profiles").update({ org_id: __c.orgId }).eq("user_id", userId);
-      await supabaseAdmin.from("organisation_members").upsert({ org_id: __c.orgId, user_id: userId, role: "member", status: "active", invited_by: __c.userId }, { onConflict: "org_id,user_id", ignoreDuplicates: true });
+      await supabaseAdmin.from("organisation_members").upsert({ org_id: __c.orgId, user_id: userId, role: "engineer", status: "active", invited_by: __c.userId }, { onConflict: "org_id,user_id", ignoreDuplicates: true });
     }
 
     // Update profile with phone/whatsapp
