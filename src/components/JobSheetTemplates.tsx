@@ -3151,6 +3151,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                 />
               </div>
             )}
+            {scanMode && <div className="border rounded-md m-3 p-3 text-sm space-y-1"><p className="font-semibold">{formData.site_name}</p><p>{formData.site_address}</p><p>{formData.job_reference} · {formData.riser_id} · {formData.riser_location}</p><p>{formData.outlets_count} outlets · {formData.inlets_count} inlet(s)</p><OutletChecksPanel assetId={String(formData.riser_asset_id)} checks={readOutletChecks(formData)} onChange={()=>{}} locked userId={user?.id}/></div>}
             {sections.filter((s) => !isSectionOmitted(s)).map((section) => (
               <div key={section}>
                 <div className="bg-muted px-3 py-1.5 border-b border-border">
