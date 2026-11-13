@@ -14,7 +14,6 @@ import { QRCodeSVG } from 'qrcode.react';
 import { stickerUrl } from '@/lib/riserStickers';
 import {useSearchParams} from 'react-router-dom';
 import {isScanPrivateField,riserIdentityPrefill,RISER_LOAD_ERROR,type RiserReportContext} from '@/lib/riserScanFlow';
-import {logError} from '@/lib/errorLogger';
 import {printInspectionType,printInspectionResult} from '@/lib/printText';
 
 function isDryRiserTemplate(t: any): boolean {
