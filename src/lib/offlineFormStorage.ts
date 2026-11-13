@@ -39,20 +39,37 @@ type DraftEnvelope<T = unknown> = {
 };
 
 /** Persist a form draft. Mirrors to localStorage for synchronous reads. */
-export async function saveFormDraft<T>(formId: string, data: T): Promise<void> {
+export async function saveFormDraft<T>(formId: string, data: T, requireCopy = false): Promise<void> {
   const envelope: DraftEnvelope<T> = { updatedAt: Date.now(), data };
+  let saved = false;
   // Sync mirror (best-effort; ignore quota errors)
   try {
     localStorage.setItem(LS_PREFIX + formId, JSON.stringify(data));
     localStorage.setItem(LS_TS_PREFIX + formId, String(envelope.updatedAt));
+    saved = true;
   } catch {
     // localStorage full — IDB still works
   }
   try {
     await set(formId, envelope, store);
+    saved = true;
   } catch {
     // IDB unavailable (private mode in some browsers); localStorage mirror is enough
   }
+  if (requireCopy && !saved) throw new Error('Phone storage is unavailable or full. Keep this page open and free some storage before retrying.');
+}
+
+/** Load the durable copy with its own timestamp, even when the small mirror is full. */
+export async function loadFormDraftEnvelope<T>(formId: string): Promise<DraftEnvelope<T> | null> {
+  const mirror = loadFormDraftSync<T>(formId);
+  const mirrorTs = loadFormDraftTimestamp(formId) ?? 0;
+  try {
+    const durable = await get<DraftEnvelope<T>>(formId, store);
+    if (durable && (!mirror || durable.updatedAt >= mirrorTs)) return durable;
+  } catch {
+    if (!mirror) throw new Error('The saved phone draft could not be loaded. Keep this page open and try again.');
+  }
+  return mirror ? { data: mirror, updatedAt: mirrorTs } : null;
 }
 
 /** Load a form draft. Prefers IndexedDB, falls back to localStorage. */

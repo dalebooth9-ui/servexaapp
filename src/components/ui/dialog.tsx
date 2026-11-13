@@ -26,8 +26,8 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { reportLayout?: boolean }
+>(({ className, children, reportLayout = false, ...props }, ref) => {
   const [pos, setPos] = React.useState<{ x: number; y: number } | null>(null);
   const [size, setSize] = React.useState<{ w: number; h: number } | null>(null);
   const dragRef = React.useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
@@ -125,7 +125,7 @@ const DialogContent = React.forwardRef<
 
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay className={reportLayout ? 'touch-pinch-zoom' : undefined} />
       <DialogPrimitive.Content
         ref={setRef}
         style={style}
@@ -136,19 +136,19 @@ const DialogContent = React.forwardRef<
         {...props}
       >
         {/* Drag handle — top left, away from the close button */}
-        <div
+        {!reportLayout && <div
           onMouseDown={onDragMouseDown}
           className="absolute left-3 top-3 flex items-center gap-1 cursor-grab active:cursor-grabbing select-none opacity-30 hover:opacity-70 transition-opacity z-10"
           title="Drag to move"
         >
           <GripVertical className="h-4 w-4 text-muted-foreground" />
-        </div>
+        </div>}
 
         {/* Spacer so content starts below the handle row */}
-        <div className="h-5 shrink-0" />
+        {!reportLayout && <div className="h-5 shrink-0" />}
 
         {/* Scrollable content area */}
-        <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">
+        <div className={reportLayout ? 'flex flex-1 flex-col min-h-0' : 'flex-1 overflow-y-auto px-6 pb-6 min-h-0'}>
           {children}
         </div>
 
@@ -159,7 +159,7 @@ const DialogContent = React.forwardRef<
         </DialogPrimitive.Close>
 
         {/* Resize handle — bottom-right corner */}
-        <div
+        {!reportLayout && <div
           onMouseDown={onResizeMouseDown}
           title="Drag to resize"
           className="absolute bottom-1 right-1 w-5 h-5 cursor-se-resize flex items-end justify-end p-0.5 opacity-40 hover:opacity-80 transition-opacity z-10"
@@ -167,7 +167,7 @@ const DialogContent = React.forwardRef<
           <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" className="text-muted-foreground">
             <path d="M0 10L10 0V10H0Z" />
           </svg>
-        </div>
+        </div>}
       </DialogPrimitive.Content>
     </DialogPortal>
   );

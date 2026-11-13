@@ -3,10 +3,10 @@ import { get, set, del, keys, createStore } from "idb-keyval";
 
 const store = createStore("servexa-report-photos", "pending");
 
-export type StoredPendingPhoto = { id: string; reportId: string; blob: Blob; name: string; type: string; caption: string; createdAt: number };
+export type StoredPendingPhoto = { id: string; reportId: string; blob: Blob; name: string; type: string; caption: string; createdAt: number; fieldId?: string; source?: 'camera' | 'library'; original?: File };
 
 export async function savePendingPhoto(p: StoredPendingPhoto): Promise<void> {
-  try { await set(`${p.reportId}:${p.id}`, p, store); } catch { /* storage full — upload still runs */ }
+  await set(`${p.reportId}:${p.id}`, p, store);
 }
 
 export async function removePendingPhoto(reportId: string, id: string): Promise<void> {
@@ -17,6 +17,6 @@ export async function listPendingPhotos(reportId: string): Promise<StoredPending
   try {
     const ks = (await keys(store)).map(String).filter((k) => k.startsWith(`${reportId}:`));
     const rows = await Promise.all(ks.map((k) => get<StoredPendingPhoto>(k, store)));
-    return rows.filter(Boolean).sort((a, b) => a!.createdAt - b!.createdAt) as StoredPendingPhoto[];
-  } catch { return []; }
+    return rows.filter((row): row is StoredPendingPhoto => !!row).sort((a, b) => a.createdAt - b.createdAt);
+  } catch { throw new Error('Saved photos could not be loaded from this phone. Please retry before adding more.'); }
 }
