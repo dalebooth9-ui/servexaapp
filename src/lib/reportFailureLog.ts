@@ -27,5 +27,6 @@ export async function flushReportFailures(): Promise<void> {
       const { error } = await supabase.from('client_errors').insert({ id: failure.id, user_id: failure.userId, org_id: orgId, source: 'client', message: `Report submit failed (${failure.jobRef}): ${failure.reason}`, created_at: failure.createdAt, context: { jobId: failure.jobId, jobRef: failure.jobRef, reportId: failure.reportId, reason: failure.reason }, route: window.location.pathname, user_agent: navigator.userAgent });
       if (!error || error.code === '23505') await del(key, store);
     }
-  } finally { sending = false; }
+  } catch { /* Local failure records remain for the next online attempt. */ }
+  finally { sending = false; }
 }

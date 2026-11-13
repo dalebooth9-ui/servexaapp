@@ -12,6 +12,7 @@ export const UNSENT_IDB_STORES: Array<[string, string]> = [
   ["servexa-photo-queue", "items"],
   ["servexa-report-photos", "pending"],
   ["servexa-form-drafts", "drafts"],
+  ["servexa-report-errors", "pending"],
 ];
 const UNSENT_LS_PREFIXES = ["autosave_", "open_form_"];
 export const DEVICE_USER_KEY = "servexa_device_user";

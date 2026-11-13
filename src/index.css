@@ -5,6 +5,16 @@
 @tailwind utilities;
 
 :root { --assistant-focus: 210 85% 60%; }
+.online-report {
+  touch-action: pan-x pan-y pinch-zoom;
+}
+.online-report input,
+.online-report textarea,
+.online-report select,
+.online-report [role="combobox"] {
+  font-size: 16px;
+  min-height: 36px;
+}
 .assistant-destination-highlight {
   outline: 2px solid hsl(var(--assistant-focus) / 0.55);
   outline-offset: 4px;

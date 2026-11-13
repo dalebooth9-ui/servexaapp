@@ -37,6 +37,9 @@ const RULES: SlugRule[] = [
   // Office Add outstanding defects attaches selected customer/site defects directly
   // to this job, with unmatched risers kept as general report items. Each riser row
   // has a Number of outlets stepper that creates/retires outlet QR codes in place.
+  // Online reports keep compressed phone copies until complete server read-back;
+  // failed sends offer Retry and are logged after reconnection. Saved sheets enter
+  // Reports to check without needing whole-job completion; reload restores durable drafts.
   { test: (p) => /^\/jobs\/[^/]+$/.test(p), slug: "jobs.detail" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/rams"), slug: "rams" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/site-visit-report"), slug: "site-visit-report" },
