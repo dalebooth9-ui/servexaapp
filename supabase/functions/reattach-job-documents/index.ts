@@ -1,3 +1,4 @@
+import { resolveCaller } from "../_shared/callerOrg.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -32,14 +33,9 @@ serve(async (req) => {
     });
 
     // Verify caller is authenticated admin
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
+    const callerOrg = await resolveCaller(req);
+    if ("error" in callerOrg) return new Response(JSON.stringify({ error: callerOrg.error }), { status: callerOrg.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    
     const { job_id, dry_run = false } = await req.json();
     if (!job_id) {
       return new Response(JSON.stringify({ error: "job_id is required" }), {
@@ -51,7 +47,7 @@ serve(async (req) => {
     // Fetch the job
     const { data: job, error: jobErr } = await supabase
       .from("jobs")
-      .select("id, name, reference_number, category, customer_id")
+      .select("id, org_id, name, reference_number, category, customer_id")
       .eq("id", job_id)
       .single();
 
@@ -61,6 +57,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    if ((job as any).org_id !== callerOrg.orgId) return new Response(JSON.stringify({ error: "This record does not belong to your company" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const categorySlug = (job as any).category ?? "general";
     const customerId = (job as any).customer_id ?? null;
