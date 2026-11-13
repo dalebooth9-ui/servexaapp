@@ -1393,20 +1393,22 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     const data = latestDraftRef.current.data;
     if (!data || Object.keys(data).length === 0) return false;
     const snapshot = JSON.stringify(data);
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), 20000);
     setSaveState({ kind: "saving" });
     const run = (async () => {
       try {
         if (!serverRowRef.current) {
           const { data: row, error } = await supabase.from("job_sheet_responses").insert({
             id: draftReportId, job_id: jobId, template_id: activeTemplate.id, responses: data as any, submitted_by: user.id, status: "draft",
-          } as any).select("*").single();
+          } as any).select("*").abortSignal(controller.signal).single();
           if (error && (error as any).code !== "23505") throw error;
           serverRowRef.current = true;
           if (row) setActiveResponse(row as Response);
           if (!error) { baselineRef.current = snapshot; setSaveState({ kind: JSON.stringify(latestDraftRef.current.data) === snapshot ? "saved" : "saving", at: Date.now() }); return true; }
         }
         const { data: rows, error } = await supabase.from("job_sheet_responses").update({ responses: data as any } as any)
-          .eq("id", draftReportId).eq("status", "draft").select("id");
+          .eq("id", draftReportId).eq("status", "draft").select("id").abortSignal(controller.signal);
         if (error) throw error;
         if (!rows || rows.length === 0) throw new Error("The office did not accept this draft.");
         baselineRef.current = snapshot;
@@ -1421,7 +1423,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       }
     })();
     serverSaveRef.current = run;
-    void run.finally(() => { if (serverSaveRef.current === run) serverSaveRef.current = null; });
+    void run.finally(() => { clearTimeout(deadline); if (serverSaveRef.current === run) serverSaveRef.current = null; });
     return run;
   };
 
@@ -1601,7 +1603,8 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     if (!activeTemplate) return;
     setSubmitting(true);
     try {
-      const payload = await withPreservedSitePhotos(formData);
+      if (serverSaveRef.current) await serverSaveRef.current;
+      const payload = await withPreservedSitePhotos(latestDraftRef.current.data);
       console.log("[JobSheetTemplates] save report photos", {
         responseId: activeResponse?.id || null,
         sitePhotoUrls: Array.isArray(payload._site_photo_urls) ? payload._site_photo_urls.length : 0,
@@ -1720,10 +1723,13 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       // Guard: a "submitted" report must have an engineer signature on the job.
       // Otherwise persist as a draft so the engineer hero still shows "Continue"
       // instead of a phantom Submitted + View on an unsigned sheet.
+      const signatureController = new AbortController();
+      const signatureDeadline = setTimeout(() => signatureController.abort(), 20000);
       const { count: sigCount, error: signatureError } = await supabase
         .from("job_signatures")
         .select("id", { count: "exact", head: true })
-        .eq("job_id", jobId).eq("signer_role", "engineer");
+        .eq("job_id", jobId).eq("signer_role", "engineer").abortSignal(signatureController.signal);
+      clearTimeout(signatureDeadline);
       if (signatureError) throw signatureError;
       const hasSignature = (sigCount ?? 0) > 0;
       const finalStatus = hasSignature ? "submitted" : "draft";
@@ -2577,7 +2583,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
           onPointerDownOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
-          <DialogHeader className="px-4 py-3 border-b border-border">
+          <DialogHeader className="px-4 py-3 border-b border-border shrink-0">
             <div className="flex items-center justify-between pr-6">
               <DialogTitle className="text-sm flex items-center gap-2">
                 <ClipboardCheck className="h-4 w-4" /> {activeTemplate?.name}
@@ -2615,6 +2621,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
             </div>
           </DialogHeader>
           <div className="overflow-y-auto flex-1 min-h-0">
+            <div role="status" aria-live="polite" className="sticky top-0 z-10 border-b bg-background px-4 py-2 text-xs">{saveState.kind === "saved" ? <span className="text-success">Saved</span> : saveState.kind === "error" || saveState.kind === "local" ? <span className="text-destructive">Not saved, retrying — phone copy retained</span> : saveState.kind === "saving" ? "Saving…" : "Not sent yet"}</div>
             <SiteAccessCard siteId={jobSiteId}/>
             {formData._riser_visit && <div className="px-4 py-3 border-b text-sm space-y-1"><div className="flex items-center justify-between gap-3"><p className="font-semibold">{formData._riser_visit.riser_name || formData._riser_visit.riser_location} · Riser ID {formData._riser_visit.asset_tag}</p>{formData._riser_visit.asset_tag && <QRCodeSVG value={stickerUrl(formData._riser_visit.asset_tag)} size={76} marginSize={4} className="shrink-0"/>}</div><p className="text-muted-foreground">Last inspection: {formData._riser_visit.last_inspection_at ? new Date(formData._riser_visit.last_inspection_at).toLocaleDateString('en-GB') : 'Not recorded'} · {scanMode ? printInspectionType(formData._riser_visit.last_inspection_type) : formData._riser_visit.last_inspection_type || 'Type not recorded'} · Result: {scanMode ? printInspectionResult(formData._riser_visit.last_inspection_result) : formData._riser_visit.last_inspection_result || 'Not recorded'}</p>{formData._riser_visit.remedial_notes && <p className="whitespace-pre-wrap">Open remedial work from last visit: {formData._riser_visit.remedial_notes}</p>}</div>}
             {modePair && (
