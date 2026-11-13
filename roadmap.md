@@ -1,5 +1,9 @@
 # Roadmap
 
+## Compact Bosden online PDF
+- [ ] Summarise unchecked outlets by actual reason, remove empty notes, tighten checklist/photo spacing without changing branding/declarations.
+- [ ] Regenerate VFP-00284 and verify two pages or fewer; tests, Help and build time.
+
 ## QR report prefill
 - [x] Policies allow assigned Viva engineers and own-company admins; no access policies loosened. Incomplete visit-prefill and missing-response blank fallback predate today's security changes.
 - [x] Exact response and verified company/job/site/riser context gate opening; fill missing identity/counts without changing inspection results. Visible Retry and riser-code/reason logging; Help updated.

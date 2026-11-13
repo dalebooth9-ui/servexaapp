@@ -7,7 +7,14 @@ export function checkedOutletNumbers(numbers: number[], checks: OutletChecks): n
   return numbers.filter((n) => s(n) === "scanned" || s(n) === "manual");
 }
 
-export const PHOTO_GRID = { gapMm: 3, captionMm: 7, targetCellMm: 45 };
+/** Collapse recorded missing checks by real reason; unrecorded outlets invent no reason. */
+export function uncheckedOutletSummary(numbers:number[], checks:OutletChecks):string {
+  const reasons=new Map<string,number>();
+  for(const n of numbers){const c=checks[String(n)];if(c?.status!=='missing')continue;const reason=c.reason?.trim() || 'reason not recorded';reasons.set(reason,(reasons.get(reason)||0)+1);}
+  return [...reasons].map(([reason,count])=>`${count} outlet${count===1?'':'s'} not checked: ${reason.charAt(0).toLowerCase()+reason.slice(1)}`).join('; ');
+}
+
+export const PHOTO_GRID = { gapMm: 2, captionMm: 6, targetCellMm: 45 };
 
 /** 3–4 photos per row, each ~45mm wide, with a short caption underneath. */
 export function photoGridLayout(count: number, maxWidth: number) {
