@@ -1,0 +1,1 @@
+- Service-role functions use `resolveCaller` (_shared/callerOrg.ts) and check each request id with `ownsRecord`/`sharesCompany`; admin counts only in the caller org — why: service role bypasses RLS.

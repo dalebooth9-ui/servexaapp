@@ -37,4 +37,3 @@
 - Day clocking: engineers write `time_clock` only via clock_* RPCs; office edits via admin_edit_time_clock (logged) — why: identity is the login and hour changes are audited.
 - Sites summaries share siteSummary filtering/counts on RLS-loaded records — why: lists and totals must agree without data writes.
 - MapAddress owns map links — why: private notes/codes must never enter URLs.
-- Service-role edge functions call `resolveCaller` (supabase/functions/_shared/callerOrg.ts) and check every incoming record/user id with `ownsRecord`/`sharesCompany`; admin rights count only within the caller org — why: service role bypasses RLS, so ids from the request could reach other companies.
