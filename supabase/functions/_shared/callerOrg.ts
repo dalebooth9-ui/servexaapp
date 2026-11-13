@@ -1,7 +1,7 @@
 // Resolves the signed-in caller and their company for service-role functions.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-export type Caller = { userId: string; orgId: string; isAdmin: boolean; admin: ReturnType<typeof createClient> };
+export type Caller = { userId: string; orgId: string; isAdmin: boolean; admin: any };
 
 export async function resolveCaller(req: Request): Promise<Caller | { error: string; status: number }> {
   const auth = req.headers.get("Authorization") ?? "";
