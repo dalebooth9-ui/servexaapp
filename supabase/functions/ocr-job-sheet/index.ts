@@ -1,3 +1,4 @@
+import { resolveCaller } from "../_shared/callerOrg.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -1102,13 +1103,13 @@ serve(async (req) => {
     // (we accept apikey-only here because callers are trusted edge functions;
     // the write_back only touches a specific item_id).
     if (writeBack?.item_id) {
-      const apikey = req.headers.get("apikey");
-      const auth = req.headers.get("Authorization");
-      if (!apikey && !auth) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      const trustedService = !!serviceKey && req.headers.get("Authorization") === `Bearer ${serviceKey}`;
+      if (!trustedService) {
+        const callerOrg = await resolveCaller(req);
+        if ("error" in callerOrg) return new Response(JSON.stringify({ error: callerOrg.error }), { status: callerOrg.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        const { data: item } = await callerOrg.admin.from("paper_scan_batch_items").select("org_id").eq("id", writeBack.item_id).maybeSingle();
+        if (!item || (item as any).org_id !== callerOrg.orgId) return new Response(JSON.stringify({ error: "This scan does not belong to your company" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const itemId = writeBack.item_id;
       const work = runWriteBackJob(itemId, images, template_name, fields, LOVABLE_API_KEY);
