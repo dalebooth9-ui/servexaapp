@@ -79,6 +79,7 @@ export default function RiserScan() {
         if (cancelled) return;
         (row as any).riser_type = (t as unknown as string) || "Dry Riser";
       }
+      if(!row)logError({message:`QR lookup refused or missing (${tag})`,context:{riserCode:tag,reason:'No riser available to this company'}});
       setAsset(row ?? null);
       if (row && row.open_defects > 0) {
         const { data: d } = await supabase.from("defects").select("id, title, severity")

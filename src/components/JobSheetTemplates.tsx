@@ -1288,6 +1288,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       openingRef.current = false;
       latestDraftRef.current = { key: draftKey, data: ready };
       setFormData(ready);
+      if(scanMode && existingResponse.status==='submitted')setViewingResponse({...existingResponse,responses:ready});
     } else {
       setActiveResponse(null);
       let start: Record<string, any> = { ...prefilled };
@@ -2718,6 +2719,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                 </div>
               );
             })()}
+            {scanMode && <div className="border rounded-md p-3 text-sm space-y-1"><p className="font-semibold">{formData.site_name}</p><p>{formData.site_address}</p><p>{formData.job_reference} · {formData.riser_id} · {formData.riser_location}</p><p>{formData.outlets_count} outlets · {formData.inlets_count} inlet(s)</p></div>}
             {isRiserReport && (
               <OutletChecksPanel
                 assetId={String(formData.riser_asset_id)}
