@@ -3545,6 +3545,7 @@ function PhotoField({ value, onChange, fieldId, jobId, userId }: { value: any; o
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [cameraFile, setCameraFile] = useState<File | null>(null);
+  const { toast } = useToast();
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   // Two inputs so the engineer can choose live camera OR the gallery.
   // capture="environment" tells the OS to open the rear camera directly.
