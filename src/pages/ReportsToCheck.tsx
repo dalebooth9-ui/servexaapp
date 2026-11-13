@@ -14,6 +14,8 @@ import { fetchVisualOnlyByJob, needsReasonReview } from "@/lib/reportModeSwitch"
 import { ClipboardCheck, Loader2, Mail, Pencil, Undo2, ExternalLink } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { officeReturnToEngineer, officeSendToCustomer, officeUnlockForEdit, type CustomerChannel } from "@/lib/reportReview";
+import { buildAndUploadReportPdf } from '@/lib/reportReview';
+import { hasPendingSheetReview } from '@/lib/reportPersistence';
 
 type Row = { jobId: string; ref: string; site: string; address: string | null; postcode: string | null; name: string; engineer: string; submittedAt: string; pdfPath: string | null; visualOnly: boolean; reasonCheck?: boolean; completedReports: number; totalReports: number };
 
@@ -31,9 +33,28 @@ export default function ReportsToCheck() {
 
   const load = async () => {
     setLoading(true);
-    const { data: jobs } = await supabase.from("jobs")
+    // Include saved submitted sheets even before whole-job completion. No job
+    // status, visits or locks are changed simply to make a sheet reviewable.
+    const submittedJobIds = new Set<string>();
+    const submittedSheets: any[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase.from('job_sheet_responses').select('job_id,submitted_by,submitted_at').eq('status', 'submitted').is('archived_at', null).order('id').range(from, from + 999);
+      if (error) { setLoading(false); toast({ title: 'Reports could not load', description: error.message, variant: 'destructive' }); return; }
+      submittedSheets.push(...(data || []));
+      (data || []).forEach(sheet => submittedJobIds.add(sheet.job_id));
+      if ((data || []).length < 1000) break;
+    }
+    const reviewJobs: any[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase.from('jobs').select('id,name,reference_number,customer_po,address,status,sites(name,address,postcode)').in('status', ['active', 'scheduled', 'in_progress', 'requires_revisit', 'rejected', 'submitted_for_review']).order('id').range(from, from + 999);
+      if (error) { setLoading(false); toast({ title: 'Jobs could not load', description: error.message, variant: 'destructive' }); return; }
+      reviewJobs.push(...(data || []).filter(job => job.status === 'submitted_for_review' || (submittedJobIds.has(job.id) && hasPendingSheetReview(job.status))));
+      if ((data || []).length < 1000) break;
+    }
+    const jobs = reviewJobs;
+    /* const { data: jobs } = await supabase.from("jobs")
       .select("id, name, reference_number, customer_po, address, sites(name,address,postcode)")
-      .eq("status", "submitted_for_review").limit(500);
+      .eq("status", "submitted_for_review").limit(500); */
     const ids = (jobs || []).map((j: any) => j.id);
     const { data: evs } = ids.length
       ? await supabase.from("report_review_events").select("job_id, actor_id, created_at, pdf_path")
@@ -41,6 +62,9 @@ export default function ReportsToCheck() {
       : { data: [] as any[] };
     const latest = new Map<string, any>();
     (evs || []).forEach((e: any) => { if (!latest.has(e.job_id)) latest.set(e.job_id, e); });
+    submittedSheets.sort((a, b) => String(b.submitted_at).localeCompare(String(a.submitted_at))).forEach(sheet => {
+      if (!latest.has(sheet.job_id)) latest.set(sheet.job_id, { actor_id: sheet.submitted_by, created_at: sheet.submitted_at });
+    });
     const actorIds = Array.from(new Set(Array.from(latest.values()).map((e) => e.actor_id).filter(Boolean)));
     const { data: profs } = actorIds.length
       ? await supabase.from("profiles").select("user_id, full_name").in("user_id", actorIds)
@@ -80,12 +104,18 @@ export default function ReportsToCheck() {
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
+  useEffect(() => { const refresh = () => void load(); window.addEventListener('job-sheet:submitted', refresh); return () => window.removeEventListener('job-sheet:submitted', refresh); }, []);
 
   const openRow = async (r: Row) => {
     setOpen(r); setPdfUrl(null);
-    if (!r.pdfPath) return;
-    const { data } = await supabase.storage.from("submissions").createSignedUrl(r.pdfPath, 3600);
-    setPdfUrl(data?.signedUrl || null);
+    try {
+      const path = r.pdfPath || await buildAndUploadReportPdf(r.jobId);
+      if (!path) throw new Error('No submitted report could be loaded.');
+      setOpen({ ...r, pdfPath: path });
+      const { data, error } = await supabase.storage.from("submissions").createSignedUrl(path, 3600);
+      if (error) throw error;
+      setPdfUrl(data?.signedUrl || null);
+    } catch (error: any) { toast({ title: 'Report could not open', description: error.message, variant: 'destructive' }); }
   };
 
   const run = async (key: string, fn: () => Promise<any>, ok: string) => {
