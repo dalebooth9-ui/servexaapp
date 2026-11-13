@@ -1,5 +1,10 @@
 # Roadmap
 
+## Online PDF logo and declaration clearance
+- [x] Restored larger visible-ink cover logo and consistent two-thirds continuation logos only on online PDFs; later generic overlay cannot shrink them.
+- [x] Reserved full-size accreditation strip with 4mm declaration gap; tightened cell whitespace without reducing text or logos. Both saved Bosden PDFs and unsaved 12-outlet visual/fully populated pressure samples regenerated as office and visually checked: two pages each, signatures/declaration on page one, pressure wording intact; no reports changed.
+- [x] 31 focused checks passed; assistant note/Help guide and route guidance updated. Build OK 18:48:19 UTC/London.
+
 ## Compact Bosden online PDF
 - [x] PDF-only missing-outlet summaries by real reason, no empty notes, tighter checklist/photo spacing; branding/declarations unchanged. Site photos now load outside dwelling-gallery templates.
 - [x] Both saved Bosden reports regenerated as office: two pages each, including both evidence photos. Missing-status report prints “6 outlets not checked: sticker missing or damaged”; manual checks remain rows. PDFs visually checked; 22 tests passed, Help updated. Engineer account could not load these photos; office verification passed without changing access policies.

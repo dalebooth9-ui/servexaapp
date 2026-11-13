@@ -39,6 +39,8 @@ const RULES: SlugRule[] = [
   // has a Number of outlets stepper that creates/retires outlet QR codes in place.
   // PDF-only: missing outlets summarised by real reason, no empty notes/headings,
   // compact 3–4-photo rows; branding and declarations unchanged.
+  // Online PDF cover logos use visible-ink sizing; later pages use two-thirds
+  // size with a reserved header. Full-size bottom badges have declaration clearance.
   // Online reports keep compressed phone copies until complete server read-back;
   // failed sends offer Retry and are logged after reconnection. Saved sheets enter
   // Reports to check without needing whole-job completion; reload restores durable drafts.

@@ -722,6 +722,8 @@ export interface RenderFieldRowOpts {
   colSplit?: number;
   rowH: number;
   handfill?: boolean;
+  /** Online report-only tighter cell whitespace; text size is unchanged. */
+  verticalPadding?: number;
 }
 
 /**
@@ -808,7 +810,7 @@ export function renderFilledFieldRow(
 
   const lineH = 3.5;
   const contentLines = Math.max(labelLines.length, descriptiveLines?.length || 1);
-  const rowH = Math.max(baseRowH, contentLines * lineH + 2);
+  const rowH = Math.max(baseRowH, contentLines * lineH + (opts.verticalPadding ?? 2));
 
   doc.setDrawColor(180);
   doc.rect(margin, y, colSplit, rowH);

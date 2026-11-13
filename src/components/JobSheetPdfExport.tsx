@@ -15,10 +15,12 @@ import { renderPdfHeader } from "@/lib/pdfHeader";
 import { customerReportName, hiddenFieldIds } from "@/lib/reportModeSwitch";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
-import { computePdfFooterFlow, renderPdfSignatures, renderPdfFooter, getDefaultFooterText, resolveAccreditationLogoHeight } from "@/lib/pdfFooter";
+import { computePdfFooterFlow, renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import { logError } from "@/lib/errorLogger";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
+import { LIVE_REPORT_LAYOUT, liveReportLogo } from "@/lib/liveReportLayout";
+import { registerPrintPdf } from "@/lib/printPdfProfile";
 import { collectEmbeddedPhotoPaths, createSubmissionPhotoSignedUrl, normalisePhotoPathForDedupe, fetchJobPhotoMeta } from "@/lib/jobPhotos";
 import { classifyJobPhoto } from "@/lib/exportBundleSelection";
 import { readExcluded, formatTaken } from "@/lib/reportSitePhotos";
@@ -529,6 +531,16 @@ export async function generateJobSheetPdf(
 
   const headerAccent = brandProfile.accentColor;
   const ptToMm = (pt: number) => pt * 0.3527777778;
+  const reportLogo = await liveReportLogo(brandProfile.logoImage);
+  const reportBrandProfile = reportLogo
+    ? { ...brandProfile, logoImage: reportLogo, logoUrl: reportLogo.src }
+    : brandProfile;
+  const logoAspect = reportLogo ? reportLogo.naturalWidth / reportLogo.naturalHeight : 1;
+  const coverLogoH = Math.min(LIVE_REPORT_LAYOUT.coverLogoMaxHeight, LIVE_REPORT_LAYOUT.coverLogoMaxWidth / logoAspect);
+  const continuationLogoH = coverLogoH * LIVE_REPORT_LAYOUT.continuationScale;
+  const continuationBodyY = Math.max(margin, LIVE_REPORT_LAYOUT.logoTop + continuationLogoH + LIVE_REPORT_LAYOUT.logoGap);
+  const accreditationTopY = pageHeight - margin - LIVE_REPORT_LAYOUT.accreditationBottomGap - LIVE_REPORT_LAYOUT.accreditationHeight;
+  const signOffBottomY = accreditationTopY - LIVE_REPORT_LAYOUT.declarationClearance;
 
   let y = await renderPdfHeader(doc, sheetTitle, branding, {
     customerName,
@@ -540,23 +552,24 @@ export async function generateJobSheetPdf(
     numberOfOutlets: numberOfOutletsValue,
     w3wAddress,
   }, isDryRiser ? "BS 9990:2015" : sheetSubtitle, headerAccent, {
-    printProfile:brandProfile,
+    printProfile:reportBrandProfile,
     compact: false,
     marginX: margin,
     style: isDryRiser
       ? {
           logo: {
-            maxW: 100,
-            maxH: DRY_RISER_LAYOUT.header.logoHeightMm,
-            topY: DRY_RISER_LAYOUT.page.marginTopMm,
+            maxW: LIVE_REPORT_LAYOUT.coverLogoMaxWidth,
+            maxH: LIVE_REPORT_LAYOUT.coverLogoMaxHeight,
+            topY: LIVE_REPORT_LAYOUT.logoTop,
           },
           title: { fontSize: DRY_RISER_LAYOUT.header.titleSizePt },
+          titleStartY: reportLogo ? LIVE_REPORT_LAYOUT.logoTop + coverLogoH + 8 : undefined,
           standardFontSize: DRY_RISER_LAYOUT.header.subtitleSizePt,
           standardGapBelow: ptToMm(DRY_RISER_LAYOUT.header.ruleGapPt) + 1,
           separatorThickness: ptToMm(DRY_RISER_LAYOUT.header.ruleThicknessPt),
           detailGridVariant: "fourColumn",
         }
-      : undefined,
+      : { logo: { maxW: LIVE_REPORT_LAYOUT.coverLogoMaxWidth, maxH: LIVE_REPORT_LAYOUT.coverLogoMaxHeight, topY: LIVE_REPORT_LAYOUT.logoTop }, titleStartY: reportLogo ? LIVE_REPORT_LAYOUT.logoTop + coverLogoH + 8 : undefined },
   });
 
   // --- Riser sticker QR (dry riser reports linked to a register asset) ----
@@ -628,7 +641,7 @@ export async function generateJobSheetPdf(
   // --- Shared layout utilities ---
   // footerSpace must accommodate: sigs (18mm) + logos (12mm) + logo gap (3mm) + footer box (9mm) + buffer (8mm)
   // Bottom stack: margin(10) + footer box(9) + gap(3) + accred logos(12) + gap(3) + sigs(18) + buffer(3) = 58mm
-  const footerSpace = isDryRiser ? 50 : 58;
+  const footerSpace = Math.max(isDryRiser ? 50 : 58, pageHeight - signOffBottomY + 35);
   const availableH = pageHeight - y - footerSpace;
   const skipIds = buildSkipIds(template.fields);
   hiddenFieldIds(resolvedFormData).forEach((id) => skipIds.add(id));
@@ -715,7 +728,7 @@ export async function generateJobSheetPdf(
   // sheet identifiable on page 2+ without repeating the full logo/branding
   // block, so continuation pages stay focused on content.
   const drawContinuationHeader = (): number => {
-    const topY = margin;
+    const topY = continuationBodyY;
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(headerAccent[0], headerAccent[1], headerAccent[2]);
@@ -741,16 +754,16 @@ export async function generateJobSheetPdf(
     // rowH is elastically compressed to fit everything on page 1.
     const layout = computeSectionLayout(renderableFieldsForLayout, sections, skipIds, availableH, {
       extraSpaceUsed: commentsH,
-      sectionHeaderH: isDryRiser ? DRY_RISER_LAYOUT.body.sectionHeaderRowMm : undefined,
-      minRowH: isDryRiser ? 4.8 : undefined,
-      maxRowH: isDryRiser ? 5.2 : undefined,
+      sectionHeaderH: isDryRiser ? 5 : undefined,
+      minRowH: isDryRiser ? 4.5 : undefined,
+      maxRowH: isDryRiser ? 4.5 : undefined,
     });
 
     for (const { sec, sf } of sectionData) {
       y = renderSectionHeader(doc, sec, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
       for (const field of sf) {
         y = renderFilledFieldRow(doc, field, resolvedFormData[field.id], resolvedFormData[`${field.id}_notes`], y, {
-          margin, maxWidth, colSplit, rowH: layout.rowH,
+          margin, maxWidth, colSplit, rowH: layout.rowH, verticalPadding: isDryRiser ? 1 : undefined,
         });
       }
       y += 0.5;
@@ -969,7 +982,7 @@ export async function generateJobSheetPdf(
     };
 
     // === PART A: Section header bar ===
-    if (y + 30 > pageHeight - footerSpace) { doc.addPage(); y = margin; }
+    if (y + 30 > pageHeight - footerSpace) { doc.addPage(); y = continuationBodyY; }
     const dwellingSectionStartPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
     const dwellingSectionStartY = y;
 
@@ -1064,7 +1077,7 @@ export async function generateJobSheetPdf(
 
       if (y + rowH > pageHeight - footerSpace) {
         doc.addPage();
-        y = margin;
+        y = continuationBodyY;
         renderTableHeader();
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
@@ -1293,8 +1306,8 @@ export async function generateJobSheetPdf(
   };
   const drawExtras = (startY: number, ownPages: boolean) => {
     y = startY;
-    const limit = pageHeight - margin - 6;
-    const brk = (need: number) => { if (ownPages && y + need > limit) { doc.addPage(); y = margin; return true; } return false; };
+    const limit = accreditationTopY - LIVE_REPORT_LAYOUT.declarationClearance;
+    const brk = (need: number) => { if (ownPages && y + need > limit) { doc.addPage(); y = continuationBodyY; return true; } return false; };
     if (outletRows.length) {
       drawBar("OUTLET CHECKS");
       const cols = [margin, margin + 32, margin + 70, margin + 110];
@@ -1332,14 +1345,11 @@ export async function generateJobSheetPdf(
     }
   };
 
-  // Signature/footer flow: keep the sign-off stack flowing immediately after
-  // the final body row. Do NOT include the bottom accreditation strip in this
-  // page-break decision — that strip is branding decoration, not report
-  // content, and counting it here caused the recurring false break where page
-  // 1 had empty space but page 2 contained only date/customer/signature rows.
-  const logoH = 12;
+  // Reserve the full accreditation strip first, with a visible declaration
+  // gap. The body is compacted above it; badges are never shrunk for content.
+  const logoH = LIVE_REPORT_LAYOUT.accreditationHeight;
   const declarationH = footerText && footerText.trim() ? 9 : 0;
-  const helperAccredGapToFooter = 3;
+  const helperAccredGapToFooter = LIVE_REPORT_LAYOUT.accreditationBottomGap;
   const bottomAccredFooterY = pageHeight - margin;
 
   const computeFlowStack = (startY: number) => computePdfFooterFlow({
@@ -1355,13 +1365,13 @@ export async function generateJobSheetPdf(
   // Sign-off stack (signatures + declaration) sits together at the bottom,
   // above the accreditation strip; extras go above it when there is room.
   const stackH = computeFlowStack(0).stackEndY;
-  const bottomAnchor = pageHeight - margin - logoH - helperAccredGapToFooter - stackH;
+  const bottomAnchor = signOffBottomY - stackH;
   const extrasOnMain = extrasH > 0 && y + extrasH <= bottomAnchor;
   if (extrasOnMain) drawExtras(y, false);
   let footerFlow = computeFlowStack(Math.max(y, bottomAnchor));
-  if (footerFlow.stackEndY > pageHeight - margin) {
+  if (footerFlow.stackEndY > signOffBottomY + 0.01) {
     doc.addPage();
-    y = margin;
+    y = continuationBodyY;
     footerFlow = computeFlowStack(y);
   }
 
@@ -1420,14 +1430,25 @@ export async function generateJobSheetPdf(
   }
 
   const mainSheetPages = doc.getNumberOfPages();
-  if (!extrasOnMain && extrasH > 0) { doc.addPage(); drawExtras(margin, true); }
+  if (!extrasOnMain && extrasH > 0) { doc.addPage(); drawExtras(continuationBodyY, true); }
+
+  // Draw the same proportional logo on every later page, before the generic
+  // overlay can apply its tiny default. Content begins below this reserved area.
+  if (reportLogo) {
+    for (let page = 2; page <= doc.getNumberOfPages(); page++) {
+      doc.setPage(page);
+      const w = continuationLogoH * logoAspect;
+      doc.addImage(reportLogo, 'PNG', (pageWidth - w) / 2, LIVE_REPORT_LAYOUT.logoTop, w, continuationLogoH);
+      registerPrintPdf(doc, reportBrandProfile, true);
+    }
+  }
 
   const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
   const [watermark, accredLogos] = await Promise.all([
     loadWatermarkImage(),
     loadAccreditationLogos(custAccredUrls),
   ]);
-  const resolvedLogoH = resolveAccreditationLogoHeight(footerFlow, logoH, 6, `JobSheetPdfExport:${template.name}`);
+  const resolvedLogoH = logoH;
   const accredLogosForRender = resolvedLogoH > 0 ? accredLogos : [];
   await renderBrandingOverlay(doc, {
     watermark,
