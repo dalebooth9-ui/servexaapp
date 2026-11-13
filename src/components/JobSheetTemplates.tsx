@@ -1,3 +1,4 @@
+import ReportPhotoQuestion from "@/components/reports/ReportPhotoQuestion";
 import { prepareReportPhoto, canSaveToPhone, saveToPhone, countSavedReportPhotos, REPORT_PHOTO_MAX_EDGE, PHOTO_TIP } from "@/lib/reportPhotoCapture";
 import ReportSitePhotos from "@/components/jobs/ReportSitePhotos";
 import { registerDraftSaver } from "@/lib/draftFlush";
@@ -37,7 +38,7 @@ import { useJobCategories } from "@/hooks/useJobCategories";
 import { buildJobSheetPrefill, deriveScopeFromTemplateName, fetchJobPrefillContext, formatDateForField } from "@/lib/jobSheetPrefill";
 import { buildLastVisitPrefill, findLastVisitReport, type LastVisit } from "@/lib/lastVisitPrefill";
 import { logReportEdits, jobHasSignatures } from "@/lib/logReportEdits";
-import { enqueueReportSubmission, newReportId } from "@/lib/reportSubmissionQueue";
+import { enqueueReportSubmission, discardReportSubmission, newReportId } from "@/lib/reportSubmissionQueue";
 import { isNetworkError } from "@/lib/syncQueue";
 import { countAnswers, countPhotos, dedupeSitePhotos, mergeLocalDraft, photoSubmitBlocker, NOT_SAVED_MESSAGE } from "@/lib/reportDraftSafety";
 import { savePendingPhoto, removePendingPhoto, listPendingPhotos } from "@/lib/pendingReportPhotos";
@@ -1162,16 +1163,6 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       if (legacy && countAnswers(legacy, autoPopulatedIds) > 0) { localDraft = legacy; localTs = loadFormDraftTimestamp(legacyKey); }
     }
     if (localDraft) { await saveFormDraft(draftKey, localDraft, true); void clearFormDraft(legacyKey); }
-    // Photos still waiting on this phone from an earlier attempt: retry them.
-    void listPendingPhotos(reportId).then((stored) => {
-      if (!stored.length) return;
-      const restored: PendingSitePhoto[] = stored.map((st) => {
-        const file = new File([st.blob], st.name, { type: st.type });
-        return { id: st.id, file, preview: URL.createObjectURL(file), caption: st.caption, status: "uploading", fieldId: st.fieldId, source: st.source, original: st.original };
-      });
-      setSitePhotos((prev) => [...prev, ...restored.filter((r) => !prev.some((x) => x.id === r.id))]);
-      restored.forEach((r) => void uploadSitePhoto(r, reportId));
-    }).catch((error) => { setSubmitError(error.message); setSaveState({ kind: "error" }); });
 
     if (existingResponse) {
       setActiveResponse(existingResponse);
@@ -1293,6 +1284,17 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       latestDraftRef.current = { key: draftKey, data: ready };
       setFormData(ready);
     }
+    // Photos still waiting on this phone from an earlier attempt: retry them.
+    void listPendingPhotos(reportId).then((stored) => {
+      if (!stored.length) return;
+      const restored: PendingSitePhoto[] = stored.map((st) => {
+        const file = new File([st.blob], st.name, { type: st.type });
+        return { id: st.id, file, preview: URL.createObjectURL(file), caption: st.caption, status: "uploading", fieldId: st.fieldId, source: st.source, original: st.original };
+      });
+      setSitePhotos((prev) => [...prev, ...restored.filter((r) => !prev.some((x) => x.id === r.id))]);
+      restored.forEach((r) => void uploadSitePhoto(r, reportId));
+    }).catch((error) => { setSubmitError(error.message); setSaveState({ kind: "error" }); });
+
   };
 
   const reopenUnusedReport = async (template: Template, response: Response) => {
@@ -1401,14 +1403,14 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
           if (error && (error as any).code !== "23505") throw error;
           serverRowRef.current = true;
           if (row) setActiveResponse(row as Response);
-          if (!error) { baselineRef.current = snapshot; setSaveState({ kind: "saved", at: Date.now() }); return true; }
+          if (!error) { baselineRef.current = snapshot; setSaveState({ kind: JSON.stringify(latestDraftRef.current.data) === snapshot ? "saved" : "saving", at: Date.now() }); return true; }
         }
         const { data: rows, error } = await supabase.from("job_sheet_responses").update({ responses: data as any } as any)
           .eq("id", draftReportId).eq("status", "draft").select("id");
         if (error) throw error;
         if (!rows || rows.length === 0) throw new Error("The office did not accept this draft.");
         baselineRef.current = snapshot;
-        setSaveState({ kind: "saved", at: Date.now() });
+        setSaveState({ kind: JSON.stringify(latestDraftRef.current.data) === snapshot ? "saved" : "saving", at: Date.now() });
         return true;
       } catch (err) {
         console.warn("[JobSheetTemplates] autosave to office failed", err);
@@ -1754,6 +1756,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
         if (!hasPendingSheetReview(officeJob.status)) throw new Error("The report is saved, but this job is not available for office review. Your phone copy is retained.");
       }
 
+      await discardReportSubmission(targetId);
       savedResponseId = targetId;
 
       if (!hasSignature) {
@@ -1990,8 +1993,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       if (toVisual && state.fallback) {
         try { await supabase.rpc("notify_admins_visual_fallback" as any, { _job_id: jobId, _template_name: activeTemplate.name } as any); } catch { /* best-effort */ }
       }
-      if (templateFormKey) await clearFormDraft(templateFormKey);
-      for (const photo of await listPendingPhotos(targetId)) await removePendingPhoto(targetId, photo.id);
+      clearTemplateFormDraft();
       setActiveTemplate(target);
       setActiveResponse(resp);
       setFormData(payload);
