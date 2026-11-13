@@ -36,6 +36,8 @@ import { buildLastVisitPrefill, findLastVisitReport, type LastVisit } from "@/li
 import { logReportEdits, jobHasSignatures } from "@/lib/logReportEdits";
 import { enqueueReportSubmission, newReportId } from "@/lib/reportSubmissionQueue";
 import { isNetworkError } from "@/lib/syncQueue";
+import { countAnswers, countPhotos, dedupeSitePhotos, mergeLocalDraft, photoSubmitBlocker, NOT_SAVED_MESSAGE } from "@/lib/reportDraftSafety";
+import { savePendingPhoto, removePendingPhoto, listPendingPhotos } from "@/lib/pendingReportPhotos";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,7 +58,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy, Lock, Unlock, RotateCcw, FileJson, Download, History,
+  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy, Lock, Unlock, RotateCcw, FileJson, Download, History, AlertTriangle, CloudOff,
 } from "lucide-react";
 import JobSheetPdfExport from "./JobSheetPdfExport";
 import ReportSummaryEditor from "./reports/ReportSummaryEditor";
@@ -121,8 +123,12 @@ type Response = {
   last_amended_at?: string | null;
   last_amended_by?: string | null;
   created_at: string;
+  updated_at?: string | null;
   system_label?: string | null;
 };
+
+type PendingSitePhoto = { id: string; file: File; preview: string; caption: string; status: "uploading" | "failed"; error?: string };
+type SubmittedSummary = { response: Response; templateName: string; riserCount: number; answers: number; totalFields: number; photos: number };
 
 type JobInfo = {
   id?:string;site_id?:string;
@@ -182,7 +188,19 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   const [activeResponse, setActiveResponse] = useState<Response | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
   useEffect(()=>{if(!activeTemplate||!jobSiteId)return;let current=true;loadSiteAccess(jobSiteId).then(row=>{const details=row?.details as any;if(!current||!details)return;const keys=[details.cabinet_key_type,details.cabinet_key_held].filter(Boolean).join(' — ');if(!keys)return;setFormData(data=>{const next={...data};for(const field of activeTemplate.fields){if(accessNoteField(field.label)&&/cabinet/i.test(field.label)&&!next[field.id])next[field.id]=keys;}return next;});}).catch(()=>{});return()=>{current=false;};},[activeTemplate?.id,jobSiteId]);
-  const [sitePhotos, setSitePhotos] = useState<{ file: File; preview: string; caption: string }[]>([]);
+  const [sitePhotos, setSitePhotos] = useState<PendingSitePhoto[]>([]);
+  const sitePhotosRef = useRef<PendingSitePhoto[]>([]);
+  sitePhotosRef.current = sitePhotos;
+  // Report row id decided when the form opens, so the phone copy, server
+  // autosave, photos and submit all point at the same report.
+  const [draftReportId, setDraftReportId] = useState<string | null>(null);
+  const serverRowRef = useRef(false);
+  const baselineRef = useRef<string>("");
+  const serverSaveRef = useRef<Promise<boolean> | null>(null);
+  const submittingRef = useRef(false);
+  const [saveState, setSaveState] = useState<{ kind: "idle" | "saving" | "saved" | "local" | "error"; at?: number }>({ kind: "idle" });
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submittedSummary, setSubmittedSummary] = useState<SubmittedSummary | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [viewingResponse, setViewingResponse] = useState<Response | null>(null);
   const [switchOpen, setSwitchOpen] = useState(false);
@@ -196,7 +214,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   const [lastVisitFieldIds, setLastVisitFieldIds] = useState<Set<string>>(new Set());
 
   // Auto-save template form data — IndexedDB-backed for offline resilience
-  const templateFormKey = activeTemplate ? `template-form-${jobId}-${activeTemplate.id}${activeResponse ? `-${activeResponse.id}` : ""}` : null;
+  const templateFormKey = activeTemplate && draftReportId ? `template-form-${jobId}-${activeTemplate.id}-${draftReportId}` : null;
 
   useEffect(() => {
     if (!templateFormKey || Object.keys(formData).length === 0) return;
@@ -236,10 +254,10 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   useEffect(() => {
     try {
       if (activeTemplate && !viewingResponse) {
-        localStorage.setItem(openFormKey, JSON.stringify({ templateId: activeTemplate.id, responseId: activeResponse?.id ?? null }));
+        localStorage.setItem(openFormKey, JSON.stringify({ templateId: activeTemplate.id, responseId: activeResponse?.id ?? null, draftId: draftReportId }));
       }
     } catch { /* ignore */ }
-  }, [activeTemplate?.id, activeResponse?.id, viewingResponse, openFormKey]);
+  }, [activeTemplate?.id, activeResponse?.id, viewingResponse, openFormKey, draftReportId]);
   const reopenTriedRef = useRef(false);
 
   const clearTemplateFormDraft = useCallback(() => {
@@ -1249,15 +1267,16 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   useEffect(() => {
     if (reopenTriedRef.current || activeTemplate || allTemplates.length === 0) return;
     reopenTriedRef.current = true;
-    let saved: { templateId?: string; responseId?: string | null } | null = null;
+    let saved: { templateId?: string; responseId?: string | null; draftId?: string | null } | null = null;
     try { saved = JSON.parse(localStorage.getItem(openFormKey) || "null"); } catch { saved = null; }
     if (!saved?.templateId) return;
-    const resp = saved.responseId ? responses.find((r) => r.id === saved!.responseId) : undefined;
+    const wantedId = saved.responseId || saved.draftId || null;
+    const resp = wantedId ? responses.find((r) => r.id === wantedId) : undefined;
     if (saved.responseId && !resp) return;
     if (resp && resp.status === "submitted") return;
     void (async () => {
       const tpl = await loadTemplateById(resp?.template_id || saved!.templateId);
-      if (tpl) void handleStartForm(tpl, resp);
+      if (tpl) void handleStartForm(tpl, resp, saved!.draftId || undefined);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allTemplates, responses]);
