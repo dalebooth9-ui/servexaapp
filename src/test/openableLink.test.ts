@@ -19,13 +19,14 @@ it('routes a plain left click to the job or site it shows', () => {
   expect(navigate).toHaveBeenCalledWith('/jobs/7');
 });
 
-it('leaves Ctrl/Cmd and Shift clicks to the browser so they open a new tab', () => {
+it('opens a new tab for Ctrl/Cmd and Shift clicks, which a row cannot do itself', () => {
   const navigate = vi.fn();
   const props = openableLinkProps('/jobs/7', navigate);
   props.onClick(click({ ctrlKey: true }));
   props.onClick(click({ metaKey: true }));
   props.onClick(click({ shiftKey: true }));
   expect(navigate).not.toHaveBeenCalled();
+  expect(window.open).toHaveBeenCalledTimes(3);
   expect(isModifiedClick(click({ ctrlKey: true }))).toBe(true);
 });
 

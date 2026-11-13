@@ -30,7 +30,12 @@ export function openableLinkProps(
   return {
     tabIndex: 0,
     onClick: (event) => {
-      if (event.defaultPrevented || isModifiedClick(event)) return;
+      if (event.defaultPrevented || event.button !== 0) return;
+      // A row is not an anchor, so the browser won't open modified clicks itself.
+      if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+        openInNewTab(href);
+        return;
+      }
       navigate(href);
     },
     onMouseDown: (event) => {
