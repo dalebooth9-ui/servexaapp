@@ -29,7 +29,7 @@ import NewVisitDialog from "@/components/riser-visits/NewVisitDialog";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { attachmentMessage, suggestWorksAndMaterials, type DefectAttachmentResult } from "@/lib/defectCarryForward";
 import DefectJobPicker from "@/components/jobs/DefectJobPicker";
-import { CalendarPlus, ClipboardList } from "lucide-react";
+import { CalendarPlus, ClipboardList, CalendarClock } from "lucide-react";
 
 
 type Defect = {
