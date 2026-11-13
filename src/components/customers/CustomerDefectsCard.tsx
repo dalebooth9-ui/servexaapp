@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertTriangle, ExternalLink, FileText, Loader2, Sparkles } from "lucide-react";
 import { draftQuoteFromDefects } from "@/lib/draftDefectQuote";
+import { openableLinkProps } from "@/lib/openableLink";
 import { toast } from "sonner";
 
 type Row = {
@@ -122,10 +123,15 @@ export default function CustomerDefectsCard({ customerId }: { customerId: string
       <Card>
         <CardContent className="p-0 divide-y">
           {rows.map((d) => (
-            <div key={d.id} className="flex items-start gap-3 p-3">
+            <div
+              key={d.id}
+              className={`flex items-start gap-3 p-3 transition-colors ${d.site_id ? "cursor-pointer hover:bg-accent/40" : ""}`}
+              {...(d.site_id ? openableLinkProps(`/defects?site=${d.site_id}`, navigate) : {})}
+            >
               {isAdmin && !d.quote_id && (
                 <Checkbox
                   className="mt-0.5"
+                  onClick={(e) => e.stopPropagation()}
                   checked={selected.has(d.id)}
                   onCheckedChange={() => toggle(d.id)}
                   aria-label={`Select ${d.title}`}
@@ -137,7 +143,7 @@ export default function CustomerDefectsCard({ customerId }: { customerId: string
                   {[d.site_id ? siteNames[d.site_id] : null, d.location_on_site].filter(Boolean).join(" · ") || "—"}
                 </p>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                 {d.source_kind === "archive" && (
                   <Badge variant="outline" className="text-[10px]">From archive</Badge>
                 )}
