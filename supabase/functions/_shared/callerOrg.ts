@@ -14,8 +14,10 @@ export async function resolveCaller(req: Request): Promise<Caller | { error: str
   const { data: orgId } = await userClient.rpc("get_user_org_id");
   if (!orgId) return { error: "Your account is not part of a company", status: 403 };
   const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const { data: isAdmin } = await admin.rpc("has_role", { _user_id: userId, _role: "admin" });
-  return { userId, orgId: orgId as string, isAdmin: !!isAdmin, admin };
+  // Admin rights count only inside the caller's own company.
+  const { data: roleRow } = await (admin as any).from("user_roles").select("role").eq("user_id", userId).eq("org_id", orgId).eq("role", "admin").maybeSingle();
+  const { data: owner } = await (admin as any).from("organisation_members").select("role").eq("user_id", userId).eq("org_id", orgId).in("role", ["owner", "admin"]).eq("status", "active").maybeSingle();
+  return { userId, orgId: orgId as string, isAdmin: !!roleRow || !!owner, admin };
 }
 
 /** True when the record exists and belongs to the caller's company. */
