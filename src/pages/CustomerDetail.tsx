@@ -1064,6 +1064,7 @@ export default function CustomerDetail() {
                         key={doc.id}
                         className="cursor-pointer"
                         draggable
+                        onClick={() => { void openCustomerDocument(doc); }}
                         onDragStart={(e) => {
                           // If this doc is selected, drag all selected; otherwise drag just this one
                           const dragDocs = selectedDocIds.has(doc.id)
@@ -1073,22 +1074,10 @@ export default function CustomerDetail() {
                           e.dataTransfer.effectAllowed = "copy";
                         }}
                         onDoubleClick={async () => {
-                          const storagePath = doc.file_url.includes("/object/public/submissions/")
-                            ? decodeURIComponent(doc.file_url.split("/object/public/submissions/")[1])
-                            : doc.file_url;
-                          const { data } = await supabase.storage.from("submissions").createSignedUrl(storagePath, 3600);
-                          if (data?.signedUrl) {
-                            const a = document.createElement("a");
-                            a.href = data.signedUrl;
-                            a.target = "_blank";
-                            a.rel = "noopener noreferrer";
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                          }
+                          await openCustomerDocument(doc);
                         }}
                       >
-                        <TableCell className="w-10 px-2">
+                        <TableCell className="w-10 px-2" onClick={(e) => e.stopPropagation()}>
                           <Checkbox
                             checked={selectedDocIds.has(doc.id)}
                             onCheckedChange={(checked) => toggleDocSelect(doc.id, !!checked)}
@@ -1106,7 +1095,7 @@ export default function CustomerDetail() {
                         <TableCell className="text-sm text-muted-foreground">
                           {new Date(doc.created_at).toLocaleDateString("en-GB")}
                         </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1">
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={async () => {
                               const storagePath = doc.file_url.includes("/object/public/submissions/")
