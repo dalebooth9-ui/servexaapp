@@ -1297,7 +1297,7 @@ export default function Jobs() {
             // Create a long-lived signed URL (24 h) so the edge function can fetch it
             const { data: signedData, error: signedError } = await supabase.storage
               .from("submissions")
-              .createSignedUrl(filePath, 86400);
+              .createSignedUrl(await buildOrgPathAsync(filePath), 86400);
             if (signedError || !signedData?.signedUrl) {
               throw new Error(`Could not create signed URL: ${signedError?.message ?? "unknown"}`);
             }
