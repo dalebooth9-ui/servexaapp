@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS deny_when_org_suspended ON public.rams_hazard_modules;
+CREATE POLICY deny_when_org_suspended ON public.rams_hazard_modules AS RESTRICTIVE FOR ALL TO authenticated USING (public.is_org_active(public.get_user_org_id())) WITH CHECK (public.is_org_active(public.get_user_org_id()));
