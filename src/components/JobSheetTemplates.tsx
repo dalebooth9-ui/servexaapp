@@ -1063,7 +1063,14 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     }
   };
 
-  const handleStartForm = async (template: Template, existingResponse?: Response) => {
+  const handleStartForm = async (template: Template, existingResponse?: Response, reuseDraftId?: string) => {
+    const reportId = existingResponse?.id ?? reuseDraftId ?? newReportId();
+    serverRowRef.current = !!existingResponse;
+    setDraftReportId(reportId);
+    setSubmitError(null);
+    setSaveState({ kind: "idle" });
+    sitePhotosRef.current.forEach((p) => URL.revokeObjectURL(p.preview));
+    setSitePhotos([]);
     setActiveTemplate(template);
     setViewingResponse(null);
     setLastVisit(null);
@@ -1123,8 +1130,27 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     );
 
     // Check for auto-saved draft (sync read from localStorage mirror)
-    const draftKey = `template-form-${jobId}-${template.id}${existingResponse ? `-${existingResponse.id}` : ""}`;
-    const localDraft = loadFormDraftSync<Record<string, any>>(draftKey);
+    const draftKey = `template-form-${jobId}-${template.id}-${reportId}`;
+    // Older builds keyed unsaved new reports without an id; pick it up once,
+    // then drop it so it can never pop up over a different report again.
+    const legacyKey = `template-form-${jobId}-${template.id}`;
+    let localDraft = loadFormDraftSync<Record<string, any>>(draftKey);
+    let localTs = loadFormDraftTimestamp(draftKey);
+    if (!existingResponse && !localDraft) {
+      const legacy = loadFormDraftSync<Record<string, any>>(legacyKey);
+      if (legacy && countAnswers(legacy, autoPopulatedIds) > 0) { localDraft = legacy; localTs = loadFormDraftTimestamp(legacyKey); }
+    }
+    void clearFormDraft(legacyKey);
+    // Photos still waiting on this phone from an earlier attempt: retry them.
+    void listPendingPhotos(reportId).then((stored) => {
+      if (!stored.length) return;
+      const restored: PendingSitePhoto[] = stored.map((st) => {
+        const file = new File([st.blob], st.name, { type: st.type });
+        return { id: st.id, file, preview: URL.createObjectURL(file), caption: st.caption, status: "uploading" };
+      });
+      setSitePhotos((prev) => [...prev, ...restored.filter((r) => !prev.some((x) => x.id === r.id))]);
+      restored.forEach((r) => void uploadSitePhoto(r, reportId));
+    });
 
     if (existingResponse) {
       setActiveResponse(existingResponse);
@@ -1148,15 +1174,10 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       });
       // Overlay any locally-saved progress (e.g. from lost connection)
       if (localDraft) {
-        let restoredAny = false;
-        Object.entries(localDraft).forEach(([key, val]) => {
-          if (autoPopulatedIds.has(key)) return;
-          if (val !== undefined && val !== null && val !== "") {
-            if (JSON.stringify(merged[key]) !== JSON.stringify(val)) restoredAny = true;
-            merged[key] = val;
-          }
-        });
-        if (restoredAny) announceRestore(draftKey);
+        const serverTs = existingResponse.updated_at ? Date.parse(existingResponse.updated_at) : null;
+        const r = mergeLocalDraft({ server: merged, serverUpdatedAt: serverTs, local: localDraft, localUpdatedAt: localTs, skipKeys: autoPopulatedIds });
+        Object.assign(merged, r.merged);
+        if (r.restored) announceRestore(localTs, r.answers, r.photos);
       }
       // Visit drafts contain context only. Do not backfill checks or signatures
       // from generic defaults when opening a new per-riser visit sheet.
@@ -1231,17 +1252,21 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
         sitePhotoCaptions: merged._site_photo_captions,
         hasSitePhotos: Array.isArray(merged._site_photo_urls) && merged._site_photo_urls.length > 0,
       });
-      setFormData(await withRemedialWorks(merged, template.fields));
+      const ready = await withRemedialWorks(merged, template.fields);
+      baselineRef.current = JSON.stringify(ready);
+      setFormData(ready);
     } else {
       setActiveResponse(null);
+      let start: Record<string, any> = { ...prefilled };
       if (localDraft) {
-        // Restore from local draft, keeping fresh auto-populated values
-        const merged = { ...localDraft, ...prefilled };
-        announceRestore(draftKey);
-        setFormData(await withRemedialWorks(merged, template.fields));
-      } else {
-        setFormData(await withRemedialWorks(prefilled, template.fields));
+        const r = mergeLocalDraft({ server: start, local: localDraft, localUpdatedAt: localTs, skipKeys: autoPopulatedIds });
+        start = r.merged;
+        if (r.restored) announceRestore(localTs, r.answers, r.photos);
       }
+      const ready = await withRemedialWorks(start, template.fields);
+      // An unchanged pre-filled form is not autosaved, so opening alone never creates a report.
+      baselineRef.current = localDraft ? "" : JSON.stringify(ready);
+      setFormData(ready);
     }
   };
 
@@ -1255,12 +1280,100 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     void fetchData();
   };
 
-  const announceRestore = (key: string) => {
-    const ts = loadFormDraftTimestamp(key);
+  const announceRestore = (ts: number | null, answers: number, photos: number) => {
+    const when = ts ? ` from ${new Date(ts).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : "";
     toast({
-      title: ts ? `Restored your unsaved work from ${new Date(ts).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : "Restored your unsaved work",
-      description: "Saved on this device — tap Save to send it to the office.",
+      title: `Restored ${answers} answer${answers === 1 ? "" : "s"}${photos ? ` and ${photos} photo${photos === 1 ? "" : "s"}` : ""}${when}`,
+      description: "Kept on this phone — it will save to the office automatically.",
     });
+  };
+
+  /** Upload one report photo now; the phone copy stays until the upload is confirmed. */
+  const uploadSitePhoto = async (photo: PendingSitePhoto, reportId: string) => {
+    setSitePhotos((prev) => prev.map((x) => (x.id === photo.id ? { ...x, status: "uploading", error: undefined } : x)));
+    try {
+      if (!user) throw new Error("Signed out");
+      const ext = (photo.file.name.split(".").pop() || "jpg").toLowerCase();
+      const fileName = `site-photo-${photo.id}.${ext}`;
+      const filePath = `${jobId}/${fileName}`;
+      const storagePath = await buildOrgPathAsync(filePath);
+      const { error: upErr } = await supabase.storage.from("submissions").upload(storagePath, photo.file, { contentType: photo.file.type, upsert: true });
+      if (upErr) throw upErr;
+      const caption = (sitePhotosRef.current.find((x) => x.id === photo.id)?.caption ?? photo.caption).trim();
+      const signed = await createSubmissionPhotoSignedUrl(filePath, jobId, 60 * 60);
+      const { error: subErr } = await supabase.from("submissions").insert({
+        job_id: jobId, engineer_id: user.id, type: "photo",
+        file_url: buildDurableRef("submissions", storagePath), file_name: fileName, content: caption || null,
+      } as any);
+      if (subErr) console.error("Submission insert failed", subErr);
+      setFormData((prev) => {
+        const paths: string[] = Array.isArray(prev._site_photo_paths) ? prev._site_photo_paths : [];
+        if (paths.includes(filePath)) return prev;
+        return {
+          ...prev,
+          _site_photo_urls: [...(Array.isArray(prev._site_photo_urls) ? prev._site_photo_urls : []), signed?.signedUrl || ""],
+          _site_photo_paths: [...paths, filePath],
+          _site_photo_captions: [...(Array.isArray(prev._site_photo_captions) ? prev._site_photo_captions : []), caption],
+        };
+      });
+      await removePendingPhoto(reportId, photo.id);
+      URL.revokeObjectURL(photo.preview);
+      setSitePhotos((prev) => prev.filter((x) => x.id !== photo.id));
+    } catch (err: any) {
+      console.error("[JobSheetTemplates] photo upload failed", err);
+      setSitePhotos((prev) => prev.map((x) => (x.id === photo.id ? { ...x, status: "failed", error: isNetworkError(err) ? "No signal" : (err?.message || "Upload failed") } : x)));
+    }
+  };
+
+  const addSitePhotos = (files: File[]) => {
+    if (!draftReportId) return;
+    const reportId = draftReportId;
+    const room = Math.max(0, 10 - sitePhotosRef.current.length);
+    const added: PendingSitePhoto[] = files.filter((f) => f.type.startsWith("image/")).slice(0, room).map((file) => ({
+      id: newReportId(), file, preview: URL.createObjectURL(file), caption: "", status: "uploading",
+    }));
+    if (!added.length) return;
+    setSitePhotos((prev) => [...prev, ...added]);
+    added.forEach((ph) => {
+      void savePendingPhoto({ id: ph.id, reportId, blob: ph.file, name: ph.file.name, type: ph.file.type, caption: "", createdAt: Date.now() })
+        .then(() => uploadSitePhoto(ph, reportId));
+    });
+  };
+
+  /** Save the in-progress draft to the office copy. Never touches a submitted report. */
+  const saveDraftToServer = async (): Promise<boolean> => {
+    if (!activeTemplate || !draftReportId || !user || submittingRef.current) return false;
+    if (activeResponse && activeResponse.status !== "draft") return false;
+    const data = latestDraftRef.current.data;
+    if (!data || Object.keys(data).length === 0) return false;
+    const snapshot = JSON.stringify(data);
+    setSaveState({ kind: "saving" });
+    const run = (async () => {
+      try {
+        if (!serverRowRef.current) {
+          const { data: row, error } = await supabase.from("job_sheet_responses").insert({
+            id: draftReportId, job_id: jobId, template_id: activeTemplate.id, responses: data as any, submitted_by: user.id, status: "draft",
+          } as any).select("*").single();
+          if (error && (error as any).code !== "23505") throw error;
+          serverRowRef.current = true;
+          if (row) setActiveResponse(row as Response);
+          if (!error) { baselineRef.current = snapshot; setSaveState({ kind: "saved", at: Date.now() }); return true; }
+        }
+        const { data: rows, error } = await supabase.from("job_sheet_responses").update({ responses: data as any } as any)
+          .eq("id", draftReportId).eq("status", "draft").select("id");
+        if (error) throw error;
+        if (!rows || rows.length === 0) { setSaveState({ kind: "local" }); return false; }
+        baselineRef.current = snapshot;
+        setSaveState({ kind: "saved", at: Date.now() });
+        return true;
+      } catch (err) {
+        console.warn("[JobSheetTemplates] autosave to office failed", err);
+        setSaveState({ kind: isNetworkError(err) ? "local" : "error" });
+        return false;
+      }
+    })();
+    serverSaveRef.current = run;
+    return run;
   };
 
   // After a reload, reopen the report that was open on this job.
