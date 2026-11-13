@@ -1,3 +1,4 @@
+import { resolveCaller, ownsRecord, sharesCompany } from "../_shared/callerOrg.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -362,6 +363,10 @@ Deno.serve(async (req) => {
     }
 
     const { customer_id } = await req.json();
+    const __c = await resolveCaller(req);
+    if ("error" in __c) return new Response(JSON.stringify({ error: __c.error }), { status: __c.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!(await ownsRecord(__c, "customers", customer_id))) return new Response(JSON.stringify({ error: "This record does not belong to your company" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
     if (!customer_id) {
       return new Response(JSON.stringify({ error: "Missing customer_id" }), {
         status: 400,

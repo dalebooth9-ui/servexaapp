@@ -17,3 +17,19 @@ export async function resolveCaller(req: Request): Promise<Caller | { error: str
   const { data: isAdmin } = await admin.rpc("has_role", { _user_id: userId, _role: "admin" });
   return { userId, orgId: orgId as string, isAdmin: !!isAdmin, admin };
 }
+
+/** True when the record exists and belongs to the caller's company. */
+export async function ownsRecord(c: Caller, table: string, id: unknown): Promise<boolean> {
+  if (typeof id !== "string" || !id) return false;
+  const { data } = await (c.admin as any).from(table).select("org_id").eq("id", id).maybeSingle();
+  return !!data && data.org_id === c.orgId;
+}
+
+/** True when the user is a member of the caller's company. */
+export async function sharesCompany(c: Caller, userId: unknown): Promise<boolean> {
+  if (typeof userId !== "string" || !userId) return false;
+  const { data } = await (c.admin as any).from("profiles").select("org_id").eq("user_id", userId).maybeSingle();
+  if (data?.org_id === c.orgId) return true;
+  const { data: m } = await (c.admin as any).from("organisation_members").select("org_id").eq("user_id", userId).eq("org_id", c.orgId).maybeSingle();
+  return !!m;
+}

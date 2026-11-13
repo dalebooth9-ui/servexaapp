@@ -1,3 +1,4 @@
+import { resolveCaller, ownsRecord, sharesCompany } from "../_shared/callerOrg.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
@@ -54,6 +55,11 @@ serve(async (req) => {
     }
 
     const { customerEmail, customerName, subject, htmlBody, attachments, jobId, emailType, invoiceId } = await req.json();
+    const __c = await resolveCaller(req);
+    if ("error" in __c) return new Response(JSON.stringify({ error: __c.error }), { status: __c.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (jobId && !(await ownsRecord(__c, "jobs", jobId))) return new Response(JSON.stringify({ error: "This record does not belong to your company" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (invoiceId && !(await ownsRecord(__c, "invoices", invoiceId))) return new Response(JSON.stringify({ error: "This record does not belong to your company" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
 
     if (!customerEmail || !subject) {
       return new Response(JSON.stringify({ error: "customerEmail and subject are required" }), {
