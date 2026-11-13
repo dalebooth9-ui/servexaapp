@@ -1,0 +1,8 @@
+import {describe,it,expect} from 'vitest';
+import {riserIdentityPrefill,type RiserReportContext} from '@/lib/riserScanFlow';
+const ctx:RiserReportContext={job_id:'job',job_reference:'VFP-00284',asset_id:'riser',asset_tag:'3EGP3P',riser_name:'Stair 1',riser_location:'Stair 1',outlets_count:6,inlets_count:1,site_name:'Bosden',address:'Bosden, Greek Street, Stockport',customer:'Daisymill',outlet_codes:{total:6,tags:{'3EGP3P-1':1}}};
+describe('QR standing details',()=>{
+ it('fills site address and customer from verified context',()=>{const data=riserIdentityPrefill([{id:'site_details',label:'Site details',type:'text'},{id:'customer_details',label:'Customer details',type:'text'}],ctx);expect(data.site_details).toBe('Bosden\nBosden, Greek Street, Stockport');expect(data.customer_details).toBe('Daisymill');});
+ it('fills six outlets, one inlet, the code/location and job number',()=>{const data=riserIdentityPrefill([{id:'number_of_outlets',label:'Number of outlets',type:'number'},{id:'inlets',label:'Number of inlets',type:'number'},{id:'job_no',label:'Job number',type:'text'}],ctx);expect(data.number_of_outlets).toBe('6');expect(data.inlets).toBe('1');expect(data.riser_id).toBe('3EGP3P');expect(data.riser_location).toBe('Stair 1');expect(data.job_no).toBe('VFP-00284');});
+ it('never fills inspection answers or customer signing name',()=>{const data=riserIdentityPrefill([{id:'drain',label:'Drain installed',type:'checkbox'},{id:'customer_name',label:'Customer Name',type:'text'}],ctx);expect(data.drain).toBeUndefined();expect(data.customer_name).toBeUndefined();});
+});

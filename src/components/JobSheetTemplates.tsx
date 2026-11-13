@@ -2055,6 +2055,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   // Main list view
   return (
     <>
+      {scanFailure && <div role="alert" className="border border-destructive rounded-md p-3 space-y-2"><p>{RISER_LOAD_ERROR}</p><Button variant="outline" onClick={scanFailure}>Retry</Button></div>}
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
