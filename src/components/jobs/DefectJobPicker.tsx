@@ -1,3 +1,4 @@
+import { defectStatusErrorMessage } from "@/lib/defectStatus";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ export default function DefectJobPicker({ defectId, onClose, onAdded }: { defect
     setBusy(true);
     const { data, error } = await supabase.rpc("attach_defects_to_job", { p_defect_ids: [defectId], p_job: id });
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(defectStatusErrorMessage(error));
     const result = data?.[0]; if (!result) return toast.error("Defect was not added");
     onAdded(result); if (result.outcome === "scheduled") { toast.success(attachmentMessage(result)); onClose(); } else toast.error(attachmentMessage(result));
   };

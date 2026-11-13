@@ -70,7 +70,7 @@ function LinkedPhotoThumb({ path, jobId, onOpen }: { path: string; jobId: string
 
 
 export const CARRIED_FORWARD = "carried_forward";
-const OUTSTANDING_STATUSES = ["open", "in_progress", "quoted", "approved", "job_created"];
+const OUTSTANDING_STATUSES = ["open", "in_progress", "scheduled", "quoted", "approved", "job_created"];
 
 const SEVERITY_BADGE: Record<string, string> = {
   critical: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
@@ -88,6 +88,7 @@ const STATUS_BADGE: Record<string, string> = {
   approved: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400",
   job_created: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-400",
   declined: "bg-muted text-muted-foreground line-through",
+  scheduled: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
 };
 
 const CATEGORIES = [
