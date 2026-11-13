@@ -13,6 +13,8 @@
 import { get, set, del, keys, createStore } from "idb-keyval";
 import { supabase } from "@/integrations/supabase/client";
 import { isNetworkError } from "@/lib/syncQueue";
+import { persistReport } from '@/lib/reportPersistence';
+import { recordReportFailure } from '@/lib/reportFailureLog';
 
 const store = createStore("servexa-report-queue", "items");
 const MAX_ATTEMPTS = 5;
@@ -84,7 +86,7 @@ export async function discardReportSubmission(id: string): Promise<void> {
 /** Sends one report. Returns whether it landed and whether a retry is worthwhile. */
 async function sendOne(item: ReportSubmissionItem): Promise<{ ok: boolean; retry: boolean; error?: string }> {
   try {
-    const { error } = await supabase.from("job_sheet_responses").upsert(
+    await persistReport(
       {
         id: item.id,
         job_id: item.jobId,
@@ -94,11 +96,10 @@ async function sendOne(item: ReportSubmissionItem): Promise<{ ok: boolean; retry
         status: item.status,
         submitted_at: item.submittedAt,
       } as any,
-      { onConflict: "id" },
     );
-    if (error) return { ok: false, retry: isNetworkError(error), error: error.message };
     return { ok: true, retry: false };
   } catch (e: any) {
+    if (item.submittedBy) void recordReportFailure({ userId: item.submittedBy, jobId: item.jobId, jobRef: item.jobRef || item.jobId, reportId: item.id, reason: String(e?.message ?? e) }).catch(() => {});
     return { ok: false, retry: isNetworkError(e), error: String(e?.message ?? e) };
   }
 }
@@ -112,6 +113,7 @@ export async function processReportQueue(): Promise<number> {
     const res = await sendOne(item);
     if (res.ok) {
       await del(item.id, store);
+      window.dispatchEvent(new CustomEvent('job-sheet:submitted', { detail: { jobId: item.jobId, responseId: item.id } }));
       sent++;
     } else {
       const attempts = item.attempts + 1;

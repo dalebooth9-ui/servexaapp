@@ -1,5 +1,11 @@
 # Roadmap
 
+## iPhone report reliability priority
+- [ ] Investigate Bosden VFP-00284 server answers/photos and office review visibility.
+- [ ] Preserve durable drafts/photos until confirmed submission and office review; expose failed saves, retries and durable error logging.
+- [ ] Restore IndexedDB drafts on reload, compress phone photos before persistence and prevent overlapping saves/uploads.
+- [ ] Fix report-only pinch zoom, 16px inputs and dynamic-height layout; update Help and test normal/offline/reload flows.
+
 ## Project monitoring invoice and Price Book fixes
 - [x] Confirmed missing created_by invoice error and UUID-ordered prices in the signed-in app; added authenticated creator and A–Z ordering after stable pagination.
 - [x] Five regression tests pass; real signed-in helper created an invoice, its draft screen loaded and creator read back correctly. Temporary unsent invoices removed. Price Book A–Z order verified; Help updated. Jobs button itself was not clicked in the browser check.
