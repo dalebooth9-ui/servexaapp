@@ -46,6 +46,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { saveMapPinForJob } from "@/lib/saveMapPin";
 import CustomerPortalLink from "@/components/CustomerPortalLink";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { openableLinkProps } from "@/lib/openableLink";
 
 
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
@@ -443,6 +444,23 @@ export default function CustomerDetail() {
     setUploadProgress(0);
     await fetchDocuments();
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  /** Open a stored document in a new browser tab from its signed URL. */
+  const openCustomerDocument = async (doc: CustomerDocument) => {
+    const storagePath = doc.file_url.includes("/object/public/submissions/")
+      ? decodeURIComponent(doc.file_url.split("/object/public/submissions/")[1])
+      : doc.file_url;
+    const { data } = await supabase.storage.from("submissions").createSignedUrl(storagePath, 3600);
+    if (data?.signedUrl) {
+      const a = document.createElement("a");
+      a.href = data.signedUrl;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
   };
 
   const handleDeleteDocument = async (doc: CustomerDocument) => {
@@ -1188,13 +1206,17 @@ export default function CustomerDetail() {
               const cfg = SITE_TYPE_CONFIG[site.site_type] || SITE_TYPE_CONFIG.site;
               const Icon = cfg.icon;
               return (
-                <Card key={site.id} className="hover:border-primary/50 transition-colors">
+                <Link
+                  key={site.id}
+                  to={`/sites?site=${site.id}`}
+                  className="group block rounded-lg border bg-card text-card-foreground shadow-sm transition-colors hover:border-primary/60 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   <CardContent className="p-3 flex items-start gap-3">
                     <div className={`mt-0.5 shrink-0 ${cfg.color}`}>
                       <Icon className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium text-sm truncate">{site.name}</p>
+                      <p className="font-medium text-sm truncate group-hover:text-primary group-hover:underline">{site.name}</p>
                       {(site.address || site.postcode) && (
                         <p className="text-xs text-muted-foreground truncate mt-0.5">
                           {[site.address, site.postcode].filter(Boolean).join(", ")}
@@ -1203,7 +1225,7 @@ export default function CustomerDetail() {
                       <Badge variant="secondary" className="text-[10px] capitalize mt-1">{cfg.label}</Badge>
                     </div>
                   </CardContent>
-                </Card>
+                </Link>
               );
             })}
           </div>
@@ -1269,7 +1291,9 @@ export default function CustomerDetail() {
                   {jobs.map((job) => (
                     <TableRow
                       key={job.id}
+                      {...openableLinkProps(`/jobs/${job.id}`, navigate)}
                       className={cn(
+                        "cursor-pointer",
                         jobRowDropTarget === job.id && "ring-2 ring-inset ring-primary bg-primary/5",
                         jobRowUploading === job.id && "opacity-60"
                       )}
@@ -1293,7 +1317,7 @@ export default function CustomerDetail() {
                       }}
                     >
                       <TableCell>
-                        <Link to={`/jobs/${job.id}`} className="font-mono text-sm font-medium text-primary hover:underline">
+                        <Link to={`/jobs/${job.id}`} className="font-mono text-sm font-medium text-primary hover:underline" onClick={(e) => e.stopPropagation()}>
                           {job.reference_number}
                         </Link>
                       </TableCell>
