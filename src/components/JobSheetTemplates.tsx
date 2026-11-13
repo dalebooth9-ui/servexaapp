@@ -2747,7 +2747,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                                 setFormData((prev) => ({ ...prev, riser_asset_id: aid }));
                               }}
                             />
-                          ) : field.type === "photo" ? <ReportPhotoQuestion value={formData[field.id]} onAdd={(file, source) => addSitePhotos([file], source, field.id)} pending={sitePhotos.filter(p => p.fieldId === field.id)} onRetry={p => draftReportId && void uploadSitePhoto(p, draftReportId)} /> : renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v), lockedFieldIds.has(field.id), engineerOptions, jobId, user?.id)}
+                          ) : field.type === "photo" ? <ReportPhotoQuestion value={formData[field.id]} cameraFile={cameraShots[formData[field.id]]} onRemove={() => handleFieldValue(field.id, null)} onAdd={(file, source) => addSitePhotos([file], source, field.id)} pending={sitePhotos.filter(p => p.fieldId === field.id)} onRetry={p => draftReportId && void uploadSitePhoto(p, draftReportId)} /> : renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v), lockedFieldIds.has(field.id), engineerOptions, jobId, user?.id)}
                         </div>
                       </div>
                       {(field.allow_notes || formData[`${field.id}_notes`]) && (
