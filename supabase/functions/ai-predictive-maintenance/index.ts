@@ -32,6 +32,8 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const { data: callerOrgId } = await supabaseUser.rpc("get_user_org_id");
+    if (!callerOrgId) return new Response(JSON.stringify({ error: "Your account is not part of a company" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     // Fetch PPM schedules with asset info
     const today = new Date().toISOString().split("T")[0];
@@ -40,6 +42,7 @@ serve(async (req) => {
     const { data: ppmData, error: ppmError } = await supabase
       .from("ppm_schedules")
       .select("*, assets(name, category, status, site_id, sites(name, address))")
+      .eq("org_id", callerOrgId)
       .eq("status", "active")
       .lte("next_due_date", sixtyDaysFromNow)
       .order("next_due_date", { ascending: true })
