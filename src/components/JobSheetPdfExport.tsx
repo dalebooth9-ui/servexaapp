@@ -563,13 +563,13 @@ export async function generateJobSheetPdf(
             topY: LIVE_REPORT_LAYOUT.logoTop,
           },
           title: { fontSize: DRY_RISER_LAYOUT.header.titleSizePt },
-          titleStartY: LIVE_REPORT_LAYOUT.logoTop + coverLogoH + 8,
+          titleStartY: reportLogo ? LIVE_REPORT_LAYOUT.logoTop + coverLogoH + 8 : undefined,
           standardFontSize: DRY_RISER_LAYOUT.header.subtitleSizePt,
           standardGapBelow: ptToMm(DRY_RISER_LAYOUT.header.ruleGapPt) + 1,
           separatorThickness: ptToMm(DRY_RISER_LAYOUT.header.ruleThicknessPt),
           detailGridVariant: "fourColumn",
         }
-      : { logo: { maxW: LIVE_REPORT_LAYOUT.coverLogoMaxWidth, maxH: LIVE_REPORT_LAYOUT.coverLogoMaxHeight, topY: LIVE_REPORT_LAYOUT.logoTop }, titleStartY: LIVE_REPORT_LAYOUT.logoTop + coverLogoH + 8 },
+      : { logo: { maxW: LIVE_REPORT_LAYOUT.coverLogoMaxWidth, maxH: LIVE_REPORT_LAYOUT.coverLogoMaxHeight, topY: LIVE_REPORT_LAYOUT.logoTop }, titleStartY: reportLogo ? LIVE_REPORT_LAYOUT.logoTop + coverLogoH + 8 : undefined },
   });
 
   // --- Riser sticker QR (dry riser reports linked to a register asset) ----
