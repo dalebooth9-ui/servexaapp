@@ -15,7 +15,7 @@ import { renderPdfHeader } from "@/lib/pdfHeader";
 import { customerReportName, hiddenFieldIds } from "@/lib/reportModeSwitch";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { resolveDocumentBrandingProfile } from "@/lib/documentBrandingProfile";
-import { computePdfFooterFlow, renderPdfSignatures, renderPdfFooter, getDefaultFooterText, resolveAccreditationLogoHeight } from "@/lib/pdfFooter";
+import { computePdfFooterFlow, renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import { logError } from "@/lib/errorLogger";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
@@ -981,7 +981,7 @@ export async function generateJobSheetPdf(
     };
 
     // === PART A: Section header bar ===
-    if (y + 30 > pageHeight - footerSpace) { doc.addPage(); y = margin; }
+    if (y + 30 > pageHeight - footerSpace) { doc.addPage(); y = continuationBodyY; }
     const dwellingSectionStartPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
     const dwellingSectionStartY = y;
 
@@ -1076,7 +1076,7 @@ export async function generateJobSheetPdf(
 
       if (y + rowH > pageHeight - footerSpace) {
         doc.addPage();
-        y = margin;
+        y = continuationBodyY;
         renderTableHeader();
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
