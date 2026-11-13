@@ -563,12 +563,13 @@ export async function generateJobSheetPdf(
             topY: LIVE_REPORT_LAYOUT.logoTop,
           },
           title: { fontSize: DRY_RISER_LAYOUT.header.titleSizePt },
+          titleStartY: LIVE_REPORT_LAYOUT.logoTop + coverLogoH + 8,
           standardFontSize: DRY_RISER_LAYOUT.header.subtitleSizePt,
           standardGapBelow: ptToMm(DRY_RISER_LAYOUT.header.ruleGapPt) + 1,
           separatorThickness: ptToMm(DRY_RISER_LAYOUT.header.ruleThicknessPt),
           detailGridVariant: "fourColumn",
         }
-      : { logo: { maxW: LIVE_REPORT_LAYOUT.coverLogoMaxWidth, maxH: LIVE_REPORT_LAYOUT.coverLogoMaxHeight, topY: LIVE_REPORT_LAYOUT.logoTop } },
+      : { logo: { maxW: LIVE_REPORT_LAYOUT.coverLogoMaxWidth, maxH: LIVE_REPORT_LAYOUT.coverLogoMaxHeight, topY: LIVE_REPORT_LAYOUT.logoTop }, titleStartY: LIVE_REPORT_LAYOUT.logoTop + coverLogoH + 8 },
   });
 
   // --- Riser sticker QR (dry riser reports linked to a register asset) ----
@@ -1344,11 +1345,8 @@ export async function generateJobSheetPdf(
     }
   };
 
-  // Signature/footer flow: keep the sign-off stack flowing immediately after
-  // the final body row. Do NOT include the bottom accreditation strip in this
-  // page-break decision — that strip is branding decoration, not report
-  // content, and counting it here caused the recurring false break where page
-  // 1 had empty space but page 2 contained only date/customer/signature rows.
+  // Reserve the full accreditation strip first, with a visible declaration
+  // gap. The body is compacted above it; badges are never shrunk for content.
   const logoH = LIVE_REPORT_LAYOUT.accreditationHeight;
   const declarationH = footerText && footerText.trim() ? 9 : 0;
   const helperAccredGapToFooter = LIVE_REPORT_LAYOUT.accreditationBottomGap;
