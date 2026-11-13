@@ -1,3 +1,4 @@
+import { resolveCaller, ownsRecord, sharesCompany } from "../_shared/callerOrg.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -182,6 +183,9 @@ serve(async (req) => {
     }
 
     const body: ReassignBody = await req.json();
+    const __c = await resolveCaller(req);
+    if ("error" in __c) return json({ error: __c.error }, __c.status);
+    
 
     // ===== UNDO MODE =====
     if (body.undo) {
@@ -189,6 +193,7 @@ serve(async (req) => {
       if (!snap || !snap.from_customer || !snap.to_customer_id) {
         return json({ error: "undo_snapshot is required for undo" }, 400);
       }
+      if (!(await ownsRecord(__c, "customers", snap.to_customer_id)) || (snap.from_customer as any)?.org_id !== __c.orgId) return json({ error: "This record does not belong to your company" }, 403);
       return await runUndo(admin, snap);
     }
 
@@ -203,6 +208,7 @@ serve(async (req) => {
         .eq("status", "pending")
         .gte("similarity", 1)
         .not("new_customer_id", "is", null)
+        .eq("org_id", __c.orgId)
         .order("created_at", { ascending: true })
         .limit(batchSize);
       if (pendErr) return json({ error: pendErr.message }, 500);
@@ -212,7 +218,8 @@ serve(async (req) => {
         .select("*", { count: "exact", head: true })
         .eq("status", "pending")
         .gte("similarity", 1)
-        .not("new_customer_id", "is", null);
+        .not("new_customer_id", "is", null)
+        .eq("org_id", __c.orgId);
 
       let merged = 0;
       const failures: { name: string; error: string }[] = [];
@@ -224,6 +231,7 @@ serve(async (req) => {
             .eq("id", s.id);
           continue;
         }
+        if (!(await ownsRecord(__c, "customers", s.new_customer_id)) || !(await ownsRecord(__c, "customers", s.existing_customer_id))) { failures.push({ name: s.incoming_name, error: "Not in your company" }); continue; }
         const { errors: mergeErrors } = await mergePair(
           admin,
           s.new_customer_id,
@@ -259,6 +267,7 @@ serve(async (req) => {
     // ===== NORMAL / PREVIEW MODE =====
     const fromId = body.from_customer_id?.trim();
     if (!fromId) return json({ error: "from_customer_id required" }, 400);
+    if (!(await ownsRecord(__c, "customers", fromId))) return json({ error: "This record does not belong to your company" }, 403);
 
     let toId = body.to_customer_id?.trim() || null;
     const toName = body.to_customer_name?.trim() || null;
@@ -266,6 +275,7 @@ serve(async (req) => {
     if (!toId && !toName) {
       return json({ error: "Provide to_customer_id or to_customer_name" }, 400);
     }
+    if (toId && !(await ownsRecord(__c, "customers", toId))) return json({ error: "This record does not belong to your company" }, 403);
     if (toId === fromId) {
       return json({ error: "Source and target must differ" }, 400);
     }
@@ -296,6 +306,7 @@ serve(async (req) => {
         .from("customers")
         .select("id, name, address, phone, email, org_id")
         .ilike("name", toName)
+        .eq("org_id", __c.orgId)
         .limit(1);
       if (existing && existing.length > 0) {
         toCustomer = existing[0];
