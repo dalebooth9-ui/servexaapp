@@ -14,7 +14,6 @@ import { QRCodeSVG } from 'qrcode.react';
 import { stickerUrl } from '@/lib/riserStickers';
 import {useSearchParams} from 'react-router-dom';
 import {isScanPrivateField,riserIdentityPrefill,RISER_LOAD_ERROR,type RiserReportContext} from '@/lib/riserScanFlow';
-import {logError} from '@/lib/errorLogger';
 import {printInspectionType,printInspectionResult} from '@/lib/printText';
 
 function isDryRiserTemplate(t: any): boolean {
@@ -1088,7 +1087,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
         setOutletTotal(ctx.outlet_codes.total);setOutletNumbers(Object.values(ctx.outlet_codes.tags));
         setScanFailure(null);
       }catch(error){
-        logError({error,message:'QR report details failed',context:{jobId,responseId:existingResponse?.id,riserCode:existingResponse?.responses?.riser_id || existingResponse?.responses?._riser_visit?.asset_tag,reason:error instanceof Error?error.message:String((error as any)?.message || error)}});
+        logError({error,message:'QR report details failed',context:{jobId,responseId:existingResponse?.id,riserCode:scanParams.get('riserCode') || existingResponse?.responses?.riser_id || existingResponse?.responses?._riser_visit?.asset_tag,reason:error instanceof Error?error.message:String((error as any)?.message || error)}});
         setScanFailure(()=>()=>void handleStartForm(template,existingResponse,reuseDraftId));
         toast({title:RISER_LOAD_ERROR,variant:'destructive'});return;
       }
@@ -1289,6 +1288,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       openingRef.current = false;
       latestDraftRef.current = { key: draftKey, data: ready };
       setFormData(ready);
+      if(scanMode && existingResponse.status==='submitted')setViewingResponse({...existingResponse,responses:ready});
     } else {
       setActiveResponse(null);
       let start: Record<string, any> = { ...prefilled };
@@ -1514,7 +1514,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
         const retry=async()=>{
           const {data,error}=await supabase.from('job_sheet_responses').select('*').eq('id',detail.responseId as string).eq('job_id',jobId).is('archived_at',null).maybeSingle();
           if(error || !data){
-            logError({error,message:'QR report lookup failed',context:{jobId,responseId:detail.responseId,reason:error?.message || 'Report missing or access refused'}});
+            logError({error,message:'QR report lookup failed',context:{jobId,responseId:detail.responseId,riserCode:scanParams.get('riserCode'),reason:error?.message || 'Report missing or access refused'}});
             setScanFailure(()=>()=>void retry());return;
           }
           void handleStartForm(template,data as Response);
@@ -2055,7 +2055,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   // Main list view
   return (
     <>
-      {scanFailure && <div role="alert" className="border border-destructive rounded-md p-3 space-y-2"><p>{RISER_LOAD_ERROR}</p><Button variant="outline" onClick={scanFailure}>Retry</Button></div>}
+      <Dialog open={!!scanFailure} onOpenChange={open=>{if(!open)setScanFailure(null);}}><DialogContent><DialogHeader><DialogTitle>{RISER_LOAD_ERROR}</DialogTitle></DialogHeader><Button variant="outline" onClick={()=>scanFailure?.()}>Retry</Button></DialogContent></Dialog>
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
@@ -2719,6 +2719,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                 </div>
               );
             })()}
+            {scanMode && <div className="border rounded-md p-3 text-sm space-y-1"><p className="font-semibold">{formData.site_name}</p><p>{formData.site_address}</p><p>{formData.job_reference} · {formData.riser_id} · {formData.riser_location}</p><p>{formData.outlets_count} outlets · {formData.inlets_count} inlet(s)</p></div>}
             {isRiserReport && (
               <OutletChecksPanel
                 assetId={String(formData.riser_asset_id)}
@@ -3150,6 +3151,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                 />
               </div>
             )}
+            {scanMode && <div className="border rounded-md m-3 p-3 text-sm space-y-1"><p className="font-semibold">{formData.site_name}</p><p>{formData.site_address}</p><p>{formData.job_reference} · {formData.riser_id} · {formData.riser_location}</p><p>{formData.outlets_count} outlets · {formData.inlets_count} inlet(s)</p><OutletChecksPanel assetId={String(formData.riser_asset_id)} checks={readOutletChecks(formData)} onChange={()=>{}} locked userId={user?.id}/></div>}
             {sections.filter((s) => !isSectionOmitted(s)).map((section) => (
               <div key={section}>
                 <div className="bg-muted px-3 py-1.5 border-b border-border">

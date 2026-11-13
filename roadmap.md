@@ -1,9 +1,9 @@
 # Roadmap
 
 ## QR report prefill
-- [ ] Trace company permissions and pre-existing scan/report lookup failures.
-- [ ] Require exact report and verified company-scoped identity before opening; prefill site/customer/job/riser/inlets/outlets, with Retry and Error log.
-- [ ] Test Viva engineer QR flow and refusal for Test Co; update Help and record build time.
+- [x] Policies allow assigned Viva engineers and own-company admins; no access policies loosened. Incomplete visit-prefill and missing-response blank fallback predate today's security changes.
+- [x] Exact response and verified company/job/site/riser context gate opening; fill missing identity/counts without changing inspection results. Visible Retry and riser-code/reason logging; Help updated.
+- [x] Viva engineer-only account opened Bosden QR 3EGP3P: address, Stair 1, VFP-00284, six outlet rows and one inlet verified. Signed-out login return checked. Failed-context Retry recovered. Test Co UI refused, lookup returned zero, start/context refused. Nineteen tests pass; physical phone scanning not tested.
 
 ## iPhone report reliability priority
 - [x] Bosden has two submitted sheets with 27/26 answers and two photos each; active job previously excluded from office review. Admin list now includes Bosden.
