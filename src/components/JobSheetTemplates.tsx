@@ -2755,6 +2755,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                           <div className="space-y-1">
                             <div className="relative">
                               <img src={r.url} alt={`Existing site photo ${i + 1}`} className="rounded border object-cover w-full aspect-[4/3]" />
+                              <span className="absolute bottom-1 left-1 inline-flex items-center gap-0.5 rounded bg-background/90 px-1 py-0.5 text-[10px] font-medium text-primary" title="Stored"><CheckCircle2 className="h-3 w-3" /> Stored</span>
                               <button
                                 type="button"
                                 className="absolute top-1 right-1 rounded-full h-6 w-6 flex items-center justify-center text-sm leading-none bg-black/60 text-white hover:bg-destructive shadow-sm backdrop-blur-sm transition"
@@ -2803,12 +2804,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                   e.currentTarget.classList.remove("border-primary", "bg-primary/5");
                   const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
                   if (files.length === 0) return;
-                  const newPhotos = files.slice(0, 10 - sitePhotos.length).map(file => ({
-                    file,
-                    preview: URL.createObjectURL(file),
-                    caption: "",
-                  }));
-                  setSitePhotos(prev => [...prev, ...newPhotos].slice(0, 10));
+                  addSitePhotos(files);
                 }}
                 onClick={() => {
                   const input = document.createElement("input");
@@ -2817,12 +2813,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                   input.multiple = true;
                   input.onchange = () => {
                     const files = Array.from(input.files || []).filter(f => f.type.startsWith("image/"));
-                    const newPhotos = files.slice(0, 10 - sitePhotos.length).map(file => ({
-                      file,
-                      preview: URL.createObjectURL(file),
-                      caption: "",
-                    }));
-                    setSitePhotos(prev => [...prev, ...newPhotos].slice(0, 10));
+                    addSitePhotos(files);
                   };
                   input.click();
                 }}
@@ -2842,12 +2833,21 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                         <div className="space-y-1">
                           <div className="relative">
                             <img src={photo.preview} alt={`Site ${i + 1}`} className="rounded border object-cover w-full aspect-[4/3]" />
+                            {photo.status === "uploading" ? (
+                              <span className="absolute inset-x-1 bottom-1 inline-flex items-center gap-1 rounded bg-background/90 px-1.5 py-1 text-[10px] font-medium"><Loader2 className="h-3 w-3 animate-spin" /> Uploading…</span>
+                            ) : (
+                              <button type="button" onClick={() => draftReportId && void uploadSitePhoto(photo, draftReportId)}
+                                className="absolute inset-x-1 bottom-1 inline-flex items-center justify-center gap-1 rounded bg-destructive px-1.5 py-1 text-[11px] font-semibold text-destructive-foreground">
+                                <AlertTriangle className="h-3 w-3" /> Not uploaded{photo.error ? ` (${photo.error})` : ""} — Retry
+                              </button>
+                            )}
                             <button
                               type="button"
                               className="absolute top-1 right-1 rounded-full h-6 w-6 flex items-center justify-center text-sm leading-none bg-black/60 text-white hover:bg-destructive shadow-sm backdrop-blur-sm transition"
                               aria-label="Remove photo"
                               onClick={() => {
                                 URL.revokeObjectURL(photo.preview);
+                                if (draftReportId) void removePendingPhoto(draftReportId, photo.id);
                                 setSitePhotos(prev => prev.filter((_, idx) => idx !== i));
                               }}
                             >×</button>
@@ -2877,12 +2877,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                           input.multiple = true;
                           input.onchange = () => {
                             const files = Array.from(input.files || []).filter(f => f.type.startsWith("image/"));
-                            const newPhotos = files.slice(0, 10 - sitePhotos.length).map(file => ({
-                              file,
-                              preview: URL.createObjectURL(file),
-                              caption: "",
-                            }));
-                            setSitePhotos(prev => [...prev, ...newPhotos].slice(0, 10));
+                            addSitePhotos(files);
                           };
                           input.click();
                         }}
@@ -2894,7 +2889,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                 )}
               </div>
               {sitePhotos.length > 0 && (
-                <p className="text-[10px] text-muted-foreground mt-1">{sitePhotos.length} photo(s) — will appear at the bottom of the PDF</p>
+                <p className="text-[10px] text-muted-foreground mt-1">{sitePhotos.length} photo(s) not stored yet — kept on this phone until the upload finishes</p>
               )}
             </div>
 
@@ -2925,7 +2920,14 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
               />
             </div>
           </div>
-          <div className="flex gap-2 px-4 py-3 border-t border-border bg-card">
+          {submitError && !viewingResponse && (
+            <div role="alert" className="flex items-center gap-2 border-t border-destructive bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span className="flex-1">{submitError}</span>
+              <Button size="sm" variant="destructive" onClick={requestSubmit} disabled={submitting}>Retry</Button>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-t border-border bg-card">
             <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={submitting}>
               {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
               Save Draft
@@ -2959,10 +2961,19 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                 ))}
               </DialogContent>
             </Dialog>
-            <Button size="sm" onClick={requestSubmit} disabled={submitting}>
-              <Send className="h-3.5 w-3.5 mr-1" />
+            <Button size="sm" onClick={requestSubmit} disabled={submitting || sitePhotos.length > 0} title={photoSubmitBlocker(sitePhotos.map((p) => p.status)) || undefined}>
+              {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Send className="h-3.5 w-3.5 mr-1" />}
               Submit
             </Button>
+            <span className="text-xs text-muted-foreground inline-flex items-center gap-1" aria-live="polite">
+              {sitePhotos.length > 0 ? (
+                <span className={sitePhotos.some((p) => p.status === "failed") ? "text-destructive font-medium" : ""}>{photoSubmitBlocker(sitePhotos.map((p) => p.status))}</span>
+              ) : saveState.kind === "saving" ? (<><Loader2 className="h-3 w-3 animate-spin" /> Saving…</>)
+                : saveState.kind === "saved" ? (<><CheckCircle2 className="h-3 w-3 text-primary" /> Saved{saveState.at ? ` ${new Date(saveState.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : ""}</>)
+                : saveState.kind === "local" ? (<><CloudOff className="h-3 w-3" /> Saved on this phone</>)
+                : saveState.kind === "error" ? (<span className="text-destructive font-medium">Not saved to office yet</span>)
+                : null}
+            </span>
             <div className="flex-1" />
             <Button
               variant="ghost"
@@ -2975,6 +2986,30 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
               Reset to Template Defaults
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!submittedSummary} onOpenChange={(o) => !o && setSubmittedSummary(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 text-primary" /> Report submitted</DialogTitle>
+          </DialogHeader>
+          {submittedSummary && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">{submittedSummary.templateName} — saved to the office.</p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-md border p-2"><div className="text-xl font-semibold">{submittedSummary.riserCount}</div><div className="text-[11px] text-muted-foreground">Risers reported</div></div>
+                <div className="rounded-md border p-2"><div className="text-xl font-semibold">{submittedSummary.answers}/{submittedSummary.totalFields}</div><div className="text-[11px] text-muted-foreground">Answers completed</div></div>
+                <div className="rounded-md border p-2"><div className="text-xl font-semibold">{submittedSummary.photos}</div><div className="text-[11px] text-muted-foreground">Photos</div></div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1 h-11" onClick={() => { const r = submittedSummary.response; setSubmittedSummary(null); handleViewResponse(r); }}>
+                  <Eye className="h-4 w-4 mr-1" /> Reopen to check
+                </Button>
+                <Button className="flex-1 h-11" onClick={() => setSubmittedSummary(null)}>Done</Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
