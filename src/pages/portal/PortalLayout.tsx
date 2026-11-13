@@ -1,3 +1,4 @@
+import { wipeDeviceData } from "@/lib/deviceWipe";
 import { ReactNode, useEffect, useState } from "react";
 import { Navigate, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,7 +46,7 @@ export default function PortalLayout() {
 
   if (authLoading || loading) return <FullScreen><Loader2 className="w-6 h-6 animate-spin" /></FullScreen>;
   if (!user) return <Navigate to="/auth?next=/customer-portal" replace />;
-  if (blocked) return <FullScreen><div className="max-w-md text-center space-y-4"><h1 className="text-xl font-semibold">Portal unavailable</h1><p className="text-muted-foreground">{blocked}</p><Button onClick={async () => { await supabase.auth.signOut(); navigate("/auth"); }}><LogOut className="w-4 h-4 mr-2" />Sign out</Button></div></FullScreen>;
+  if (blocked) return <FullScreen><div className="max-w-md text-center space-y-4"><h1 className="text-xl font-semibold">Portal unavailable</h1><p className="text-muted-foreground">{blocked}</p><Button onClick={async () => { await supabase.auth.signOut(); await wipeDeviceData(); window.location.replace("/auth"); }}><LogOut className="w-4 h-4 mr-2" />Sign out</Button></div></FullScreen>;
   if (!ctx) return <FullScreen>No portal record</FullScreen>;
 
   return (
@@ -56,7 +57,7 @@ export default function PortalLayout() {
             <div className="text-xs uppercase tracking-wider text-muted-foreground">{ctx.orgName}</div>
             <div className="font-semibold">{ctx.customerName} — Compliance portal</div>
           </div>
-          <Button variant="ghost" size="sm" onClick={async () => { await supabase.auth.signOut(); navigate("/auth"); }}>
+          <Button variant="ghost" size="sm" onClick={async () => { await supabase.auth.signOut(); await wipeDeviceData(); window.location.replace("/auth"); }}>
             <LogOut className="w-4 h-4 mr-2" />Sign out
           </Button>
         </div>

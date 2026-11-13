@@ -502,7 +502,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       const { error: uploadError } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(filePath), file, { upsert: true });
       if (uploadError) throw new Error(uploadError.message);
 
-      const { data: urlData } = await supabase.storage.from("submissions").createSignedUrl(filePath, 60 * 60 * 24 * 365 * 5);
+      const { data: urlData } = await supabase.storage.from("submissions").createSignedUrl(await buildOrgPathAsync(filePath), 60 * 60 * 24 * 365 * 5);
       if (!urlData?.signedUrl) throw new Error("Could not generate signed URL");
 
       if (isExcel) {
@@ -712,7 +712,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     if (error) {
       toast({ title: "Upload failed", variant: "destructive" });
     } else {
-      const { data: urlData } = await supabase.storage.from("submissions").createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+      const { data: urlData } = await supabase.storage.from("submissions").createSignedUrl(await buildOrgPathAsync(path), 60 * 60 * 24 * 365 * 5);
       if (urlData?.signedUrl) {
         await supabase.from("job_documents" as any).update({ file_url: urlData.signedUrl, file_name: file.name } as any).eq("id", doc.id);
         setDocs((prev) => prev.map((d) => d.id === doc.id ? { ...d, file_url: urlData.signedUrl, file_name: file.name } : d));

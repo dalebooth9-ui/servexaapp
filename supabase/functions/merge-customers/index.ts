@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveCaller } from "../_shared/callerOrg.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,18 +9,23 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    // Auth temporarily bypassed for bulk data cleanup
-    // TODO: restore admin check after cleanup
+    const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const caller = await resolveCaller(req);
+    if ("error" in caller) return json({ error: caller.error }, caller.status);
+    if (!caller.isAdmin) return json({ error: "Only company admins can merge customers" }, 403);
+    const supabase = caller.admin;
 
     const { target_customer_id, source_customer_ids } = await req.json();
-
-    if (!target_customer_id || !source_customer_ids || source_customer_ids.length === 0) {
-      return new Response(JSON.stringify({ error: "Missing target_customer_id or source_customer_ids" }), { status: 400, headers: corsHeaders });
+    const uuid = /^[0-9a-f-]{36}$/i;
+    if (typeof target_customer_id !== "string" || !uuid.test(target_customer_id) || !Array.isArray(source_customer_ids) || source_customer_ids.length === 0 || source_customer_ids.length > 200 || !source_customer_ids.every((x: unknown) => typeof x === "string" && uuid.test(x))) {
+      return json({ error: "Missing target_customer_id or source_customer_ids" }, 400);
+    }
+    const allIds = Array.from(new Set([target_customer_id, ...source_customer_ids]));
+    const { data: owned, error: ownErr } = await supabase.from("customers").select("id, org_id").in("id", allIds);
+    if (ownErr) return json({ error: "Could not check customers" }, 500);
+    if ((owned ?? []).length !== allIds.length || (owned ?? []).some((c: any) => c.org_id !== caller.orgId)) {
+      console.warn("merge-customers rejected cross-company request", { user: caller.userId });
+      return json({ error: "One or more customers do not belong to your company" }, 403);
     }
 
     let jobsMoved = 0;
