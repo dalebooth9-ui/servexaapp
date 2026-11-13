@@ -37,4 +37,3 @@
 - Day clocking: engineers write `time_clock` only via clock_* RPCs; office edits via admin_edit_time_clock (logged) — why: identity is the login and hour changes are audited.
 - Sites summaries share siteSummary filtering/counts on RLS-loaded records — why: lists and totals must agree without data writes.
 - MapAddress owns map links — why: private notes/codes must never enter URLs.
-- Job-sheet reports use one report id fixed when the form opens (phone draft key, server autosave, photo uploads, submit); photos upload on capture with IndexedDB copies until confirmed, and the form/draft clear only after the server returns the saved row — why: a lost submit left a blank form and a stale 'restored' draft.

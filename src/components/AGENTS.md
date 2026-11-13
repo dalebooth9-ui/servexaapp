@@ -1,0 +1,1 @@
+- JobSheetTemplates fixes one report id at form open (draft key, autosave, photos, submit); photos upload on capture with phone copies, and drafts clear only after the server returns the saved row — why: lost submits and stale restores.
