@@ -20,7 +20,7 @@ export const PHOTO_GRID = { gapMm: 2, captionMm: 6, targetCellMm: 45 };
 export function photoGridLayout(count: number, maxWidth: number) {
   const { gapMm, captionMm, targetCellMm } = PHOTO_GRID;
   const cols = Math.max(3, Math.min(4, Math.round((maxWidth + gapMm) / (targetCellMm + gapMm))));
-  const cellW = (maxWidth - gapMm * (cols - 1)) / cols;
+  const cellW = Math.min(targetCellMm,(maxWidth - gapMm * (cols - 1)) / cols);
   const photoH = cellW * 0.7;
   const cellH = photoH + captionMm;
   const rows = count > 0 ? Math.ceil(count / cols) : 0;
