@@ -1087,7 +1087,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
         setOutletTotal(ctx.outlet_codes.total);setOutletNumbers(Object.values(ctx.outlet_codes.tags));
         setScanFailure(null);
       }catch(error){
-        logError({error,message:'QR report details failed',context:{jobId,responseId:existingResponse?.id,riserCode:existingResponse?.responses?.riser_id || existingResponse?.responses?._riser_visit?.asset_tag,reason:error instanceof Error?error.message:String((error as any)?.message || error)}});
+        logError({error,message:'QR report details failed',context:{jobId,responseId:existingResponse?.id,riserCode:scanParams.get('riserCode') || existingResponse?.responses?.riser_id || existingResponse?.responses?._riser_visit?.asset_tag,reason:error instanceof Error?error.message:String((error as any)?.message || error)}});
         setScanFailure(()=>()=>void handleStartForm(template,existingResponse,reuseDraftId));
         toast({title:RISER_LOAD_ERROR,variant:'destructive'});return;
       }
@@ -1514,7 +1514,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
         const retry=async()=>{
           const {data,error}=await supabase.from('job_sheet_responses').select('*').eq('id',detail.responseId as string).eq('job_id',jobId).is('archived_at',null).maybeSingle();
           if(error || !data){
-            logError({error,message:'QR report lookup failed',context:{jobId,responseId:detail.responseId,reason:error?.message || 'Report missing or access refused'}});
+            logError({error,message:'QR report lookup failed',context:{jobId,responseId:detail.responseId,riserCode:scanParams.get('riserCode'),reason:error?.message || 'Report missing or access refused'}});
             setScanFailure(()=>()=>void retry());return;
           }
           void handleStartForm(template,data as Response);

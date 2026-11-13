@@ -164,7 +164,7 @@ export default function RiserScan() {
       if(!result.job_id||!result.response_id||!result.template_id)throw new Error('No report was returned');
       setChoices([]);setTypeOpen(false);
       toast.success('On site — report ready');
-      navigate(riserReportUrl(result.job_id,result.response_id,result.template_id));
+      navigate(`${riserReportUrl(result.job_id,result.response_id,result.template_id)}&riserCode=${encodeURIComponent(asset.asset_tag)}`);
     }catch(e:any){setStartError(true);logError({error:e,message:`QR report start failed (${asset.asset_tag})`,context:{riserCode:asset.asset_tag,jobId,reason:e.message}});toast.error(RISER_LOAD_ERROR,{description:e.message});}
     finally{starting.current=false;setBusy(false);}
   };
