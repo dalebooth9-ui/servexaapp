@@ -1,3 +1,4 @@
+import { resolveCaller, ownsRecord, sharesCompany } from "../_shared/callerOrg.ts";
 // Notifies Servexa support (and users) about support ticket events.
 // event = 'created' | 'reply' | 'status_change'
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -33,6 +34,10 @@ serve(async (req) => {
     if (!caller) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const { ticketId, event, replyBody } = await req.json();
+    const __c = await resolveCaller(req);
+    if ("error" in __c) return new Response(JSON.stringify({ error: __c.error }), { status: __c.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!(await ownsRecord(__c, "support_tickets", ticketId)) && !(await (__c.admin as any).rpc("has_role", { _user_id: __c.userId, _role: "platform_admin" })).data) return new Response(JSON.stringify({ error: "This record does not belong to your company" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
     if (!ticketId || !event) {
       return new Response(JSON.stringify({ error: "ticketId and event required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }

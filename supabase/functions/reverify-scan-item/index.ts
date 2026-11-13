@@ -1,3 +1,4 @@
+import { resolveCaller } from "../_shared/callerOrg.ts";
 // One-shot verification: re-runs OCR against a paper_scan_batch_items row
 // by firing ocr-job-sheet in async write_back mode. Also nukes stored job
 // report_docs so the client regenerates the electronic PDF on next open.
@@ -41,6 +42,10 @@ serve(async (req) => {
   if (!item_id) return new Response(JSON.stringify({ error: "item_id required" }), { status: 400, headers: corsHeaders });
 
   const svc = createClient(SUPABASE_URL, SERVICE_KEY);
+  const callerOrg = await resolveCaller(req);
+  if ("error" in callerOrg) return new Response(JSON.stringify({ error: callerOrg.error }), { status: callerOrg.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  const { data: ownedItem } = await svc.from("paper_scan_batch_items").select("org_id").eq("id", item_id).maybeSingle();
+  if (!ownedItem || (ownedItem as any).org_id !== callerOrg.orgId) return new Response(JSON.stringify({ error: "This scan does not belong to your company" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   if (poll) {
     const { data } = await svc
@@ -100,7 +105,7 @@ serve(async (req) => {
       // waitUntil. Decouples 6-page bundles from the 150s edge gateway.
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/ocr-job-sheet`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", apikey: SERVICE_KEY },
+        headers: { "Content-Type": "application/json", apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
         body: JSON.stringify({
           images: payloads,
           template_name: (tpl as any).name,

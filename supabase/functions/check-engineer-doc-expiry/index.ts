@@ -29,6 +29,8 @@ serve(async (req) => {
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    const { data: callerOrgId } = await callerClient.rpc("get_user_org_id");
+    if (!callerOrgId) return new Response(JSON.stringify({ error: "Your account is not part of a company" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: claimsData.claims.sub, _role: "admin" });
     if (!isAdmin) {
       return new Response(JSON.stringify({ error: "Admin access required" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -41,14 +43,14 @@ serve(async (req) => {
     // Find engineer documents expiring within 30 days (or already expired)
     const { data: expiring } = await supabase
       .from("engineer_documents")
-      .select("id, title, document_type, expiry_date, engineer_id")
+      .select("id, title, document_type, expiry_date, engineer_id").eq("org_id", callerOrgId)
       .not("expiry_date", "is", null)
       .lte("expiry_date", thirtyDaysFromNow.toISOString().split("T")[0]);
 
     // Get all admins
     const { data: admins } = await supabase
       .from("user_roles")
-      .select("user_id")
+      .select("user_id").eq("org_id", callerOrgId)
       .eq("role", "admin");
 
     const adminIds = (admins || []).map((a: any) => a.user_id);
@@ -57,7 +59,7 @@ serve(async (req) => {
     const engineerIds = [...new Set((expiring || []).map((d: any) => d.engineer_id))];
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("user_id, full_name")
+      .select("user_id, full_name").eq("org_id", callerOrgId)
       .in("user_id", engineerIds);
 
     const nameMap: Record<string, string> = {};

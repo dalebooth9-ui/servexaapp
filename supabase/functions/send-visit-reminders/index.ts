@@ -1,3 +1,4 @@
+import { resolveCaller } from "../_shared/callerOrg.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
@@ -21,6 +22,16 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    // Scheduled runs must send the cron secret; manual runs must be a company admin and only cover that company.
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    let scopeOrg: string | null = null;
+    if (!(cronSecret && req.headers.get("x-cron-secret") === cronSecret)) {
+      const c = await resolveCaller(req);
+      if ("error" in c) return new Response(JSON.stringify({ error: c.error }), { status: c.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (!c.isAdmin) return new Response(JSON.stringify({ error: "Admin access required" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      scopeOrg = c.orgId;
+    }
+
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = tomorrow.toISOString().split("T")[0];
@@ -33,7 +44,8 @@ serve(async (req) => {
           customers(name, email, phone))
       `)
       .eq("scheduled_date", tomorrowStr)
-      .eq("status", "upcoming");
+      .eq("status", "upcoming")
+      .match(scopeOrg ? { org_id: scopeOrg } : {});
 
     if (error) throw error;
 

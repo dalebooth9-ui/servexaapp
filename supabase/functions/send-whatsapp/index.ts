@@ -1,3 +1,4 @@
+import { resolveCaller, ownsRecord, sharesCompany } from "../_shared/callerOrg.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireEnv, missingEnvResponse } from "../_shared/requireEnv.ts";
 
@@ -61,6 +62,9 @@ Deno.serve(async (req) => {
     }
 
     const { engineerId, message, jobId, mediaUrls } = await req.json();
+    const __c = await resolveCaller(req);
+    if ("error" in __c) return new Response(JSON.stringify({ error: __c.error }), { status: __c.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!(await sharesCompany(__c, engineerId)) || (jobId && !(await ownsRecord(__c, "jobs", jobId)))) return new Response(JSON.stringify({ error: "This record does not belong to your company" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     if (!engineerId || (!message?.trim() && (!Array.isArray(mediaUrls) || mediaUrls.length === 0))) {
       return new Response(JSON.stringify({ error: "engineerId and message or mediaUrls are required" }), {

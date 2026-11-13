@@ -1,3 +1,4 @@
+import { resolveCaller } from "../_shared/callerOrg.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -11,6 +12,8 @@ serve(async (req) => {
   }
 
   try {
+    const callerOrg = await resolveCaller(req);
+    if ("error" in callerOrg) return new Response(JSON.stringify({ error: callerOrg.error }), { status: callerOrg.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     const body = await req.json();
     const { lat, lng, address, words } = body;
 

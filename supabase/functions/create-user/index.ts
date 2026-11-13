@@ -1,3 +1,4 @@
+import { resolveCaller, ownsRecord, sharesCompany } from "../_shared/callerOrg.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -50,6 +51,9 @@ serve(async (req) => {
     }
 
     const { email, full_name, roles, allowed_pages } = await req.json();
+    const __c = await resolveCaller(req);
+    if ("error" in __c) return new Response(JSON.stringify({ error: __c.error }), { status: __c.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
 
     if (!email || !full_name) {
       return new Response(
@@ -78,12 +82,16 @@ serve(async (req) => {
     }
 
     const userId = newUser.user.id;
+    // Put the new person in the admin's own company.
+    await supabaseAdmin.from("profiles").update({ org_id: __c.orgId }).eq("user_id", userId);
+    await supabaseAdmin.from("organisation_members").upsert({ org_id: __c.orgId, user_id: userId, role: "engineer", status: "active", invited_by: __c.userId }, { onConflict: "org_id,user_id", ignoreDuplicates: true });
 
     // Assign roles
     if (validRoles.length > 0) {
       const roleInserts = validRoles.map((role: string) => ({
         user_id: userId,
         role,
+        org_id: __c.orgId,
       }));
       await supabaseAdmin.from("user_roles").insert(roleInserts);
     }

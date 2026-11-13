@@ -1,3 +1,4 @@
+import { resolveCaller } from "../_shared/callerOrg.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -49,6 +50,8 @@ serve(async (req) => {
       });
     }
 
+    const callerOrg = await resolveCaller(req);
+    if ("error" in callerOrg) return new Response(JSON.stringify({ error: callerOrg.error }), { status: callerOrg.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     const { jobs } = await req.json();
 
     if (!Array.isArray(jobs) || jobs.length === 0) {
@@ -75,6 +78,7 @@ serve(async (req) => {
           : "medium",
         category: job.category ? String(job.category).trim() : "general",
         created_by: caller.id,
+          org_id: callerOrg.orgId,
       };
     });
 

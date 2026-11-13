@@ -1,3 +1,4 @@
+import { resolveCaller, ownsRecord } from "../_shared/callerOrg.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { loadCustomerNameIndex, normaliseCustomerNameKey, linkExistingCustomer } from "../_shared/customerMatch.ts";
 
@@ -108,6 +109,8 @@ Deno.serve(async (req) => {
     // ========== SYNC INVOICE OR QUOTE TO XERO ==========
     if (action === "sync_invoice") {
       const { invoiceId } = body;
+      const __c = await resolveCaller(req);
+      if ("error" in __c || !(await ownsRecord(__c, "invoices", invoiceId))) return new Response(JSON.stringify({ error: "This invoice does not belong to your company" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       // Get invoice + line items
       const [invRes, itemsRes] = await Promise.all([
