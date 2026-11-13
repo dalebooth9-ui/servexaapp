@@ -1150,6 +1150,10 @@ export async function generateJobSheetPdf(
       (doc as any)._dwellingPages.add(p);
     }
 
+  }
+
+  // Site evidence belongs to every live report, not only dwelling-gallery templates.
+  {
     // === PART D: Photographic Evidence (site photos with engineer captions) ===
     // Resolve site photo URLs (with submissions-table backfill for legacy data),
     // re-sign from storage paths when present, then render a 3-per-row grid
