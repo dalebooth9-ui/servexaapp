@@ -4,6 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { primeOrgIdCache } from "@/lib/orgStoragePath";
 import {resetGeneratingOrgBrandingCache} from '@/lib/generatingOrgBranding';
 import { rememberLoginCompanyBranding } from '@/lib/loginCompanyBranding';
+import { countUnsentWork, wipeDeviceData, DEVICE_USER_KEY } from '@/lib/deviceWipe';
+import { flushAllDrafts } from '@/lib/draftFlush';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 
 type Role = "admin" | "engineer" | null;
 
@@ -85,6 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           // Fetch role and profile using setTimeout to avoid deadlock
           setTimeout(async () => {
+            // A different person signing in on this device: clear the previous user's stored data first.
+            try {
+              const prev = localStorage.getItem(DEVICE_USER_KEY);
+              if (prev && prev !== session.user.id) await wipeDeviceData({ keepAuth: true });
+              localStorage.setItem(DEVICE_USER_KEY, session.user.id);
+            } catch { /* ignore */ }
             let [roleRes, profileRes] = await Promise.all([
               supabase.from("user_roles").select("role").eq("user_id", session.user.id),
               supabase.from("profiles").select("full_name, whatsapp_number, org_id").eq("user_id", session.user.id).maybeSingle(),
@@ -129,8 +139,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  const [unsentPrompt, setUnsentPrompt] = useState(0);
+  const [sending, setSending] = useState(false);
+
+  const doSignOut = async () => {
+    try { await supabase.auth.signOut(); } catch { /* still clear the device */ }
+    await wipeDeviceData();
+    window.location.replace('/auth');
+  };
+
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try { await flushAllDrafts(2000); } catch { /* ignore */ }
+    const n = await countUnsentWork();
+    if (n > 0) { setUnsentPrompt(n); return; }
+    await doSignOut();
+  };
+
+  const sendFirst = async () => {
+    setSending(true);
+    try {
+      await flushAllDrafts(5000);
+      const [{ processQueue }, { processPhotoQueue }, { processReportQueue }] = await Promise.all([
+        import('@/lib/syncQueue'), import('@/lib/photoQueue'), import('@/lib/reportSubmissionQueue'),
+      ]);
+      await Promise.allSettled([processQueue(), processPhotoQueue(), processReportQueue()]);
+    } finally {
+      setSending(false);
+    }
+    const left = await countUnsentWork();
+    setUnsentPrompt(left);
+    if (left === 0) await doSignOut();
   };
 
   useEffect(() => {
@@ -185,6 +223,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       exitEngineerPreview,
     }}>
       {children}
+      <AlertDialog open={unsentPrompt > 0} onOpenChange={(o) => { if (!o && !sending) setUnsentPrompt(0); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>You have unsent work. Log out anyway?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {unsentPrompt} item{unsentPrompt === 1 ? '' : 's'} (report answers or photos) are only on this device. Logging out deletes them from this device.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={sending}>Cancel</AlertDialogCancel>
+            <Button variant="outline" disabled={sending} onClick={sendFirst}>{sending ? 'Sending…' : 'Send it first'}</Button>
+            <AlertDialogAction disabled={sending} onClick={() => { setUnsentPrompt(0); void doSignOut(); }}>Log out anyway</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AuthContext.Provider>
   );
 }
