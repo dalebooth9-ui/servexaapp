@@ -36,6 +36,7 @@ import {
 import { fetchOrientedImage } from "@/lib/exifOrient";
 import { ukDateifyRecord } from "@/lib/dateFormat";
 import { waitForSignatureSaves } from "@/lib/signatureSaveTracker";
+import { checkedOutletNumbers, photoGridLayout, PHOTO_GRID } from "@/lib/compactPrint";
 import { drawQr, stickerUrl } from "@/lib/riserStickers";
 import { readOutletChecks, outletSummaryLine, STATUS_LABEL as OUTLET_STATUS_LABEL } from "@/lib/outletChecks";
 
@@ -1253,6 +1254,81 @@ export async function generateJobSheetPdf(
   }
 
 
+  // --- Extras: outlet checks (checked outlets only) + compact photo grid ---
+  // Never print an empty section: unchecked outlets are dropped and the whole
+  // block disappears when nothing was checked or photographed.
+  const outletRows: string[][] = [];
+  if ((isDryRiser || isWetRiser) && /^[0-9a-f-]{36}$/i.test(riserAssetId)) {
+    const outletChecks = readOutletChecks(formData);
+    let total = 0;
+    let references: Record<string, number> = {};
+    try {
+      const { data: oa } = await supabase.from("assets").select("outlets_count").eq("id", riserAssetId).maybeSingle();
+      total = Math.max(0, Math.min(200, Number(oa?.outlets_count) || 0));
+      const { data: codes } = await supabase.rpc("asset_outlet_codes", { _asset_id: riserAssetId });
+      references = (codes as { tags?: Record<string, number> } | null)?.tags || {};
+    } catch { /* fall back to recorded outlets */ }
+    if (!total) total = Math.max(0, ...Object.keys(outletChecks).map(Number).filter((n) => n > 0));
+    const numbers = Object.keys(references).length ? Object.values(references).sort((a, b) => a - b) : Array.from({ length: total }, (_, i) => i + 1);
+    for (const n of checkedOutletNumbers(numbers, outletChecks)) {
+      const c = outletChecks[String(n)];
+      const t = c?.at ? new Date(c.at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+      outletRows.push([Object.keys(references).find((k) => references[k] === n) || c?.tag || `Outlet ${n}`, OUTLET_STATUS_LABEL[c.status], c.status === "missing" ? "" : t, [c.by_name, c.reason].filter(Boolean).join(" – ")]);
+    }
+  }
+  const grid = photoGridLayout(deferredSitePhotos.length, maxWidth);
+  const OUT_ROW = 5;
+  const outletH = outletRows.length ? 9 + (outletRows.length + 1) * OUT_ROW + 2 : 0;
+  const photosH = deferredSitePhotos.length ? 9 + grid.gridH + 2 : 0;
+  const extrasH = outletH + photosH;
+  const drawBar = (title: string) => {
+    doc.setFillColor(26, 46, 74); doc.rect(margin, y, maxWidth, 6, "F");
+    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+    doc.text(title, margin + 3, y + 4.2);
+    doc.setTextColor(0, 0, 0); y += 9;
+  };
+  const drawExtras = (startY: number, ownPages: boolean) => {
+    y = startY;
+    const limit = pageHeight - margin - 6;
+    const brk = (need: number) => { if (ownPages && y + need > limit) { doc.addPage(); y = margin; return true; } return false; };
+    if (outletRows.length) {
+      drawBar("OUTLET CHECKS");
+      const cols = [margin, margin + 32, margin + 70, margin + 110];
+      const row = (cells: string[], bold: boolean) => {
+        doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(9);
+        cells.forEach((c, i) => doc.text(doc.splitTextToSize(c, (cols[i + 1] ?? margin + maxWidth) - cols[i] - 2)[0] || "", cols[i] + 1, y));
+        doc.setDrawColor(210, 214, 220); doc.line(margin, y + 1.5, margin + maxWidth, y + 1.5); y += OUT_ROW;
+      };
+      row(["Outlet", "Status", "Time", "By / reason"], true);
+      for (const r of outletRows) { if (brk(OUT_ROW)) { drawBar("OUTLET CHECKS — continued"); row(["Outlet", "Status", "Time", "By / reason"], true); } row(r, false); }
+      y += 2;
+    }
+    if (deferredSitePhotos.length) {
+      brk(9 + grid.cellH);
+      drawBar(`SITE PHOTOS (${deferredSitePhotos.length})`);
+      deferredSitePhotos.forEach((p, i) => {
+        const col = i % grid.cols;
+        if (col === 0 && i > 0) y += grid.cellH + PHOTO_GRID.gapMm;
+        if (col === 0 && brk(grid.cellH)) drawBar(`SITE PHOTOS (${deferredSitePhotos.length}) — continued`);
+        const x = margin + col * (grid.cellW + PHOTO_GRID.gapMm);
+        doc.setFillColor(235, 238, 242); doc.rect(x, y, grid.cellW, grid.photoH, "F");
+        try {
+          const scale = Math.min(grid.cellW / p.w, grid.photoH / p.h);
+          const dw = p.w * scale, dh = p.h * scale;
+          doc.addImage(p.dataUrl, p.format, x + (grid.cellW - dw) / 2, y + (grid.photoH - dh) / 2, dw, dh, undefined, "FAST");
+        } catch { /* skip broken image */ }
+        doc.setDrawColor(210, 214, 220); doc.setLineWidth(0.2); doc.rect(x, y, grid.cellW, grid.photoH);
+        const cap = [p.takenAt ? formatTaken(p.takenAt) : "", p.caption || ""].filter(Boolean).join(" · ");
+        if (cap) {
+          doc.setFont("helvetica", "normal"); doc.setFontSize(6.5); doc.setTextColor(50, 55, 65);
+          doc.text(doc.splitTextToSize(cap, grid.cellW).slice(0, 2), x, y + grid.photoH + 2.8);
+          doc.setTextColor(0, 0, 0);
+        }
+      });
+      y += grid.cellH + 2;
+    }
+  };
+
   // Signature/footer flow: keep the sign-off stack flowing immediately after
   // the final body row. Do NOT include the bottom accreditation strip in this
   // page-break decision — that strip is branding decoration, not report
@@ -1273,7 +1349,13 @@ export async function generateJobSheetPdf(
     bottomY: bottomAccredFooterY,
   });
 
-  let footerFlow = computeFlowStack(y);
+  // Sign-off stack (signatures + declaration) sits together at the bottom,
+  // above the accreditation strip; extras go above it when there is room.
+  const stackH = computeFlowStack(0).stackEndY;
+  const bottomAnchor = pageHeight - margin - logoH - helperAccredGapToFooter - stackH;
+  const extrasOnMain = extrasH > 0 && y + extrasH <= bottomAnchor;
+  if (extrasOnMain) drawExtras(y, false);
+  let footerFlow = computeFlowStack(Math.max(y, bottomAnchor));
   if (footerFlow.stackEndY > pageHeight - margin) {
     doc.addPage();
     y = margin;
@@ -1335,94 +1417,7 @@ export async function generateJobSheetPdf(
   }
 
   const mainSheetPages = doc.getNumberOfPages();
-  // Outlet (landing valve) checks for riser reports: own page after the sign-off.
-  const outletChecks = readOutletChecks(formData);
-  if ((isDryRiser || isWetRiser) && /^[0-9a-f-]{36}$/i.test(riserAssetId)) {
-    let total = 0;
-    let references: Record<string,number> = {};
-    try {
-      const { data: oa } = await supabase.from("assets").select("outlets_count").eq("id", riserAssetId).maybeSingle();
-      total = Math.max(0, Math.min(200, Number(oa?.outlets_count) || 0));
-      const {data: codes} = await supabase.rpc('asset_outlet_codes',{_asset_id:riserAssetId});
-      references = (codes as {tags?:Record<string,number>} | null)?.tags || {};
-    } catch { /* fall back to recorded outlets */ }
-    if (!total) total = Math.max(0, ...Object.keys(outletChecks).map(Number).filter((n) => n > 0));
-    if (total > 0) {
-      const head = () => {
-        doc.addPage(); y = margin;
-        doc.setFillColor(26, 46, 74); doc.rect(margin, y, maxWidth, 8, "F");
-        doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-        doc.text("OUTLET CHECKS", margin + 3, y + 5.4);
-        doc.setTextColor(0, 0, 0); y += 13;
-      };
-      head();
-      doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-      const numbers = Object.keys(references).length ? Object.values(references).sort((a,b)=>a-b) : Array.from({length:total},(_,i)=>i+1);
-      doc.text(outletSummaryLine(numbers, outletChecks), margin, y); y += 7;
-      const cols = [margin, margin + 32, margin + 70, margin + 110];
-      const row = (cells: string[], bold: boolean) => {
-        doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(8.5);
-        cells.forEach((c, i) => doc.text(doc.splitTextToSize(c, (cols[i + 1] ?? margin + maxWidth) - cols[i] - 2)[0] || "", cols[i] + 1, y));
-        doc.setDrawColor(210, 214, 220); doc.line(margin, y + 2, margin + maxWidth, y + 2); y += 6;
-      };
-      row(["Outlet", "Status", "Time", "By / reason"], true);
-      for (const n of numbers) {
-        if (y > pageHeight - 30) { head(); row(["Outlet", "Status", "Time", "By / reason"], true); }
-        const c = outletChecks[String(n)];
-        const t = c?.at ? new Date(c.at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
-        row([Object.keys(references).find(t=>references[t]===n) || c?.tag || `Outlet ${n}`, c ? OUTLET_STATUS_LABEL[c.status] : "Not checked", c?.status === "missing" ? "" : t, [c?.by_name, c?.reason].filter(Boolean).join(" – ")], false);
-      }
-    }
-  }
-  if (deferredSitePhotos.length > 0) {
-    const NAVY: [number, number, number] = [26, 46, 74];
-    const BORDER: [number, number, number] = [210, 214, 220];
-    const cols = 2;
-    const gap = 6;
-    const photoW = (maxWidth - gap) / cols;
-    const photoH = 68;
-    const cellH = photoH + 11;
-    const bottom = pageHeight - 32;
-    const startPage = (cont: boolean) => {
-      doc.addPage();
-      y = margin;
-      doc.setFillColor(...NAVY);
-      doc.rect(margin, y, maxWidth, 8, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.text(`SITE PHOTOS (${deferredSitePhotos.length})${cont ? " — continued" : ""}`, margin + 3, y + 5.4);
-      doc.setTextColor(0, 0, 0);
-      y += 11;
-    };
-    startPage(false);
-    deferredSitePhotos.forEach((p, i) => {
-      const col = i % cols;
-      if (col === 0 && i > 0) y += cellH;
-      if (col === 0 && y + cellH > bottom) startPage(true);
-      const x = margin + col * (photoW + gap);
-      doc.setFillColor(235, 238, 242);
-      doc.rect(x, y, photoW, photoH, "F");
-      try {
-        const scale = Math.min(photoW / p.w, photoH / p.h);
-        const dw = p.w * scale, dh = p.h * scale;
-        doc.addImage(p.dataUrl, p.format, x + (photoW - dw) / 2, y + (photoH - dh) / 2, dw, dh, undefined, "FAST");
-      } catch { /* skip broken image */ }
-      doc.setDrawColor(...BORDER);
-      doc.setLineWidth(0.2);
-      doc.rect(x, y, photoW, photoH);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
-      doc.setTextColor(50, 55, 65);
-      const taken = p.takenAt ? formatTaken(p.takenAt) : "";
-      if (taken) doc.text(taken, x, y + photoH + 3.5);
-      if (p.caption) {
-        doc.setFont("helvetica", "normal");
-        doc.text(doc.splitTextToSize(p.caption, photoW).slice(0, 1), x, y + photoH + 7.5);
-      }
-      doc.setTextColor(0, 0, 0);
-    });
-  }
+  if (!extrasOnMain && extrasH > 0) { doc.addPage(); drawExtras(margin, true); }
 
   const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
   const [watermark, accredLogos] = await Promise.all([
