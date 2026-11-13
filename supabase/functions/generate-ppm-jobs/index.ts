@@ -1,3 +1,4 @@
+import { resolveCaller, ownsRecord, sharesCompany } from "../_shared/callerOrg.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -53,12 +54,15 @@ serve(async (req) => {
       });
     }
 
+    const __c = await resolveCaller(req);
+    if ("error" in __c) return new Response(JSON.stringify({ error: __c.error }), { status: __c.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     const today = new Date().toISOString().split("T")[0];
 
     // Get all active PPM schedules that are due today or overdue
     const { data: dueSchedules, error: fetchErr } = await supabase
       .from("ppm_schedules")
       .select("*, assets(name, asset_tag, site_id, org_id)")
+      .eq("org_id", __c.orgId)
       .eq("status", "active")
       .lte("next_due_date", today);
 
@@ -89,7 +93,7 @@ serve(async (req) => {
           job_type: "one_off",
           asset_id: schedule.asset_id,
           site_id: schedule.assets?.site_id || null,
-          org_id: schedule.assets?.org_id || null,
+          org_id: __c.orgId,
         })
         .select("id")
         .single();

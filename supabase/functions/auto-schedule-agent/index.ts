@@ -1,3 +1,4 @@
+import { resolveCaller, ownsRecord, sharesCompany } from "../_shared/callerOrg.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getFromAddress } from "../_shared/emailFrom.ts";
 
@@ -36,6 +37,8 @@ Deno.serve(async (req) => {
   }
 
   try {
+const __c = await resolveCaller(req);
+    if ("error" in __c) return new Response(JSON.stringify({ error: __c.error }), { status: __c.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     const body = await req.json();
     const { action, jobs, engineers, weekStart, context } = body;
 
@@ -136,6 +139,11 @@ Rules:
 
       for (const act of (autonomous_actions || [])) {
         try {
+          if (act.job_id && !(await ownsRecord(__c, "jobs", act.job_id))) { results.push({ job_id: act.job_id, type: act.type, success: false, error: "Not in your company" }); continue; }
+          if (act.new_engineer_id && !(await sharesCompany(__c, act.new_engineer_id))) { results.push({ job_id: act.job_id, type: act.type, success: false, error: "Not in your company" }); continue; }
+          if (act.customer_id && !(await ownsRecord(__c, "customers", act.customer_id))) { results.push({ job_id: act.job_id, type: act.type, success: false, error: "Not in your company" }); continue; }
+          if (act.site_id && !(await ownsRecord(__c, "sites", act.site_id))) { results.push({ job_id: act.job_id, type: act.type, success: false, error: "Not in your company" }); continue; }
+          if (act.type === "notify_customer" && !act.job_id) { results.push({ job_id: act.job_id, type: act.type, success: false, error: "Not in your company" }); continue; }
           if (act.type === "reschedule" && act.new_engineer_id && act.new_date) {
             const { error } = await adminClient
               .from("job_schedule")
@@ -170,6 +178,7 @@ Rules:
                 due_date: act.workorder_due_date || null,
                 description: act.action_detail,
                 created_by: claimsData.claims.sub,
+                org_id: __c.orgId,
               })
               .select("id, reference_number")
               .single();

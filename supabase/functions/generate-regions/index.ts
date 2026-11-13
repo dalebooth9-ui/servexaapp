@@ -1,3 +1,4 @@
+import { resolveCaller, ownsRecord, sharesCompany } from "../_shared/callerOrg.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -81,11 +82,14 @@ Deno.serve(async (req) => {
     const { data: isAdmin } = await supabase.rpc("is_admin_direct", { _user_id: user.id });
     if (!isAdmin) return new Response(JSON.stringify({ error: "Admin only" }), { status: 403, headers: corsHeaders });
 
+const __c = await resolveCaller(req);
+    if ("error" in __c) return new Response(JSON.stringify({ error: __c.error }), { status: __c.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     // Fetch all top-level sites (site_type = 'site', no parent)
     const { data: topSites, error: fetchErr } = await supabase
       .from("sites")
       .select("id, postcode, parent_id")
       .eq("site_type", "site")
+      .eq("org_id", __c.orgId)
       .is("parent_id", null);
 
     if (fetchErr) throw fetchErr;
@@ -105,7 +109,8 @@ Deno.serve(async (req) => {
     const { data: existingRegions } = await supabase
       .from("sites")
       .select("id, name")
-      .eq("site_type", "region");
+      .eq("site_type", "region")
+      .eq("org_id", __c.orgId);
 
     const existingMap = new Map<string, string>();
     for (const r of existingRegions || []) {
@@ -122,7 +127,7 @@ Deno.serve(async (req) => {
         // Create region
         const { data: newRegion, error: insertErr } = await supabase
           .from("sites")
-          .insert({ name: regionName, site_type: "region" })
+          .insert({ name: regionName, site_type: "region", org_id: __c.orgId })
           .select("id")
           .single();
         if (insertErr) throw insertErr;
@@ -134,6 +139,7 @@ Deno.serve(async (req) => {
       const { error: updateErr } = await supabase
         .from("sites")
         .update({ parent_id: regionId })
+        .eq("org_id", __c.orgId)
         .in("id", siteIds);
       if (updateErr) throw updateErr;
       updated += siteIds.length;
