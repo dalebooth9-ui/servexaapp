@@ -14,6 +14,8 @@ import {suggestVisitType,type VisitType} from '@/lib/riserVisits';
 import {printInspectionType,printInspectionResult} from '@/lib/printText';
 import {riserReportUrl,type ScanJobChoice} from '@/lib/riserScanFlow';
 import {ToggleGroup,ToggleGroupItem} from '@/components/ui/toggle-group';
+import {RISER_LOAD_ERROR} from '@/lib/riserScanFlow';
+import {logError} from '@/lib/errorLogger';
 
 type Found = {
   id: string; asset_tag: string; riser_location: string | null; outlets_count: number | null; status: string;
@@ -42,25 +44,33 @@ export default function RiserScan() {
   const [chosenJob,setChosenJob]=useState<string|null>(null);
   const [outlet,setOutlet]=useState<number|null>(null);
   const [outletDraft,setOutletDraft]=useState('');
+  const [lookupAttempt,setLookupAttempt]=useState(0);
+  const [loadError,setLoadError]=useState(false);
+  const [startError,setStartError]=useState(false);
   const isStaff = !!user && (userRole === "admin" || userRole === "engineer");
 
   useEffect(() => {
     if (!isStaff || !tag) return;
+    setAsset(undefined);setLoadError(false);
     let cancelled = false;
     (async () => {
+      try {
       let riserTag = tag;
       let { data, error } = await supabase.rpc("lookup_asset_by_tag", { _tag: tag });
+      if(error)throw error;
       if (cancelled) return;
       let row = !error && Array.isArray(data) ? (data[0] as Found | undefined) : undefined;
       if (!row) {
         // Outlet (landing valve) sticker: log the attendance, then show its riser.
-        const { data: o } = await supabase.rpc("record_outlet_scan", { _tag: tag });
+        const { data: o,error:outletError } = await supabase.rpc("record_outlet_scan", { _tag: tag });
+        if(outletError)throw outletError;
         const hit = Array.isArray(o) ? o[0] : null;
         if (cancelled) return;
         if (hit?.asset_tag) {
           riserTag = hit.asset_tag;
           setOutlet(hit.outlet_number);
           ({ data, error } = await supabase.rpc("lookup_asset_by_tag", { _tag: riserTag }));
+          if(error)throw error;
           row = !error && Array.isArray(data) ? (data[0] as Found | undefined) : undefined;
         }
       }
@@ -75,9 +85,10 @@ export default function RiserScan() {
           .eq("asset_id", row.id).neq("status", "resolved").order("created_at", { ascending: false }).limit(20);
         if (!cancelled) setDefects((d as any) || []);
       }
+      }catch(error){if(!cancelled){setLoadError(true);setAsset(null);logError({error,message:`QR lookup failed (${tag})`,context:{riserCode:tag,reason:(error as any)?.message || String(error)}});}}
     })();
     return () => { cancelled = true; };
-  }, [isStaff, tag]);
+  }, [isStaff, tag,lookupAttempt]);
 
   if (loading) return <Shell><p className="text-muted-foreground">Loading…</p></Shell>;
 
@@ -98,8 +109,9 @@ export default function RiserScan() {
   if (asset === null) {
     return (
       <Shell>
-        <p className="text-2xl font-bold">Sticker not found</p>
+        <p className="text-2xl font-bold">{loadError ? RISER_LOAD_ERROR : "Sticker unavailable to your account"}</p>
         <p className="text-sm text-muted-foreground mt-1 font-mono">{tag}</p>
+        <Button variant="outline" className="mt-4" onClick={()=>setLookupAttempt(n=>n+1)}>Retry</Button>
         <Button asChild variant="outline" className="mt-6"><Link to="/">Go to dashboard</Link></Button>
       </Shell>
     );
@@ -138,6 +150,7 @@ export default function RiserScan() {
     if (!asset.site_id) { toast.error("This riser isn't linked to a site"); return; }
     if(starting.current)return;
     starting.current=true;
+    setStartError(false);
     setBusy(true);
     try {
       const {data,error}=await supabase.rpc('start_riser_scan_service',{_asset_id:asset.id,_job_id:jobId,_type:type});
@@ -151,7 +164,7 @@ export default function RiserScan() {
       setChoices([]);setTypeOpen(false);
       toast.success('On site — report ready');
       navigate(riserReportUrl(result.job_id,result.response_id,result.template_id));
-    }catch(e:any){toast.error("Couldn't start service",{description:e.message});}
+    }catch(e:any){setStartError(true);logError({error:e,message:`QR report start failed (${asset.asset_tag})`,context:{riserCode:asset.asset_tag,jobId,reason:e.message}});toast.error(RISER_LOAD_ERROR,{description:e.message});}
     finally{starting.current=false;setBusy(false);}
   };
 
@@ -183,6 +196,7 @@ export default function RiserScan() {
         )}
       </div>
       <div className="mt-6 flex flex-col gap-2">
+        {startError && <div role="alert"><p className="text-sm">{RISER_LOAD_ERROR}</p><Button variant="outline" onClick={()=>void startService(chosenJob,visitType)}>Retry</Button></div>}
         {userRole==='engineer'&&asset.site_id&&<SiteAccessCard siteId={asset.site_id}/>}
         {asset.label_status !== "placed" && <Button size="lg" onClick={labelFitted} disabled={busy}>Label fitted</Button>}
         <Button size="lg" variant="outline" onClick={() => setWrongOpen(true)} disabled={busy}>Wrong riser</Button>

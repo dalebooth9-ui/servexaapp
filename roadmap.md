@@ -1,5 +1,10 @@
 # Roadmap
 
+## QR report prefill
+- [ ] Trace company permissions and pre-existing scan/report lookup failures.
+- [ ] Require exact report and verified company-scoped identity before opening; prefill site/customer/job/riser/inlets/outlets, with Retry and Error log.
+- [ ] Test Viva engineer QR flow and refusal for Test Co; update Help and record build time.
+
 ## iPhone report reliability priority
 - [x] Bosden has two submitted sheets with 27/26 answers and two photos each; active job previously excluded from office review. Admin list now includes Bosden.
 - [x] Complete server read-back gates clearing; failed sends retain phone work, show Retry/reason and keep error records for reconnect. Compressed photos remain until report confirmation; durable drafts restore before saves start.

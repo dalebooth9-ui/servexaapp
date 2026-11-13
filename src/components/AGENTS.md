@@ -1,1 +1,2 @@
 - JobSheetTemplates fixes one report id at form open (draft key, autosave, photos, submit); photos upload on capture with phone copies, and drafts clear only after the server returns the saved row — why: lost submits and stale restores.
+- QR report opens require the exact saved response and get_riser_report_context before showing a form; riserIdentityPrefill fills only missing standing details — why: failed reads cannot create blank replacements or invent inspection results.

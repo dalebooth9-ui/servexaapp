@@ -12199,6 +12199,10 @@ export type Database = {
           token: string
         }[]
       }
+      get_riser_report_context: {
+        Args: { _job_id: string; _response_id: string }
+        Returns: Json
+      }
       get_user_org_id: { Args: never; Returns: string }
       has_role: {
         Args: {
