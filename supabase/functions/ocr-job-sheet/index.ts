@@ -1109,7 +1109,7 @@ serve(async (req) => {
           return new Response(JSON.stringify({ error: "Missing photo or report questions" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
         const read = await readHandwrittenSheet({
-          apiKey: KEY, enhanced, original: okImg(body.enhanced) ? images[0] : null,
+          apiKey: KEY, enhanced, original: okImg(body.enhanced) && body.skip_original !== true ? images[0] : null,
           strips, stripBounds: bounds, templateName: String(body.template_name || ""), fields: body.fields,
         });
         return new Response(JSON.stringify({ conversion: read }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

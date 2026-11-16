@@ -117,16 +117,21 @@ export function findPageCorners(g: Gray): Pt[] | null {
   }
   const frac = bestSize / (sw * sh);
   if (frac < 0.2) return null;
-  let tl = { x: 0, y: 0, v: Infinity }, br = { x: 0, y: 0, v: -Infinity };
-  let tr = { x: 0, y: 0, v: -Infinity }, bl = { x: 0, y: 0, v: Infinity };
+  // Corner = the region pixel farthest from the centre in each quadrant —
+  // works for pages turned up to ~40°, unlike x+y extremes.
+  let cx = 0, cy = 0;
+  for (let i = 0; i < label.length; i++) if (label[i] === bestLabel) { cx += i % sw; cy += Math.floor(i / sw); }
+  cx /= bestSize; cy /= bestSize;
+  const far = [0, 1, 2, 3].map(() => ({ x: cx, y: cy, v: -1 }));
   for (let i = 0; i < label.length; i++) {
     if (label[i] !== bestLabel) continue;
     const x = i % sw, y = (i - x) / sw;
-    if (x + y < tl.v) tl = { x, y, v: x + y };
-    if (x + y > br.v) br = { x, y, v: x + y };
-    if (x - y > tr.v) tr = { x, y, v: x - y };
-    if (x - y < bl.v) bl = { x, y, v: x - y };
+    const dx = x - cx, dy = y - cy;
+    const q = dy < 0 ? (dx < 0 ? 0 : 1) : (dx >= 0 ? 2 : 3); // TL, TR, BR, BL
+    const v = dx * dx + dy * dy;
+    if (v > far[q].v) far[q] = { x, y, v };
   }
+  const [tl, tr, br, bl] = far;
   const quad = [tl, tr, br, bl].map((p) => ({ x: (p.x + 0.5) / scale, y: (p.y + 0.5) / scale }));
   const area = Math.abs(quad.reduce((a, p, i) => { const q = quad[(i + 1) % 4]; return a + p.x * q.y - q.x * p.y; }, 0)) / 2;
   // A page that fills (almost) the whole frame gives no useful edges — keep
