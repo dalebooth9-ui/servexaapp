@@ -793,6 +793,8 @@ export default function JobScanReportDialog({
                 submissionIds: pages.map((p) => p.submissionId).filter(Boolean) as string[],
                 storagePaths: pages.map((p) => p.storagePath).filter(Boolean) as string[],
                 byName: await currentUserName(),
+                readFields: readIds,
+                unclearFields: uncertainIds,
               },
             }
           : {}),
