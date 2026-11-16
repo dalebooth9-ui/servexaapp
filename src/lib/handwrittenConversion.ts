@@ -213,7 +213,8 @@ export function classifyConversion(
     if (a?.box) out.boxes[f.id] = a.box;
     const ftype = String(f.type).toLowerCase();
     const isText = ["text", "textarea"].includes(ftype);
-    const bar = ftype === "text" ? Math.max(textMin, SHORT_TEXT_CONFIDENCE_MIN) : isText ? textMin : min;
+    const isNote = /comment|material|note|remark|issue/i.test(`${f.id} ${(f as any).label || ""}`);
+    const bar = ftype === "text" && !isNote ? Math.max(textMin, SHORT_TEXT_CONFIDENCE_MIN) : isText ? textMin : min;
     const confident = a && a.value !== null && a.confidence >= bar ? normaliseForField(f.type, a.value) : undefined;
     if (confident !== undefined && !(typeof confident === "string" && !confident.trim())) {
       out.values[f.id] = confident;

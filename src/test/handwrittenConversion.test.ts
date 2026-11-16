@@ -79,3 +79,19 @@ describe("classifyConversion", () => {
     expect(r.values.comments).toBe("bracket needs re-fitting");
   });
 });
+
+describe("short handwritten codes", () => {
+  it("cabinet key read at 0.9 is amber with a best guess", () => {
+    const r = classifyConversion(
+      { cabinet_keys: { value: "Jb", confidence: 0.9 } as any, valve: { value: "Male thread", confidence: 0.9 } as any },
+      [{ id: "cabinet_keys", type: "text", label: "Cabinet Keys" }, { id: "valve", type: "select", label: "Valve" }] as any,
+    );
+    expect(r.check).toContain("cabinet_keys");
+    expect(r.suggestions.cabinet_keys).toBeTruthy();
+    expect(r.read).toContain("valve");
+  });
+  it("very clear reading stays blue", () => {
+    const r = classifyConversion({ cabinet_keys: { value: "JD", confidence: 0.97 } as any }, [{ id: "cabinet_keys", type: "text", label: "Cabinet Keys" }] as any);
+    expect(r.read).toContain("cabinet_keys");
+  });
+});
