@@ -179,7 +179,7 @@ export default function JobScanReportDialog({
     if (!conversion) return;
     (async () => {
       // Common key types from this company's earlier reports (RLS-scoped).
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("job_sheet_responses")
         .select("cabinet_keys:responses->>cabinet_keys")
         .not("responses->>cabinet_keys", "is", null)
