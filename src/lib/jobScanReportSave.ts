@@ -1,3 +1,4 @@
+import { normalisePhotoPathForDedupe } from "@/lib/jobPhotos";
 // jobScanReportSave — confirm step for the job-scoped "Scan Paper Report" flow.
 //
 // The engineer is already standing on a known job, so there is no job matching,
@@ -38,6 +39,9 @@ export type SaveJobScanReportInput = {
     submissionIds: string[];
     storagePaths: string[];
     byName: string;
+    /** Fields read off the sheet / left unclear, kept for the office review highlight. */
+    readFields?: string[];
+    unclearFields?: string[];
   };
 };
 
@@ -141,7 +145,13 @@ export async function saveJobScanReport(
       by_user_id: userId,
       by_name: convertFrom.byName,
       at: nowIso,
+      read_fields: convertFrom.readFields || [],
+      unclear_fields: convertFrom.unclearFields || [],
     };
+    // The handwritten sheet is office evidence only — off under "Include on report".
+    const prev = Array.isArray(payload._site_photo_excluded) ? payload._site_photo_excluded : [];
+    const keys = convertFrom.storagePaths.map((sp) => normalisePhotoPathForDedupe(sp, jobId)).filter(Boolean);
+    payload._site_photo_excluded = Array.from(new Set([...prev, ...keys]));
     // The engineer on the sheet stays the person who did the inspection.
     const eng = String(header?.engineer || "").trim();
     if (eng && !payload.technician_name) payload.technician_name = eng;

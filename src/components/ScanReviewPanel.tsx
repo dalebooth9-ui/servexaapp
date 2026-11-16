@@ -33,6 +33,8 @@ interface Props {
   templateId?: string;
   /** Fields the reader wasn't sure about (left blank) — highlighted for checking. */
   uncertainFieldIds?: string[];
+  /** Fields the reader filled in from the sheet — highlighted so they can be checked. */
+  filledFieldIds?: string[];
   /** Overrides the confirm button text. */
   confirmLabel?: string;
 }
@@ -70,9 +72,11 @@ export default function ScanReviewPanel({
   jobId,
   templateId,
   uncertainFieldIds,
+  filledFieldIds,
   confirmLabel,
 }: Props) {
   const uncertain = new Set(uncertainFieldIds || []);
+  const filled = new Set((filledFieldIds || []).filter((id) => !uncertain.has(id)));
   const [zoom, setZoom] = useState(1);
   const [fields, setFields] = useState<Record<string, any>>({ ...extractedFields });
   const [header, setHeader] = useState<Record<string, any>>({ ...extractedHeader });
@@ -199,30 +203,24 @@ export default function ScanReviewPanel({
     if (field.type === "checkbox") {
       // If OCR returned a descriptive string (not a simple yes/no/true/false),
       // show a text input so the user can keep or edit the custom value.
-      const SIMPLE_CHECKBOX_TOKENS = new Set(["yes", "no", "true", "false", ""]);
-      const hasCustomValue =
-        typeof value === "string" &&
-        value.trim() !== "" &&
-        !SIMPLE_CHECKBOX_TOKENS.has(value.toLowerCase().trim());
-
-      if (hasCustomValue) {
-        return (
-          <Input
-            value={value || ""}
-            onChange={(e) => updateField(field.id, e.target.value)}
-            className="h-8 text-xs"
-            placeholder="Custom result"
-          />
-        );
+      // Tri-state YES / NO / N/A so "not read" (blank) stays visibly blank.
+      const sv = typeof value === "string" ? value.trim().toLowerCase() : value;
+      const current = sv === true || sv === "yes" ? "YES" : sv === false || sv === "no" ? "NO" : sv === "n/a" || sv === "na" ? "N/A" : sv === "no access" ? "NO ACCESS" : null;
+      if (typeof value === "string" && value.trim() && !current) {
+        return <Input value={value} onChange={(e) => updateField(field.id, e.target.value)} className="h-8 text-xs" placeholder="Custom result" />;
       }
-
+      const opts: Array<[string, any]> = [["YES", true], ["NO", false], ["N/A", "N/A"]];
+      if ((field.label || "").toLowerCase().includes("air release")) opts.push(["NO ACCESS", "NO ACCESS"]);
       return (
-        <div className="flex items-center gap-2">
-          <Checkbox
-            checked={value === "yes" || value === true || value === "Yes"}
-            onCheckedChange={(checked) => updateField(field.id, !!checked)}
-          />
-          <span className="text-xs text-muted-foreground">{value === true || value === "yes" || value === "Yes" ? "Yes" : "No"}</span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {opts.map(([label, v]) => (
+            <Button key={label} type="button" size="sm" variant={current === label ? "default" : "outline"} className="h-8 px-3 text-xs"
+              aria-pressed={current === label}
+              onClick={() => updateField(field.id, current === label ? undefined : v)}>
+              {label}
+            </Button>
+          ))}
+          {!current && <span className="text-[11px] text-muted-foreground">Not answered</span>}
         </div>
       );
     }
@@ -321,6 +319,9 @@ export default function ScanReviewPanel({
           {uncertain.size > 0 && (
             <Badge variant="outline" className="border-warning text-xs">{uncertain.size} to check</Badge>
           )}
+          {filled.size > 0 && (
+            <Badge variant="outline" className="border-primary/40 text-xs">{filled.size} read from sheet</Badge>
+          )}
         </div>
         <span className="text-xs text-muted-foreground">{templateName}</span>
       </div>
@@ -383,11 +384,15 @@ export default function ScanReviewPanel({
                       <div
                         key={field.id}
                         data-uncertain={uncertain.has(field.id) || undefined}
-                        className={uncertain.has(field.id) ? "rounded-md border border-warning bg-warning/10 p-2" : undefined}
+                        data-filled={filled.has(field.id) || undefined}
+                        className={uncertain.has(field.id) ? "rounded-md border border-warning bg-warning/10 p-2" : filled.has(field.id) ? "rounded-md border border-primary/40 bg-primary/5 p-2" : undefined}
                       >
                         <Label className="text-xs text-muted-foreground">{field.label}</Label>
                         {uncertain.has(field.id) && (
-                          <p className="text-[11px] font-medium text-foreground">Couldn't read this clearly — check the original and fill it in.</p>
+                          <p className="text-[11px] font-medium text-foreground">Check this — couldn't read it clearly. Look at the original and fill it in.</p>
+                        )}
+                        {filled.has(field.id) && (
+                          <p className="text-[11px] font-medium text-primary">Read from the sheet — check it matches.</p>
                         )}
                         <div className="mt-0.5">{renderFieldInput(field)}</div>
                         <div className="mt-1">

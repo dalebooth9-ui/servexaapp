@@ -37,3 +37,23 @@ describe("handwritten conversion", () => {
     expect(m.size).toBe(2);
   });
 });
+
+import { normaliseForField, normaliseAnswers, splitIssuesNote } from "@/lib/handwrittenConversion";
+describe("conversion fixes", () => {
+  it("maps ticked YES/NO/N/A to the form's checkbox values", () => {
+    expect(normaliseForField("checkbox", "yes")).toBe(true);
+    expect(normaliseForField("checkbox", "NO")).toBe(false);
+    expect(normaliseForField("checkbox", "n/a")).toBe("N/A");
+    expect(normaliseForField("checkbox", "smudge")).toBeUndefined();
+  });
+  it("flags marks it cannot map as unclear", () => {
+    const r = normaliseAnswers({ a: "yes", b: "?" }, [{ id: "a", type: "checkbox" }, { id: "b", type: "checkbox" }]);
+    expect(r.values.a).toBe(true);
+    expect(r.unclear).toEqual(["b"]);
+  });
+  it("puts the drain plug in materials and the bracket in comments", () => {
+    const r = splitIssuesNote("GF WALL BRACKET NEEDS RE-FITTING + MISSING DRAIN PLUG");
+    expect(r.materials).toEqual(["drain plug"]);
+    expect(r.comments).toBe("GF WALL BRACKET NEEDS RE-FITTING");
+  });
+});

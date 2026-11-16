@@ -8,6 +8,7 @@ import {loadSiteAccess} from '@/lib/siteAccess';
 import {accessNoteField} from '@/lib/siteAccessRules';
 import RiserLocationPicker from "@/components/assets/RiserLocationPicker";
 import OutletChecksPanel from "@/components/assets/OutletChecksPanel";
+import TranscribedOriginal from "@/components/reports/TranscribedOriginal";
 import { readOutletChecks, unresolvedOutlets, countChecked, OUTLET_REASONS } from "@/lib/outletChecks";
 import SiteRiserStickerList from "@/components/assets/SiteRiserStickerList";
 import { QRCodeSVG } from 'qrcode.react';
@@ -1930,6 +1931,9 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     ? [...new Set(activeTemplate.fields.filter((f) => !hiddenFieldIds(formData).includes(String(f.id)) && (!scanMode||!isScanPrivateField(f))).map((f) => f.section || "General"))]
     : [];
   const hiddenIds = hiddenFieldIds(formData);
+  const transcribedInfo = activeResponse?.status !== "submitted" ? (formData as any)?._transcribed_from : null;
+  const transcribedRead = new Set<string>(Array.isArray(transcribedInfo?.read_fields) ? transcribedInfo.read_fields : []);
+  const transcribedUnclear = new Set<string>(Array.isArray(transcribedInfo?.unclear_fields) ? transcribedInfo.unclear_fields : []);
 
   const omittedSections: string[] = Array.isArray((formData as any).__omitted_sections__)
     ? (formData as any).__omitted_sections__
@@ -2719,6 +2723,9 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                 </div>
               );
             })()}
+            {formData._transcribed_from && Array.isArray(formData._scan_image_paths) && (
+              <TranscribedOriginal info={formData._transcribed_from} paths={formData._scan_image_paths} />
+            )}
             {scanMode && <div className="border rounded-md p-3 text-sm space-y-1"><p className="font-semibold">{formData.site_name}</p><p>{formData.site_address}</p><p>{formData.job_reference} · {formData.riser_id} · {formData.riser_location}</p><p>{formData.outlets_count} outlets · {formData.inlets_count} inlet(s)</p></div>}
             {isRiserReport && (
               <OutletChecksPanel
@@ -2753,13 +2760,15 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                     <div
                       key={field.id}
                       data-field-id={field.id}
-                      className={`border-b border-border last:border-b-0 scroll-mt-24 ${lastVisitFieldIds.has(field.id) ? "bg-amber-50" : ""}`}
+                      className={`border-b border-border last:border-b-0 scroll-mt-24 ${lastVisitFieldIds.has(field.id) ? "bg-amber-50" : ""} ${transcribedUnclear.has(field.id) ? "bg-warning/10" : transcribedRead.has(field.id) ? "bg-primary/5" : ""}`}
                     >
                       <div className="grid grid-cols-[1fr,1fr]">
                         <div className="px-3 py-2 border-r border-border flex items-start">
                           <Label className="text-xs leading-tight">
                             {field.label}
                             {isFieldRequired(field) && <span className="text-destructive ml-0.5">*</span>}
+                            {transcribedUnclear.has(field.id) && <span className="ml-1 rounded bg-warning/20 px-1 py-0.5 text-[9px] font-semibold uppercase">check this</span>}
+                            {transcribedRead.has(field.id) && !transcribedUnclear.has(field.id) && <span className="ml-1 rounded bg-primary/10 px-1 py-0.5 text-[9px] font-semibold uppercase text-primary">from sheet</span>}
                             {lastVisitFieldIds.has(field.id) && (
                               <span className="ml-1 rounded bg-amber-200 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-900">
                                 from last visit

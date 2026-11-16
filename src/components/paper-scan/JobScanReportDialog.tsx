@@ -45,7 +45,7 @@ import {
 import ScanReviewPanel from "@/components/ScanReviewPanel";
 import { fileToScanPayload, runScanExtraction, withServerReason } from "@/lib/scanPipeline";
 import { saveJobScanReport } from "@/lib/jobScanReportSave";
-import { blankUncertainAnswers, fieldsToCheck, CONVERSION_CONFIDENCE_MIN } from "@/lib/handwrittenConversion";
+import { blankUncertainAnswers, fieldsToCheck, CONVERSION_CONFIDENCE_MIN, normaliseAnswers, splitIssuesNote, readFieldIds } from "@/lib/handwrittenConversion";
 import { loadJobRisers } from "@/lib/jobRisers";
 import { riserIdentityPrefill } from "@/lib/riserScanFlow";
 import { logError } from "@/lib/errorLogger";
@@ -170,6 +170,7 @@ export default function JobScanReportDialog({
 }: Props) {
   const conversion = Boolean(convertSources?.length);
   const [uncertainIds, setUncertainIds] = useState<string[]>([]);
+  const [readIds, setReadIds] = useState<string[]>([]);
   const { user } = useAuth();
   const { toast } = useToast();
   // Flip true once each mount-time fetch settles — the initial auto-process
@@ -552,7 +553,21 @@ export default function JobScanReportDialog({
   const finishConversionExtract = async (tpl: TemplateRow, result: any) => {
     const fields = (tpl.fields || []) as any[];
     const conf = (result.header?._field_confidence || {}) as Record<string, number>;
-    const { values, blanked } = blankUncertainAnswers(result.extracted || {}, conf, fields);
+    const kept = blankUncertainAnswers(result.extracted || {}, conf, fields);
+    // Map "yes"/"no"/"n/a" ticks to what the form stores; unmappable marks stay blank.
+    const norm = normaliseAnswers(kept.values, fields);
+    const values = norm.values;
+    const blanked = [...kept.blanked, ...norm.unclear];
+    // Issues note: materials go to Materials, the rest stays in Comments.
+    const hasMaterials = fields.some((f) => f.id === "materials_required");
+    if (hasMaterials && typeof values.comments === "string" && !String(values.materials_required || "").trim()) {
+      const split = splitIssuesNote(values.comments);
+      if (split.materials.length) {
+        values.materials_required = split.materials.join("\n");
+        values.comments = split.comments;
+      }
+    }
+    setReadIds(readFieldIds(values, fields));
     const fieldPrefill = buildJobSheetPrefill(fields as any, jobInfo as any, tpl.name);
     const jobPrefill: Record<string, any> = {};
     fields.forEach((f) => {
@@ -778,6 +793,8 @@ export default function JobScanReportDialog({
                 submissionIds: pages.map((p) => p.submissionId).filter(Boolean) as string[],
                 storagePaths: pages.map((p) => p.storagePath).filter(Boolean) as string[],
                 byName: await currentUserName(),
+                readFields: readIds,
+                unclearFields: uncertainIds,
               },
             }
           : {}),
@@ -1062,6 +1079,7 @@ export default function JobScanReportDialog({
               jobId={jobId}
               templateId={template.id}
               uncertainFieldIds={conversion ? uncertainIds : undefined}
+              filledFieldIds={conversion ? readIds : undefined}
               confirmLabel={conversion ? "Save as draft report" : undefined}
               onConfirm={handleConfirm}
               onRescan={() => {
