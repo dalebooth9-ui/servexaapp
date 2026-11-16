@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { transcriptionNote, TRANSCRIBED_KEY } from "@/lib/handwrittenConversion";
 import { loadCarriedRemedials, carriedReportFields } from "@/lib/defectCarryForward";
 import { Button } from "@/components/ui/button";
 import { Printer, Loader2, Download, Eye } from "lucide-react";
@@ -1421,7 +1422,7 @@ export async function generateJobSheetPdf(
     sigImages,
     engineerSig,
     customerSig,
-    technicianSourceNote: preloadedSignatures?.technicianSourceNote ?? null,
+    technicianSourceNote: preloadedSignatures?.technicianSourceNote ?? transcriptionNote((resolvedFormData as any)?.[TRANSCRIBED_KEY]),
     customerSourceNote: preloadedSignatures?.customerSourceNote ?? null,
   });
 

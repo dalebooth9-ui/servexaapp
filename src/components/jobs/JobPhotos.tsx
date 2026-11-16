@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { ConvertSource } from "@/components/paper-scan/JobScanReportDialog";
 import { TRANSCRIBED_KEY, convertedSourceMap } from "@/lib/handwrittenConversion";
 import { supabase } from "@/integrations/supabase/client";
+import { useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useFileUpload } from "@/hooks/useFileUpload";
@@ -9,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck,
+  FileText, Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck,
   FileImage, Upload, GripVertical, Trash2, CheckSquare, X, PlayCircle, Video, Mic, Wrench,
 } from "lucide-react";
 import PhotoLightbox, { type LightboxPhoto } from "@/components/PhotoLightbox";
@@ -297,6 +298,7 @@ export default function JobPhotos({ jobId, jobRef, siteId = null, engineers = []
   // ---- Convert handwritten sheets to digital reports (office only) ----
   const [convertedMap, setConvertedMap] = useState<Map<string, { responseId: string; status: string; templateId: string }>>(new Map());
   const [convertSources, setConvertSources] = useState<ConvertSource[] | null>(null);
+  const [, setSearchParams] = useSearchParams();
   const loadConverted = useCallback(async () => {
     const { data } = await supabase
       .from("job_sheet_responses")
@@ -326,10 +328,7 @@ export default function JobPhotos({ jobId, jobRef, siteId = null, engineers = []
     setConvertSources(usable.map((p) => ({ submissionId: p.submissionId!, storagePath: p.storagePath!, previewUrl: p.signedUrl! })));
   };
   const openConvertedReport = (info: { responseId: string; templateId: string; status: string }) => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("tab", "documents");
-    window.history.pushState({}, "", url.toString());
-    window.dispatchEvent(new PopStateEvent("popstate"));
+    setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set("tab", "documents"); return next; });
     const nonce = `converted-${info.responseId}-${Date.now()}`;
     let attempts = 0;
     const tryDispatch = () => {
