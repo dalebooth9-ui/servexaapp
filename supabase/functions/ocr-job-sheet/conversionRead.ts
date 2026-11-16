@@ -25,7 +25,7 @@ export type ConversionResult = {
   model: string;
 };
 
-const MODELS = ["google/gemini-3.1-pro-preview", "google/gemini-2.5-pro"];
+const MODELS = ["google/gemini-3.1-pro-preview", "google/gemini-3.8-flash"];
 const SKIP = new Set(["signature", "photo", "photos", "image", "heading", "section", "info", "file", "repeating_table"]);
 
 export const answerFields = (fields: Field[]) => (fields || []).filter((f) => !SKIP.has(String(f.type).toLowerCase()));
