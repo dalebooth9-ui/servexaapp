@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, CheckCircle2, Pencil, Check } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Pencil, Check, ChevronDown, CheckCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import PreviousReportPanel from "@/components/PreviousReportPanel";
 
@@ -37,6 +37,39 @@ interface Props {
   filledFieldIds?: string[];
   /** Overrides the confirm button text. */
   confirmLabel?: string;
+  /** Questions filled from the job's own details (not the sheet). */
+  fromJobFieldIds?: string[];
+  /** Reader's best guess for each "check this" question — one tap to accept. */
+  suggestions?: Record<string, any>;
+  /** Where each question sits on the cleaned page (% boxes) for zoomed crops. */
+  fieldBoxes?: Record<string, { x: number; y: number; w: number; h: number }>;
+  cropImageUrl?: string;
+  cropImageSize?: { w: number; h: number };
+}
+
+const showValue = (v: any) => (v === true ? "YES" : v === false ? "NO" : String(v ?? "").toUpperCase());
+
+/** A zoomed crop of one question's row from the cleaned photo. */
+function RowCrop({ url, size, box }: { url: string; size: { w: number; h: number }; box: { x: number; y: number; w: number; h: number } }) {
+  const padY = Math.max(1.5, box.h * 0.4);
+  const x = 0, w = 100;
+  const y = Math.max(0, box.y - padY);
+  const h = Math.min(100 - y, box.h + padY * 2);
+  const ratio = (w * size.w) / Math.max(1, h * size.h);
+  return (
+    <div
+      role="img"
+      aria-label="This line on the original sheet"
+      className="mt-1 w-full rounded border bg-muted"
+      style={{
+        aspectRatio: String(Math.max(3, Math.min(20, ratio))),
+        backgroundImage: `url(${url})`,
+        backgroundRepeat: "no-repeat",
+        backgroundSize: `${10000 / w}% ${10000 / h}%`,
+        backgroundPosition: `${x}% ${h >= 100 ? 0 : (y / (100 - h)) * 100}%`,
+      }}
+    />
+  );
 }
 
 // Simple similarity score (Dice coefficient on bigrams)
@@ -74,9 +107,18 @@ export default function ScanReviewPanel({
   uncertainFieldIds,
   filledFieldIds,
   confirmLabel,
+  fromJobFieldIds,
+  suggestions,
+  fieldBoxes,
+  cropImageUrl,
+  cropImageSize,
 }: Props) {
   const uncertain = new Set(uncertainFieldIds || []);
-  const filled = new Set((filledFieldIds || []).filter((id) => !uncertain.has(id)));
+  const [accepted, setAccepted] = useState(false);
+  const filledAll = new Set((filledFieldIds || []).filter((id) => !uncertain.has(id)));
+  const filled = accepted ? new Set<string>() : filledAll;
+  const fromJob = new Set(fromJobFieldIds || []);
+  const fieldRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [zoom, setZoom] = useState(1);
   const [fields, setFields] = useState<Record<string, any>>({ ...extractedFields });
   const [header, setHeader] = useState<Record<string, any>>({ ...extractedHeader });
@@ -139,6 +181,15 @@ export default function ScanReviewPanel({
   const updateField = (id: string, value: any) => {
     setFields((prev) => ({ ...prev, [id]: value }));
   };
+
+  const isBlankVal = (v: any) => v === undefined || v === null || (typeof v === "string" && v.trim() === "");
+  const ambersLeft = templateFields.filter((f) => uncertain.has(f.id) && isBlankVal(fields[f.id])).map((f) => f.id);
+  const goNextAmber = () => {
+    const id = ambersLeft[0];
+    const el = id ? fieldRefs.current[id] : null;
+    if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.querySelector<HTMLElement>("button, input")?.focus({ preventScroll: true }); }
+  };
+  const totalQuestions = uncertain.size + filledAll.size + fromJob.size;
 
   const updateNote = (id: string, value: string) => {
     setFieldNotes((prev) => ({ ...prev, [id]: value }));
@@ -316,15 +367,32 @@ export default function ScanReviewPanel({
           <Pencil className="h-4 w-4 text-primary" />
           <span className="text-sm font-semibold">Review & Confirm</span>
           <Badge variant="secondary" className="text-xs">{filledCount} fields extracted</Badge>
-          {uncertain.size > 0 && (
-            <Badge variant="outline" className="border-warning text-xs">{uncertain.size} to check</Badge>
-          )}
-          {filled.size > 0 && (
-            <Badge variant="outline" className="border-primary/40 text-xs">{filled.size} read from sheet</Badge>
+          {uncertainFieldIds ? (
+            <>
+              <Badge variant="outline" className="border-primary/40 text-xs">{filledAll.size} read from sheet</Badge>
+              <Badge variant="outline" className="border-warning text-xs">{uncertain.size} to check{uncertain.size ? ` (${ambersLeft.length} left)` : ""}</Badge>
+              {fromJob.size > 0 && <Badge variant="outline" className="text-xs">{fromJob.size} from job details</Badge>}
+              <span className="text-xs text-muted-foreground">= {totalQuestions} questions</span>
+            </>
+          ) : (
+            <>
+              {uncertain.size > 0 && <Badge variant="outline" className="border-warning text-xs">{uncertain.size} to check</Badge>}
+              {filled.size > 0 && <Badge variant="outline" className="border-primary/40 text-xs">{filled.size} read from sheet</Badge>}
+            </>
           )}
         </div>
         <span className="text-xs text-muted-foreground">{templateName}</span>
       </div>
+      {uncertainFieldIds && (
+        <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
+          <Button type="button" size="sm" variant="outline" className="min-h-9" disabled={accepted || filledAll.size === 0} onClick={() => setAccepted(true)}>
+            <CheckCheck className="mr-1.5 h-4 w-4" /> {accepted ? "Blue answers accepted" : `Accept all blue (${filledAll.size})`}
+          </Button>
+          <Button type="button" size="sm" className="min-h-9" disabled={ambersLeft.length === 0} onClick={goNextAmber}>
+            <ChevronDown className="mr-1.5 h-4 w-4" /> {ambersLeft.length ? `Next amber (${ambersLeft.length})` : "All amber checked"}
+          </Button>
+        </div>
+      )}
 
       {/* Two-panel layout */}
       <div className="flex flex-1 min-h-0">
@@ -333,7 +401,7 @@ export default function ScanReviewPanel({
           <ScrollArea className="h-full">
             <div className="p-3 space-y-2">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <p className="text-xs font-medium text-muted-foreground">Original Scan</p>
+                <p className="text-xs font-medium text-muted-foreground">{cropImageUrl ? "Cleaned-up copy, then the original photo" : "Original Scan"}</p>
                 <div className="flex items-center gap-1">
                   <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-xs" aria-label="Zoom out" disabled={zoom <= 1} onClick={() => setZoom((z) => Math.max(1, z - 0.5))}>−</Button>
                   <span className="w-10 text-center text-[11px] text-muted-foreground">{Math.round(zoom * 100)}%</span>
@@ -383,16 +451,33 @@ export default function ScanReviewPanel({
                     {sectionFields.map((field) => (
                       <div
                         key={field.id}
+                        ref={(el) => { fieldRefs.current[field.id] = el; }}
                         data-uncertain={uncertain.has(field.id) || undefined}
                         data-filled={filled.has(field.id) || undefined}
-                        className={uncertain.has(field.id) ? "rounded-md border border-warning bg-warning/10 p-2" : filled.has(field.id) ? "rounded-md border border-primary/40 bg-primary/5 p-2" : undefined}
+                        className={uncertain.has(field.id) ? (isBlankVal(fields[field.id]) ? "rounded-md border border-warning bg-warning/10 p-2" : "rounded-md border border-warning/40 p-2") : filled.has(field.id) ? "rounded-md border border-primary/40 bg-primary/5 p-2" : undefined}
                       >
                         <Label className="text-xs text-muted-foreground">{field.label}</Label>
                         {uncertain.has(field.id) && (
-                          <p className="text-[11px] font-medium text-foreground">Check this — couldn't read it clearly. Look at the original and fill it in.</p>
+                          <p className="text-[11px] font-medium text-foreground">
+                            {isBlankVal(fields[field.id]) ? "Check this — couldn't read it clearly." : "Checked."}
+                          </p>
+                        )}
+                        {uncertain.has(field.id) && suggestions && field.id in suggestions && isBlankVal(fields[field.id]) && (
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <span className="text-[11px] text-muted-foreground">Best guess: <strong className="text-foreground">{showValue(suggestions[field.id])}</strong></span>
+                            <Button type="button" size="sm" variant="outline" className="h-8 border-warning px-3 text-xs" onClick={() => updateField(field.id, suggestions[field.id])}>
+                              <Check className="mr-1 h-3.5 w-3.5" /> Accept
+                            </Button>
+                          </div>
+                        )}
+                        {uncertain.has(field.id) && cropImageUrl && cropImageSize && fieldBoxes?.[field.id] && (
+                          <RowCrop url={cropImageUrl} size={cropImageSize} box={fieldBoxes[field.id]} />
                         )}
                         {filled.has(field.id) && (
                           <p className="text-[11px] font-medium text-primary">Read from the sheet — check it matches.</p>
+                        )}
+                        {fromJob.has(field.id) && (
+                          <p className="text-[11px] text-muted-foreground">From the job's details.</p>
                         )}
                         <div className="mt-0.5">{renderFieldInput(field)}</div>
                         <div className="mt-1">

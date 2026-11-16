@@ -1,5 +1,6 @@
 import { resolveCaller } from "../_shared/callerOrg.ts";
 import { loadJobSourceImages } from "../_shared/jobSourceImages.ts";
+import { readHandwrittenSheet } from "./conversionRead.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -1094,6 +1095,25 @@ serve(async (req) => {
         });
       }
       images = loaded.images;
+      // Handwritten conversion: question-by-question read of the cleaned page
+      // (prepared in the browser from the same, company-checked photo).
+      if (body.conversion === true) {
+        const KEY = Deno.env.get("LOVABLE_API_KEY");
+        if (!KEY) throw new Error("LOVABLE_API_KEY is not configured");
+        const okImg = (x: any) => x && typeof x.image_base64 === "string" && x.image_base64.length < 12_000_000;
+        const enhanced = okImg(body.enhanced) ? body.enhanced : images[0];
+        const strips = (Array.isArray(body.strips) ? body.strips : []).filter(okImg).slice(0, 4);
+        const bounds = (Array.isArray(body.strip_bounds) ? body.strip_bounds : []).slice(0, 4)
+          .map((b: any) => ({ y: Number(b?.y) || 0, h: Number(b?.h) || 100 }));
+        if (!enhanced || !Array.isArray(body.fields)) {
+          return new Response(JSON.stringify({ error: "Missing photo or report questions" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        const read = await readHandwrittenSheet({
+          apiKey: KEY, enhanced, original: okImg(body.enhanced) && body.skip_original !== true ? images[0] : null,
+          strips, stripBounds: bounds, templateName: String(body.template_name || ""), fields: body.fields,
+        });
+        return new Response(JSON.stringify({ conversion: read }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
     }
     const { template_name, fields } = body;
     images = images.filter((img) => {

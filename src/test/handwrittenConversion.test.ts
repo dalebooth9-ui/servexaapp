@@ -57,3 +57,25 @@ describe("conversion fixes", () => {
     expect(r.comments).toBe("GF WALL BRACKET NEEDS RE-FITTING");
   });
 });
+
+import { classifyConversion } from "@/lib/handwrittenConversion";
+describe("classifyConversion", () => {
+  const fields = [
+    { id: "inlet", type: "checkbox" }, { id: "signs", type: "checkbox" }, { id: "valve", type: "select" },
+    { id: "comments", type: "text" }, { id: "materials_required", type: "text" }, { id: "sig", type: "signature" },
+  ];
+  it("every question is read or flagged, and counts add up", () => {
+    const r = classifyConversion({
+      inlet: { field_id: "inlet", value: "yes", best_guess: "yes", confidence: 0.9, box: null },
+      signs: { field_id: "signs", value: null, best_guess: "no", confidence: 0.4, box: { x: 0, y: 10, w: 100, h: 4 } },
+      comments: { field_id: "comments", value: "bracket needs re-fitting + missing drain plug", best_guess: null, confidence: 0.9, box: null },
+    }, fields);
+    expect(r.values.inlet).toBe(true);
+    expect(r.suggestions.signs).toBe(false);
+    expect(r.check).toContain("signs");
+    expect(r.check).toContain("valve");
+    expect(r.read.length + r.check.length).toBe(5);
+    expect(r.values.materials_required).toBe("drain plug");
+    expect(r.values.comments).toBe("bracket needs re-fitting");
+  });
+});

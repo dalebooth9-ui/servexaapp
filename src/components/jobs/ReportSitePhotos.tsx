@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useLiveJobPhotos } from "@/hooks/useLiveJobPhotos";
-import { createSubmissionPhotoSignedUrl, type JobPhoto } from "@/lib/jobPhotos";
+import { createSubmissionPhotoSignedUrl, normalisePhotoPathForDedupe, type JobPhoto } from "@/lib/jobPhotos";
 import { formatTaken, isCustomerBlocked, sitePhotoKey } from "@/lib/reportSitePhotos";
 
 type Props = {
@@ -12,6 +12,8 @@ type Props = {
   excluded: string[];
   onChange?: (next: string[]) => void;
   readOnly?: boolean;
+  /** Storage paths of handwritten sheets this report was transcribed from. */
+  handwrittenPaths?: string[];
 };
 
 function Thumb({ photo, jobId }: { photo: JobPhoto; jobId: string }) {
@@ -35,9 +37,13 @@ function Thumb({ photo, jobId }: { photo: JobPhoto; jobId: string }) {
   );
 }
 
-export default function ReportSitePhotos({ jobId, excluded, onChange, readOnly }: Props) {
+export default function ReportSitePhotos({ jobId, excluded, onChange, readOnly, handwrittenPaths }: Props) {
   const { photos, loading } = useLiveJobPhotos(jobId);
   const excludedSet = useMemo(() => new Set(excluded), [excluded]);
+  const handwrittenSet = useMemo(
+    () => new Set((handwrittenPaths || []).map((sp) => normalisePhotoPathForDedupe(sp, jobId)).filter(Boolean)),
+    [handwrittenPaths, jobId],
+  );
   const selectable = photos.filter((p) => !isCustomerBlocked(p));
   const includedCount = selectable.filter((p) => !excludedSet.has(sitePhotoKey(p, jobId))).length;
 
@@ -77,6 +83,9 @@ export default function ReportSitePhotos({ jobId, excluded, onChange, readOnly }
               <div key={p.id} className={`space-y-1.5 ${on ? "" : "opacity-60"}`}>
                 <Thumb photo={p} jobId={jobId} />
                 <p className="text-[11px] text-muted-foreground">{formatTaken(p.createdAt)}{p.source === "whatsapp" ? " · WhatsApp" : ""}</p>
+                {handwrittenSet.has(sitePhotoKey(p, jobId)) && (
+                  <p className="flex items-center gap-1 text-[11px] font-medium text-foreground"><Lock className="h-3 w-3" /> Handwritten original (office only)</p>
+                )}
                 {blocked ? (
                   <p className="flex min-h-10 items-center gap-1.5 text-[11px] text-muted-foreground"><Lock className="h-3.5 w-3.5" /> Scanned sheet — office only</p>
                 ) : (
