@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { createSubmissionPhotoSignedUrl } from "@/lib/jobPhotos";
 import PhotoLightbox from "@/components/PhotoLightbox";
+import ReportDefectSuggestions from "@/components/jobs/ReportDefectSuggestions";
 import { batchQuoteDefects, attachDefectsToQuote, listOpenQuotes, type OpenQuote } from "@/lib/defectQuoting";
 
 
@@ -343,6 +344,8 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
             )}
           </div>
         )}
+
+        <ReportDefectSuggestions jobId={jobId} onCreated={fetchDefects} />
 
         <div className="flex flex-wrap justify-between items-center gap-2">
           <p className="text-xs text-muted-foreground max-w-md">Track deficiencies found on this job. Logged defects appear in the global Defects page for batch quoting.</p>

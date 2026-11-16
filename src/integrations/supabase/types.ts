@@ -2394,6 +2394,7 @@ export type Database = {
           site_id: string | null
           site_visit_report_id: string | null
           source_archived_document_id: string | null
+          source_key: string | null
           source_kind: string
           source_response_id: string | null
           status: string
@@ -2433,6 +2434,7 @@ export type Database = {
           site_id?: string | null
           site_visit_report_id?: string | null
           source_archived_document_id?: string | null
+          source_key?: string | null
           source_kind?: string
           source_response_id?: string | null
           status?: string
@@ -2472,6 +2474,7 @@ export type Database = {
           site_id?: string | null
           site_visit_report_id?: string | null
           source_archived_document_id?: string | null
+          source_key?: string | null
           source_kind?: string
           source_response_id?: string | null
           status?: string
@@ -9031,6 +9034,41 @@ export type Database = {
           },
         ]
       }
+      report_defect_dismissals: {
+        Row: {
+          created_at: string
+          dismissed_by: string | null
+          id: string
+          org_id: string
+          response_id: string
+          source_key: string
+        }
+        Insert: {
+          created_at?: string
+          dismissed_by?: string | null
+          id?: string
+          org_id: string
+          response_id: string
+          source_key: string
+        }
+        Update: {
+          created_at?: string
+          dismissed_by?: string | null
+          id?: string
+          org_id?: string
+          response_id?: string
+          source_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_defect_dismissals_response_id_fkey"
+            columns: ["response_id"]
+            isOneToOne: false
+            referencedRelation: "job_sheet_responses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_review_events: {
         Row: {
           action: string
@@ -11983,6 +12021,10 @@ export type Database = {
           was_new: boolean
         }[]
       }
+      confirm_report_defect_suggestions: {
+        Args: { _dismiss?: string[]; _items: Json; _response_id: string }
+        Returns: number
+      }
       count_org_staff_users: { Args: { _org_id: string }; Returns: number }
       count_seed_test_jobs: {
         Args: never
@@ -12364,6 +12406,7 @@ export type Database = {
           site_id: string | null
           site_visit_report_id: string | null
           source_archived_document_id: string | null
+          source_key: string | null
           source_kind: string
           source_response_id: string | null
           status: string
