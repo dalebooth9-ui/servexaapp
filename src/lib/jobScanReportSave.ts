@@ -16,6 +16,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { buildOrgPath, getCurrentOrgId } from "@/lib/orgStoragePath";
 import { buildDurableRef } from "@/lib/durableStorageRef";
+import { TRANSCRIBED_KEY } from "@/lib/handwrittenConversion";
 
 export type SaveJobScanReportInput = {
   jobId: string;
@@ -30,6 +31,14 @@ export type SaveJobScanReportInput = {
   header: Record<string, any>;
   /** Optional per-field reviewer notes from the review panel. */
   fieldNotes?: Record<string, string>;
+  /** "Convert to digital report": the original photos are already on the job
+   *  (kept as evidence). Nothing is re-uploaded and the report stays a DRAFT
+   *  until a person submits it. */
+  convertFrom?: {
+    submissionIds: string[];
+    storagePaths: string[];
+    byName: string;
+  };
 };
 
 export type SaveJobScanReportResult = {
@@ -62,6 +71,7 @@ export async function saveJobScanReport(
     responses,
     header,
     fieldNotes,
+    convertFrom,
   } = input;
 
   const stamp = Date.now();
@@ -82,7 +92,7 @@ export async function saveJobScanReport(
   }
 
   // ── A) original scan pages → submissions ───────────────────────────────
-  for (let i = 0; i < images.length; i++) {
+  for (let i = 0; i < (convertFrom ? 0 : images.length); i++) {
     const file = images[i];
     const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
     const fileName = `paper-report-${slug}-p${i + 1}-${stamp}.${ext}`;
@@ -117,13 +127,25 @@ export async function saveJobScanReport(
   }
 
   // ── B) extracted fields → job_sheet_responses ──────────────────────────
+  const nowIso = new Date().toISOString();
   const payload: Record<string, any> = {
     ...responses,
-    _scan_source: "paper_scan_job_page",
+    _scan_source: convertFrom ? "job_media_conversion" : "paper_scan_job_page",
     _scan_header: header || {},
-    _scan_image_paths: storedPaths,
-    _scan_captured_at: new Date().toISOString(),
+    _scan_image_paths: convertFrom ? convertFrom.storagePaths : storedPaths,
+    _scan_captured_at: nowIso,
   };
+  if (convertFrom) {
+    payload[TRANSCRIBED_KEY] = {
+      submission_ids: convertFrom.submissionIds,
+      by_user_id: userId,
+      by_name: convertFrom.byName,
+      at: nowIso,
+    };
+    // The engineer on the sheet stays the person who did the inspection.
+    const eng = String(header?.engineer || "").trim();
+    if (eng && !payload.technician_name) payload.technician_name = eng;
+  }
   const notes = Object.fromEntries(
     Object.entries(fieldNotes || {}).filter(([, v]) => String(v || "").trim()),
   );
@@ -139,8 +161,9 @@ export async function saveJobScanReport(
         template_id: templateId,
         responses: payload as any,
         submitted_by: userId,
-        status: "submitted",
-        submitted_at: new Date().toISOString(),
+        ...(convertFrom
+          ? { status: "draft" }
+          : { status: "submitted", submitted_at: nowIso }),
       } as any)
       .select("id")
       .single();

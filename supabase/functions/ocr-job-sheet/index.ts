@@ -1,4 +1,5 @@
 import { resolveCaller } from "../_shared/callerOrg.ts";
+import { loadJobSourceImages } from "../_shared/jobSourceImages.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -1081,6 +1082,18 @@ serve(async (req) => {
       images = body.images;
     } else if (body.image_base64) {
       images = [{ image_base64: body.image_base64, mime_type: body.mime_type }];
+    }
+    // Job media conversion: the server loads the files itself, only after the
+    // caller's company is confirmed to own the job and every file.
+    if (body.source && !writeBack?.item_id) {
+      const loaded = await loadJobSourceImages(req, body.source);
+      if ("error" in loaded) {
+        return new Response(JSON.stringify({ error: loaded.error }), {
+          status: loaded.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      images = loaded.images;
     }
     const { template_name, fields } = body;
     images = images.filter((img) => {

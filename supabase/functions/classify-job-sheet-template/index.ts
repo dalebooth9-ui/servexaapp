@@ -3,6 +3,7 @@
 // Used by the admin "Scan Paper Report" backfill flow.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { loadJobSourceImages } from "../_shared/jobSourceImages.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,12 +70,22 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const images: { image_base64: string; mime_type?: string }[] =
+    let images: { image_base64: string; mime_type?: string }[] =
       Array.isArray(body.images)
         ? body.images
         : body.image_base64
           ? [{ image_base64: body.image_base64, mime_type: body.mime_type }]
           : [];
+    if (body.source) {
+      const loaded = await loadJobSourceImages(req, body.source);
+      if ("error" in loaded) {
+        return new Response(JSON.stringify({ error: loaded.error }), {
+          status: loaded.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      images = loaded.images;
+    }
 
     if (images.length === 0) {
       return new Response(

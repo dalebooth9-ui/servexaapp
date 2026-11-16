@@ -44,6 +44,8 @@ const RULES: SlugRule[] = [
   // Online reports keep compressed phone copies until complete server read-back;
   // failed sends offer Retry and are logged after reconnection. Saved sheets enter
   // Reports to check without needing whole-job completion; reload restores durable drafts.
+  // Photos tab: office-only "Convert to digital report" turns handwritten report
+  // photos into a reviewed DRAFT report (unclear answers left blank) — see jobs.photos.
   { test: (p) => /^\/jobs\/[^/]+$/.test(p), slug: "jobs.detail" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/rams"), slug: "rams" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/site-visit-report"), slug: "site-visit-report" },
