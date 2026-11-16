@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ConvertSource } from "@/components/paper-scan/JobScanReportDialog";
+import { TRANSCRIBED_KEY, convertedSourceMap } from "@/lib/handwrittenConversion";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -35,6 +37,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+const JobScanReportDialog = lazy(() => import("@/components/paper-scan/JobScanReportDialog"));
 
 type Source = "whatsapp" | "app" | "defect" | "checklist" | "document";
 
@@ -80,6 +84,9 @@ function SortablePhotoTile({
   tags,
   hasRemedial,
   onToggleTag,
+  onConvert,
+  converted,
+  onOpenConverted,
 }: {
   photo: PhotoItem;
   onOpen: () => void;
@@ -93,6 +100,10 @@ function SortablePhotoTile({
   tags: PhotoTag[];
   hasRemedial: boolean;
   onToggleTag: (tag: PhotoTag, next: boolean) => Promise<void>;
+  /** Office-only: turn this handwritten sheet into a draft digital report. */
+  onConvert?: () => void;
+  converted?: { responseId: string; status: string } | null;
+  onOpenConverted?: () => void;
 }) {
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -176,6 +187,17 @@ function SortablePhotoTile({
           {photo.submissionId && (
             <PhotoTagPicker tags={allTags} selectedIds={tags.map((t) => t.id)} onToggle={onToggleTag} />
           )}
+          {onConvert && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onConvert(); }}
+              className="rounded p-1 text-white hover:bg-white/15 transition"
+              aria-label={converted ? "Convert to digital report again" : "Convert to digital report"}
+              title={converted ? "Convert to digital report again" : "Convert to digital report"}
+            >
+              <FileText className="h-3.5 w-3.5" />
+            </button>
+          )}
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onDownload(); }}
@@ -195,6 +217,17 @@ function SortablePhotoTile({
             </button>
           )}
         </div>
+      )}
+
+      {converted && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onOpenConverted?.(); }}
+          className="absolute left-1.5 top-10 rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground shadow-sm hover:opacity-90"
+          title={converted.status === "submitted" ? "Converted — open the report" : "Converted — open the draft report"}
+        >
+          Converted{converted.status === "submitted" ? "" : " · draft"}
+        </button>
       )}
 
       {hasRemedial && (
@@ -261,6 +294,58 @@ export default function JobPhotos({ jobId, jobRef, siteId = null, engineers = []
   const [tagMatchIds, setTagMatchIds] = useState<Set<string> | null>(null);
   const [remedialSubIds, setRemedialSubIds] = useState<Set<string>>(new Set());
   const [remedialTarget, setRemedialTarget] = useState<PhotoItem | null>(null);
+  // ---- Convert handwritten sheets to digital reports (office only) ----
+  const [convertedMap, setConvertedMap] = useState<Map<string, { responseId: string; status: string; templateId: string }>>(new Map());
+  const [convertSources, setConvertSources] = useState<ConvertSource[] | null>(null);
+  const loadConverted = useCallback(async () => {
+    const { data } = await supabase
+      .from("job_sheet_responses")
+      .select("id, template_id, status, created_at, responses")
+      .eq("job_id", jobId)
+      .is("archived_at", null)
+      .not(`responses->${TRANSCRIBED_KEY}`, "is", null);
+    const rows = (data as any[]) || [];
+    const tpl = new Map(rows.map((r) => [r.id, r.template_id as string]));
+    const m = convertedSourceMap(rows);
+    setConvertedMap(new Map([...m].map(([k, v]) => [k, { ...v, templateId: tpl.get(v.responseId) || "" }])));
+  }, [jobId]);
+  useEffect(() => { void loadConverted(); }, [loadConverted]);
+  const canConvert = (p: PhotoItem) =>
+    !!isAdmin && !!p.submissionId && !!p.storagePath && !!p.signedUrl &&
+    !isVideoFile(p.fileName || "") && !isAudioFile(p.fileName || "");
+  const startConvert = (list: PhotoItem[]) => {
+    const usable = list.filter(canConvert);
+    if (usable.length === 0) {
+      toast({ title: "Nothing to convert", description: "Choose photos or scanned documents of the paper sheet.", variant: "destructive" });
+      return;
+    }
+    if (usable.length > 8) {
+      toast({ title: "Too many pages", description: "Convert up to 8 pages of one sheet at a time.", variant: "destructive" });
+      return;
+    }
+    setConvertSources(usable.map((p) => ({ submissionId: p.submissionId!, storagePath: p.storagePath!, previewUrl: p.signedUrl! })));
+  };
+  const openConvertedReport = (info: { responseId: string; templateId: string; status: string }) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", "documents");
+    window.history.pushState({}, "", url.toString());
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    const nonce = `converted-${info.responseId}-${Date.now()}`;
+    let attempts = 0;
+    const tryDispatch = () => {
+      attempts++;
+      const detail: Record<string, unknown> = {
+        jobId,
+        templateId: info.templateId,
+        responseId: info.responseId,
+        mode: info.status === "submitted" ? "view" : "continue",
+        nonce,
+      };
+      window.dispatchEvent(new CustomEvent("job-sheet:fill-online", { detail }));
+      if (!detail.handled && attempts < 20) setTimeout(tryDispatch, 250);
+    };
+    setTimeout(tryDispatch, 100);
+  };
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
@@ -1020,7 +1105,18 @@ export default function JobPhotos({ jobId, jobRef, siteId = null, engineers = []
           <span className="text-muted-foreground">
             {selected.size} selected
           </span>
-          <div className="ml-auto">
+          <div className="ml-auto flex flex-wrap gap-2">
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={selected.size === 0}
+                onClick={() => startConvert(selectedItems)}
+                className="h-8"
+              >
+                <FileText className="mr-1.5 h-4 w-4" /> Convert to digital report
+              </Button>
+            )}
             <Button
               size="sm"
               variant="destructive"
@@ -1063,11 +1159,29 @@ export default function JobPhotos({ jobId, jobRef, siteId = null, engineers = []
                   tags={(p.submissionId && tagMap[p.submissionId]) || []}
                   hasRemedial={!!p.submissionId && remedialSubIds.has(p.submissionId)}
                   onToggleTag={(tag, next) => toggleTagOnPhoto(p, tag, next)}
+                  onConvert={canConvert(p) ? () => startConvert([p]) : undefined}
+                  converted={(p.submissionId && convertedMap.get(p.submissionId)) || null}
+                  onOpenConverted={() => {
+                    const info = p.submissionId && convertedMap.get(p.submissionId);
+                    if (info) openConvertedReport(info);
+                  }}
                 />
               ))}
             </div>
           </SortableContext>
         </DndContext>
+      )}
+
+      {convertSources && (
+        <Suspense fallback={null}>
+          <JobScanReportDialog
+            jobId={jobId}
+            open
+            convertSources={convertSources}
+            onOpenChange={(o) => { if (!o) setConvertSources(null); }}
+            onConverted={() => { void loadConverted(); }}
+          />
+        </Suspense>
       )}
 
       <PhotoLightbox
