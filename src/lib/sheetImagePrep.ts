@@ -270,7 +270,8 @@ export function cleanSheet(g: Gray, outLong = 1800): { page: Gray; quality: Shee
   }
   let enhanced = enhance(page);
   const skew = estimateSkew(enhanced);
-  if (Math.abs(skew) >= 0.5) enhanced = rotateGray(padGray(enhanced, Math.ceil(Math.max(enhanced.w, enhanced.h) * Math.sin((Math.abs(skew) * Math.PI) / 180) * 0.6) + 4), -skew);
+  // An estimate at the search limit means the lines were ambiguous — leave it.
+  if (Math.abs(skew) >= 0.5 && Math.abs(skew) < 5.5) enhanced = rotateGray(padGray(enhanced, Math.ceil(Math.max(enhanced.w, enhanced.h) * Math.sin((Math.abs(skew) * Math.PI) / 180) * 0.6) + 4), -skew);
   return { page: enhanced, quality: measureQuality(g, Boolean(corners), skew) };
 }
 
