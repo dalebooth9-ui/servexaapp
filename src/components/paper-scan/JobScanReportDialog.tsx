@@ -174,6 +174,25 @@ export default function JobScanReportDialog({
   const [readIds, setReadIds] = useState<string[]>([]);
   const [fromJobIds, setFromJobIds] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<Record<string, any>>({});
+  const [cabinetKeyChoices, setCabinetKeyChoices] = useState<string[]>([]);
+  useEffect(() => {
+    if (!conversion) return;
+    (async () => {
+      // Common key types from this company's earlier reports (RLS-scoped).
+      const { data } = await supabase
+        .from("job_sheet_responses")
+        .select("cabinet_keys:responses->>cabinet_keys")
+        .not("responses->>cabinet_keys", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      const counts = new Map<string, number>();
+      for (const r of (data || []) as any[]) {
+        const v = String(r.cabinet_keys || "").trim().toUpperCase();
+        if (v && v.length <= 12) counts.set(v, (counts.get(v) || 0) + 1);
+      }
+      setCabinetKeyChoices([...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([v]) => v));
+    })();
+  }, [conversion]);
   const [boxes, setBoxes] = useState<Record<string, { x: number; y: number; w: number; h: number }>>({});
   const [prepared, setPrepared] = useState<PreparedSheet | null>(null);
   const { user } = useAuth();
@@ -1132,6 +1151,7 @@ export default function JobScanReportDialog({
               fromJobFieldIds={conversion ? fromJobIds : undefined}
               suggestions={conversion ? suggestions : undefined}
               fieldBoxes={conversion ? boxes : undefined}
+              fieldChoices={conversion && cabinetKeyChoices.length ? { cabinet_keys: cabinetKeyChoices } : undefined}
               cropImageUrl={conversion ? prepared?.enhancedUrl : undefined}
               cropImageSize={conversion && prepared ? { w: prepared.width, h: prepared.height } : undefined}
               confirmLabel={conversion ? "Save as draft report" : undefined}

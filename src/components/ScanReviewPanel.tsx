@@ -44,6 +44,8 @@ interface Props {
   /** Where each question sits on the cleaned page (% boxes) for zoomed crops. */
   fieldBoxes?: Record<string, { x: number; y: number; w: number; h: number }>;
   cropImageUrl?: string;
+  /** One-tap common values per question (e.g. this company's cabinet key types). */
+  fieldChoices?: Record<string, string[]>;
   cropImageSize?: { w: number; h: number };
 }
 
@@ -112,6 +114,7 @@ export default function ScanReviewPanel({
   fieldBoxes,
   cropImageUrl,
   cropImageSize,
+  fieldChoices,
 }: Props) {
   const uncertain = new Set(uncertainFieldIds || []);
   const [accepted, setAccepted] = useState(false);
@@ -468,6 +471,18 @@ export default function ScanReviewPanel({
                             <Button type="button" size="sm" variant="outline" className="h-8 border-warning px-3 text-xs" onClick={() => updateField(field.id, suggestions[field.id])}>
                               <Check className="mr-1 h-3.5 w-3.5" /> Accept
                             </Button>
+                          </div>
+                        )}
+                        {uncertain.has(field.id) && isBlankVal(fields[field.id]) && (fieldChoices?.[field.id]?.length ?? 0) > 0 && (
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <span className="text-[11px] text-muted-foreground">Used before:</span>
+                            {fieldChoices![field.id]
+                              .filter((c) => !(suggestions && String(suggestions[field.id] ?? "").trim().toUpperCase() === c))
+                              .map((c) => (
+                                <Button key={c} type="button" size="sm" variant="outline" className="h-8 px-3 text-xs" onClick={() => updateField(field.id, c)}>
+                                  {c}
+                                </Button>
+                              ))}
                           </div>
                         )}
                         {uncertain.has(field.id) && cropImageUrl && cropImageSize && fieldBoxes?.[field.id] && (
