@@ -45,7 +45,7 @@ import {
 import ScanReviewPanel from "@/components/ScanReviewPanel";
 import { fileToScanPayload, runScanExtraction, withServerReason } from "@/lib/scanPipeline";
 import { saveJobScanReport } from "@/lib/jobScanReportSave";
-import { blankUncertainAnswers, fieldsToCheck, CONVERSION_CONFIDENCE_MIN } from "@/lib/handwrittenConversion";
+import { blankUncertainAnswers, fieldsToCheck, CONVERSION_CONFIDENCE_MIN, normaliseAnswers, splitIssuesNote, readFieldIds } from "@/lib/handwrittenConversion";
 import { loadJobRisers } from "@/lib/jobRisers";
 import { riserIdentityPrefill } from "@/lib/riserScanFlow";
 import { logError } from "@/lib/errorLogger";
