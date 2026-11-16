@@ -187,7 +187,7 @@ export default function JobScanReportDialog({
   // Debug: test edge function reachability on mount. Keep the result visible
   // in the upload screen so an engineer can report it without device logs.
   useEffect(() => {
-    if (!open) return;
+    if (!open || conversion) return;
     (async () => {
       try {
         const { error: fnErr } = await supabase.functions.invoke("ocr-job-sheet", {
@@ -851,6 +851,7 @@ export default function JobScanReportDialog({
         {!conversion && <>
         Photograph the completed paper sheet. It's filed on this job as a
         document and turned into a digital report you can check first.
+        </>}
       </DialogDescription>
     </DialogHeader>
   );
