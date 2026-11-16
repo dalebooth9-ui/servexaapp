@@ -2065,6 +2065,82 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   const latestRams = ramsResponses[0];
   const latestRamsTpl = latestRams ? ramsTemplates.find((t) => t.id === latestRams.template_id) : null;
 
+  const scanExtracted = (tpl: Template) => (data: Record<string, any>) => {
+                        handleStartForm(tpl);
+                        setFormData((prev) => {
+                          const merged = { ...prev };
+                          const extracted = data as Record<string, any>;
+
+                          // For drain / drop-leg fields, default to YES unless the scan returns an explicit false value
+                          tpl.fields.forEach((field) => {
+                            const lbl = field.label.toLowerCase();
+                            const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
+                            if (!isDrainField) return;
+
+                            const raw = extracted[field.id];
+                            const normalized = typeof raw === "string" ? raw.toLowerCase().trim() : raw;
+                            const isYesNoSelect =
+                              !!field.options &&
+                              field.options.length <= 3 &&
+                              field.options.some((opt) => opt.toLowerCase() === "yes") &&
+                              field.options.some((opt) => opt.toLowerCase() === "no");
+                            const isExplicitNo = raw === false || normalized === "false";
+
+                            merged[field.id] = isExplicitNo
+                              ? (field.type === "checkbox" ? false : isYesNoSelect ? "NO" : false)
+                              : (field.type === "checkbox" ? true : isYesNoSelect ? "YES" : true);
+                          });
+
+                          // For outlet-related fields, map N/A from the scanned sheet to a positive value (good condition)
+                          const outletMappedFieldIds = new Set<string>();
+                          tpl.fields.forEach((field) => {
+                            const lbl = field.label.toLowerCase();
+                            const isOutletField = lbl.includes("outlet") && (lbl.includes("condition") || lbl.includes("good") || lbl.includes("cabinet") || lbl.includes("cap") || lbl.includes("valve") || lbl.includes("operational"));
+                            if (!isOutletField) return;
+
+                            const raw = extracted[field.id];
+                            const normalized = typeof raw === "string" ? raw.toLowerCase().trim() : raw;
+                            // Preserve descriptive text like "NOT VISIBLE" as-is
+                            if (typeof normalized === "string" && (normalized.includes("not visible") || normalized.includes("not installed"))) {
+                              merged[field.id] = raw;
+                              outletMappedFieldIds.add(field.id);
+                            } else if (normalized === "n/a" || normalized === "na") {
+                              const isYesNoSelect =
+                                !!field.options &&
+                                field.options.some((opt) => opt.toLowerCase() === "yes") &&
+                                field.options.some((opt) => opt.toLowerCase() === "no");
+                              const isSatSelect =
+                                !!field.options &&
+                                field.options.some((opt) => opt.toLowerCase() === "satisfactory");
+                              if (isYesNoSelect) {
+                                merged[field.id] = "YES";
+                                outletMappedFieldIds.add(field.id);
+                              } else if (isSatSelect) {
+                                merged[field.id] = "Satisfactory";
+                                outletMappedFieldIds.add(field.id);
+                              } else if (field.type === "pass_fail") {
+                                merged[field.id] = "pass";
+                                outletMappedFieldIds.add(field.id);
+                              } else if (field.type === "checkbox") {
+                                merged[field.id] = true;
+                                outletMappedFieldIds.add(field.id);
+                              }
+                            }
+                          });
+
+                          Object.entries(extracted).forEach(([key, value]) => {
+                            const field = tpl.fields.find((f) => f.id === key);
+                            const lbl = field?.label.toLowerCase() || "";
+                            const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
+                            const isBlankish = value === "" || value == null || String(value).toLowerCase() === "undefined";
+                            if (!isDrainField && !isBlankish && !outletMappedFieldIds.has(key)) {
+                              merged[key] = value;
+                            }
+                          });
+                          return merged;
+                        });
+  };
+
   // Main list view
   return (
     <>
@@ -2382,199 +2458,80 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
             if (visibleTemplates.length === 0 && userRole !== "admin" && publishedNonRams.length > 0) {
               visibleTemplates = publishedNonRams as any;
             }
-            // Admins see all templates; show a badge indicating job category restriction
-            if (visibleTemplates.length > 0) {
+            visibleTemplates = visibleJobTemplates(visibleTemplates as any) as any;
+            const typeSet = !!(jobInfo?.category && String(jobInfo.category).trim());
+            if (visibleTemplates.length === 0) return null;
+            if (typeSet && !showAddReport) {
               return (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Available Templates</p>
-                  <div className="rounded-md border divide-y">
-                  {visibleTemplates.map((tpl) => (
-                <div
-                  key={tpl.id}
-                  className="flex items-center justify-between px-3 py-2 min-h-[38px]"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <ClipboardCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <span className="text-sm font-medium truncate">{tpl.name}</span>
-                    <span className="text-[10px] text-muted-foreground shrink-0">{tpl.fields.length} fields</span>
-                    {userRole === "admin" && (tpl as any).job_category && (
-                      <Badge variant="outline" className="text-[10px] h-4 shrink-0">{(tpl as any).job_category.replace(/_/g, " ")}</Badge>
-                    )}
-                    {userRole === "admin" && ((tpl as any).status ?? "published") === "draft" && (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] h-4 shrink-0 bg-amber-50 text-amber-700 border-amber-200"
-                        title="Draft — hidden from new jobs"
-                      >
-                        Draft
-                      </Badge>
-                    )}
-                  </div>
-                    <div className="flex items-center gap-1 shrink-0 ml-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs px-2 gap-1"
-                      onClick={() => {
-                        const tplName = tpl.name.toLowerCase();
-                        const isQtyTemplate = tplName.includes("pressure test") || tplName.includes("dry riser") || tplName.includes("visual");
-                        if (isQtyTemplate && ((jobInfo?.pressure_test_qty || 0) + (jobInfo?.visual_qty || 0)) > 1) {
-                          handleAutoCreateDrafts(tpl);
-                        } else {
-                          handleStartForm(tpl);
-                        }
-                      }}
-                    >
-                      <Pencil className="h-3 w-3" />
-                      Fill out
-                    </Button>
-                    <BlankTemplatePdfExport template={tpl} jobInfo={jobInfo} />
-                    <ScanJobSheet
-                      template={tpl}
-                      jobId={jobId}
-                      jobInfo={jobInfo}
-                      onExtracted={(data) => {
-                        handleStartForm(tpl);
-                        setFormData((prev) => {
-                          const merged = { ...prev };
-                          const extracted = data as Record<string, any>;
-
-                          // For drain / drop-leg fields, default to YES unless the scan returns an explicit false value
-                          tpl.fields.forEach((field) => {
-                            const lbl = field.label.toLowerCase();
-                            const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
-                            if (!isDrainField) return;
-
-                            const raw = extracted[field.id];
-                            const normalized = typeof raw === "string" ? raw.toLowerCase().trim() : raw;
-                            const isYesNoSelect =
-                              !!field.options &&
-                              field.options.length <= 3 &&
-                              field.options.some((opt) => opt.toLowerCase() === "yes") &&
-                              field.options.some((opt) => opt.toLowerCase() === "no");
-                            const isExplicitNo = raw === false || normalized === "false";
-
-                            merged[field.id] = isExplicitNo
-                              ? (field.type === "checkbox" ? false : isYesNoSelect ? "NO" : false)
-                              : (field.type === "checkbox" ? true : isYesNoSelect ? "YES" : true);
-                          });
-
-                          // For outlet-related fields, map N/A from the scanned sheet to a positive value (good condition)
-                          const outletMappedFieldIds = new Set<string>();
-                          tpl.fields.forEach((field) => {
-                            const lbl = field.label.toLowerCase();
-                            const isOutletField = lbl.includes("outlet") && (lbl.includes("condition") || lbl.includes("good") || lbl.includes("cabinet") || lbl.includes("cap") || lbl.includes("valve") || lbl.includes("operational"));
-                            if (!isOutletField) return;
-
-                            const raw = extracted[field.id];
-                            const normalized = typeof raw === "string" ? raw.toLowerCase().trim() : raw;
-                            // Preserve descriptive text like "NOT VISIBLE" as-is
-                            if (typeof normalized === "string" && (normalized.includes("not visible") || normalized.includes("not installed"))) {
-                              merged[field.id] = raw;
-                              outletMappedFieldIds.add(field.id);
-                            } else if (normalized === "n/a" || normalized === "na") {
-                              const isYesNoSelect =
-                                !!field.options &&
-                                field.options.some((opt) => opt.toLowerCase() === "yes") &&
-                                field.options.some((opt) => opt.toLowerCase() === "no");
-                              const isSatSelect =
-                                !!field.options &&
-                                field.options.some((opt) => opt.toLowerCase() === "satisfactory");
-                              if (isYesNoSelect) {
-                                merged[field.id] = "YES";
-                                outletMappedFieldIds.add(field.id);
-                              } else if (isSatSelect) {
-                                merged[field.id] = "Satisfactory";
-                                outletMappedFieldIds.add(field.id);
-                              } else if (field.type === "pass_fail") {
-                                merged[field.id] = "pass";
-                                outletMappedFieldIds.add(field.id);
-                              } else if (field.type === "checkbox") {
-                                merged[field.id] = true;
-                                outletMappedFieldIds.add(field.id);
-                              }
-                            }
-                          });
-
-                          Object.entries(extracted).forEach(([key, value]) => {
-                            const field = tpl.fields.find((f) => f.id === key);
-                            const lbl = field?.label.toLowerCase() || "";
-                            const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
-                            const isBlankish = value === "" || value == null || String(value).toLowerCase() === "undefined";
-                            if (!isDrainField && !isBlankish && !outletMappedFieldIds.has(key)) {
-                              merged[key] = value;
-                            }
-                          });
-                          return merged;
-                        });
-                      }}
-                    />
-                    {userRole === "admin" && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => handleTogglePublish(tpl)}
-                        title={
-                          ((tpl as any).status ?? "published") === "published"
-                            ? "Move back to draft (hide from new jobs)"
-                            : "Publish (make available to new jobs)"
-                        }
-                      >
-                        {((tpl as any).status ?? "published") === "published"
-                          ? <Send className="h-3.5 w-3.5 text-emerald-600" />
-                          : <Send className="h-3.5 w-3.5 text-amber-600" />}
-                      </Button>
-                    )}
-                    {userRole === "admin" && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggleLock(tpl)} title={tpl.locked ? "Unlock template" : "Lock template"}>
-                        {tpl.locked ? <Lock className="h-3.5 w-3.5 text-amber-500" /> : <Unlock className="h-3.5 w-3.5" />}
-                      </Button>
-                    )}
-                    {userRole === "admin" && !tpl.locked && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingTemplate(tpl)} title="Edit template">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                    {userRole === "admin" && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => downloadTemplateJson(tpl as any)} title="Export template as JSON">
-                        <Download className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                    {userRole === "admin" && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDuplicateTemplate(tpl)} title="Duplicate template">
-                        <Copy className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                    {userRole === "admin" && !tpl.locked && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" disabled={deletingTemplateId === tpl.id}>
-                            {deletingTemplateId === tpl.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Template</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently delete "{tpl.name}" and all associated responses across all jobs. This cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteTemplate(tpl.id)}>Delete</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
-                  </div>
-                </div>
-              ))}
-                  </div>
-                </div>
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setShowAddReport(true)}>
+                  <Plus className="h-3 w-3" /> Add another report
+                </Button>
               );
             }
-            return null;
+            const startTemplate = (tpl: Template) => {
+              const go = () => {
+                const tplName = tpl.name.toLowerCase();
+                const isQtyTemplate = tplName.includes("pressure test") || tplName.includes("dry riser") || tplName.includes("visual");
+                if (isQtyTemplate && ((jobInfo?.pressure_test_qty || 0) + (jobInfo?.visual_qty || 0)) > 1) handleAutoCreateDrafts(tpl);
+                else handleStartForm(tpl);
+              };
+              const mine = findExistingDrafts(responses, tpl.id, jobAssetId).filter((r) => userRole === "admin" || r.submitted_by === user?.id);
+              if (mine.length) setDraftChoice({ tpl, drafts: mine, startNew: go });
+              else go();
+            };
+            return (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Add a report</p>
+                  {typeSet && <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setShowAddReport(false)}>Hide</Button>}
+                </div>
+                <div className="rounded-md border divide-y">
+                  {visibleTemplates.map((tpl) => {
+                    const published = ((tpl as any).status ?? "published") === "published";
+                    return (
+                      <div key={tpl.id} className="flex items-center justify-between gap-2 px-3 py-2 min-h-[38px]">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <ClipboardCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="text-sm font-medium truncate">{tpl.name}</span>
+                          {userRole === "admin" && !published && (
+                            <Badge variant="outline" className="text-[10px] h-4 shrink-0" title="Draft — hidden from new jobs">Draft</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button variant="outline" size="sm" className="h-7 text-xs px-2 gap-1" onClick={() => startTemplate(tpl)}>
+                            <Pencil className="h-3 w-3" /> Fill out
+                          </Button>
+                          <BlankTemplatePdfExport template={tpl} jobInfo={jobInfo} />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More actions"><MoreHorizontal className="h-4 w-4" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setScanTplId(tpl.id)}><ScanLine className="h-3.5 w-3.5 mr-2" /> Scan handwritten sheet</DropdownMenuItem>
+                              {userRole === "admin" && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleTogglePublish(tpl)}><Send className="h-3.5 w-3.5 mr-2" /> {published ? "Move template back to draft" : "Publish template"}</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleToggleLock(tpl)}>{tpl.locked ? <Unlock className="h-3.5 w-3.5 mr-2" /> : <Lock className="h-3.5 w-3.5 mr-2" />} {tpl.locked ? "Unlock template" : "Lock template"}</DropdownMenuItem>
+                                  {!tpl.locked && <DropdownMenuItem onClick={() => setEditingTemplate(tpl)}><Pencil className="h-3.5 w-3.5 mr-2" /> Edit template</DropdownMenuItem>}
+                                  <DropdownMenuItem onClick={() => downloadTemplateJson(tpl as any)}><Download className="h-3.5 w-3.5 mr-2" /> Export template (JSON)</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleDuplicateTemplate(tpl)}><Copy className="h-3.5 w-3.5 mr-2" /> Copy template</DropdownMenuItem>
+                                  {!tpl.locked && (
+                                    <DropdownMenuItem className="text-destructive focus:text-destructive" disabled={deletingTemplateId === tpl.id} onClick={() => setDeleteTplId(tpl.id)}>
+                                      <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete template
+                                    </DropdownMenuItem>
+                                  )}
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
           })()}
           {templates.length === 0 && (
             <p className="text-sm text-muted-foreground py-2">
@@ -2585,6 +2542,45 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
         </CardContent>
       </Card>
 
+      {(() => { const t = allTemplates.find((x) => x.id === scanTplId); return t ? (
+        <ScanJobSheet template={t} jobId={jobId} jobInfo={jobInfo} hideTrigger open onOpenChange={(v) => { if (!v) setScanTplId(null); }} onExtracted={(data) => { setScanTplId(null); scanExtracted(t)(data); }} />
+      ) : null; })()}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{deleteTarget?.submitted ? "Delete Report" : "Delete Draft"}</AlertDialogTitle>
+            <AlertDialogDescription>{deleteTarget?.submitted ? "This will permanently delete this completed report." : "This will permanently delete this draft."} This cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (deleteTarget) handleDeleteResponse(deleteTarget.id); setDeleteTarget(null); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={!!deleteTplId} onOpenChange={(v) => { if (!v) setDeleteTplId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Template</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete "{allTemplates.find((t) => t.id === deleteTplId)?.name}" and all associated responses across all jobs. This cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (deleteTplId) handleDeleteTemplate(deleteTplId); setDeleteTplId(null); }}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={!!draftChoice} onOpenChange={(v) => { if (!v) setDraftChoice(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Open the existing draft or start a new one?</AlertDialogTitle>
+            <AlertDialogDescription>There is already a draft {draftChoice?.tpl.name} on this job{draftChoice?.drafts[0]?.responses?.riser_location ? ` for ${draftChoice.drafts[0].responses.riser_location}` : ""}.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { const c = draftChoice; setDraftChoice(null); c?.startNew(); }}>Start a new one</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { const c = draftChoice; setDraftChoice(null); if (c) handleStartForm(c.tpl, c.drafts[0]); }}>Open existing draft</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <ImportTemplateDialog open={importOpen} onOpenChange={setImportOpen} onCreated={fetchData} />
       <ImportTemplateJsonDialog open={importJsonOpen} onOpenChange={setImportJsonOpen} onImported={fetchData} />
       <EditTemplateDialog open={!!editingTemplate} onOpenChange={(v) => { if (!v) setEditingTemplate(null); }} template={editingTemplate} onSaved={fetchData} />
