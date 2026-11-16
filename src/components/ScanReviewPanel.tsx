@@ -389,7 +389,7 @@ export default function ScanReviewPanel({
                       >
                         <Label className="text-xs text-muted-foreground">{field.label}</Label>
                         {uncertain.has(field.id) && (
-                          <p className="text-[11px] font-medium text-foreground">Couldn't read this clearly — check the original and fill it in.</p>
+                          <p className="text-[11px] font-medium text-foreground">Check this — couldn't read it clearly. Look at the original and fill it in.</p>
                         )}
                         {filled.has(field.id) && (
                           <p className="text-[11px] font-medium text-primary">Read from the sheet — check it matches.</p>
