@@ -568,6 +568,13 @@
       "when": 1794593420397,
       "tag": "0080_verified_riser_report_context",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1794844634697,
+      "tag": "0081_harden_dynamic_definer_functions",
+      "breakpoints": true
     }
   ]
 }
