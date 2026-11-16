@@ -401,7 +401,7 @@ export default function ScanReviewPanel({
           <ScrollArea className="h-full">
             <div className="p-3 space-y-2">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <p className="text-xs font-medium text-muted-foreground">Original Scan</p>
+                <p className="text-xs font-medium text-muted-foreground">{cropImageUrl ? "Cleaned-up copy, then the original photo" : "Original Scan"}</p>
                 <div className="flex items-center gap-1">
                   <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-xs" aria-label="Zoom out" disabled={zoom <= 1} onClick={() => setZoom((z) => Math.max(1, z - 0.5))}>−</Button>
                   <span className="w-10 text-center text-[11px] text-muted-foreground">{Math.round(zoom * 100)}%</span>
