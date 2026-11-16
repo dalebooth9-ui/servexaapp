@@ -201,12 +201,15 @@ export function classifyConversion(
   answers: Record<string, ConversionAnswer>,
   fields: Field[],
   min = CONVERSION_CONFIDENCE_MIN,
+  /** Stricter bar for handwritten free text (used when the photo is blurred/dark). */
+  textMin = min,
 ): ClassifiedConversion {
   const out: ClassifiedConversion = { values: {}, read: [], check: [], suggestions: {}, boxes: {} };
   for (const f of answerFieldList(fields)) {
     const a = answers?.[f.id];
     if (a?.box) out.boxes[f.id] = a.box;
-    const confident = a && a.value !== null && a.confidence >= min ? normaliseForField(f.type, a.value) : undefined;
+    const isText = ["text", "textarea"].includes(String(f.type).toLowerCase());
+    const confident = a && a.value !== null && a.confidence >= (isText ? textMin : min) ? normaliseForField(f.type, a.value) : undefined;
     if (confident !== undefined && !(typeof confident === "string" && !confident.trim())) {
       out.values[f.id] = confident;
       out.read.push(f.id);
@@ -219,10 +222,10 @@ export function classifyConversion(
   // Issues note: materials go to Materials, the bracket-type work to Comments.
   const hasMaterials = fields.some((f) => f.id === "materials_required");
   for (const bag of [out.values, out.suggestions]) {
-    if (hasMaterials && typeof bag.comments === "string" && !String(bag.materials_required || "").trim()) {
+    if (hasMaterials && typeof bag.comments === "string") {
       const split = splitIssuesNote(bag.comments);
       if (split.materials.length) {
-        bag.materials_required = split.materials.join("\n");
+        if (!String(bag.materials_required || "").trim()) bag.materials_required = split.materials.join("\n");
         bag.comments = split.comments;
       }
     }

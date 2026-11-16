@@ -585,7 +585,8 @@ export default function JobScanReportDialog({
     } | undefined;
     if (!conv) throw new Error("The sheet reader returned nothing. Please try again.");
     const fields = (tpl.fields || []) as any[];
-    const cls = classifyConversion(conv.answers || {}, fields);
+    const poorPhoto = prep.quality.sharpness < 25 || prep.quality.brightness < 60 || prep.quality.glare > 0.35;
+    const cls = classifyConversion(conv.answers || {}, fields, undefined, poorPhoto ? 0.85 : undefined);
     if (conv.unreadable || (prep.quality.tooPoor && cls.read.length === 0)) {
       const why = [conv.unreadable_reason, ...prep.quality.issues].filter(Boolean).join(". ");
       const err = new Error(`Couldn't read this photo, please retake it.${why ? ` What was unreadable: ${why}.` : ""} Take it straight on, in good light, with the whole sheet in frame.`);

@@ -101,6 +101,8 @@ For EVERY question below return one entry in "answers" (use the exact field_id):
 - "best_guess": ALWAYS give your most likely reading if there is any mark at all, even faint. Use null only when the row is genuinely blank on paper or not visible in this image.
 - "confidence": ≥0.85 clear; 0.6–0.85 fairly sure; <0.6 unsure.
 - "box": the question row's position in THIS image as percentages.
+- Comments / notes fields: put the handwritten "ISSUES FOUND", "RECOMMENDATION" or remarks text here verbatim (all of it).
+- Materials required: list any parts/materials named in that text (e.g. "drain plug"); null if none.
 - Notes/comments: transcribe verbatim. Never copy the template name into an answer. Do not invent marks.
 - If a question is not in this image at all, still return it with value null, best_guess null, confidence 0, box null.
 
