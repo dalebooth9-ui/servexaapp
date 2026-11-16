@@ -45,6 +45,10 @@ import {
 import ScanReviewPanel from "@/components/ScanReviewPanel";
 import { fileToScanPayload, runScanExtraction } from "@/lib/scanPipeline";
 import { saveJobScanReport } from "@/lib/jobScanReportSave";
+import { blankUncertainAnswers, fieldsToCheck, CONVERSION_CONFIDENCE_MIN } from "@/lib/handwrittenConversion";
+import { loadJobRisers } from "@/lib/jobRisers";
+import { riserIdentityPrefill } from "@/lib/riserScanFlow";
+import { logError } from "@/lib/errorLogger";
 import { renderPdfToJpegFilesDetailed } from "@/lib/pdfToImages";
 import {
   buildJobSheetPrefill,
@@ -76,7 +80,10 @@ type TemplateRow = {
   category?: string | null;
 };
 
-type Page = { file: File; preview: string };
+type Page = { file: File; preview: string; submissionId?: string; storagePath?: string };
+
+/** A photo/document already on the job, picked for "Convert to digital report". */
+export type ConvertSource = { submissionId: string; storagePath: string; previewUrl: string };
 
 type Step = "upload" | "processing" | "review" | "saving" | "done";
 
@@ -92,6 +99,10 @@ interface Props {
    *  When provided, the dialog skips the upload step and processes them
    *  immediately on mount. */
   initialFiles?: File[];
+  /** Convert photos already on the job. The server loads them after a
+   *  company check; the result is saved as a DRAFT report. */
+  convertSources?: ConvertSource[];
+  onConverted?: (responseId: string) => void;
 }
 
 /** Turn an uploaded PDF into page images using the locally bundled reader —
@@ -154,7 +165,12 @@ export default function JobScanReportDialog({
   onSaved,
   onReady,
   initialFiles,
+  convertSources,
+  onConverted,
 }: Props) {
+  const conversion = Boolean(convertSources?.length);
+  const [uncertainIds, setUncertainIds] = useState<string[]>([]);
+  const [createdResponseId, setCreatedResponseId] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
   // Flip true once each mount-time fetch settles — the initial auto-process
@@ -225,6 +241,24 @@ export default function JobScanReportDialog({
   }, [initialFiles, templatesLoaded, contextLoaded]);
 
   const [pages, setPages] = useState<Page[]>([]);
+
+  // Conversion: load the chosen job photos and start reading once the job's
+  // report types and context are known.
+  const conversionStarted = useRef(false);
+  useEffect(() => {
+    if (!conversion || conversionStarted.current) return;
+    if (!templatesLoaded || !contextLoaded) return;
+    conversionStarted.current = true;
+    const entries: Page[] = (convertSources || []).slice(0, MAX_PAGES).map((src, i) => ({
+      file: new File([], `job-photo-${i + 1}.jpg`, { type: "image/jpeg" }),
+      preview: src.previewUrl,
+      submissionId: src.submissionId,
+      storagePath: src.storagePath,
+    }));
+    setPages(entries);
+    void handleProcess(entries.map((p) => p.file), entries);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversion, templatesLoaded, contextLoaded]);
   const [step, setStep] = useState<Step>("upload");
   const [statusMsg, setStatusMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -475,14 +509,24 @@ export default function JobScanReportDialog({
     return out;
   };
 
-  const extractWithTemplate = async (tpl: TemplateRow, files: File[]) => {
-    const images = await buildPayloads(files);
+  const sourceFor = (list: Page[]) => ({
+    job_id: jobId,
+    submission_ids: list.map((p) => p.submissionId).filter(Boolean) as string[],
+  });
+
+  const extractWithTemplate = async (tpl: TemplateRow, files: File[], list: Page[] = pages) => {
+    const images = conversion ? [] : await buildPayloads(files);
     setStatusMsg(`Running OCR — reading the fields off the sheet (${tpl.name})…`);
     const result = await runScanExtraction({
       images,
+      ...(conversion ? { source: sourceFor(list) } : {}),
       templateName: tpl.name,
       fields: tpl.fields as any,
     });
+    if (conversion) {
+      await finishConversionExtract(tpl, result);
+      return;
+    }
     // Fill anything the sheet didn't give us from the job itself — the
     // engineer shouldn't retype the customer, site, date or reference.
     const fieldPrefill = buildJobSheetPrefill(
@@ -503,6 +547,66 @@ export default function JobScanReportDialog({
     setStep("review");
   };
 
+  /** Conversion: never guess. Unsure answers are dropped, standing details
+   *  (site, customer, riser, outlets, job number) come from the job, and every
+   *  answer still empty is highlighted for the reviewer. */
+  const finishConversionExtract = async (tpl: TemplateRow, result: any) => {
+    const fields = (tpl.fields || []) as any[];
+    const conf = (result.header?._field_confidence || {}) as Record<string, number>;
+    const { values, blanked } = blankUncertainAnswers(result.extracted || {}, conf, fields);
+    const fieldPrefill = buildJobSheetPrefill(fields as any, jobInfo as any, tpl.name);
+    const jobPrefill: Record<string, any> = {};
+    fields.forEach((f) => {
+      if (blanked.includes(f.id)) return;
+      const v = fieldPrefill[f.id];
+      if (v === undefined) return;
+      jobPrefill[f.id] = typeof v === "string" ? formatDateForField(f.type, v) || v : v;
+    });
+    let riserPrefill: Record<string, any> = {};
+    try {
+      const risers = (await loadJobRisers(jobId)).filter((r) => r.selected);
+      if (risers.length === 1) {
+        const { data: a } = await supabase
+          .from("assets")
+          .select("id, asset_tag, name, riser_location, outlets_count, inlets_count")
+          .eq("id", risers[0].asset_id)
+          .maybeSingle();
+        if (a) {
+          const site = jobInfo?.site;
+          riserPrefill = riserIdentityPrefill(fields as any, {
+            job_id: jobId,
+            job_reference: jobInfo?.reference_number || "",
+            asset_id: (a as any).id,
+            asset_tag: (a as any).asset_tag || "",
+            riser_location: (a as any).riser_location || "",
+            riser_name: (a as any).name || "",
+            outlets_count: Number((a as any).outlets_count || 0),
+            inlets_count: Number((a as any).inlets_count || 0),
+            site_name: site?.name || jobInfo?.name || "",
+            address: site?.address || jobInfo?.address || "",
+            postcode: site?.postcode || "",
+            customer: jobInfo?.customers?.name || jobInfo?.customer || "",
+            outlet_codes: { total: 0, tags: {} },
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("[JobScanReportDialog] riser prefill failed", e);
+    }
+    // Sheet answers win; job details only fill blanks.
+    const merged = mergeBlanks(values, { ...jobPrefill, ...riserPrefill });
+    setExtracted(merged);
+    const hdr = mergeBlanks(result.header || {}, buildHeaderPrefill(jobInfo));
+    // The inspecting engineer must come from the sheet, never assumed.
+    if (!String(result.header?.engineer || "").trim() || (conf.engineer ?? 1) < CONVERSION_CONFIDENCE_MIN) {
+      hdr.engineer = "";
+    }
+    setHeader(hdr);
+    setUncertainIds(fieldsToCheck(merged, blanked, fields));
+    setTemplate(tpl);
+    setStep("review");
+  };
+
   /** Turn whatever a failing call gives us into something an engineer can act
    *  on — network and edge-function errors often carry no useful message. */
   const describeError = (e: any, fallback: string): string => {
@@ -518,7 +622,8 @@ export default function JobScanReportDialog({
     return `${raw} [debug: ${debugInfo}]`;
   };
 
-  const handleProcess = async (filesToProcess?: File[]) => {
+  const handleProcess = async (filesToProcess?: File[], listOverride?: Page[]) => {
+    const list = listOverride ?? pages;
     // The camera flow passes the picked files explicitly so this can never
     // read a stale `pages` array mid-render. The manual "Read the sheet"
     // button omits the argument and uses whatever is currently listed.
@@ -535,7 +640,7 @@ export default function JobScanReportDialog({
       // The job already knows its report type — use it rather than asking the
       // classifier to work it out from the photo.
       if (jobTemplates.length === 1) {
-        await extractWithTemplate(jobTemplates[0], files);
+        await extractWithTemplate(jobTemplates[0], files, list);
         return;
       }
       if (jobTemplates.length > 1) {
@@ -548,20 +653,21 @@ export default function JobScanReportDialog({
         return;
       }
 
-      const payloads = await buildPayloads(files);
+      const payloads = conversion ? [] : await buildPayloads(files);
+      const clsBody = conversion ? { source: sourceFor(list) } : { images: payloads };
       setStatusMsg("Working out which report this is…");
       let cls: any;
       let clsErr: any;
       ({ data: cls, error: clsErr } = await supabase.functions.invoke(
         "classify-job-sheet-template",
-        { body: { images: payloads } },
+        { body: clsBody },
       ));
       // Retry once on fetch-level failures (common on flaky mobile connections)
       if (clsErr && /failed to (fetch|send)|edge function|load failed/i.test(String(clsErr?.message || ""))) {
         await new Promise((r) => setTimeout(r, 1500));
         ({ data: cls, error: clsErr } = await supabase.functions.invoke(
           "classify-job-sheet-template",
-          { body: { images: payloads } },
+          { body: clsBody },
         ));
       }
       if (clsErr) throw new Error(clsErr.message || "Classification failed");
@@ -591,9 +697,12 @@ export default function JobScanReportDialog({
         );
         return;
       }
-      await extractWithTemplate(tpl, files);
+      await extractWithTemplate(tpl, files, list);
     } catch (e: any) {
       console.error("[JobScanReportDialog] process failed", e);
+      if (conversion) {
+        logError({ error: e, message: "Convert to digital report failed", context: { jobId, submissionIds: sourceFor(list).submission_ids, reason: String(e?.message || e) } });
+      }
       setStep("upload");
       setStatusMsg("");
       setNeedsManualTemplate(true);
@@ -620,6 +729,9 @@ export default function JobScanReportDialog({
       await extractWithTemplate(tpl, pages.map((p) => p.file));
     } catch (e: any) {
       console.error("[JobScanReportDialog] manual extract failed", e);
+      if (conversion) {
+        logError({ error: e, message: "Convert to digital report failed", context: { jobId, templateId: id, reason: String(e?.message || e) } });
+      }
       setStep("upload");
       setNeedsManualTemplate(true);
       const msg = describeError(
@@ -635,6 +747,12 @@ export default function JobScanReportDialog({
     } finally {
       setStatusMsg("");
     }
+  };
+
+  const currentUserName = async (): Promise<string> => {
+    if (!user) return "";
+    const { data } = await supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle();
+    return String((data as any)?.full_name || user.email || "").trim();
   };
 
   const handleConfirm = async (
@@ -655,7 +773,20 @@ export default function JobScanReportDialog({
         responses: fields,
         header: hdr,
         fieldNotes,
+        ...(conversion
+          ? {
+              convertFrom: {
+                submissionIds: pages.map((p) => p.submissionId).filter(Boolean) as string[],
+                storagePaths: pages.map((p) => p.storagePath).filter(Boolean) as string[],
+                byName: await currentUserName(),
+              },
+            }
+          : {}),
       });
+      if (conversion && result.responseId) {
+        setCreatedResponseId(result.responseId);
+        onConverted?.(result.responseId);
+      }
       setSavedCount(result.uploadedPages);
 
       if (result.responseError) {
@@ -683,6 +814,9 @@ export default function JobScanReportDialog({
       window.dispatchEvent(new Event("scan-saved"));
     } catch (e: any) {
       console.error("[JobScanReportDialog] save failed", e);
+      if (conversion) {
+        logError({ error: e, message: "Convert to digital report save failed", context: { jobId, reason: String(e?.message || e) } });
+      }
       setStep("review");
       setStatusMsg("");
       toast({
@@ -924,6 +1058,8 @@ export default function JobScanReportDialog({
               templateName={template.name}
               jobId={jobId}
               templateId={template.id}
+              uncertainFieldIds={conversion ? uncertainIds : undefined}
+              confirmLabel={conversion ? "Save as draft report" : undefined}
               onConfirm={handleConfirm}
               onRescan={() => {
                 setStep("upload");
@@ -937,16 +1073,18 @@ export default function JobScanReportDialog({
         {step === "done" && (
           <div className="py-10 flex flex-col items-center gap-3 text-center">
             <CheckCircle2 className="h-10 w-10 text-green-600" />
-            <p className="font-medium">Saved to this job</p>
+            <p className="font-medium">{conversion ? "Draft report created" : "Saved to this job"}</p>
             <p className="text-sm text-muted-foreground max-w-sm">
-              {savedCount} scanned page{savedCount === 1 ? "" : "s"} filed under
-              Documents, and the digital report is now listed with the job's
-              other reports.
+              {conversion
+                ? "It is listed with the job's other reports as a draft. Nothing has been submitted — open it, check it and press Submit when you're happy. The original photo stays on the job."
+                : `${savedCount} scanned page${savedCount === 1 ? "" : "s"} filed under Documents, and the digital report is now listed with the job's other reports.`}
             </p>
             <div className="flex gap-2 pt-2">
-              <Button variant="outline" onClick={() => reset()}>
-                Scan another
-              </Button>
+              {!conversion && (
+                <Button variant="outline" onClick={() => reset()}>
+                  Scan another
+                </Button>
+              )}
               <Button onClick={() => handleClose(false)}>Done</Button>
             </div>
           </div>
