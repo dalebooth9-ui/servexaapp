@@ -262,7 +262,7 @@ export function cleanSheet(g: Gray, outLong = 1800): { page: Gray; quality: Shee
   }
   let enhanced = enhance(page);
   const skew = estimateSkew(enhanced);
-  if (Math.abs(skew) >= 0.5) enhanced = rotateGray(enhanced, skew);
+  if (Math.abs(skew) >= 0.5) enhanced = rotateGray(enhanced, -skew);
   return { page: enhanced, quality: measureQuality(g, Boolean(corners), skew) };
 }
 
