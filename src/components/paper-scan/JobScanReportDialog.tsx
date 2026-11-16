@@ -170,7 +170,6 @@ export default function JobScanReportDialog({
 }: Props) {
   const conversion = Boolean(convertSources?.length);
   const [uncertainIds, setUncertainIds] = useState<string[]>([]);
-  const [createdResponseId, setCreatedResponseId] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
   // Flip true once each mount-time fetch settles — the initial auto-process
@@ -784,7 +783,6 @@ export default function JobScanReportDialog({
           : {}),
       });
       if (conversion && result.responseId) {
-        setCreatedResponseId(result.responseId);
         onConverted?.(result.responseId);
       }
       setSavedCount(result.uploadedPages);
@@ -844,9 +842,13 @@ export default function JobScanReportDialog({
     <DialogHeader>
       <DialogTitle className="flex items-center gap-2">
         <ScanLine className="h-5 w-5" />
-        Scan Paper Report
+        {conversion ? "Convert to digital report" : "Scan Paper Report"}
       </DialogTitle>
       <DialogDescription>
+        {conversion
+          ? "Reading the handwritten sheet. Anything unclear is left blank and highlighted for you to check. It saves as a draft — nothing is submitted automatically."
+          : null}
+        {!conversion && <>
         Photograph the completed paper sheet. It's filed on this job as a
         document and turned into a digital report you can check first.
       </DialogDescription>
