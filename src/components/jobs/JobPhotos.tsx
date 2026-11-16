@@ -230,6 +230,11 @@ function SortablePhotoTile({
           Converted{converted.status === "submitted" ? "" : " · draft"}
         </button>
       )}
+      {converted && (
+        <span className="absolute bottom-1.5 left-1.5 right-1.5 truncate rounded bg-background/90 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+          Handwritten original (office only)
+        </span>
+      )}
 
       {hasRemedial && (
         <span
