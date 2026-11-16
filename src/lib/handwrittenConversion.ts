@@ -90,3 +90,81 @@ export function convertedSourceMap(
   }
   return new Map([...out].map(([k, v]) => [k, { responseId: v.responseId, status: v.status }]));
 }
+
+const YES = new Set(["yes", "y", "true", "tick", "ticked", "✓", "✔", "good", "pass"]);
+const NO = new Set(["no", "n", "false", "cross", "x", "✗", "✘", "fail"]);
+
+/** Turn what the reader saw ("yes", "N/A", "pass") into the value the online
+ *  form actually stores for that field type. Unknown marks return undefined
+ *  so they stay blank and are flagged — never guessed. */
+export function normaliseForField(type: string, raw: unknown): unknown {
+  if (raw === undefined || raw === null) return undefined;
+  const t = String(type || "").toLowerCase();
+  if (t === "checkbox") {
+    if (typeof raw === "boolean") return raw;
+    const s = String(raw).trim().toLowerCase();
+    if (!s) return undefined;
+    if (YES.has(s)) return true;
+    if (NO.has(s)) return false;
+    if (["n/a", "na", "n.a.", "not applicable"].includes(s)) return "N/A";
+    if (s === "no access") return "NO ACCESS";
+    return undefined;
+  }
+  if (t === "pass_fail") {
+    const s = String(raw).trim().toLowerCase();
+    if (["pass", "yes", "p"].includes(s)) return "pass";
+    if (["fail", "no", "f"].includes(s)) return "fail";
+    if (["n/a", "na"].includes(s)) return "n/a";
+    return s ? String(raw) : undefined;
+  }
+  return raw;
+}
+
+/** Map every extracted answer to its form type; marks that can't be mapped are
+ *  returned in `unclear`. */
+export function normaliseAnswers(
+  extracted: Record<string, any>,
+  fields: Field[],
+): { values: Record<string, any>; unclear: string[] } {
+  const byId = new Map(fields.map((f) => [f.id, f]));
+  const values: Record<string, any> = {};
+  const unclear: string[] = [];
+  for (const [k, v] of Object.entries(extracted || {})) {
+    const f = byId.get(k);
+    if (!f) { values[k] = v; continue; }
+    const n = normaliseForField(f.type, v);
+    if (n === undefined || (typeof n === "string" && !n.trim())) {
+      if (!isBlank(v)) unclear.push(k);
+      continue;
+    }
+    values[k] = n;
+  }
+  return { values, unclear };
+}
+
+const MATERIAL_RE = /^(?:missing|replace(?:ment)?|new|supply(?: and fit)?|needs? (?:a )?new|requires? (?:a )?new|broken|no)\s+(.+)$/i;
+
+/** Split a handwritten issues note into comments and materials. A part like
+ *  "missing drain plug" becomes the material "drain plug"; everything else
+ *  stays in comments as written. */
+export function splitIssuesNote(note: string): { comments: string; materials: string[] } {
+  const parts = String(note || "")
+    .split(/\s*(?:\+|;|&|\band\b|\n)\s*/i)
+    .map((p) => p.trim().replace(/[.,]+$/, ""))
+    .filter(Boolean);
+  const comments: string[] = [];
+  const materials: string[] = [];
+  for (const p of parts) {
+    const m = p.match(MATERIAL_RE);
+    if (m) materials.push(m[1].trim().toLowerCase());
+    else comments.push(p);
+  }
+  return { comments: comments.join("; "), materials };
+}
+
+/** Field ids with a value that came from the sheet (not from job details). */
+export function readFieldIds(values: Record<string, any>, fields: Field[]): string[] {
+  return fields
+    .filter((f) => !NON_ANSWER_TYPES.has(String(f.type).toLowerCase()) && !isBlank(values[f.id]))
+    .map((f) => f.id);
+}
