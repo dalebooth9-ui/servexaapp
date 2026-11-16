@@ -912,7 +912,7 @@ export default function JobScanReportDialog({
       </DialogTitle>
       <DialogDescription>
         {conversion
-          ? "Reading the handwritten sheet. Anything unclear is left blank and highlighted for you to check. It saves as a draft — nothing is submitted automatically."
+          ? "The photo is straightened and cleaned up, then every question is read. Blue = read from the sheet; amber = check this (tap Accept to use the best guess). It saves as a draft — nothing is submitted automatically."
           : null}
         {!conversion && <>
         Photograph the completed paper sheet. It's filed on this job as a

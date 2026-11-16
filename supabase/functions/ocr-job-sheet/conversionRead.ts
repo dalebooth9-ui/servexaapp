@@ -146,7 +146,14 @@ async function callModel(apiKey: string, images: Img[], text: string): Promise<{
   return null;
 }
 
-const blank = (v: unknown) => v === undefined || v === null || String(v).trim() === "";
+const blank = (v: unknown) => v === undefined || v === null || /^(|null|undefined|n\/?r)$/i.test(String(v).trim());
+/** Models sometimes return the word "null" or a literal backslash-n. */
+const clean = (v: unknown) => String(v).replace(/\\n/g, ", ").replace(/\s*,\s*,/g, ",").trim();
+function cleanHeader(h: any): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(h || {})) if (!blank(v)) out[k] = clean(v);
+  return out;
+}
 
 function collect(data: any, known: Set<string>, mapBox?: (b: any) => any): Record<string, ConversionAnswer> {
   const out: Record<string, ConversionAnswer> = {};
@@ -155,8 +162,8 @@ function collect(data: any, known: Set<string>, mapBox?: (b: any) => any): Recor
     const c = Number(a.confidence);
     out[a.field_id] = {
       field_id: a.field_id,
-      value: blank(a.value) ? null : String(a.value),
-      best_guess: blank(a.best_guess) ? (blank(a.value) ? null : String(a.value)) : String(a.best_guess),
+      value: blank(a.value) ? null : clean(a.value),
+      best_guess: blank(a.best_guess) ? (blank(a.value) ? null : clean(a.value)) : clean(a.best_guess),
       confidence: Number.isFinite(c) ? Math.max(0, Math.min(1, c)) : 0,
       box: a.box && Number.isFinite(Number(a.box.y)) ? (mapBox ? mapBox(a.box) : a.box) : null,
       note: a.note ?? null,
@@ -196,7 +203,7 @@ export async function readHandwrittenSheet(opts: {
     prompt(opts.templateName, fields, "Image 1 is a cleaned-up (straightened, contrast-boosted) copy; image 2, if present, is the original photo — use it when the cleaned copy lost a faint mark. Give boxes relative to image 1."),
   );
   let answers = first ? collect(first.data, known) : {};
-  let header = first?.data?.header || {};
+  let header: Record<string, any> = cleanHeader(first?.data?.header);
   let model = first?.model || "";
   let passes = 1;
   const readable = first?.data?.photo_readable !== false;
@@ -213,7 +220,7 @@ export async function readHandwrittenSheet(opts: {
       if (!p) return;
       const sb = opts.stripBounds[i] || { y: 0, h: 100 };
       answers = mergeAnswers(answers, collect(p.data, known, (b) => ({ x: b.x, w: b.w, y: sb.y + (b.y * sb.h) / 100, h: (b.h * sb.h) / 100 })));
-      header = { ...(p.data?.header || {}), ...Object.fromEntries(Object.entries(header).filter(([, v]) => !blank(v))) };
+      header = { ...cleanHeader(p.data?.header), ...header };
       model = model || p.model;
     });
   }
