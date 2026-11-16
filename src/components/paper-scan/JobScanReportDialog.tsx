@@ -1223,6 +1223,18 @@ export default function JobScanReportDialog({
             </button>
           )}
           {content}
+          <AlertDialog open={!!draftAsk} onOpenChange={(v) => { if (!v && draftAsk) { draftAsk.resolve(null); setDraftAsk(null); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Open the existing draft or start a new one?</AlertDialogTitle>
+            <AlertDialogDescription>There is already a draft report{draftAsk?.label ? ` for ${draftAsk.label}` : ""} on this job. Opening the existing draft fills the sheet's answers into it.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { draftAsk?.resolve("new"); setDraftAsk(null); }}>Start a new one</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { draftAsk?.resolve("existing"); setDraftAsk(null); }}>Open existing draft</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
         </div>
       </div>
     );

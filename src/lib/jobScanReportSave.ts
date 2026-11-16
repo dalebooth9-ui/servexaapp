@@ -32,6 +32,8 @@ export type SaveJobScanReportInput = {
   header: Record<string, any>;
   /** Optional per-field reviewer notes from the review panel. */
   fieldNotes?: Record<string, string>;
+  /** Fill this existing draft instead of creating a new report. */
+  reuseResponseId?: string | null;
   /** "Convert to digital report": the original photos are already on the job
    *  (kept as evidence). Nothing is re-uploaded and the report stays a DRAFT
    *  until a person submits it. */
@@ -76,6 +78,7 @@ export async function saveJobScanReport(
     header,
     fieldNotes,
     convertFrom,
+    reuseResponseId,
   } = input;
 
   const stamp = Date.now();
@@ -164,6 +167,17 @@ export async function saveJobScanReport(
   let responseId: string | null = null;
   let responseError: string | null = null;
   try {
+    if (reuseResponseId) {
+      const { data: cur, error: curErr } = await supabase.from("job_sheet_responses").select("responses").eq("id", reuseResponseId).single();
+      if (curErr) throw curErr;
+      const prev = ((cur as any)?.responses || {}) as Record<string, any>;
+      const blank = (v: any) => v === "" || v == null;
+      const merged: Record<string, any> = { ...prev };
+      for (const [k, v] of Object.entries(payload)) if (!blank(v)) merged[k] = v;
+      const { error: upErr } = await supabase.from("job_sheet_responses").update({ responses: merged as any }).eq("id", reuseResponseId);
+      if (upErr) throw upErr;
+      return { responseId: reuseResponseId, uploadedPages, failedPages, responseError: null, pageErrors };
+    }
     const { data, error } = await supabase
       .from("job_sheet_responses")
       .insert({
