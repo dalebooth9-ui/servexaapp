@@ -2819,6 +2819,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
               <ReportSitePhotos
                 jobId={jobId}
                 excluded={Array.isArray(formData._site_photo_excluded) ? formData._site_photo_excluded : []}
+                handwrittenPaths={formData._transcribed_from && Array.isArray(formData._scan_image_paths) ? formData._scan_image_paths : undefined}
                 onChange={(next) => setFormData((prev) => ({ ...prev, _site_photo_excluded: next }))}
               />
             </div>
