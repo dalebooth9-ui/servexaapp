@@ -45,6 +45,8 @@ import {
 import ScanReviewPanel from "@/components/ScanReviewPanel";
 import { fileToScanPayload, runScanExtraction, withServerReason } from "@/lib/scanPipeline";
 import { saveJobScanReport } from "@/lib/jobScanReportSave";
+import { findExistingDrafts } from "@/lib/jobDocumentGrouping";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { classifyConversion, type ConversionAnswer } from "@/lib/handwrittenConversion";
 import { prepareSheetImage, stripBounds, type PreparedSheet } from "@/lib/sheetImagePrep";
 import { loadJobRisers } from "@/lib/jobRisers";
@@ -196,6 +198,7 @@ export default function JobScanReportDialog({
   const [boxes, setBoxes] = useState<Record<string, { x: number; y: number; w: number; h: number }>>({});
   const [prepared, setPrepared] = useState<PreparedSheet | null>(null);
   const { user } = useAuth();
+  const [draftAsk, setDraftAsk] = useState<{ label: string; resolve: (v: "existing" | "new" | null) => void } | null>(null);
   const { toast } = useToast();
   // Flip true once each mount-time fetch settles — the initial auto-process
   // waits for both so it never runs against an empty job context.
@@ -843,6 +846,18 @@ export default function JobScanReportDialog({
     fieldNotes: Record<string, string>,
   ) => {
     if (!template || !user) return;
+    // Reuse an existing draft for the same riser instead of creating another.
+    let reuseResponseId: string | null = null;
+    if (conversion) {
+      const { data: drafts } = await supabase.from("job_sheet_responses").select("id, template_id, status, created_at, submitted_at, responses").eq("job_id", jobId).eq("template_id", template.id).eq("status", "draft").is("archived_at", null);
+      const riser = String(fields?.riser_asset_id || "") || null;
+      const found = findExistingDrafts((drafts || []) as any[], template.id, riser);
+      if (found.length) {
+        const choice = await new Promise<"existing" | "new" | null>((resolve) => setDraftAsk({ label: String(found[0].responses?.riser_location || ""), resolve }));
+        if (!choice) return;
+        if (choice === "existing") reuseResponseId = found[0].id;
+      }
+    }
     setStep("saving");
     setStatusMsg("Saving the scan and the report…");
     try {
@@ -855,6 +870,7 @@ export default function JobScanReportDialog({
         responses: fields,
         header: hdr,
         fieldNotes,
+        reuseResponseId,
         ...(conversion
           ? {
               convertFrom: {
@@ -1207,6 +1223,18 @@ export default function JobScanReportDialog({
             </button>
           )}
           {content}
+          <AlertDialog open={!!draftAsk} onOpenChange={(v) => { if (!v && draftAsk) { draftAsk.resolve(null); setDraftAsk(null); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Open the existing draft or start a new one?</AlertDialogTitle>
+            <AlertDialogDescription>There is already a draft report{draftAsk?.label ? ` for ${draftAsk.label}` : ""} on this job. Opening the existing draft fills the sheet's answers into it.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { draftAsk?.resolve("new"); setDraftAsk(null); }}>Start a new one</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { draftAsk?.resolve("existing"); setDraftAsk(null); }}>Open existing draft</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
         </div>
       </div>
     );
@@ -1214,6 +1242,19 @@ export default function JobScanReportDialog({
 
   // Desktop/office flow: the normal dialog, unchanged.
   return (
+    <>
+    <AlertDialog open={!!draftAsk} onOpenChange={(v) => { if (!v && draftAsk) { draftAsk.resolve(null); setDraftAsk(null); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Open the existing draft or start a new one?</AlertDialogTitle>
+            <AlertDialogDescription>There is already a draft report{draftAsk?.label ? ` for ${draftAsk.label}` : ""} on this job. Opening the existing draft fills the sheet's answers into it.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { draftAsk?.resolve("new"); setDraftAsk(null); }}>Start a new one</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { draftAsk?.resolve("existing"); setDraftAsk(null); }}>Open existing draft</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
         className="w-[calc(100vw-1.5rem)] sm:w-full max-w-4xl max-h-[92dvh] overflow-y-auto p-4 sm:p-6"
@@ -1226,5 +1267,6 @@ export default function JobScanReportDialog({
         {content}
       </DialogContent>
     </Dialog>
+    </>
   );
 }
