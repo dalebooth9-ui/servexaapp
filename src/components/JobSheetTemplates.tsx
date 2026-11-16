@@ -62,7 +62,10 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { groupReportsByRiser, visibleJobTemplates, findExistingDrafts } from "@/lib/jobDocumentGrouping";
 import {
+  MoreHorizontal, ChevronDown, ChevronRight, ScanLine,
   FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy, Lock, Unlock, RotateCcw, FileJson, Download, History, AlertTriangle, CloudOff,
 } from "lucide-react";
 import JobSheetPdfExport from "./JobSheetPdfExport";
@@ -218,6 +221,12 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   const [viewingResponse, setViewingResponse] = useState<Response | null>(null);
   const [switchOpen, setSwitchOpen] = useState(false);
   const [switchBusy, setSwitchBusy] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; submitted: boolean } | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [showAddReport, setShowAddReport] = useState(false);
+  const [scanTplId, setScanTplId] = useState<string | null>(null);
+  const [deleteTplId, setDeleteTplId] = useState<string | null>(null);
+  const [draftChoice, setDraftChoice] = useState<{ tpl: Template; drafts: Response[]; startNew: () => void } | null>(null);
   const [aiRamsData, setAiRamsData] = useState<Record<string, any> | null>(null);
   const [jobInfo, setJobInfo] = useState<JobInfo | null>(null);
   const [scheduledDate, setScheduledDate] = useState<string>("");
@@ -2169,53 +2178,136 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
               </div>
             </div>
           )}
-          {/* Draft responses — exclude RAMS */}
+          {/* One line per riser — latest report shown, earlier versions collapsed */}
           {(() => {
-            const draftResps = responses.filter((r) => {
+            const reportRows = responses.filter((r) => {
               const tpl = allTemplates.find((t) => t.id === r.template_id);
-              return (tpl as any)?.category !== "rams" && r.status === "draft";
+              return (tpl as any)?.category !== "rams" && (r.status === "draft" || r.status === "submitted");
             });
-            if (!draftResps.length) return null;
+            const groups = groupReportsByRiser(reportRows);
+            if (!groups.length) return null;
+            const renderRow = (resp: Response, groupLabel: string | null, earlier: boolean) => {
+              const tpl = allTemplates.find((t) => t.id === resp.template_id);
+              const submitted = resp.status === "submitted";
+              const canEditDraft = userRole === "admin" || resp.submitted_by === user?.id;
+              const canEdit = submitted ? userRole === "admin" : canEditDraft;
+              const by = resp.submitted_by && profiles[resp.submitted_by];
+              const title = groupLabel ? `${groupLabel}: ${tpl?.name || "Unknown Template"}` : (tpl?.name || "Unknown Template");
+              const when = new Date(resp.submitted_at || resp.created_at).toLocaleDateString("en-GB");
+              return (
+                <div key={resp.id} className={earlier ? "pl-6 pr-3 py-1.5 bg-muted/30" : "px-3 py-2"}>
+                  <div className="flex items-center justify-between gap-2 min-h-[38px]">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {submitted ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-600" /> : <FileText className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
+                        <span className={`text-sm truncate ${earlier ? "text-muted-foreground" : "font-medium"}`}>{earlier ? when : title}</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground pl-5">
+                        {submitted ? `Submitted${by ? ` by ${by}` : ""}` : `Draft${by ? ` · ${by}` : ""}`}{!earlier ? ` · ${when}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {submitted ? (
+                        <Button variant="outline" size="sm" className="h-7 text-xs px-2 gap-1" onClick={() => handleViewResponse(resp)}>
+                          <Eye className="h-3 w-3" /> View
+                        </Button>
+                      ) : (
+                        <Button variant="outline" size="sm" className="h-7 text-xs px-2 gap-1" onClick={() => tpl && handleStartForm(tpl, canEditDraft ? resp : undefined)}>
+                          <Pencil className="h-3 w-3" /> {canEditDraft ? "Continue" : "Fill out"}
+                        </Button>
+                      )}
+                      {tpl && (submitted ? (
+                        <JobSheetPdfExport
+                          template={filterTemplateBySections({ ...tpl, fields: tpl.fields as any[], branding: tpl.branding as any }, resp.responses as Record<string, any>)}
+                          formData={resp.responses as Record<string, any>}
+                          jobInfo={jobInfo}
+                          jobId={jobId}
+                          submittedBy={profiles[resp.submitted_by] || ""}
+                          submittedAt={resp.submitted_at}
+                        />
+                      ) : (
+                        <BlankTemplatePdfExport template={tpl} jobInfo={jobInfo} />
+                      ))}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More actions"><MoreHorizontal className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {submitted && canEdit && tpl && (
+                            <DropdownMenuItem onClick={() => handleStartForm(tpl, resp)}><Pencil className="h-3.5 w-3.5 mr-2" /> Edit report</DropdownMenuItem>
+                          )}
+                          {!submitted && (
+                            <DropdownMenuItem onClick={() => handleViewResponse(resp)}><Eye className="h-3.5 w-3.5 mr-2" /> View answers</DropdownMenuItem>
+                          )}
+                          {tpl && (
+                            <DropdownMenuItem onClick={() => setScanTplId(tpl.id)}><ScanLine className="h-3.5 w-3.5 mr-2" /> Scan handwritten sheet</DropdownMenuItem>
+                          )}
+                          {canEdit && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteTarget({ id: resp.id, submitted })}>
+                                <Trash2 className="h-3.5 w-3.5 mr-2" /> {submitted ? "Delete report" : "Delete draft"}
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                  {submitted && tpl && (
+                    <div className="mt-2">
+                      <ReportSummaryEditor
+                        templateName={tpl.name}
+                        fields={(tpl.fields || []) as any}
+                        responses={resp.responses as Record<string, any>}
+                        jobId={jobId}
+                        context={{
+                          customer: jobInfo?.customer ?? null,
+                          site: (jobInfo as any)?.site?.name ?? jobInfo?.address ?? null,
+                        }}
+                        value={String((resp.responses as any)?._ai_summary || "") || null}
+                        canEdit={userRole === "admin"}
+                        onSave={async (text) => {
+                          const next = { ...((resp.responses as any) || {}) };
+                          if (text) next._ai_summary = text;
+                          else delete next._ai_summary;
+                          const { error } = await supabase
+                            .from("job_sheet_responses")
+                            .update({ responses: next as any })
+                            .eq("id", resp.id);
+                          if (error) throw error;
+                          setResponses((prev) =>
+                            prev.map((r) => (r.id === resp.id ? ({ ...r, responses: next } as any) : r)),
+                          );
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            };
             return (
               <div className="mb-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">In Progress</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Reports</p>
                 <div className="rounded-md border divide-y">
-                  {draftResps.map((resp) => {
-                    const tpl = allTemplates.find((t) => t.id === resp.template_id);
-                    const canEdit = userRole === "admin" || resp.submitted_by === user?.id;
+                  {groups.map((g) => {
+                    const open = expandedGroups.has(g.key);
                     return (
-                      <div key={resp.id} className="flex items-center justify-between px-3 py-2 min-h-[38px]">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <FileText className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-                          <span className="text-sm truncate">{tpl?.name || "Unknown Template"}</span>
-                          <Badge variant="secondary" className="text-[10px] shrink-0">Draft</Badge>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0 ml-2">
-                          <Button variant="ghost" size="sm" className="h-7 text-xs px-2 gap-1" onClick={() => tpl && handleStartForm(tpl, canEdit ? resp : undefined)}>
-                            <Pencil className="h-3 w-3" />
-                            {canEdit ? "Continue" : "Fill out"}
-                          </Button>
-                          {tpl && <BlankTemplatePdfExport template={tpl} jobInfo={jobInfo} />}
-                          {canEdit && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Draft</AlertDialogTitle>
-                                  <AlertDialogDescription>This will permanently delete this draft. This cannot be undone.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteResponse(resp.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-                        </div>
+                      <div key={g.key}>
+                        {renderRow(g.latest, g.riserLabel, false)}
+                        {g.earlier.length > 0 && (
+                          <>
+                            <button
+                              type="button"
+                              className="w-full flex items-center gap-1 px-3 pb-2 text-xs text-muted-foreground hover:text-foreground"
+                              onClick={() => setExpandedGroups((prev) => { const n = new Set(prev); n.has(g.key) ? n.delete(g.key) : n.add(g.key); return n; })}
+                            >
+                              {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                              {g.earlier.length} earlier version{g.earlier.length === 1 ? "" : "s"}
+                            </button>
+                            {open && <div className="divide-y border-t">{g.earlier.map((r) => renderRow(r, g.riserLabel, true))}</div>}
+                          </>
+                        )}
                       </div>
                     );
                   })}
@@ -2247,119 +2339,6 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                         {tpl && <Button variant="ghost" size="sm" className="h-7 text-xs px-2 gap-1" onClick={() => void reopenUnusedReport(tpl, resp)}><Pencil className="h-3 w-3" />Reopen</Button>}
                       </div>
                     );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Completed responses — exclude RAMS */}
-          {(() => {
-            const completedResps = responses.filter((r) => {
-              const tpl = allTemplates.find((t) => t.id === r.template_id);
-              return (tpl as any)?.category !== "rams" && r.status === "submitted";
-            });
-            const completedNameCounts = new Map<string, number>();
-            completedResps.forEach((resp) => {
-              const name = allTemplates.find((template) => template.id === resp.template_id)?.name || "Unknown Template";
-              completedNameCounts.set(name, (completedNameCounts.get(name) || 0) + 1);
-            });
-            if (!completedResps.length) return null;
-            return (
-              <div className="mb-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Completed Reports</p>
-                <div className="rounded-md border divide-y">
-                  {completedResps.map((resp) => {
-                    const tpl = allTemplates.find((t) => t.id === resp.template_id);
-                    // Submitted reports: only office admins can amend after submission.
-                    // Engineers cannot re-edit their own once submitted — office reviews and edits.
-                    const canEdit = userRole === "admin";
-                    const templateName = tpl?.name || "Unknown Template";
-                    const detail = completedReportDetail(resp, tpl);
-                    const displayDetail = (completedNameCounts.get(templateName) || 0) > 1 ? detail : null;
-                    return (
-                      <div key={resp.id} className="px-3 py-2">
-                      <div className="flex items-center justify-between min-h-[38px]">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-600" />
-                          <span className="text-sm truncate">{templateName}{displayDetail ? ` — ${displayDetail}` : ""}</span>
-                          <Badge variant="secondary" className="text-[10px] shrink-0">Submitted</Badge>
-                          {resp.submitted_by && profiles[resp.submitted_by] && (
-                            <span className="text-[10px] text-muted-foreground shrink-0">by {profiles[resp.submitted_by]}</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0 ml-2">
-                          {canEdit && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => tpl && handleStartForm(tpl, resp)} title="Edit">
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                          {tpl && (tpl as any).category !== "rams" && (
-                            <JobSheetPdfExport
-                              template={filterTemplateBySections({ ...tpl, fields: tpl.fields as any[], branding: tpl.branding as any }, resp.responses as Record<string, any>)}
-                              formData={resp.responses as Record<string, any>}
-                              jobInfo={jobInfo}
-                              jobId={jobId}
-                              submittedBy={profiles[resp.submitted_by] || ""}
-                              submittedAt={resp.submitted_at}
-                            />
-                          )}
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleViewResponse(resp)} title="View">
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
-                          {canEdit && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Report</AlertDialogTitle>
-                                  <AlertDialogDescription>This will permanently delete this completed report. This cannot be undone.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteResponse(resp.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-                        </div>
-                      </div>
-                      {tpl && (tpl as any).category !== "rams" && (
-                        <div className="mt-2">
-                          <ReportSummaryEditor
-                            templateName={tpl.name}
-                            fields={(tpl.fields || []) as any}
-                            responses={resp.responses as Record<string, any>}
-                            jobId={jobId}
-                            context={{
-                              customer: jobInfo?.customer ?? null,
-                              site: (jobInfo as any)?.site?.name ?? jobInfo?.address ?? null,
-                            }}
-                            value={String((resp.responses as any)?._ai_summary || "") || null}
-                            canEdit={canEdit}
-                            onSave={async (text) => {
-                              const next = { ...((resp.responses as any) || {}) };
-                              if (text) next._ai_summary = text;
-                              else delete next._ai_summary;
-                              const { error } = await supabase
-                                .from("job_sheet_responses")
-                                .update({ responses: next as any })
-                                .eq("id", resp.id);
-                              if (error) throw error;
-                              setResponses((prev) =>
-                                prev.map((r) => (r.id === resp.id ? ({ ...r, responses: next } as any) : r)),
-                              );
-                            }}
-                          />
-                        </div>
-                      )}
-                      </div>
-                    );
-
                   })}
                 </div>
               </div>

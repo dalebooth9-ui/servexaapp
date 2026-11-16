@@ -55,6 +55,10 @@ interface Props {
   jobId: string;
   jobInfo?: JobInfo | null;
   onExtracted: (data: Record<string, any>) => void;
+  /** Optional controlled open (used by the job page three-dot menu). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }
 
 type MessageImage = {
@@ -63,8 +67,10 @@ type MessageImage = {
   selected: boolean;
 };
 
-export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: Props) {
-  const [open, setOpen] = useState(false);
+export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted, open: openProp, onOpenChange, hideTrigger }: Props) {
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = (v: boolean) => { setOpenState(v); onOpenChange?.(v); };
   const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
   const [scanning, setScanningState] = useState(false);
   const [convertingPdf, setConvertingPdf] = useState(false);
@@ -769,9 +775,11 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
 
   return (
     <>
+      {!hideTrigger && (
       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setOpen(true)} title="Scan handwritten sheet">
         <ScanLine className="h-3.5 w-3.5" />
       </Button>
+      )}
       <Dialog open={open} onOpenChange={(v) => { if (!v) { setReviewData(null); } setOpen(v); }}>
         {reviewData ? (
           <DialogContent className="max-w-4xl p-0" onInteractOutside={(e) => e.preventDefault()} onPointerDownOutside={(e) => e.preventDefault()}>
