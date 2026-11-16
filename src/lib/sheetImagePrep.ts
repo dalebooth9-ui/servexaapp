@@ -185,6 +185,14 @@ export function rotateGray(g: Gray, deg: number): Gray {
   return { w: g.w, h: g.h, d: out };
 }
 
+/** Add a white border so straightening never cuts off the page edges. */
+export function padGray(g: Gray, p: number): Gray {
+  const w = g.w + 2 * p, h = g.h + 2 * p;
+  const d = new Float32Array(w * h).fill(255);
+  for (let y = 0; y < g.h; y++) d.set(g.d.subarray(y * g.w, (y + 1) * g.w), (y + p) * w + p);
+  return { w, h, d };
+}
+
 /** Angle (degrees) that makes text lines most horizontal. */
 export function estimateSkew(g: Gray, maxDeg = 6, step = 0.5): number {
   const small = resizeGray(g, Math.min(500, g.w), Math.round(g.h * Math.min(500, g.w) / g.w));
@@ -262,7 +270,7 @@ export function cleanSheet(g: Gray, outLong = 1800): { page: Gray; quality: Shee
   }
   let enhanced = enhance(page);
   const skew = estimateSkew(enhanced);
-  if (Math.abs(skew) >= 0.5) enhanced = rotateGray(enhanced, -skew);
+  if (Math.abs(skew) >= 0.5) enhanced = rotateGray(padGray(enhanced, Math.ceil(Math.max(enhanced.w, enhanced.h) * Math.sin((Math.abs(skew) * Math.PI) / 180) * 0.6) + 4), -skew);
   return { page: enhanced, quality: measureQuality(g, Boolean(corners), skew) };
 }
 
