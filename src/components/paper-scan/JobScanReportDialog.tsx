@@ -45,7 +45,8 @@ import {
 import ScanReviewPanel from "@/components/ScanReviewPanel";
 import { fileToScanPayload, runScanExtraction, withServerReason } from "@/lib/scanPipeline";
 import { saveJobScanReport } from "@/lib/jobScanReportSave";
-import { blankUncertainAnswers, fieldsToCheck, CONVERSION_CONFIDENCE_MIN, normaliseAnswers, splitIssuesNote, readFieldIds } from "@/lib/handwrittenConversion";
+import { classifyConversion, type ConversionAnswer } from "@/lib/handwrittenConversion";
+import { prepareSheetImage, stripBounds, type PreparedSheet } from "@/lib/sheetImagePrep";
 import { loadJobRisers } from "@/lib/jobRisers";
 import { riserIdentityPrefill } from "@/lib/riserScanFlow";
 import { logError } from "@/lib/errorLogger";
@@ -171,6 +172,10 @@ export default function JobScanReportDialog({
   const conversion = Boolean(convertSources?.length);
   const [uncertainIds, setUncertainIds] = useState<string[]>([]);
   const [readIds, setReadIds] = useState<string[]>([]);
+  const [fromJobIds, setFromJobIds] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<Record<string, any>>({});
+  const [boxes, setBoxes] = useState<Record<string, { x: number; y: number; w: number; h: number }>>({});
+  const [prepared, setPrepared] = useState<PreparedSheet | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
   // Flip true once each mount-time fetch settles — the initial auto-process
@@ -515,18 +520,17 @@ export default function JobScanReportDialog({
   });
 
   const extractWithTemplate = async (tpl: TemplateRow, files: File[], list: Page[] = pages) => {
-    const images = conversion ? [] : await buildPayloads(files);
+    if (conversion) {
+      await runConversion(tpl, list);
+      return;
+    }
+    const images = await buildPayloads(files);
     setStatusMsg(`Running OCR — reading the fields off the sheet (${tpl.name})…`);
     const result = await runScanExtraction({
       images,
-      ...(conversion ? { source: sourceFor(list) } : {}),
       templateName: tpl.name,
       fields: tpl.fields as any,
     });
-    if (conversion) {
-      await finishConversionExtract(tpl, result);
-      return;
-    }
     // Fill anything the sheet didn't give us from the job itself — the
     // engineer shouldn't retype the customer, site, date or reference.
     const fieldPrefill = buildJobSheetPrefill(
@@ -547,31 +551,61 @@ export default function JobScanReportDialog({
     setStep("review");
   };
 
-  /** Conversion: never guess. Unsure answers are dropped, standing details
-   *  (site, customer, riser, outlets, job number) come from the job, and every
-   *  answer still empty is highlighted for the reviewer. */
-  const finishConversionExtract = async (tpl: TemplateRow, result: any) => {
-    const fields = (tpl.fields || []) as any[];
-    const conf = (result.header?._field_confidence || {}) as Record<string, number>;
-    const kept = blankUncertainAnswers(result.extracted || {}, conf, fields);
-    // Map "yes"/"no"/"n/a" ticks to what the form stores; unmappable marks stay blank.
-    const norm = normaliseAnswers(kept.values, fields);
-    const values = norm.values;
-    const blanked = [...kept.blanked, ...norm.unclear];
-    // Issues note: materials go to Materials, the rest stays in Comments.
-    const hasMaterials = fields.some((f) => f.id === "materials_required");
-    if (hasMaterials && typeof values.comments === "string" && !String(values.materials_required || "").trim()) {
-      const split = splitIssuesNote(values.comments);
-      if (split.materials.length) {
-        values.materials_required = split.materials.join("\n");
-        values.comments = split.comments;
-      }
+  /** Conversion: clean the photo up, read every question, and sort each one
+   *  into read (blue) or "check this" (amber, with a one-tap suggestion). */
+  const runConversion = async (tpl: TemplateRow, list: Page[]) => {
+    const first = list[0];
+    if (!first) throw new Error("Choose a photo to convert.");
+    setStatusMsg("Straightening and cleaning up the photo…");
+    let prep: PreparedSheet;
+    try {
+      prep = await prepareSheetImage(first.preview);
+    } catch (e: any) {
+      throw new Error(`Couldn't open the photo to clean it up: ${e?.message || e}`);
     }
-    setReadIds(readFieldIds(values, fields));
+    setPrepared((old) => { if (old) URL.revokeObjectURL(old.enhancedUrl); return prep; });
+    const bounds = stripBounds(prep.height).map((b) => ({ y: (b.y / prep.height) * 100, h: (b.h / prep.height) * 100 }));
+    setStatusMsg("Reading every question on the sheet…");
+    const { data, error } = await supabase.functions.invoke("ocr-job-sheet", {
+      body: {
+        source: sourceFor(list),
+        conversion: true,
+        enhanced: prep.enhanced,
+        strips: prep.strips,
+        strip_bounds: bounds,
+        template_name: tpl.name,
+        fields: tpl.fields,
+      },
+    });
+    if (error) throw await withServerReason(error);
+    if ((data as any)?.error) throw new Error((data as any).error);
+    const conv = (data as any)?.conversion as {
+      answers: Record<string, ConversionAnswer>; header: Record<string, any>;
+      unreadable: boolean; unreadable_reason: string | null;
+    } | undefined;
+    if (!conv) throw new Error("The sheet reader returned nothing. Please try again.");
+    const fields = (tpl.fields || []) as any[];
+    const cls = classifyConversion(conv.answers || {}, fields);
+    if (conv.unreadable || (prep.quality.tooPoor && cls.read.length === 0)) {
+      const why = [conv.unreadable_reason, ...prep.quality.issues].filter(Boolean).join(". ");
+      const err = new Error(`Couldn't read this photo, please retake it.${why ? ` What was unreadable: ${why}.` : ""} Take it straight on, in good light, with the whole sheet in frame.`);
+      err.name = "UnreadablePhoto";
+      throw err;
+    }
+    await finishConversionExtract(tpl, cls, conv.header || {});
+  };
+
+  /** Standing details (site, customer, riser, outlets, job number) come from
+   *  the job only for questions the sheet gave no reading for. */
+  const finishConversionExtract = async (
+    tpl: TemplateRow,
+    cls: ReturnType<typeof classifyConversion>,
+    convHeader: Record<string, any>,
+  ) => {
+    const fields = (tpl.fields || []) as any[];
     const fieldPrefill = buildJobSheetPrefill(fields as any, jobInfo as any, tpl.name);
     const jobPrefill: Record<string, any> = {};
     fields.forEach((f) => {
-      if (blanked.includes(f.id)) return;
       const v = fieldPrefill[f.id];
       if (v === undefined) return;
       jobPrefill[f.id] = typeof v === "string" ? formatDateForField(f.type, v) || v : v;
@@ -607,16 +641,29 @@ export default function JobScanReportDialog({
     } catch (e) {
       console.warn("[JobScanReportDialog] riser prefill failed", e);
     }
-    // Sheet answers win; job details only fill blanks.
-    const merged = mergeBlanks(values, { ...jobPrefill, ...riserPrefill });
-    setExtracted(merged);
-    const hdr = mergeBlanks(result.header || {}, buildHeaderPrefill(jobInfo));
-    // The inspecting engineer must come from the sheet, never assumed.
-    if (!String(result.header?.engineer || "").trim() || (conf.engineer ?? 1) < CONVERSION_CONFIDENCE_MIN) {
-      hdr.engineer = "";
+    const prefill = { ...jobPrefill, ...riserPrefill };
+    const fromJob: string[] = [];
+    const check: string[] = [];
+    const values = { ...cls.values };
+    for (const id of cls.check) {
+      const v = prefill[id];
+      if (!(id in cls.suggestions) && v !== undefined && v !== null && String(v).trim() !== "") {
+        values[id] = v;
+        fromJob.push(id);
+      } else check.push(id);
     }
+    // Extra (non-question) prefill keys still fill blanks.
+    const merged = mergeBlanks(values, prefill);
+    setExtracted(merged);
+    const hdr = mergeBlanks(convHeader, buildHeaderPrefill(jobInfo));
+    // The inspecting engineer must come from the sheet, never assumed.
+    if (!String(convHeader?.engineer || "").trim()) hdr.engineer = "";
     setHeader(hdr);
-    setUncertainIds(fieldsToCheck(merged, blanked, fields));
+    setReadIds(cls.read);
+    setUncertainIds(check);
+    setFromJobIds(fromJob);
+    setSuggestions(cls.suggestions);
+    setBoxes(cls.boxes);
     setTemplate(tpl);
     setStep("review");
   };
@@ -629,6 +676,7 @@ export default function JobScanReportDialog({
     const status = e?.status || e?.statusCode || "";
     const debugInfo = [name, status, raw].filter(Boolean).join(" / ");
 
+    if (name === "UnreadablePhoto") return raw;
     if (!raw) return `${fallback}${debugInfo ? ` [debug: ${debugInfo}]` : ""}`;
     if (/failed to (fetch|send)|network|load failed|timeout|aborted|edge function/i.test(raw)) {
       return `Lost connection while reading the sheet. Check your signal and try again — your photos are still here. [debug: ${debugInfo}]`;
@@ -1071,7 +1119,7 @@ export default function JobScanReportDialog({
               </Select>
             </div>
             <ScanReviewPanel
-              imagePreviews={pages.map((p) => p.preview)}
+              imagePreviews={conversion && prepared ? [prepared.enhancedUrl, ...pages.map((p) => p.preview)] : pages.map((p) => p.preview)}
               extractedFields={extracted}
               extractedHeader={header}
               templateFields={template.fields}
@@ -1080,6 +1128,11 @@ export default function JobScanReportDialog({
               templateId={template.id}
               uncertainFieldIds={conversion ? uncertainIds : undefined}
               filledFieldIds={conversion ? readIds : undefined}
+              fromJobFieldIds={conversion ? fromJobIds : undefined}
+              suggestions={conversion ? suggestions : undefined}
+              fieldBoxes={conversion ? boxes : undefined}
+              cropImageUrl={conversion ? prepared?.enhancedUrl : undefined}
+              cropImageSize={conversion && prepared ? { w: prepared.width, h: prepared.height } : undefined}
               confirmLabel={conversion ? "Save as draft report" : undefined}
               onConfirm={handleConfirm}
               onRescan={() => {
