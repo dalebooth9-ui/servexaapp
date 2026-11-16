@@ -249,7 +249,7 @@ export function renderPdfSignatures(
     doc.setTextColor(0, 0, 0);
   }
   if (data.transcriptionNote) {
-    doc.setFontSize(5.5);
+    doc.setFontSize(6.5);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(0, 0, 0);
     doc.text(data.transcriptionNote, margin, sigY + (engCaption || data.technicianSourceNote ? 23.5 : 21));
