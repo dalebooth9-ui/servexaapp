@@ -56,7 +56,12 @@ export async function loadJobSourceImages(
     if (UUID.test(first) && first !== caller.orgId && first !== jobId) {
       return { error: "That photo does not belong to your company", status: 403 };
     }
-    const { data: blob, error } = await admin.storage.from(ref.bucket).download(ref.path);
+    let { data: blob, error } = await admin.storage.from(ref.bucket).download(ref.path);
+    // Older rows point at the pre-company-folder path; files now live under
+    // the caller's company folder (never another company's).
+    if ((error || !blob) && first !== caller.orgId) {
+      ({ data: blob, error } = await admin.storage.from(ref.bucket).download(`${caller.orgId}/${ref.path}`));
+    }
     if (error || !blob) return { error: "Couldn't open the photo from storage", status: 404 };
     if (blob.size > MAX_BYTES) return { error: "That photo is too large to read (over 15 MB)", status: 400 };
     const name = String(row.file_name || ref.path).toLowerCase();
