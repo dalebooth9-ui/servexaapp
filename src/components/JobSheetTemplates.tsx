@@ -1931,6 +1931,9 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     ? [...new Set(activeTemplate.fields.filter((f) => !hiddenFieldIds(formData).includes(String(f.id)) && (!scanMode||!isScanPrivateField(f))).map((f) => f.section || "General"))]
     : [];
   const hiddenIds = hiddenFieldIds(formData);
+  const transcribedInfo = activeResponse?.status !== "submitted" ? (formData as any)?._transcribed_from : null;
+  const transcribedRead = new Set<string>(Array.isArray(transcribedInfo?.read_fields) ? transcribedInfo.read_fields : []);
+  const transcribedUnclear = new Set<string>(Array.isArray(transcribedInfo?.unclear_fields) ? transcribedInfo.unclear_fields : []);
 
   const omittedSections: string[] = Array.isArray((formData as any).__omitted_sections__)
     ? (formData as any).__omitted_sections__
@@ -2736,7 +2739,6 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                 userName={(profile as any)?.full_name ?? null}
               />
             )}
-            {(() => { return null; })()}
             {sections.map((section) => {
               const omitted = isSectionOmitted(section);
               return (
