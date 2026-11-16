@@ -19,21 +19,26 @@ export default function ReportDefectSuggestions({ jobId, onCreated }: { jobId: s
       .from("job_sheet_responses")
       .select("id, responses, status, template:job_sheet_templates(name)")
       .eq("job_id", jobId)
-      .in("status", ["submitted", "completed", "filed"]);
+      .in("status", ["submitted", "completed", "filed"])
+      .order("updated_at", { ascending: false });
     const ids = (resps || []).map((r: any) => r.id);
     if (!ids.length) { setPending([]); return; }
     const [{ data: existing }, { data: dismissed }] = await Promise.all([
-      supabase.from("defects").select("source_response_id, source_key").in("source_response_id", ids),
+      supabase.from("defects").select("source_response_id, source_key").eq("job_id", jobId).not("source_key", "is", null),
       supabase.from("report_defect_dismissals").select("response_id, source_key").in("response_id", ids),
     ]);
     const done = new Set([
       ...(existing || []).map((d: any) => `${d.source_response_id}|${d.source_key}`),
       ...(dismissed || []).map((d: any) => `${d.response_id}|${d.source_key}`),
     ]);
+    // Same problem already raised from another report on this job (e.g. a resubmitted copy).
+    const jobKeys = new Set((existing || []).map((d: any) => d.source_key));
     const out: Pending[] = [];
     const tick: Record<string, boolean> = {};
+    const shown = new Set<string>();
     for (const r of resps as any[]) {
-      const items = suggestDefectsFromReport(r.responses).filter(s => !done.has(`${r.id}|suggest:${s.key}`));
+      const items = suggestDefectsFromReport(r.responses).filter(s => !done.has(`${r.id}|suggest:${s.key}`) && !jobKeys.has(`suggest:${s.key}`) && !shown.has(s.key));
+      items.forEach(s => shown.add(s.key));
       if (!items.length) continue;
       items.forEach(s => { tick[`${r.id}|${s.key}`] = true; });
       const resp = r.responses || {};
