@@ -37,6 +37,9 @@ export type ScanImagePayload = {
 
 export interface RunScanExtractionInput {
   images: ScanImagePayload[];
+  /** Job media conversion: the server loads these job files itself after a
+   *  company check, instead of the browser sending image data. */
+  source?: { job_id: string; submission_ids: string[] };
   templateName: string;
   fields: ScanTemplateField[];
   /** When set, engineer header name is matched against org profiles. */
@@ -278,6 +281,7 @@ export async function runScanExtraction(
 ): Promise<ScanExtractionResult> {
   const invokeBody = {
     images: input.images,
+    ...(input.source ? { source: input.source } : {}),
     template_name: input.templateName,
     fields: toOcrFieldPayload(input.fields),
   };

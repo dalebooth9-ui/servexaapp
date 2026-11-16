@@ -31,6 +31,10 @@ interface Props {
   /** When known, enables the "Previous report" comparison panel. */
   jobId?: string;
   templateId?: string;
+  /** Fields the reader wasn't sure about (left blank) — highlighted for checking. */
+  uncertainFieldIds?: string[];
+  /** Overrides the confirm button text. */
+  confirmLabel?: string;
 }
 
 // Simple similarity score (Dice coefficient on bigrams)
@@ -65,7 +69,11 @@ export default function ScanReviewPanel({
   onRescan,
   jobId,
   templateId,
+  uncertainFieldIds,
+  confirmLabel,
 }: Props) {
+  const uncertain = new Set(uncertainFieldIds || []);
+  const [zoom, setZoom] = useState(1);
   const [fields, setFields] = useState<Record<string, any>>({ ...extractedFields });
   const [header, setHeader] = useState<Record<string, any>>({ ...extractedHeader });
   const [fieldNotes, setFieldNotes] = useState<Record<string, string>>({});
@@ -310,6 +318,9 @@ export default function ScanReviewPanel({
           <Pencil className="h-4 w-4 text-primary" />
           <span className="text-sm font-semibold">Review & Confirm</span>
           <Badge variant="secondary" className="text-xs">{filledCount} fields extracted</Badge>
+          {uncertain.size > 0 && (
+            <Badge variant="outline" className="border-warning text-xs">{uncertain.size} to check</Badge>
+          )}
         </div>
         <span className="text-xs text-muted-foreground">{templateName}</span>
       </div>
@@ -320,15 +331,25 @@ export default function ScanReviewPanel({
         <div className="w-1/2 border-r bg-muted/10">
           <ScrollArea className="h-full">
             <div className="p-3 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Original Scan</p>
-              {imagePreviews.map((src, i) => (
-                <img
-                  key={i}
-                  src={src}
-                  alt={`Scanned page ${i + 1}`}
-                  className="w-full rounded border shadow-sm"
-                />
-              ))}
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-muted-foreground">Original Scan</p>
+                <div className="flex items-center gap-1">
+                  <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-xs" aria-label="Zoom out" disabled={zoom <= 1} onClick={() => setZoom((z) => Math.max(1, z - 0.5))}>−</Button>
+                  <span className="w-10 text-center text-[11px] text-muted-foreground">{Math.round(zoom * 100)}%</span>
+                  <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-xs" aria-label="Zoom in" disabled={zoom >= 4} onClick={() => setZoom((z) => Math.min(4, z + 0.5))}>+</Button>
+                </div>
+              </div>
+              <div className="overflow-auto space-y-2">
+                {imagePreviews.map((src, i) => (
+                  <img
+                    key={i}
+                    src={src}
+                    alt={`Scanned page ${i + 1}`}
+                    style={{ width: `${zoom * 100}%`, maxWidth: "none" }}
+                    className="rounded border shadow-sm"
+                  />
+                ))}
+              </div>
             </div>
           </ScrollArea>
         </div>
@@ -359,8 +380,15 @@ export default function ScanReviewPanel({
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{sectionName}</h3>
                   <div className="space-y-2.5">
                     {sectionFields.map((field) => (
-                      <div key={field.id}>
+                      <div
+                        key={field.id}
+                        data-uncertain={uncertain.has(field.id) || undefined}
+                        className={uncertain.has(field.id) ? "rounded-md border border-warning bg-warning/10 p-2" : undefined}
+                      >
                         <Label className="text-xs text-muted-foreground">{field.label}</Label>
+                        {uncertain.has(field.id) && (
+                          <p className="text-[11px] font-medium text-foreground">Couldn't read this clearly — check the original and fill it in.</p>
+                        )}
                         <div className="mt-0.5">{renderFieldInput(field)}</div>
                         <div className="mt-1">
                           <Input
@@ -386,7 +414,7 @@ export default function ScanReviewPanel({
           <ArrowLeft className="h-3.5 w-3.5 mr-1.5" /> Re-scan
         </Button>
         <Button size="sm" onClick={() => onConfirm(fields, header, fieldNotes)}>
-          <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Confirm & Fill Form
+          <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> {confirmLabel || "Confirm & Fill Form"}
         </Button>
       </div>
     </div>
