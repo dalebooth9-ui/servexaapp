@@ -112,6 +112,8 @@ export interface PdfSignatureData {
   customerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string } | null;
   /** Optional small caption rendered under the technician signature (e.g. "signature from original scan"). */
   technicianSourceNote?: string | null;
+  /** "Transcribed from handwritten original by …" — always printed when set. */
+  transcriptionNote?: string | null;
   /** Optional small caption rendered under the customer signature. */
   customerSourceNote?: string | null;
 }
@@ -245,6 +247,14 @@ export function renderPdfSignatures(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
+  }
+  if (data.transcriptionNote) {
+    doc.setFontSize(5.5);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(0, 0, 0);
+    doc.text(data.transcriptionNote, margin, sigY + (engCaption || data.technicianSourceNote ? 23.5 : 21));
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
   }
 
 

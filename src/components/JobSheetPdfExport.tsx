@@ -1422,7 +1422,8 @@ export async function generateJobSheetPdf(
     sigImages,
     engineerSig,
     customerSig,
-    technicianSourceNote: preloadedSignatures?.technicianSourceNote ?? transcriptionNote((resolvedFormData as any)?.[TRANSCRIBED_KEY]),
+    technicianSourceNote: preloadedSignatures?.technicianSourceNote ?? null,
+    transcriptionNote: transcriptionNote((resolvedFormData as any)?.[TRANSCRIBED_KEY]),
     customerSourceNote: preloadedSignatures?.customerSourceNote ?? null,
   });
 
