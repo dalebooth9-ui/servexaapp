@@ -168,3 +168,69 @@ export function readFieldIds(values: Record<string, any>, fields: Field[]): stri
     .filter((f) => !NON_ANSWER_TYPES.has(String(f.type).toLowerCase()) && !isBlank(values[f.id]))
     .map((f) => f.id);
 }
+
+// ── Question-by-question conversion result ──────────────────────────────────
+
+export type ConversionAnswer = {
+  field_id: string;
+  value: string | null;
+  best_guess: string | null;
+  confidence: number;
+  box: { x: number; y: number; w: number; h: number } | null;
+  note?: string | null;
+};
+
+export type ClassifiedConversion = {
+  /** Answers confidently read — go straight into the draft (blue). */
+  values: Record<string, any>;
+  read: string[];
+  /** Every other question — amber "check this". */
+  check: string[];
+  /** One-tap suggestion per amber question (already in the form's format). */
+  suggestions: Record<string, any>;
+  boxes: Record<string, { x: number; y: number; w: number; h: number }>;
+};
+
+export function answerFieldList<T extends Field>(fields: T[]): T[] {
+  return fields.filter((f) => !NON_ANSWER_TYPES.has(String(f.type).toLowerCase()) && String(f.type).toLowerCase() !== "repeating_table");
+}
+
+/** Sort every question into read (blue) or check (amber). read + check always
+ *  equals the number of questions. */
+export function classifyConversion(
+  answers: Record<string, ConversionAnswer>,
+  fields: Field[],
+  min = CONVERSION_CONFIDENCE_MIN,
+): ClassifiedConversion {
+  const out: ClassifiedConversion = { values: {}, read: [], check: [], suggestions: {}, boxes: {} };
+  for (const f of answerFieldList(fields)) {
+    const a = answers?.[f.id];
+    if (a?.box) out.boxes[f.id] = a.box;
+    const confident = a && a.value !== null && a.confidence >= min ? normaliseForField(f.type, a.value) : undefined;
+    if (confident !== undefined && !(typeof confident === "string" && !confident.trim())) {
+      out.values[f.id] = confident;
+      out.read.push(f.id);
+      continue;
+    }
+    out.check.push(f.id);
+    const guess = a ? normaliseForField(f.type, a.best_guess ?? a.value) : undefined;
+    if (guess !== undefined && !(typeof guess === "string" && !guess.trim())) out.suggestions[f.id] = guess;
+  }
+  // Issues note: materials go to Materials, the bracket-type work to Comments.
+  const hasMaterials = fields.some((f) => f.id === "materials_required");
+  for (const bag of [out.values, out.suggestions]) {
+    if (hasMaterials && typeof bag.comments === "string" && !String(bag.materials_required || "").trim()) {
+      const split = splitIssuesNote(bag.comments);
+      if (split.materials.length) {
+        bag.materials_required = split.materials.join("\n");
+        bag.comments = split.comments;
+      }
+    }
+  }
+  if (out.values.materials_required && out.check.includes("materials_required")) {
+    out.check = out.check.filter((id) => id !== "materials_required");
+    out.read.push("materials_required");
+    delete out.suggestions.materials_required;
+  }
+  return out;
+}
