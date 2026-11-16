@@ -1,1 +1,2 @@
 - Service-role functions use `resolveCaller` (_shared/callerOrg.ts) and check each request id with `ownsRecord`/`sharesCompany`; admin counts only in the caller org — why: service role bypasses RLS.
+- Handwritten-report conversion sends only job + submission ids; `_shared/jobSourceImages.ts` loads files after company/job checks and results save as drafts with `_transcribed_from` — why: no cross-company file reads, nothing auto-submitted.

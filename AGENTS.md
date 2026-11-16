@@ -38,4 +38,3 @@
 - Sites summaries share siteSummary filtering/counts on RLS-loaded records — why: lists and totals must agree without data writes.
 - MapAddress owns map links — why: private notes/codes must never enter URLs.
 - Live PDFs use compactPrint; site photos load outside dwelling galleries — why: no lost evidence or blank rows.
-- Handwritten-report conversion reuses the paper-scan pipeline in source mode: the browser sends only job + submission ids, `_shared/jobSourceImages.ts` loads them server-side after company/job checks, and results save as a DRAFT with `_transcribed_from` (rules in `src/lib/handwrittenConversion.ts`) — why: no second reader, no cross-company file reads, and nothing guessed or auto-submitted.
