@@ -43,7 +43,7 @@ import {
   X,
 } from "lucide-react";
 import ScanReviewPanel from "@/components/ScanReviewPanel";
-import { fileToScanPayload, runScanExtraction } from "@/lib/scanPipeline";
+import { fileToScanPayload, runScanExtraction, withServerReason } from "@/lib/scanPipeline";
 import { saveJobScanReport } from "@/lib/jobScanReportSave";
 import { blankUncertainAnswers, fieldsToCheck, CONVERSION_CONFIDENCE_MIN } from "@/lib/handwrittenConversion";
 import { loadJobRisers } from "@/lib/jobRisers";
@@ -669,7 +669,7 @@ export default function JobScanReportDialog({
           { body: clsBody },
         ));
       }
-      if (clsErr) throw new Error(clsErr.message || "Classification failed");
+      if (clsErr) throw await withServerReason(clsErr);
       if ((cls as any)?.error) throw new Error((cls as any).error);
 
       const candidates: Array<{

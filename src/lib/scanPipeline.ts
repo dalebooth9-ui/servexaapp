@@ -274,6 +274,23 @@ function toOcrFieldPayload(fields: ScanTemplateField[]) {
   }));
 }
 
+/** Edge functions return a plain-English `error` in the body on 4xx — show
+ *  that instead of the generic "non-2xx status" wrapper. */
+export async function withServerReason(error: any): Promise<Error> {
+  try {
+    const res = error?.context;
+    if (res && typeof res.clone === "function") {
+      const body = await res.clone().json();
+      if (body?.error) {
+        const e = new Error(String(body.error));
+        (e as any).status = res.status;
+        return e;
+      }
+    }
+  } catch { /* fall through */ }
+  return error instanceof Error ? error : new Error(String(error?.message || error));
+}
+
 // Single canonical invocation of the ocr-job-sheet edge function. Every scan
 // door — job, queue, archive, quick-scan, batch-scan — goes through here.
 export async function runScanExtraction(
@@ -298,7 +315,7 @@ export async function runScanExtraction(
     ({ data, error } = await supabase.functions.invoke("ocr-job-sheet", { body: invokeBody }));
   }
 
-  if (error) throw error;
+  if (error) throw await withServerReason(error);
   if (data?.error) throw new Error(data.error);
 
   const extracted: Record<string, any> = data?.extracted || {};
