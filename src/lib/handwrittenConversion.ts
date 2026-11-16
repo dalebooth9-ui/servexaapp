@@ -4,6 +4,9 @@
 
 /** Below this the reader was guessing between marks — leave the field blank. */
 export const CONVERSION_CONFIDENCE_MIN = 0.6;
+/** Short handwritten codes/names (key types, names, PO numbers) are easy to
+ *  misread, so they only go blue when the reading is very clear. */
+export const SHORT_TEXT_CONFIDENCE_MIN = 0.95;
 
 export const TRANSCRIBED_KEY = "_transcribed_from";
 
@@ -208,8 +211,11 @@ export function classifyConversion(
   for (const f of answerFieldList(fields)) {
     const a = answers?.[f.id];
     if (a?.box) out.boxes[f.id] = a.box;
-    const isText = ["text", "textarea"].includes(String(f.type).toLowerCase());
-    const confident = a && a.value !== null && a.confidence >= (isText ? textMin : min) ? normaliseForField(f.type, a.value) : undefined;
+    const ftype = String(f.type).toLowerCase();
+    const isText = ["text", "textarea"].includes(ftype);
+    const isNote = /comment|material|note|remark|issue/i.test(`${f.id} ${(f as any).label || ""}`);
+    const bar = ftype === "text" && !isNote ? Math.max(textMin, SHORT_TEXT_CONFIDENCE_MIN) : isText ? textMin : min;
+    const confident = a && a.value !== null && a.confidence >= bar ? normaliseForField(f.type, a.value) : undefined;
     if (confident !== undefined && !(typeof confident === "string" && !confident.trim())) {
       out.values[f.id] = confident;
       out.read.push(f.id);
