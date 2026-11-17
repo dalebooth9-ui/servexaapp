@@ -610,6 +610,20 @@
       "when": 1794929348440,
       "tag": "0086_fix_job_completion_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1794930659679,
+      "tag": "0087_help_job_page_tabs_send_window",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1794930683923,
+      "tag": "0088_help_job_page_tabs_send_window_content",
+      "breakpoints": true
     }
   ]
 }
