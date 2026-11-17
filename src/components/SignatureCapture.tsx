@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { PenLine, Trash2, RotateCcw, Check, ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { ENGINEER_SIGNER_ROLES } from "@/lib/reportSignature";
 import { beginSignatureSave, endSignatureSave } from "@/lib/signatureSaveTracker";
 import {
   loadEngineerSignatureLibrary,
@@ -58,6 +59,7 @@ export default function SignatureCapture({
   const [customerName, setCustomerName] = useState(defaultSignerName);
   const [customerPosition, setCustomerPosition] = useState("");
   const [engineerName, setEngineerName] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [savedSig, setSavedSig] = useState<EngineerSignatureRow | null>(null);
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
 
@@ -107,8 +109,14 @@ export default function SignatureCapture({
       .select("*")
       .eq("job_id", jobId)
       .order("created_at", { ascending: false });
-    if (filterByRole) query = query.eq("signer_role", signerRole);
-    const { data } = await query;
+    // Office/admin users sign as "admin"; both count as the engineer signature.
+    if (filterByRole) {
+      query = signerRole === "customer"
+        ? query.eq("signer_role", "customer")
+        : query.in("signer_role", ENGINEER_SIGNER_ROLES as unknown as string[]);
+    }
+    const { data, error: loadErr } = await query;
+    setSaveError(loadErr ? "Couldn't load signatures. Check your signal and try again." : null);
     const sigs = (data as any[]) || [];
     setSignatures(sigs);
 
@@ -320,13 +328,15 @@ export default function SignatureCapture({
       // an existing value — admins can edit/clear on the site details screen.
       if (loc.w3w) enrichSiteW3W(jobId, loc.w3w);
 
+      setSaveError(null);
       toast({ title: "Signature saved" });
       clearCanvas();
       setDrawing(false);
       if (signerRole === "customer") { setCustomerName(defaultSignerName); setCustomerPosition(""); }
       fetchSignatures();
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setSaveError(`Signature not saved: ${err?.message || "unknown error"}. Please try again.`);
+      toast({ title: "Signature not saved", description: err.message, variant: "destructive" });
     } finally {
       endSignatureSave(jobId);
       setSaving(false);
@@ -401,7 +411,8 @@ export default function SignatureCapture({
       clearCanvas();
       fetchSignatures();
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setSaveError(`Signature not saved: ${err?.message || "unknown error"}. Please try again.`);
+      toast({ title: "Signature not saved", description: err.message, variant: "destructive" });
     } finally {
       endSignatureSave(jobId);
       setSaving(false);
@@ -451,6 +462,9 @@ export default function SignatureCapture({
         </div>
       )}
 
+      {saveError && (
+        <p role="alert" className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">{saveError}</p>
+      )}
       {/* Capture pad */}
       {drawing ? (
         <div className="space-y-3">
@@ -513,9 +527,25 @@ export default function SignatureCapture({
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => setDrawing(true)}>
-            <PenLine className="mr-1.5 h-4 w-4" /> {signerRole === "customer" ? "Add Customer Signature" : "Draw Signature"}
-          </Button>
+          {signatures.length > 0 ? (
+            <>
+              <Button variant="secondary" size="sm" disabled aria-label="Signed">
+                <Check className="mr-1.5 h-4 w-4" /> Signed
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setDrawing(true)}>
+                <PenLine className="mr-1.5 h-4 w-4" /> Redo
+              </Button>
+              {(userRole === "admin" || signatures[0].signer_id === user?.id) && (
+                <Button variant="outline" size="sm" onClick={() => handleDelete(signatures[0])}>
+                  <Trash2 className="mr-1.5 h-4 w-4" /> Clear
+                </Button>
+              )}
+            </>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => setDrawing(true)}>
+              <PenLine className="mr-1.5 h-4 w-4" /> {signerRole === "customer" ? "Add Customer Signature" : "Draw Signature"}
+            </Button>
+          )}
           {signerRole !== "customer" && savedSig && (
             <Button variant="secondary" size="sm" onClick={handleUseSaved} disabled={saving}>
               <ImageIcon className="mr-1.5 h-4 w-4" />

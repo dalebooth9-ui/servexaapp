@@ -130,7 +130,7 @@ export default function JobCompleteAction({
       }));
 
     setReadiness({
-      engineerSig: sigs.some((s: any) => s.signer_role === "engineer"),
+      engineerSig: sigs.some((s: any) => s.signer_role === "engineer" || s.signer_role === "admin"),
       customerSig: sigs.some((s: any) => s.signer_role === "customer"),
       formsSubmitted: sheets.filter((s: any) => s.status === "submitted").length,
       drafts,

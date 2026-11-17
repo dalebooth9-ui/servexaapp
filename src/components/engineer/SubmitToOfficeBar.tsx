@@ -61,7 +61,7 @@ export default function SubmitToOfficeBar({ jobId, jobStatus, canAct, onStatusCh
         supabase.from("job_remedial_items" as any).select("id", { count: "exact", head: true }).eq("job_id", jobId).eq("status", "pending"),
       ]);
       const required: string[] = [];
-      if (!((sigs.data as any[]) || []).some((x) => x.signer_role === "engineer")) required.push("Engineer signature");
+      if (!((sigs.data as any[]) || []).some((x) => x.signer_role === "engineer" || x.signer_role === "admin")) required.push("Engineer signature");
       if ((remed as any).count > 0) required.push(`${(remed as any).count} remedial item(s) outstanding`);
       if (required.length) { setMissing(required); setState("idle"); return; }
       setMissing([]);
