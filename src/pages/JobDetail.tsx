@@ -49,6 +49,7 @@ import SignatureCapture from "@/components/SignatureCapture";
 import CustomerSignOffLink from "@/components/CustomerSignOffLink";
 import JobHandoverLink from "@/components/JobHandoverLink";
 import SendToCustomerMenu from "@/components/SendToCustomerMenu";
+import { ToastAction } from "@/components/ui/toast";
 import AddNoteInput from "@/components/jobs/AddNoteInput";
 import AutoAttachTemplateChooser from "@/components/AutoAttachTemplateChooser";
 import { useFileUpload } from "@/hooks/useFileUpload";
@@ -386,19 +387,28 @@ export default function JobDetail() {
     } else {
       const prevStatus = job?.status;
       setJob((prev: any) => ({ ...prev, status: newStatus }));
-      toast({ title: "Status updated", description: `Job is now ${newStatus}.` });
+      if (!(newStatus === "completed" && prevStatus !== "completed")) {
+        toast({ title: "Status updated", description: `Job is now ${newStatus}. Nothing was sent to the customer.` });
+      }
 
-      if (newStatus === "active" && prevStatus !== "active") {
-        supabase.functions.invoke("notify-customer", {
-          body: { job_id: id, notification_type: "engineer_dispatched" },
-        }).then(({ error: notifyErr }) => {
-          if (!notifyErr) toast({ title: "Customer notified", description: "Dispatch email sent." });
-        });
-      } else if (newStatus === "completed" && prevStatus !== "completed") {
+      if (newStatus === "completed" && prevStatus !== "completed") {
+        // Internal only. A customer email goes out only if the company has
+        // switched on "Send completion email" (checked server-side).
         supabase.functions.invoke("notify-customer", {
           body: { job_id: id, notification_type: "job_completed" },
-        }).then(({ error: notifyErr }) => {
-          if (!notifyErr) toast({ title: "Customer notified", description: "Completion email sent." });
+        }).then(({ data }) => {
+          const sent = (data as any)?.sent === true;
+          toast({
+            title: sent ? "Job marked complete" : "Job marked complete (internal)",
+            description: sent
+              ? `Completion email sent to ${(data as any)?.to} (company setting is on).`
+              : "Nothing was sent to the customer.",
+            action: sent ? undefined : (
+              <ToastAction altText="Send to customer" onClick={() => window.dispatchEvent(new Event("servexa:open-send-to-customer"))}>
+                Send to customer
+              </ToastAction>
+            ),
+          });
         });
         // Prompt follow-up scheduling
         setFollowUpOpen(true);

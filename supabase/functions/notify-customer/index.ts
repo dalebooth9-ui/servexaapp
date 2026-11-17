@@ -59,6 +59,21 @@ serve(async (req) => {
       .single();
     if (jobErr || !job) throw new Error("Job not found");
 
+    // Status changes are internal by default. Each automatic customer email
+    // must be switched on explicitly by a company admin (all default OFF).
+    const { data: gateRow } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "customer_status_emails")
+      .eq("org_id", (job as any).org_id)
+      .maybeSingle();
+    const gate = (gateRow?.value || {}) as Record<string, unknown>;
+    if (gate[notification_type] !== true) {
+      return new Response(JSON.stringify({ sent: false, reason: "Automatic customer email is switched off for this company" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Customer paperwork leads with the customer's PO; VFP- is the fallback.
     const _custPo = ((job as any).customer_po || "").trim();
     const _intRef = (job.reference_number || "").trim();

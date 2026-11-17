@@ -219,14 +219,16 @@ export default function JobCompleteAction({
         .eq("job_id", jobId)
         .in("status", ["upcoming", "unscheduled", "overdue"]);
 
-      // Fire customer completion email (best effort)
-      supabase.functions
+      // Internal only: the server sends nothing unless the company has
+      // switched on "Send completion email to customer".
+      const { data: notify } = await supabase.functions
         .invoke("notify-customer", { body: { job_id: jobId, notification_type: "job_completed" } })
-        .catch(() => {});
+        .catch(() => ({ data: null } as any));
+      const sent = (notify as any)?.sent === true;
 
       toast({
-        title: "Job completed",
-        description: hasMissing ? "Completed with admin override." : "Nice work.",
+        title: sent ? "Job completed" : "Job marked complete (internal)",
+        description: `${hasMissing ? "Completed with admin override. " : ""}${sent ? `Completion email sent to ${(notify as any)?.to}.` : "Nothing was sent to the customer."}`,
       });
       setOpen(false);
       onCompleted?.();

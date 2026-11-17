@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
       .single();
 
     const settings = settingsRow?.value as { enabled?: boolean; email_subject?: string; email_body?: string } | null;
-    const emailEnabled = settings?.enabled !== false;
+    const emailEnabled = settings?.enabled === true; // customer emails default OFF
 
     const now = new Date();
     const oneMonthFromNow = new Date(now);

@@ -17,7 +17,7 @@ interface ReminderConfig {
 }
 
 const DEFAULT_CONFIG: ReminderConfig = {
-  enabled: true,
+  enabled: false,
   email_subject: "Upcoming {{service_type}} – {{reference}}",
   email_body: `Dear {{customer_name}},
 

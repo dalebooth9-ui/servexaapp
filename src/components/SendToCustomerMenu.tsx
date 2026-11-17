@@ -404,6 +404,12 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
   const invoiceOptions = invoices.filter((i) => (i.document_type || "invoice") === "invoice");
   const quoteOptions = invoices.filter((i) => i.document_type === "quote");
 
+  useEffect(() => {
+    const h = () => { void openDialog(); };
+    window.addEventListener("servexa:open-send-to-customer", h);
+    return () => window.removeEventListener("servexa:open-send-to-customer", h);
+  });
+
   // allSheetsReady removed — sheets auto-generate on send
 
   return (
@@ -778,6 +784,19 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
               )}
             </div>
 
+
+            <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-1" data-testid="send-summary">
+              <div className="font-semibold">Before you send</div>
+              <div>To: <span className="font-medium">{email.trim() || "No email entered"}</span></div>
+              <div>
+                Attached:{" "}
+                {selectedDocs.size === 0
+                  ? "nothing selected"
+                  : Array.from(selectedDocs)
+                      .map((d) => ({ report: "Customer report", rams: "RAMS / compliance docs", jobsheets: "Job sheets", invoice: "Invoice", quote: "Quote" } as Record<string, string>)[d] || d)
+                      .join(", ")}
+              </div>
+            </div>
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>

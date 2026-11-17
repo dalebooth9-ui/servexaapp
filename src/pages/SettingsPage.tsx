@@ -34,6 +34,7 @@ import PoIntakeEmailCard from "@/components/PoIntakeEmailCard";
 import MicrosoftSendSettings from "@/components/settings/MicrosoftSendSettings";
 import ScanIntakeEmailCard from "@/components/ScanIntakeEmailCard";
 import EmailAutomationSettings from "@/components/EmailAutomationSettings";
+import CustomerStatusEmailSettings from "@/components/CustomerStatusEmailSettings";
 import JobCategorySettings from "@/components/JobCategorySettings";
 import AssetCategorySettings from "@/components/AssetCategorySettings";
 import PhotoTagSettings from "@/components/PhotoTagSettings";
@@ -321,6 +322,7 @@ export default function SettingsPage() {
           <EmailBrandingSettings />
           <EmailFromSettings />
           <MicrosoftSendSettings />
+          <CustomerStatusEmailSettings />
           <FollowUpReminderSettings />
           <ComplianceReminderSettings />
           <EmailAutomationSettings />
