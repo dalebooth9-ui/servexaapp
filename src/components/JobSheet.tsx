@@ -59,7 +59,12 @@ const VISIT_STATUS_ICON: Record<string, React.ReactNode> = {
   unscheduled: <AlertTriangle className="h-3 w-3 text-amber-500" />,
 };
 
-export default function JobSheet({ jobId, job, hideSiteVisitExtra = false }: { jobId: string; job: any; hideSiteVisitExtra?: boolean }) {
+/** part: which slice to show. The job page puts each slice in its own tab
+ *  ("visits" on Overview, "reports" on Reports, "timeline" on Activity,
+ *  "export" as a single button in the More menu). "all" keeps the old layout. */
+export type JobSheetPart = "all" | "visits" | "reports" | "timeline" | "export";
+
+export default function JobSheet({ jobId, job, hideSiteVisitExtra = false, part = "all" }: { jobId: string; job: any; hideSiteVisitExtra?: boolean; part?: JobSheetPart }) {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
   const [activities, setActivities] = useState<ActivityEntry[]>([]);
@@ -333,9 +338,20 @@ export default function JobSheet({ jobId, job, hideSiteVisitExtra = false }: { j
   const completedVisits = visits.filter((v) => v.status === "completed").length;
   const totalVisits = visits.length;
 
+  const show = (p: Exclude<JobSheetPart, "all" | "export">) => part === "all" || part === p;
+
+  if (part === "export") {
+    return (
+      <Button variant="ghost" size="sm" className="justify-start" onClick={handleExportPdf}>
+        <Printer className="mr-2 h-3.5 w-3.5" /> Export job sheet
+      </Button>
+    );
+  }
+
   return (
     <div ref={sheetRef} className="space-y-4">
       {/* Summary strip */}
+      {show("visits") && (
       <div className="flex flex-wrap items-center gap-3">
         <Badge variant="outline" className="gap-1 text-xs">
           <User className="h-3 w-3" /> {assignments.length} Engineer{assignments.length !== 1 ? "s" : ""}
@@ -347,16 +363,19 @@ export default function JobSheet({ jobId, job, hideSiteVisitExtra = false }: { j
           <Activity className="h-3 w-3" /> {activities.length} Events
         </Badge>
         <div className="ml-auto">
+          {part === "all" && (
           <Button variant="outline" size="sm" onClick={handleExportPdf}>
             <Printer className="mr-1.5 h-3.5 w-3.5" /> Export Job Sheet
           </Button>
+          )}
         </div>
       </div>
+      )}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+      <div className={part === "all" ? "grid gap-4 lg:grid-cols-[1fr_360px]" : "space-y-4"}>
         {/* Visit summary + Templates */}
         <div className="space-y-4">
-          {userRole === "admin" && (
+          {userRole === "admin" && show("visits") && (
           <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
@@ -399,13 +418,13 @@ export default function JobSheet({ jobId, job, hideSiteVisitExtra = false }: { j
           )}
 
           {/* Job Sheet Templates — engineers fill in, admins also manage */}
-          <JobSheetTemplates jobId={jobId} hideSiteVisitExtra={hideSiteVisitExtra} />
+          {show("reports") && <JobSheetTemplates jobId={jobId} hideSiteVisitExtra={hideSiteVisitExtra} />}
           {/* Certificate of Conformity (installation jobs) */}
-          <CertificateOfConformity jobId={jobId} />
+          {show("reports") && <CertificateOfConformity jobId={jobId} />}
         </div>
 
         {/* Activity timeline */}
-        {userRole === "admin" && (
+        {userRole === "admin" && show("timeline") && (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">

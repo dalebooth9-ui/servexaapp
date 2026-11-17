@@ -110,21 +110,24 @@ import EngineerJobView from "@/components/engineer/EngineerJobView";
 import EngineerCompletionGate from "@/components/engineer/EngineerCompletionGate";
 import JobCompletionFlagsBadge from "@/components/jobs/JobCompletionFlagsBadge";
 import { UKDateInput } from "@/components/ui/uk-date-input";
+import { jobMainAction, JOB_MAIN_ACTION_LABEL } from "@/lib/jobMainAction";
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
 // Everyday tabs stay on the bar; rarely-used ones live behind "More".
 const MAIN_TABS = [
   { value: "overview", label: "Overview" },
-  { value: "documents", label: "Documents" },
+  { value: "reports", label: "Reports" },
   { value: "photos", label: "Photos" },
+  { value: "defects", label: "Defects" },
+  { value: "paperwork", label: "Paperwork" },
+  { value: "activity", label: "Activity" },
 ] as const;
 
 const MORE_TABS = [
   { value: "emails", label: "Emails" },
   { value: "parts", label: "Parts" },
   { value: "survey", label: "Survey & Snags" },
-  { value: "history", label: "History" },
 ] as const;
 
 const JOB_TABS = [...MAIN_TABS, ...MORE_TABS] as const;
@@ -133,9 +136,10 @@ type JobTab = (typeof JOB_TABS)[number]["value"];
 
 // Tab values from before the layout tidy-up, mapped to their new homes.
 const LEGACY_TAB_MAP: Record<string, JobTab> = {
-  signoff: "documents",
-  activity: "history",
-  timeline: "history",
+  documents: "reports",
+  signoff: "paperwork",
+  history: "activity",
+  timeline: "activity",
 };
 
 // Helper to get customer name from job with joined customers
@@ -568,6 +572,25 @@ export default function JobDetail() {
         {/* Row 2: primary + Actions menu */}
         {userRole === "admin" ? (
           <div className="flex flex-wrap items-center gap-2">
+            {(() => {
+              const main = jobMainAction(job.status);
+              if (main === "fill_in_report") return (
+                <Button size="sm" onClick={() => setActiveTab("reports")}>
+                  <ClipboardList className="mr-1.5 h-3.5 w-3.5" /> {JOB_MAIN_ACTION_LABEL[main]}
+                </Button>
+              );
+              if (main === "create_invoice") return (
+                <CreateInvoiceDialog
+                  jobId={id!}
+                  customerName={custName || ""}
+                  customerEmail={customerEmail}
+                  customerAddress={job.address || ""}
+                  jobName={job.name}
+                  trigger={<Button size="sm"><FileText className="mr-1.5 h-3.5 w-3.5" /> {JOB_MAIN_ACTION_LABEL[main]}</Button>}
+                />
+              );
+              return null; // "Send to customer" is the Send menu right beside this.
+            })()}
             <JobCompletionFlagsBadge jobId={id!} isAdmin={userRole === "admin"} />
             <SendToCustomerMenu jobId={id!} job={job} customerEmail={customerEmail} />
             <Suspense fallback={null}>
@@ -582,7 +605,7 @@ export default function JobDetail() {
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5">
-                  Actions <ChevronDown className="h-3.5 w-3.5" />
+                  More <ChevronDown className="h-3.5 w-3.5" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-64 p-2">
@@ -590,6 +613,7 @@ export default function JobDetail() {
                   <AiJobBriefDialog job={job} />
                   <JobPdfReport jobId={id!} job={job} />
                   <JobWordReport jobId={id!} job={job} />
+                  <Suspense fallback={null}><JobSheet jobId={id!} job={job} part="export" /></Suspense>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -603,7 +627,7 @@ export default function JobDetail() {
                     size="sm"
                     className="justify-start"
                     onClick={() => {
-                      setActiveTab("documents");
+                      setActiveTab("paperwork");
                       setTimeout(() => document.getElementById("sign-off-signatures-section")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
                     }}
                   >
@@ -626,15 +650,7 @@ export default function JobDetail() {
                       </Button>
                     }
                   />
-                  {(job.status === "completed" || job.status === "archived") && (
-                    <CreateInvoiceDialog
-                      jobId={id!}
-                      customerName={custName || ""}
-                      customerEmail={customerEmail}
-                      customerAddress={job.address || ""}
-                      jobName={job.name}
-                    />
-                  )}
+                  {/* Create invoice is the main header button once the job is completed. */}
                   {job.status !== "scheduled" && (
                     <Button variant="ghost" size="sm" className="justify-start" onClick={() => handleStatusChange("scheduled")}>
                       <CalendarClock className="mr-2 h-3.5 w-3.5" /> Submit to Planner
@@ -720,7 +736,6 @@ export default function JobDetail() {
       {userRole === "admin" && (
         <JobNoSiteBanner key={job.site_id || "none"} jobId={job.id} siteId={job.site_id || null} customerId={job.customer_id || null} address={job.address || null} onChanged={() => void fetchData()} />
       )}
-      <JobRiserSelection key={`r-${job.site_id || "none"}`} jobId={job.id} siteId={job.site_id} />
       <JobStageTimeline jobId={job.id} status={job.status} />
 
       {/* Tab navigation — sections are lazy-mounted; only the active tab is in the DOM.
@@ -798,16 +813,13 @@ export default function JobDetail() {
                 {tab.value === "parts" && (
                   <span className="text-xs text-muted-foreground">{partsCount > 0 ? partsCount : "empty"}</span>
                 )}
-                {tab.value === "history" && (
-                  <span className="text-xs text-muted-foreground">{submissions.length > 0 ? submissions.length : "empty"}</span>
-                )}
               </button>
             ))}
           </PopoverContent>
         </Popover>
       </div>
 
-      {activeTab === "history" && id && (
+      {activeTab === "activity" && id && (
         <>
           <div className="mb-4 flex flex-wrap gap-1" role="group" aria-label="History filter">
             {([["all", "All"], ["activity", "Activity"], ["timeline", "Timeline"]] as const).map(([v, label]) => (
@@ -823,6 +835,7 @@ export default function JobDetail() {
           </div>
           {(historyFilter === "all" || historyFilter === "timeline") && (
             <Suspense fallback={<LazyFallback />}>
+              <div className="mb-4"><JobSheet jobId={id} job={job} part="timeline" /></div>
               <JobTimeline jobId={id} />
             </Suspense>
           )}
@@ -855,12 +868,13 @@ export default function JobDetail() {
 
 
       {activeTab === "overview" && (<>
+      <JobRiserSelection key={`r-${job.site_id || "none"}`} jobId={job.id} siteId={job.site_id} />
       {!!user && assignedEngineerIds.includes(user.id) && userRole !== "admin" && (
         <EngineerJobHero
           jobId={id!}
           jobOrgId={job.org_id}
           isRemedial={!!job.is_remedial}
-          onNavigateTab={(t) => setActiveTab(t as JobTab)}
+          onNavigateTab={(t) => setActiveTab((LEGACY_TAB_MAP[t] ?? t) as JobTab)}
         />
       )}
       {/* Editable Job Details */}
@@ -1239,85 +1253,91 @@ export default function JobDetail() {
         </Collapsible>
       )}
 
-      {["completed", "archived", "pending_review"].includes(job.status) && (
-        <div className="mb-6">
-          <ComplianceRecord jobId={id!} />
-        </div>
+      {userRole === "admin" && (
+        <div className="mb-6"><JobSheet jobId={id!} job={job} part="visits" /></div>
       )}
       </>)}
 
 
 
-      {activeTab === "documents" && (<>
-      <Collapsible defaultOpen className="mb-6">
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
-          Documents
-          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-3">
-          {/* One "Add" menu holds the scan / report / RAMS actions — same
-              actions and permissions as before, just tucked into a dropdown. */}
-          <div className="mb-3 flex justify-end">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  Add <ChevronDown className="h-3.5 w-3.5" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-64 p-2">
-                <div className="flex flex-col gap-1 [&>*]:w-full [&_button]:w-full [&_button]:justify-start">
-                  <Suspense fallback={null}>
-                    <ScanPaperReportButton jobId={id!} onSaved={() => setScanDocsKey((k) => k + 1)} />
-                  </Suspense>
-                  <Suspense fallback={null}><ScanDocumentButton jobId={id!} /></Suspense>
-                  <Suspense fallback={null}><SiteVisitReportButton jobId={id!} /></Suspense>
-                  {userRole === "admin" && (
-                    <>
-                      <Button
-                        variant="ghost" size="sm" className="justify-start"
-                        onClick={() => navigate(`/rams/start?job=${id}`)}
-                      >
-                        <ClipboardList className="mr-2 h-3.5 w-3.5" /> Generate RAMS (AI)
-                      </Button>
-                      <Button
-                        variant="ghost" size="sm" className="justify-start"
-                        onClick={() => navigate(`/jobs/${id}/rams`)}
-                      >
-                        <ClipboardList className="mr-2 h-3.5 w-3.5" /> Edit / Create RAMS
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-          <Suspense fallback={null}><SiteVisitReportList jobId={id!} /></Suspense>
-          <JobDocuments key={scanDocsKey} jobId={id!} job={job} engineers={engineers} />
-        </CollapsibleContent>
-      </Collapsible>
-
-      <Collapsible defaultOpen className="mb-6" id="job-sheets-section">
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
-          Job Sheets
-          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-3">
-          <JobSheet jobId={id!} job={job} />
-        </CollapsibleContent>
-      </Collapsible>
-
-      {id && userRole === "admin" && <Suspense fallback={null}><VisitPaperwork jobId={id}>
-        {userRole === "admin" && (
+      {activeTab === "reports" && (<>
+      {/* Reports: every riser report, scans and written reports, blank paper forms. */}
+      <div className="mb-3 flex justify-end">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-1.5">
+              Add <ChevronDown className="h-3.5 w-3.5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-64 p-2">
+            <div className="flex flex-col gap-1 [&>*]:w-full [&_button]:w-full [&_button]:justify-start">
+              <Suspense fallback={null}>
+                <ScanPaperReportButton jobId={id!} onSaved={() => setScanDocsKey((k) => k + 1)} />
+              </Suspense>
+              <Suspense fallback={null}><ScanDocumentButton jobId={id!} /></Suspense>
+              <Suspense fallback={null}><SiteVisitReportButton jobId={id!} /></Suspense>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div className="mb-6 space-y-4" id="job-sheets-section">
+        <JobSheet jobId={id!} job={job} part="reports" />
+        <Suspense fallback={null}><SiteVisitReportList jobId={id!} /></Suspense>
+      </div>
+      {id && userRole === "admin" && (
+        <div className="mb-6">
+          <h2 className="mb-2 text-sm font-semibold text-muted-foreground">Blank forms</h2>
+          <Suspense fallback={null}><VisitPaperwork jobId={id}>
             <StickerPackDialog
               jobId={job.id}
               siteId={job?.site_id || null}
               siteName={(job as any)?.sites?.name || null}
               customerLogoUrl={(job as any)?.customers?.logo_url || null}
             />
-        )}
-      </VisitPaperwork></Suspense>}
+          </VisitPaperwork></Suspense>
+        </div>
+      )}
       {id && userRole === "admin" && <OutletResults jobId={id} />}
+      </>)}
 
+      {activeTab === "defects" && id && (
+        <JobDefects jobId={id} siteId={job?.site_id || null} />
+      )}
+
+      {activeTab === "paperwork" && (<>
+      {/* Paperwork: RAMS, reference and attached documents, certificates, sign-off. */}
+      <section className="mb-6 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">RAMS</h2>
+          {userRole === "admin" && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => navigate(`/rams/start?job=${id}`)}>
+                <ClipboardList className="mr-1.5 h-3.5 w-3.5" /> Generate RAMS (AI)
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate(`/jobs/${id}/rams`)}>
+                <ClipboardList className="mr-1.5 h-3.5 w-3.5" /> Edit / Create RAMS
+              </Button>
+            </div>
+          )}
+        </div>
+        <JobRamsPanel jobId={id!} job={job} canEdit={userRole === "admin"} status={ramsStatus} />
+      </section>
+
+      <Collapsible defaultOpen className="mb-6">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+          Documents
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <JobDocuments key={scanDocsKey} jobId={id!} job={job} engineers={engineers} hideReportExports />
+        </CollapsibleContent>
+      </Collapsible>
+
+      {["completed", "archived", "pending_review"].includes(job.status) && (
+        <div className="mb-6">
+          <ComplianceRecord jobId={id!} />
+        </div>
+      )}
       {/* Sign-off — folded in from the old separate tab, underneath the documents. */}
       <div className="mt-8 border-t pt-4">
         <h2 className="mb-4 text-lg font-semibold">Sign-off</h2>
@@ -1369,7 +1389,6 @@ export default function JobDetail() {
             </CollapsibleContent>
           </Collapsible>
         )}
-        {id && <JobDefects jobId={id} siteId={job?.site_id || null} />}
       </div>
       </>)}
 
@@ -1430,12 +1449,6 @@ export default function JobDetail() {
           )}
           <VisualOnlyReportNotice jobId={id!} />
           <RamsRequiredBanner jobId={id!} status={ramsStatus} />
-          <JobRamsPanel
-            jobId={id!}
-            job={job}
-            canEdit={userRole === "admin"}
-            status={ramsStatus}
-          />
           <JobCompleteAction
             jobId={id!}
             jobStatus={job.status}
@@ -1467,7 +1480,7 @@ export default function JobDetail() {
       )}
 
 
-      {activeTab === "history" && (historyFilter === "all" || historyFilter === "activity") && userRole === "admin" && (
+      {activeTab === "activity" && (historyFilter === "all" || historyFilter === "activity") && userRole === "admin" && (
         <Collapsible defaultOpen className="mb-6">
           <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
             Servexa Reports
@@ -1484,7 +1497,7 @@ export default function JobDetail() {
       )}
 
 
-      {activeTab === "history" && (historyFilter === "all" || historyFilter === "activity") && (<>
+      {activeTab === "activity" && (historyFilter === "all" || historyFilter === "activity") && (<>
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Messages

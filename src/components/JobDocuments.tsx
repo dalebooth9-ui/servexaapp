@@ -91,7 +91,7 @@ function buildFriendlyFileName(doc: JobDoc, jobInfo: any | null, ext?: string): 
 }
 
 
-export default function JobDocuments({ jobId, job, engineers }: Props) {
+export default function JobDocuments({ jobId, job, engineers, hideReportExports = false }: Props & { hideReportExports?: boolean }) {
   const { userRole, user } = useAuth();
   const { toast } = useToast();
   const [docs, setDocs] = useState<JobDoc[]>([]);
@@ -935,7 +935,7 @@ ${sections}
 
       {/* Actions */}
       <div className="flex items-center gap-2 pt-2 border-t flex-wrap">
-        {userRole === "admin" && (
+        {userRole === "admin" && !hideReportExports && (
           <>
             <JobPdfReport jobId={jobId} job={job} />
             <JobWordReport jobId={jobId} job={job} />
