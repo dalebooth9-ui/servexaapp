@@ -12,6 +12,7 @@ type Pending = { responseId: string; reportName: string; riser: string | null; i
 export default function ReportDefectSuggestions({ jobId, onCreated }: { jobId: string; onCreated: () => void }) {
   const [pending, setPending] = useState<Pending[]>([]);
   const [ticked, setTicked] = useState<Record<string, boolean>>({});
+  const [charge, setCharge] = useState<Record<string, string>>({}); // "" = chargeable, else no-charge reason
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
@@ -59,6 +60,8 @@ export default function ReportDefectSuggestions({ jobId, onCreated }: { jobId: s
       _items: chosen.map(s => ({
         key: s.key, title: s.title, description: s.description, works_required: s.works_required,
         materials_required: s.materials_required, photo: s.photo, location: p.riser,
+        chargeable: charge[`${p.responseId}|${s.key}`] === undefined,
+        no_charge_reason: charge[`${p.responseId}|${s.key}`] || null,
       })),
       _dismiss: skipped,
     });
@@ -82,13 +85,23 @@ export default function ReportDefectSuggestions({ jobId, onCreated }: { jobId: s
           {p.items.map(s => {
             const k = `${p.responseId}|${s.key}`;
             return (
-              <label key={k} className="flex items-start gap-2 rounded border bg-background p-2 cursor-pointer">
+              <div key={k} className="rounded border bg-background p-2 space-y-1.5">
+              <label className="flex items-start gap-2 cursor-pointer">
                 <Checkbox checked={!!ticked[k]} onCheckedChange={v => setTicked(t => ({ ...t, [k]: !!v }))} className="mt-0.5" />
                 <div className="min-w-0 text-sm">
                   <p className="font-medium">{s.title}</p>
                   <p className="text-xs text-muted-foreground">Works: {s.works_required}{s.materials_required ? ` · Materials: ${s.materials_required}` : ""}{s.photoCaption ? ` · Photo: "${s.photoCaption}"` : ""}</p>
                 </div>
               </label>
+              <div className="flex flex-wrap items-center gap-1 pl-6">
+                <Button type="button" size="sm" variant={charge[k] === undefined ? "default" : "outline"} className="h-7 text-xs"
+                  onClick={() => setCharge(c => { const n = { ...c }; delete n[k]; return n; })}>Chargeable</Button>
+                {["Our install", "Engineer error"].map(reason => (
+                  <Button key={reason} type="button" size="sm" variant={charge[k] === reason ? "default" : "outline"} className="h-7 text-xs"
+                    onClick={() => setCharge(c => ({ ...c, [k]: reason }))}>No charge ({reason.toLowerCase()})</Button>
+                ))}
+              </div>
+              </div>
             );
           })}
           <div className="flex justify-end">

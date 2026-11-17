@@ -45,6 +45,8 @@ export type CarriedRemedial = {
   id: string; title: string; asset_id: string | null; riser: string | null;
   works_required: string | null; materials_required: string | null;
   visit_date: string | null; carry_outcome: string | null; carry_comment: string | null;
+  /** false = No charge (our work). Customer outputs show only the neutral wording. */
+  chargeable?: boolean | null;
 };
 
 export type DefectAttachmentResult = { defect_id: string; outcome: string; job_id: string | null; job_ref: string | null; site_name: string | null; visit_date: string | null; report_name: string | null };
@@ -62,7 +64,7 @@ export function carriedReportFields(rows: CarriedRemedial[]): { fields: PdfTempl
   for (const r of rows) {
     const id = `carried_${r.id}`;
     fields.push({ id, label: `${r.riser || "General item"}: ${r.title}`, type: "textarea", required: false, section: "REMEDIAL WORKS OUTSTANDING FROM PREVIOUS VISIT" });
-    answers[id] = [`Works required: ${r.works_required || r.title}`, `Materials required: ${r.materials_required || "—"}`, r.carry_outcome === "not_done" ? "Not done" : "Done / Not done", r.carry_comment ? `Comments: ${r.carry_comment}` : ""].filter(Boolean).join("\n");
+    answers[id] = [`Works required: ${r.works_required || r.title}`, `Materials required: ${r.materials_required || "—"}`, r.carry_outcome === "not_done" ? "Not done" : "Done / Not done", r.chargeable === false ? "Rectified at no charge" : "", r.carry_comment ? `Comments: ${r.carry_comment}` : ""].filter(Boolean).join("\n");
   }
   return { fields, answers };
 }
@@ -70,5 +72,12 @@ export function carriedReportFields(rows: CarriedRemedial[]): { fields: PdfTempl
 export async function loadCarriedRemedials(jobId: string, assetId?: string | null): Promise<CarriedRemedial[]> {
   const { data, error } = await (supabase as any).rpc("job_carried_remedials", { p_job: jobId });
   if (error) throw error;
-  return remedialsForRiser((data || []) as CarriedRemedial[], assetId);
+  const rows = (data || []) as CarriedRemedial[];
+  if (rows.length) {
+    // Best effort: unreadable rows simply keep the normal wording.
+    const { data: ch } = await supabase.from("defects").select("id, chargeable").in("id", rows.map(r => r.id)).eq("chargeable", false);
+    const nc = new Set((ch || []).map((x: any) => x.id));
+    rows.forEach(r => { if (nc.has(r.id)) r.chargeable = false; });
+  }
+  return remedialsForRiser(rows, assetId);
 }

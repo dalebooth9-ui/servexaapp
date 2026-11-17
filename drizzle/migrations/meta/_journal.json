@@ -589,6 +589,20 @@
       "when": 1794849391537,
       "tag": "0083_report_defects_per_check_and_suggestions",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1794914718157,
+      "tag": "0084_defect_no_charge",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1794914738069,
+      "tag": "0085_defect_no_charge_engineer",
+      "breakpoints": true
     }
   ]
 }

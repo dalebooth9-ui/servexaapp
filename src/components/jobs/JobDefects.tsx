@@ -21,6 +21,8 @@ import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { createSubmissionPhotoSignedUrl } from "@/lib/jobPhotos";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import ReportDefectSuggestions from "@/components/jobs/ReportDefectSuggestions";
+import DefectChargeControl from "@/components/defects/DefectChargeControl";
+import { quotableDefects, isNoCharge, noChargeOutstanding, costOf, gbp, type NoChargeDetails } from "@/lib/defectCharge";
 import { batchQuoteDefects, attachDefectsToQuote, listOpenQuotes, type OpenQuote } from "@/lib/defectQuoting";
 
 
@@ -42,6 +44,7 @@ type Defect = {
   resolution_notes: string | null;
   linked_photo_url: string | null;
   linked_submission_id: string | null;
+  chargeable?: boolean | null;
 };
 
 /** Thumbnail for a photo linked to a remedial (stored as a storage path). */
@@ -114,6 +117,7 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
   const [defects, setDefects] = useState<Defect[]>([]);
   const [quoteTotals, setQuoteTotals] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [ncDetails, setNcDetails] = useState<Record<string, NoChargeDetails>>({});
   const [linkedPhotoUrl, setLinkedPhotoUrl] = useState<string | null>(null);
 
   const [open, setOpen] = useState(false);
@@ -147,6 +151,11 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
       .order("created_at", { ascending: false });
     const list = (data || []) as any as Defect[];
     setDefects(list);
+    const ncIds = list.filter(isNoCharge).map(d => d.id);
+    if (ncIds.length) {
+      const { data: det } = await supabase.from("defect_no_charge_details").select("*").in("defect_id", ncIds);
+      setNcDetails(Object.fromEntries((det || []).map((x: any) => [x.defect_id, x])));
+    } else setNcDetails({});
 
     const quoteIds = Array.from(new Set(list.map(d => d.quote_id).filter(Boolean))) as string[];
     if (quoteIds.length) {
@@ -161,7 +170,9 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
     setLoading(false);
   };
 
-  const unquoted = defects.filter(d => !d.quote_id && ["open", "in_progress"].includes(d.status));
+  const unquoted = quotableDefects(defects);
+  const noChargeList = defects.filter(isNoCharge);
+  const noChargeCost = noChargeList.reduce((s, d) => s + costOf(ncDetails[d.id]), 0);
   const carried = defects.filter(d => d.source_kind === CARRIED_FORWARD);
   const carriedOutstanding = carried.filter(d => OUTSTANDING_STATUSES.includes(d.status));
   const carriedDone = carried.filter(d => !OUTSTANDING_STATUSES.includes(d.status));
@@ -368,6 +379,7 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
             <div className="flex items-center gap-2 overflow-x-auto text-center">
               {[
                 { label: "Defects", value: String(defects.length), sub: `${unquoted.length} unquoted` },
+                ...(noChargeList.length ? [{ label: "No charge", value: String(noChargeList.length), sub: isAdmin && noChargeCost > 0 ? `cost ${gbp(noChargeCost)}` : `${noChargeOutstanding(noChargeList).length} to fix` }] : []),
                 { label: "Quoted", value: String(quotedDefects.length), sub: quotedValue > 0 ? `£${quotedValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "no value yet" },
                 { label: "Approved", value: String(approvedCount), sub: "ready for works" },
                 { label: "Resolved", value: String(resolvedCount), sub: "completed" },
@@ -407,6 +419,7 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
                           <Badge variant="outline" className={SEVERITY_BADGE[d.severity] || ""}>{d.severity}</Badge>
                           <Badge variant="outline" className={STATUS_BADGE[d.status] || ""}>{d.status.replace("_", " ")}</Badge>
                           {d.category && <Badge variant="outline" className="text-[10px] capitalize">{d.category.replace("_", " ")}</Badge>}
+                          <DefectChargeControl defect={d} isAdmin={isAdmin} onChanged={fetchDefects} cost={isAdmin ? ncDetails[d.id] : null} />
                           {d.location_on_site && <span className="text-[10px] text-muted-foreground self-center">{d.location_on_site}</span>}
                         </div>
                         {d.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{d.description}</p>}
@@ -430,7 +443,8 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
                     )}
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-[10px] text-muted-foreground">{format(new Date(d.created_at), "dd MMM yyyy HH:mm")}</p>
-                      {isAdmin && !d.quote_id && (
+                      {isAdmin && !d.quote_id && isNoCharge(d) && <span className="text-xs text-muted-foreground">No charge</span>}
+                      {isAdmin && !d.quote_id && !isNoCharge(d) && (
                         <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openAddToQuote(d)}>
                           <FileText className="mr-1 h-3.5 w-3.5" /> Add to quote
                         </Button>

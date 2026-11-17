@@ -29,6 +29,8 @@ import NewVisitDialog from "@/components/riser-visits/NewVisitDialog";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { attachmentMessage, suggestWorksAndMaterials, type DefectAttachmentResult } from "@/lib/defectCarryForward";
 import DefectJobPicker from "@/components/jobs/DefectJobPicker";
+import DefectChargeControl from "@/components/defects/DefectChargeControl";
+import { isNoCharge, noChargeCostThisMonth, groupNoChargeCost, gbp, type NoChargeDetails } from "@/lib/defectCharge";
 import { CalendarPlus, ClipboardList, CalendarClock } from "lucide-react";
 
 
@@ -58,6 +60,7 @@ type Defect = {
   scheduled_visit_id?: string | null;
   scheduled_job_id?: string | null;
   carry_outcome?: string | null;
+  chargeable?: boolean | null;
 };
 
 const SEVERITY_BADGE: Record<string, string> = {
@@ -108,8 +111,8 @@ export default function Defects() {
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "all");
   const [severityFilter, setSeverityFilter] = useState(() => searchParams.get("severity") || "all");
   const createdThisWeek = searchParams.get("created") === "this-week";
-  const [quotedFilter, setQuotedFilter] = useState<"all" | "unquoted" | "quoted">(
-    searchParams.get("filter") === "unquoted" ? "unquoted" : "all"
+  const [quotedFilter, setQuotedFilter] = useState<"all" | "unquoted" | "quoted" | "no_charge">(
+    searchParams.get("filter") === "unquoted" ? "unquoted" : searchParams.get("filter") === "no_charge" ? "no_charge" : "all"
   );
   const [sourceFilter, setSourceFilter] = useState<"all" | "job" | "archive" | "carried_forward">(
     searchParams.get("source") === "archive"
@@ -147,6 +150,9 @@ export default function Defects() {
   const [visitInfo, setVisitInfo] = useState<Record<string, { date: string | null; ref: string | null }>>({});
   const [noVisitSites, setNoVisitSites] = useState<string[]>([]);
   const [createVisitSite, setCreateVisitSite] = useState<string | null>(null);
+  const [ncDetails, setNcDetails] = useState<Record<string, NoChargeDetails>>({});
+  const [ncJobRefs, setNcJobRefs] = useState<Record<string, string>>({});
+  const [showNcBreakdown, setShowNcBreakdown] = useState(false);
   const [worksEdit, setWorksEdit] = useState<{ id: string; works: string; materials: string } | null>(null);
 
   const addToNextServiceReport = async (list: Defect[]) => {
@@ -222,7 +228,18 @@ export default function Defects() {
       setVisitInfo(vm);
     }
 
-    const ids = new Set(defs.map(d => d.reported_by));
+    const ncDefs = defs.filter(isNoCharge);
+    let ncEngineerIds: string[] = [];
+    if (isAdmin && ncDefs.length) {
+      const [{ data: det }, { data: nj }] = await Promise.all([
+        supabase.from("defect_no_charge_details").select("*").in("defect_id", ncDefs.map(d => d.id)),
+        supabase.from("jobs").select("id, reference_number").in("id", Array.from(new Set(ncDefs.map(d => d.job_id).filter(Boolean))) as string[]),
+      ]);
+      setNcDetails(Object.fromEntries((det || []).map((x: any) => [x.defect_id, x])));
+      setNcJobRefs(Object.fromEntries((nj || []).map((j: any) => [j.id, j.reference_number])));
+      ncEngineerIds = (det || []).map((x: any) => x.engineer_id).filter(Boolean);
+    } else setNcDetails({});
+    const ids = new Set([...defs.map(d => d.reported_by), ...ncEngineerIds]);
     if (ids.size > 0) {
       const { data: profs } = await supabase.from("profiles").select("user_id, full_name").in("user_id", Array.from(ids));
       const map: Record<string, string> = {};
@@ -366,7 +383,8 @@ export default function Defects() {
       if (!(d as any).created_at || new Date((d as any).created_at) < ws) return false;
     }
     if (severityFilter !== "all" && d.severity !== severityFilter) return false;
-    if (quotedFilter === "unquoted" && d.quote_id) return false;
+    if (quotedFilter === "unquoted" && (d.quote_id || isNoCharge(d))) return false;
+    if (quotedFilter === "no_charge" && !isNoCharge(d)) return false;
     if (quotedFilter === "quoted" && !d.quote_id) return false;
     if (sourceFilter === "archive" && d.source_kind !== "archive") return false;
     if (sourceFilter === "job" && d.source_kind === "archive") return false;
@@ -391,7 +409,9 @@ export default function Defects() {
 
   const selectedDefects = defects.filter(d => selectedIds.has(d.id));
   const selectedSiteIds = new Set(selectedDefects.map(d => d.site_id));
-  const canBatchQuote = selectedDefects.length > 0 && selectedSiteIds.size === 1 && !selectedDefects.some(d => d.quote_id);
+  const canBatchQuote = selectedDefects.length > 0 && selectedSiteIds.size === 1 && !selectedDefects.some(d => d.quote_id || isNoCharge(d));
+  const selectedNoCharge = selectedDefects.filter(isNoCharge).length;
+  const ncMonth = noChargeCostThisMonth(defects, ncDetails);
 
   if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading...</div>;
 
@@ -423,6 +443,7 @@ export default function Defects() {
               {carrying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ClipboardList className="mr-2 h-4 w-4" />}
               Add to next service report
             </Button>
+            {selectedNoCharge > 0 && <span className="text-xs text-muted-foreground">{selectedNoCharge} No charge — left out of quoting</span>}
             <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Clear</Button>
           </CardContent>
         </Card>
@@ -476,6 +497,34 @@ export default function Defects() {
         })}
       </div>
 
+      {isAdmin && defects.some(isNoCharge) && (
+        <Card>
+          <CardContent className="p-3 space-y-2 text-sm">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-medium">Free remedial work this month:</span>
+              <span>{gbp(ncMonth.total)} · {ncMonth.count} defect{ncMonth.count === 1 ? "" : "s"}</span>
+              <span className="text-xs text-muted-foreground">Internal only</span>
+              <Button size="sm" variant="ghost" onClick={() => setQuotedFilter("no_charge")}>Show No charge</Button>
+              <Button size="sm" variant="ghost" onClick={() => setShowNcBreakdown(v => !v)}>{showNcBreakdown ? "Hide breakdown" : "Cost by job, customer, engineer"}</Button>
+            </div>
+            {showNcBreakdown && (
+              <div className="grid gap-3 sm:grid-cols-3 text-xs">
+                {([
+                  ["By job", groupNoChargeCost(defects, ncDetails, d => d.job_id ? ncJobRefs[d.job_id] || "Job" : "No job")],
+                  ["By customer", groupNoChargeCost(defects, ncDetails, d => d.site_id ? customerSites[d.site_id]?.customer_name : null)],
+                  ["By engineer", groupNoChargeCost(defects, ncDetails, (_, t) => t?.engineer_id ? profiles[t.engineer_id] || "Unknown" : null)],
+                ] as const).map(([title, rows]) => (
+                  <div key={title}>
+                    <p className="font-medium mb-1">{title} (all time)</p>
+                    {rows.map(r => <div key={r.key} className="flex justify-between gap-2"><span className="truncate">{r.key} ({r.count})</span><span>{gbp(r.total)}</span></div>)}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[200px]">
@@ -513,6 +562,7 @@ export default function Defects() {
             <SelectItem value="all">All Quote Status</SelectItem>
             <SelectItem value="unquoted">Unquoted</SelectItem>
             <SelectItem value="quoted">Quoted</SelectItem>
+            <SelectItem value="no_charge">No charge</SelectItem>
           </SelectContent>
         </Select>
         <Select value={sourceFilter} onValueChange={(v: any) => setSourceFilter(v)}>
@@ -565,6 +615,7 @@ export default function Defects() {
                           </Badge>
                         )}
                         {d.location_on_site && <span className="text-[10px] text-muted-foreground">{d.location_on_site}</span>}
+                        <DefectChargeControl defect={d} isAdmin={isAdmin} onChanged={fetchData} cost={isAdmin ? ncDetails[d.id] : null} />
                       </div>
                       {d.description && <p className="text-xs text-muted-foreground line-clamp-1">{d.description}</p>}
                       {d.scheduled_job_id && <Button variant="link" size="sm" className="h-auto px-0 whitespace-normal text-left" onClick={() => navigate(`/jobs/${d.scheduled_job_id}`)}>Added to {jobInfo[d.scheduled_job_id]?.ref || "job"} · {jobInfo[d.scheduled_job_id]?.reports || "Service report"}</Button>}
@@ -632,7 +683,7 @@ export default function Defects() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1 justify-end">
-                        {isAdmin && !d.quote_id && d.status !== "resolved" && (
+                        {isAdmin && !d.quote_id && d.status !== "resolved" && !isNoCharge(d) && (
                           <Button variant="ghost" size="sm" title="Draft quote with AI" onClick={() => generateQuoteForDefects([d])} disabled={quoting}>
                             <Sparkles className="h-3.5 w-3.5" />
                           </Button>

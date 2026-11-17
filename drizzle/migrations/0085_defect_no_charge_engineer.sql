@@ -1,0 +1,1 @@
+ALTER TABLE public.defect_no_charge_details ADD COLUMN IF NOT EXISTS engineer_id uuid;
