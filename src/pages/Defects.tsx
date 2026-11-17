@@ -30,7 +30,7 @@ import { fetchAllRows } from "@/lib/fetchAllRows";
 import { attachmentMessage, suggestWorksAndMaterials, type DefectAttachmentResult } from "@/lib/defectCarryForward";
 import DefectJobPicker from "@/components/jobs/DefectJobPicker";
 import DefectChargeControl from "@/components/defects/DefectChargeControl";
-import { isNoCharge, noChargeCostThisMonth, groupNoChargeCost, gbp, NO_CHARGE_REASONS, type NoChargeDetails } from "@/lib/defectCharge";
+import { isNoCharge, noChargeCostThisMonth, groupNoChargeCost, gbp, type NoChargeDetails } from "@/lib/defectCharge";
 import { CalendarPlus, ClipboardList, CalendarClock } from "lucide-react";
 
 
