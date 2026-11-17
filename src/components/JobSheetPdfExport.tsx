@@ -155,6 +155,8 @@ interface Props {
   trigger?: React.ReactNode;
   mode?: "preview" | "download";
   categoryName?: string;
+  /** Unsubmitted report: print the answers so far with a DRAFT watermark. */
+  draft?: boolean;
 }
 
 export function warnIfUnexpectedPdfPageSpill(
@@ -196,6 +198,7 @@ export async function generateJobSheetPdf(
   submittedAt?: string | null,
   categoryName?: string,
   preloadedSignatures?: { engineerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string }; customerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string }; sigImages?: Record<string, HTMLImageElement>; technicianSourceNote?: string | null; customerSourceNote?: string | null },
+  options?: { draft?: boolean },
 ): Promise<{ base64: string; fileName: string; pageCount: number }> {
   // Resolve scope/category fields in formData using the human-readable category name
   // Display formatting only: stored answers stay ISO; PDFs print UK DD/MM/YYYY.
@@ -1464,7 +1467,7 @@ export async function generateJobSheetPdf(
 
   const safeSite = siteDisplay.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
   const filenameRef = jobInfo?.reference_number || "job-sheet";
-  const fileName = [filenameRef, safeSite || null, reportName.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
+  const fileName = (options?.draft ? "DRAFT-" : "") + [filenameRef, safeSite || null, reportName.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
   // Only the main sheet counts towards the single-page check; photo pages are expected extras.
   warnIfUnexpectedPdfPageSpill({ getNumberOfPages: () => mainSheetPages } as unknown as jsPDF, template.name, fileName, {
     jobId,
@@ -1476,13 +1479,35 @@ export async function generateJobSheetPdf(
     accreditationsSuppressedForSpace: accredLogos.length > 0 && accredLogosForRender.length === 0,
   });
   const pageCount = doc.getNumberOfPages();
+  if (options?.draft) stampDraftWatermark(doc);
   const base64 = doc.output("datauristring").split(",")[1];
 
   return { base64, fileName, pageCount };
 }
 
 
-export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, submittedBy, submittedAt, onPdfGenerated, trigger, mode = "preview", categoryName: categoryNameProp }: Props) {
+/** Diagonal "DRAFT - NOT SUBMITTED" across every page of an unsubmitted report. */
+export const DRAFT_WATERMARK_TEXT = "DRAFT - NOT SUBMITTED";
+function stampDraftWatermark(doc: jsPDF) {
+  const w = doc.internal.pageSize.getWidth();
+  const h = doc.internal.pageSize.getHeight();
+  for (let page = 1; page <= doc.getNumberOfPages(); page++) {
+    doc.setPage(page);
+    const d = doc as any;
+    if (d.GState) d.setGState(new d.GState({ opacity: 0.18 }));
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(54);
+    doc.setTextColor(200, 30, 30);
+    doc.text(DRAFT_WATERMARK_TEXT, w / 2, h / 2, { align: "center", angle: 45, baseline: "middle" } as any);
+    if (d.GState) d.setGState(new d.GState({ opacity: 1 }));
+    doc.setFontSize(9);
+    doc.setTextColor(200, 30, 30);
+    doc.text(`${DRAFT_WATERMARK_TEXT} — answers entered so far`, w / 2, 6, { align: "center" });
+    doc.setTextColor(0, 0, 0);
+  }
+}
+
+export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, submittedBy, submittedAt, onPdfGenerated, trigger, mode = "preview", categoryName: categoryNameProp, draft = false }: Props) {
   const [generating, setGenerating] = useState(false);
   const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
@@ -1500,7 +1525,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       const resolvedCategoryName = categoryNameProp
         || jobCategories.find(c => c.slug === (jobInfo as any)?.category)?.name
         || ((jobInfo as any)?.category ? (jobInfo as any).category.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "");
-      const { base64, fileName } = await generateJobSheetPdf(template, formData, jobInfo, jobId, submittedBy, submittedAt, resolvedCategoryName);
+      const { base64, fileName } = await generateJobSheetPdf(template, formData, jobInfo, jobId, submittedBy, submittedAt, resolvedCategoryName, undefined, { draft });
 
       if (onPdfGenerated) {
         onPdfGenerated(base64, fileName);

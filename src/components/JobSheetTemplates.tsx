@@ -1769,7 +1769,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       const { count: sigCount, error: signatureError } = await supabase
         .from("job_signatures")
         .select("id", { count: "exact", head: true })
-        .eq("job_id", jobId).eq("signer_role", "engineer").abortSignal(signatureController.signal);
+        .eq("job_id", jobId).in("signer_role", ENGINEER_SIGNER_ROLES as unknown as string[]).abortSignal(signatureController.signal);
       clearTimeout(signatureDeadline);
       if (signatureError) throw signatureError;
       const hasSignature = (sigCount ?? 0) > 0;
@@ -1807,10 +1807,14 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
       savedResponseId = targetId;
 
       if (!hasSignature) {
+        // Never leave the engineer thinking it went: answers are kept, but say plainly it was NOT submitted.
+        setSubmitError("Not submitted — no engineer signature was found on this job. Your answers are saved as a draft. Sign at the bottom of the sheet, then press Submit again.");
         toast({
-          title: "Saved as draft",
-          description: "Add a signature at the bottom of the sheet to submit it.",
+          title: "Not submitted",
+          description: "No engineer signature found. Your answers are saved as a draft — sign the sheet and press Submit again.",
+          variant: "destructive",
         });
+        logError({ error: new Error("report_submit_blocked_no_signature"), context: { jobId, responseId: targetId, operation: "submit-report" } });
         serverRowRef.current = true;
         baselineRef.current = JSON.stringify(finalFormData);
         setActiveResponse({ ...(activeResponse || {}), id: targetId, template_id: activeTemplate.id, responses: finalFormData, status: "draft", submitted_by: (activeResponse as any)?.submitted_by ?? user?.id, submitted_at: null, created_at: (activeResponse as any)?.created_at ?? new Date().toISOString() } as Response);
@@ -2302,7 +2306,15 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                           submittedAt={resp.submitted_at}
                         />
                       ) : (
-                        <BlankTemplatePdfExport template={tpl} jobInfo={jobInfo} />
+                        <JobSheetPdfExport
+                          template={filterTemplateBySections({ ...tpl, fields: tpl.fields as any[], branding: tpl.branding as any }, resp.responses as Record<string, any>)}
+                          formData={resp.responses as Record<string, any>}
+                          jobInfo={jobInfo}
+                          jobId={jobId}
+                          submittedBy={profiles[resp.submitted_by] || ""}
+                          submittedAt={null}
+                          draft
+                        />
                       ))}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
