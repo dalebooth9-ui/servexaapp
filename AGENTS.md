@@ -38,3 +38,4 @@
 - Sites summaries share siteSummary filtering/counts on RLS-loaded records — why: lists and totals must agree without data writes.
 - MapAddress owns map links — why: private notes/codes must never enter URLs.
 - Live PDFs use compactPrint; site photos load outside dwelling galleries — why: no lost evidence or blank rows.
+- No-charge defects use `defects.chargeable=false`; reason/internal cost live only in admin-RLS `defect_no_charge_details`, a trigger blocks quoting them, and customer outputs print only "Rectified at no charge" — why: free remedials must never be quoted or leak internal reasons/costs.
