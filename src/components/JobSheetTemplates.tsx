@@ -8,6 +8,7 @@ import {loadSiteAccess} from '@/lib/siteAccess';
 import {accessNoteField} from '@/lib/siteAccessRules';
 import RiserLocationPicker from "@/components/assets/RiserLocationPicker";
 import OutletChecksPanel from "@/components/assets/OutletChecksPanel";
+import { OUTLET_CHECKS_SECTION } from "@/lib/outletChecks";
 import TranscribedOriginal from "@/components/reports/TranscribedOriginal";
 import { readOutletChecks, unresolvedOutlets, countChecked, OUTLET_REASONS } from "@/lib/outletChecks";
 import SiteRiserStickerList from "@/components/assets/SiteRiserStickerList";
@@ -2725,6 +2726,8 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                 locked={activeResponse?.status === "submitted"}
                 userId={user?.id}
                 userName={(profile as any)?.full_name ?? null}
+                omitted={isSectionOmitted(OUTLET_CHECKS_SECTION)}
+                onOmitChange={(omit) => { if (omit !== isSectionOmitted(OUTLET_CHECKS_SECTION)) toggleSectionOmitted(OUTLET_CHECKS_SECTION); }}
               />
             )}
             {sections.map((section) => {

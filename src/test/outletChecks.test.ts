@@ -42,3 +42,18 @@ describe("outlet checks", () => {
     expect(countChecked(8, checks)).toBe(5);
   });
 });
+
+import { bulkConfirm, allConfirmedStickerMissing, isOutletChecksOmitted, STICKER_MISSING_REASON } from "@/lib/outletChecks";
+describe("bulk outlet confirmation and omit", () => {
+  it("marks every ticked outlet with the same reason, name and time, keeping scans", () => {
+    const r = bulkConfirm({ "2": { status: "scanned", at: "x", tag: "A-2" } }, [1, 2, 3], STICKER_MISSING_REASON, { by: "u", by_name: "Dale Booth" }, (n) => `A-${n}`, "t");
+    expect(r["1"]).toEqual({ status: "manual", at: "t", by: "u", by_name: "Dale Booth", tag: "A-1", reason: STICKER_MISSING_REASON });
+    expect(r["2"].status).toBe("scanned");
+    expect(allConfirmedStickerMissing([1, 3], r)).toBe(true);
+    expect(allConfirmedStickerMissing([1, 2, 3], r)).toBe(false);
+  });
+  it("reads omit flag", () => {
+    expect(isOutletChecksOmitted({ __omitted_sections__: ["Outlet checks"] })).toBe(true);
+    expect(isOutletChecksOmitted({})).toBe(false);
+  });
+});

@@ -41,7 +41,7 @@ import { ukDateifyRecord } from "@/lib/dateFormat";
 import { waitForSignatureSaves } from "@/lib/signatureSaveTracker";
 import { checkedOutletNumbers, uncheckedOutletSummary, photoGridLayout, PHOTO_GRID } from "@/lib/compactPrint";
 import { drawQr, stickerUrl } from "@/lib/riserStickers";
-import { readOutletChecks, STATUS_LABEL as OUTLET_STATUS_LABEL } from "@/lib/outletChecks";
+import { readOutletChecks, isOutletChecksOmitted, STATUS_LABEL as OUTLET_STATUS_LABEL } from "@/lib/outletChecks";
 
 /**
  * Load a stored signature as an in-memory image. Downloads the bytes through
@@ -1276,7 +1276,7 @@ export async function generateJobSheetPdf(
   // block disappears when nothing was checked or photographed.
   const outletRows: string[][] = [];
   let missingOutletSummary='';
-  if ((isDryRiser || isWetRiser) && /^[0-9a-f-]{36}$/i.test(riserAssetId)) {
+  if ((isDryRiser || isWetRiser) && !isOutletChecksOmitted(formData) && /^[0-9a-f-]{36}$/i.test(riserAssetId)) {
     const outletChecks = readOutletChecks(formData);
     let total = 0;
     let references: Record<string, number> = {};

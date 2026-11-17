@@ -81,3 +81,33 @@ export function outletSummaryLine(total: number | number[], checks: OutletChecks
   const manual = numbers.filter(n => checks[String(n)]?.status === 'manual').length;
   return `${scanned} of ${numbers.length} outlets scanned${manual ? `, ${manual} manually confirmed` : ""}`;
 }
+
+/** Key stored in `__omitted_sections__` when the Outlet checks table is left out of the report. */
+export const OUTLET_CHECKS_SECTION = "Outlet checks";
+export const STICKER_MISSING_REASON = "Sticker missing or damaged";
+
+export function isOutletChecksOmitted(data: Record<string, any> | null | undefined): boolean {
+  const o = data?.__omitted_sections__;
+  return Array.isArray(o) && o.includes(OUTLET_CHECKS_SECTION);
+}
+
+/** True when every listed outlet was confirmed by hand because its sticker was missing or damaged. */
+export function allConfirmedStickerMissing(numbers: number[], checks: OutletChecks): boolean {
+  return numbers.length > 0 && numbers.every((n) => {
+    const c = checks[String(n)];
+    return c?.status === "manual" && c.reason === STICKER_MISSING_REASON;
+  });
+}
+
+/** Apply a manual confirmation to several outlets at once, keeping per-outlet time, name and tag. */
+export function bulkConfirm(
+  checks: OutletChecks, numbers: number[], reason: string,
+  who: { by?: string | null; by_name?: string | null }, tagFor: (n: number) => string | undefined, at = new Date().toISOString(),
+): OutletChecks {
+  const next: OutletChecks = { ...checks };
+  for (const n of numbers) {
+    if (next[String(n)]?.status === "scanned") continue; // never overwrite a real scan
+    next[String(n)] = { status: "manual", at, by: who.by, by_name: who.by_name, tag: tagFor(n), reason };
+  }
+  return next;
+}
