@@ -2364,6 +2364,7 @@ export type Database = {
       defect_no_charge_details: {
         Row: {
           defect_id: string
+          engineer_id: string | null
           labour_cost: number
           labour_hours: number
           materials_cost: number
@@ -2375,6 +2376,7 @@ export type Database = {
         }
         Insert: {
           defect_id: string
+          engineer_id?: string | null
           labour_cost?: number
           labour_hours?: number
           materials_cost?: number
@@ -2386,6 +2388,7 @@ export type Database = {
         }
         Update: {
           defect_id?: string
+          engineer_id?: string | null
           labour_cost?: number
           labour_hours?: number
           materials_cost?: number
