@@ -19,10 +19,10 @@ export default function EngineerPreviewBanner() {
       <div className="flex items-center gap-2 min-w-0">
         <Eye className="h-4 w-4 shrink-0" />
         <span className="truncate font-semibold">
-          Viewing as Engineer{previewEngineerName ? ` — ${previewEngineerName}` : ""}
+          Previewing as engineer{previewEngineerName ? ` — ${previewEngineerName}` : ""}
         </span>
         <span className="hidden sm:inline text-white/80 text-xs">
-          (admin actions still recorded under your account)
+          (screen only — saving still uses your admin rights)
         </span>
       </div>
       <Button

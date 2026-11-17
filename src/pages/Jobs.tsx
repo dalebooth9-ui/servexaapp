@@ -1,3 +1,4 @@
+import { updateJobStatus } from "@/lib/jobStatusUpdate";
 import { isQueued, readQueue } from "@/lib/reportReview";
 import JobDeleteDialog from "@/components/jobs/JobDeleteDialog";
 import { createInvoiceForJob } from "@/lib/createInvoiceForJob";
@@ -79,7 +80,7 @@ function getCustomerName(job: any): string | null {
 
 export default function Jobs() {
   const navigate = useNavigate();
-  const { userRole, user, effectiveUserId, isPreviewingAsEngineer, previewEngineerId } = useAuth();
+  const { userRole, user, effectiveUserId, isPreviewingAsEngineer, previewEngineerId, realUserRole, orgId } = useAuth();
   const isEngineerView = userRole === "engineer";
   const isGenericEngineerPreview = isPreviewingAsEngineer && !previewEngineerId;
   const { toast } = useToast();
@@ -474,9 +475,9 @@ export default function Jobs() {
 
   const handleBulkStatusChange = async (status: string) => {
     const ids = Array.from(selectedJobIds);
-    const { error } = await supabase.from("jobs").update({ status } as any).in("id", ids);
-    if (error) {
-      toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
+    const failure = await updateJobStatus(ids, status, { realRole: realUserRole, orgId, previewingAsEngineer: isPreviewingAsEngineer });
+    if (failure) {
+      toast({ title: "Status not changed", description: failure, variant: "destructive" });
     } else {
       setJobs((prev) => prev.map((j) => ids.includes(j.id) ? { ...j, status } : j));
       toast({ title: `${ids.length} job(s) updated`, description: `Status set to "${status.replace(/_/g, " ")}"` });

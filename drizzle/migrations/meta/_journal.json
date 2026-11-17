@@ -603,6 +603,13 @@
       "when": 1794914738069,
       "tag": "0085_defect_no_charge_engineer",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1794929348440,
+      "tag": "0086_fix_job_completion_triggers",
+      "breakpoints": true
     }
   ]
 }

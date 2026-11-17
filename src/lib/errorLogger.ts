@@ -50,13 +50,13 @@ async function resolveIdentity(): Promise<{ userId: string | null; orgId: string
       .eq("status", "active")
       .maybeSingle();
     cachedOrgId = data?.org_id ?? null;
-    const { data: roleRow } = await supabase
+    // A user can hold several roles; record the highest one, not whichever row comes first.
+    const { data: roleRows } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", user.id)
-      .limit(1)
-      .maybeSingle();
-    cachedRole = (roleRow?.role as string | undefined) ?? null;
+      .eq("user_id", user.id);
+    const roles = (roleRows ?? []).map((r) => r.role as string);
+    cachedRole = ["platform_admin", "admin", "engineer", "customer_user"].find((r) => roles.includes(r)) ?? null;
   }
   return { userId: user.id, orgId: cachedOrgId ?? null, role: cachedRole };
 }

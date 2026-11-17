@@ -1,3 +1,4 @@
+import { updateJobStatus } from "@/lib/jobStatusUpdate";
 import MapAddress from "@/components/MapAddress";
 import OutletResults from "@/components/assets/OutletResults";
 import { useEffect, useState, lazy, Suspense } from "react";
@@ -151,7 +152,7 @@ export default function JobDetail() {
   const [scanParams]=useSearchParams();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { userRole, user } = useAuth();
+  const { userRole, user, realUserRole, orgId, isPreviewingAsEngineer } = useAuth();
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
   const { convert: convertW3W } = useWhat3Words();
@@ -379,9 +380,9 @@ export default function JobDetail() {
       }
     }
 
-    const { error } = await supabase.from("jobs").update({ status: newStatus }).eq("id", id);
-    if (error) {
-      toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
+    const failure = await updateJobStatus([id], newStatus, { realRole: realUserRole, orgId, previewingAsEngineer: isPreviewingAsEngineer });
+    if (failure) {
+      toast({ title: "Status not changed", description: failure, variant: "destructive" });
     } else {
       const prevStatus = job?.status;
       setJob((prev: any) => ({ ...prev, status: newStatus }));
