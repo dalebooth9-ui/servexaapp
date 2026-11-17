@@ -22,6 +22,7 @@ import { createSubmissionPhotoSignedUrl } from "@/lib/jobPhotos";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import ReportDefectSuggestions from "@/components/jobs/ReportDefectSuggestions";
 import DefectChargeControl from "@/components/defects/DefectChargeControl";
+import DefectBulkBar from "@/components/defects/DefectBulkBar";
 import { quotableDefects, isNoCharge, noChargeOutstanding, costOf, gbp, type NoChargeDetails } from "@/lib/defectCharge";
 import { batchQuoteDefects, attachDefectsToQuote, listOpenQuotes, type OpenQuote } from "@/lib/defectQuoting";
 
@@ -123,6 +124,8 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [quoting, setQuoting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [carrying, setCarrying] = useState(false);
   const [addTarget, setAddTarget] = useState<Defect | null>(null);
   const [openQuotes, setOpenQuotes] = useState<OpenQuote[]>([]);
   const [chosenQuote, setChosenQuote] = useState<string>("");
@@ -221,6 +224,33 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
     const quoteId = await batchQuoteDefects(unquoted.map(d => d.id));
     setQuoting(false);
     if (quoteId) fetchDefects();
+  };
+
+  const selectedDefects = defects.filter(d => selectedIds.has(d.id));
+  const toggleSel = (id: string) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  const quoteSelected = async (list: Defect[]) => {
+    setQuoting(true);
+    const quoteId = await batchQuoteDefects(list.map(d => d.id));
+    setQuoting(false);
+    if (quoteId) { setSelectedIds(new Set()); fetchDefects(); }
+  };
+
+  const addSelectedToNext = async (list: Defect[]) => {
+    setCarrying(true);
+    const { data, error } = await supabase.rpc("attach_defects_to_job", { p_defect_ids: list.map(d => d.id) });
+    setCarrying(false);
+    if (error) { toast.error(`Couldn't add to the next service report: ${error.message}`); return; }
+    const rows = (data || []) as { outcome: string; job_ref: string | null }[];
+    const done = rows.filter(r => r.outcome === "scheduled");
+    if (done.length) toast.success(`${done.length} defect${done.length === 1 ? "" : "s"} added to the next service report${done[0].job_ref ? ` (${done[0].job_ref})` : ""}`);
+    const noVisit = rows.filter(r => r.outcome === "no_visit").length;
+    if (noVisit) toast.error(`${noVisit} not added: no upcoming visit for this site. Create a visit first.`);
+    const noSite = rows.filter(r => r.outcome === "no_site").length;
+    if (noSite) toast.error(`${noSite} not added: no site linked.`);
+    const other = rows.length - done.length - noVisit - noSite;
+    if (other > 0) toast.error(`${other} couldn't be added. Open them on the Defects page for details.`);
+    setSelectedIds(new Set()); fetchDefects();
   };
 
   const openAddToQuote = async (d: Defect) => {
@@ -403,12 +433,37 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
           <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">No defects logged on this job.</CardContent></Card>
         ) : (
           <div className="space-y-2">
+            {isAdmin && (
+              <div className="flex items-center gap-2 px-1">
+                <Checkbox
+                  id="defects-select-all"
+                  checked={selectedIds.size === defects.length ? true : selectedIds.size > 0 ? "indeterminate" : false}
+                  onCheckedChange={(v) => setSelectedIds(v ? new Set(defects.map(d => d.id)) : new Set())}
+                />
+                <label htmlFor="defects-select-all" className="text-xs text-muted-foreground">
+                  {selectedIds.size ? `${selectedIds.size} selected` : "Select all"}
+                </label>
+              </div>
+            )}
+            {isAdmin && (
+              <DefectBulkBar
+                selected={selectedDefects}
+                busy={quoting || carrying}
+                onClear={() => setSelectedIds(new Set())}
+                onChanged={fetchDefects}
+                onQuote={quoteSelected}
+                onAddToNext={addSelectedToNext}
+              />
+            )}
             {defects.map(d => {
               const photos = (d.photos as string[] | null) || [];
               return (
                 <Card key={d.id}>
                   <CardContent className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
+                      {isAdmin && (
+                        <Checkbox className="mt-0.5 h-5 w-5" aria-label={`Select ${d.title}`} checked={selectedIds.has(d.id)} onCheckedChange={() => toggleSel(d.id)} />
+                      )}
                       {d.linked_photo_url && (
                         <LinkedPhotoThumb path={d.linked_photo_url} jobId={jobId} onOpen={setLinkedPhotoUrl} />
                       )}

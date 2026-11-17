@@ -409,9 +409,6 @@ export default function Defects() {
   };
 
   const selectedDefects = defects.filter(d => selectedIds.has(d.id));
-  const selectedSiteIds = new Set(selectedDefects.map(d => d.site_id));
-  const canBatchQuote = selectedDefects.length > 0 && selectedSiteIds.size === 1 && !selectedDefects.some(d => d.quote_id || isNoCharge(d));
-  const selectedNoCharge = selectedDefects.filter(isNoCharge).length;
   const ncMonth = noChargeCostThisMonth(defects, ncDetails);
 
   if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading...</div>;
