@@ -2361,6 +2361,57 @@ export type Database = {
         }
         Relationships: []
       }
+      defect_no_charge_details: {
+        Row: {
+          defect_id: string
+          labour_cost: number
+          labour_hours: number
+          materials_cost: number
+          notes: string | null
+          org_id: string
+          reason: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          defect_id: string
+          labour_cost?: number
+          labour_hours?: number
+          materials_cost?: number
+          notes?: string | null
+          org_id: string
+          reason?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          defect_id?: string
+          labour_cost?: number
+          labour_hours?: number
+          materials_cost?: number
+          notes?: string | null
+          org_id?: string
+          reason?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "defect_no_charge_details_defect_id_fkey"
+            columns: ["defect_id"]
+            isOneToOne: true
+            referencedRelation: "customer_defect_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defect_no_charge_details_defect_id_fkey"
+            columns: ["defect_id"]
+            isOneToOne: true
+            referencedRelation: "defects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       defects: {
         Row: {
           asset_id: string | null
@@ -2370,6 +2421,7 @@ export type Database = {
           carry_recorded_at: string | null
           carry_recorded_by: string | null
           category: string | null
+          chargeable: boolean
           created_at: string
           description: string | null
           id: string
@@ -2410,6 +2462,7 @@ export type Database = {
           carry_recorded_at?: string | null
           carry_recorded_by?: string | null
           category?: string | null
+          chargeable?: boolean
           created_at?: string
           description?: string | null
           id?: string
@@ -2450,6 +2503,7 @@ export type Database = {
           carry_recorded_at?: string | null
           carry_recorded_by?: string | null
           category?: string | null
+          chargeable?: boolean
           created_at?: string
           description?: string | null
           id?: string
@@ -12382,6 +12436,7 @@ export type Database = {
           carry_recorded_at: string | null
           carry_recorded_by: string | null
           category: string | null
+          chargeable: boolean
           created_at: string
           description: string | null
           id: string
@@ -12562,6 +12617,10 @@ export type Database = {
       seed_org_hazard_modules: { Args: { _org_id: string }; Returns: undefined }
       seed_org_reference_data: {
         Args: { _new_org_id: string; _source_org_id?: string }
+        Returns: undefined
+      }
+      set_defect_chargeable: {
+        Args: { _chargeable: boolean; _defect_id: string; _reason?: string }
         Returns: undefined
       }
       set_email_automation_active: {
