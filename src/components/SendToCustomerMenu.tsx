@@ -291,11 +291,7 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
       // Auto-generate job sheet PDFs on send
       if (selectedDocs.has("jobsheets") && selectedSheets.size > 0) {
         for (const sheetId of selectedSheets) {
-          // Use cached PDF if already generated, otherwise generate now
-          if (sheetPdfs[sheetId]) {
-            attachments.push({ filename: sheetPdfs[sheetId].fileName, content: sheetPdfs[sheetId].base64 });
-            continue;
-          }
+          // Always rebuild from the latest saved report so omit settings and edits are respected.
           const response = sheetResponses.find((r: any) => r.id === sheetId);
           if (!response) continue;
           const { data: fullResponse } = await supabase
