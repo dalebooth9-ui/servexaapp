@@ -30,6 +30,7 @@ import { fetchAllRows } from "@/lib/fetchAllRows";
 import { attachmentMessage, suggestWorksAndMaterials, type DefectAttachmentResult } from "@/lib/defectCarryForward";
 import DefectJobPicker from "@/components/jobs/DefectJobPicker";
 import DefectChargeControl from "@/components/defects/DefectChargeControl";
+import DefectBulkBar from "@/components/defects/DefectBulkBar";
 import { isNoCharge, noChargeCostThisMonth, groupNoChargeCost, gbp, type NoChargeDetails } from "@/lib/defectCharge";
 import { CalendarPlus, ClipboardList, CalendarClock } from "lucide-react";
 
@@ -423,12 +424,6 @@ export default function Defects() {
           <p className="text-sm text-muted-foreground">Log, track and quote deficiencies found during inspections.</p>
         </div>
         <div className="flex gap-2">
-          {isAdmin && selectedIds.size > 0 && (
-            <Button onClick={() => generateQuoteForDefects(selectedDefects)} disabled={!canBatchQuote || quoting} variant="secondary">
-              {quoting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-              Draft quote from {selectedIds.size} selected
-            </Button>
-          )}
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" /> Report Defect
           </Button>
@@ -436,17 +431,14 @@ export default function Defects() {
       </div>
 
       {isAdmin && selectedIds.size > 0 && (
-        <Card className="border-primary/40">
-          <CardContent className="flex flex-wrap items-center gap-3 p-3">
-            <span className="text-sm font-medium">{selectedIds.size} selected</span>
-            <Button size="sm" onClick={() => addToNextServiceReport(selectedDefects)} disabled={carrying}>
-              {carrying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ClipboardList className="mr-2 h-4 w-4" />}
-              Add to next service report
-            </Button>
-            {selectedNoCharge > 0 && <span className="text-xs text-muted-foreground">{selectedNoCharge} No charge — left out of quoting</span>}
-            <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Clear</Button>
-          </CardContent>
-        </Card>
+        <DefectBulkBar
+          selected={selectedDefects}
+          busy={carrying || quoting}
+          onClear={() => setSelectedIds(new Set())}
+          onChanged={fetchData}
+          onQuote={(q) => generateQuoteForDefects(q)}
+          onAddToNext={(l) => addToNextServiceReport(l)}
+        />
       )}
 
       {noVisitSites.length > 0 && (
@@ -582,7 +574,15 @@ export default function Defects() {
           <Table>
             <TableHeader>
               <TableRow>
-                {isAdmin && <TableHead className="w-10" />}
+                {isAdmin && (
+                  <TableHead className="w-10">
+                    <Checkbox
+                      aria-label="Select all"
+                      checked={filtered.length > 0 && filtered.every(d => selectedIds.has(d.id)) ? true : filtered.some(d => selectedIds.has(d.id)) ? "indeterminate" : false}
+                      onCheckedChange={(v) => setSelectedIds(v ? new Set(filtered.map(d => d.id)) : new Set())}
+                    />
+                  </TableHead>
+                )}
                 <TableHead>Defect</TableHead>
                 <TableHead>Photos</TableHead>
                 <TableHead>Severity</TableHead>
