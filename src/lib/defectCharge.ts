@@ -59,3 +59,22 @@ export function groupNoChargeCost<T extends { id: string; chargeable?: boolean |
 }
 
 export const gbp = (n: number) => `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** Bulk changes above this many defects need a confirmation first. */
+export const BULK_CONFIRM_THRESHOLD = 5;
+export const needsBulkConfirm = (n: number) => n > BULK_CONFIRM_THRESHOLD;
+
+/** Split ticked defects for "Quote selected": only chargeable, unquoted, open ones go on a quote. */
+export function splitForQuote<T extends ChargeableDefect>(list: T[]) {
+  const quotable = quotableDefects(list);
+  const noCharge = list.filter(isNoCharge);
+  const other = list.filter(d => !isNoCharge(d) && !quotable.includes(d));
+  return { quotable, noCharge, other };
+}
+
+/** Defects whose charge setting would actually change; quoted ones can't become No charge. */
+export function bulkChargeTargets<T extends ChargeableDefect>(list: T[], chargeable: boolean) {
+  const change = list.filter(d => (chargeable ? isNoCharge(d) : !isNoCharge(d) && !d.quote_id));
+  const blocked = chargeable ? [] : list.filter(d => !isNoCharge(d) && !!d.quote_id);
+  return { change, blocked };
+}

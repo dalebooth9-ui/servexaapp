@@ -35,3 +35,20 @@ describe("customer-facing wording", () => {
     expect(answers.carried_b).not.toMatch(/engineer error|our install|£/i);
   });
 });
+
+import { needsBulkConfirm, splitForQuote, bulkChargeTargets } from "@/lib/defectCharge";
+describe("bulk defect actions", () => {
+  const d = (id: string, chargeable: boolean, quote_id: string | null = null, status = "open") => ({ id, chargeable, quote_id, status });
+  it("asks to confirm only above 5", () => { expect(needsBulkConfirm(5)).toBe(false); expect(needsBulkConfirm(6)).toBe(true); });
+  it("Quote selected skips no-charge defects", () => {
+    const r = splitForQuote([d("a", true), d("b", false), d("c", true, "q1")]);
+    expect(r.quotable.map(x => x.id)).toEqual(["a"]);
+    expect(r.noCharge.map(x => x.id)).toEqual(["b"]);
+    expect(r.other.map(x => x.id)).toEqual(["c"]);
+  });
+  it("quoted defects can't be bulk set to No charge", () => {
+    const r = bulkChargeTargets([d("a", true), d("b", true, "q1"), d("c", false)], false);
+    expect(r.change.map(x => x.id)).toEqual(["a"]); expect(r.blocked.map(x => x.id)).toEqual(["b"]);
+    expect(bulkChargeTargets([d("a", true), d("c", false)], true).change.map(x => x.id)).toEqual(["c"]);
+  });
+});
