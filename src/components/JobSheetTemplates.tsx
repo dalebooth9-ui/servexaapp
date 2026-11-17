@@ -30,6 +30,7 @@ function isWetRiserTemplate(t: any): boolean {
 import { useState, useEffect, useRef, useCallback } from "react";
 import { persistReport, hasPendingSheetReview } from "@/lib/reportPersistence";
 import { logError } from "@/lib/errorLogger";
+import { ENGINEER_SIGNER_ROLES } from "@/lib/reportSignature";
 import { recordReportFailure, flushReportFailures } from "@/lib/reportFailureLog";
 import { saveFormDraft, clearFormDraft, loadFormDraftSync, loadFormDraftTimestamp, loadFormDraftEnvelope } from "@/lib/offlineFormStorage";
 import { supabase } from "@/integrations/supabase/client";
@@ -3042,7 +3043,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
             </Dialog>
             <Button size="sm" onClick={requestSubmit} disabled={submitting || sitePhotos.length > 0} title={photoSubmitBlocker(sitePhotos.map((p) => p.status)) || undefined}>
               {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Send className="h-3.5 w-3.5 mr-1" />}
-              Submit
+              {submitting ? "Submitting…" : "Submit"}
             </Button>
             <span className="text-xs text-muted-foreground inline-flex items-center gap-1" aria-live="polite">
               {sitePhotos.length > 0 ? (
