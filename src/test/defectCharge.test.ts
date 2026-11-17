@@ -26,3 +26,12 @@ describe("no-charge defects", () => {
     expect(groupNoChargeCost([d("x", { chargeable: false }), d("y")], det, (_, t) => t?.engineer_id)).toEqual([{ key: "e1", count: 1, total: 15 }]);
   });
 });
+
+import { carriedReportFields } from "@/lib/defectCarryForward";
+describe("customer-facing wording", () => {
+  it("prints only 'Rectified at no charge' for no-charge carried remedials", () => {
+    const { answers } = carriedReportFields([{ id: "b", title: "Bracket", asset_id: null, riser: "Stair 1", works_required: null, materials_required: null, visit_date: null, carry_outcome: null, carry_comment: null, chargeable: false }]);
+    expect(answers.carried_b).toContain("Rectified at no charge");
+    expect(answers.carried_b).not.toMatch(/engineer error|our install|£/i);
+  });
+});
