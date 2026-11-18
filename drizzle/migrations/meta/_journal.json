@@ -624,6 +624,13 @@
       "when": 1794930683923,
       "tag": "0088_help_job_page_tabs_send_window_content",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1795006141858,
+      "tag": "0089_report_comparison_reviews",
+      "breakpoints": true
     }
   ]
 }

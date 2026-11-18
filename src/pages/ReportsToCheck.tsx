@@ -16,6 +16,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { officeReturnToEngineer, officeSendToCustomer, officeUnlockForEdit, type CustomerChannel } from "@/lib/reportReview";
 import { buildAndUploadReportPdf } from '@/lib/reportReview';
 import { hasPendingSheetReview } from '@/lib/reportPersistence';
+import ReportComparisonPanel, { loadJobComparisons } from '@/components/reports/ReportComparisonPanel';
 
 type Row = { jobId: string; ref: string; site: string; address: string | null; postcode: string | null; name: string; engineer: string; submittedAt: string; pdfPath: string | null; visualOnly: boolean; reasonCheck?: boolean; completedReports: number; totalReports: number };
 
@@ -30,6 +31,8 @@ export default function ReportsToCheck() {
   const [sendOpen, setSendOpen] = useState(false);
   const [channel, setChannel] = useState<CustomerChannel>("email");
   const [reason, setReason] = useState("");
+  const [flagCounts, setFlagCounts] = useState<Record<string, number>>({});
+  const [onlyFlagged, setOnlyFlagged] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -99,6 +102,7 @@ export default function ReportsToCheck() {
     out.sort((a, b) => a.submittedAt.localeCompare(b.submittedAt)); // oldest first
     setRows(out);
     setLoading(false);
+    (async () => { for (const r of out) { try { const items = await loadJobComparisons(r.jobId); setFlagCounts((c) => ({ ...c, [r.jobId]: items.some((i) => i.previous) ? items.reduce((n, i) => n + i.flags.length, 0) : -1 })); } catch { /* advisory only */ } } })();
   };
   useEffect(() => { load(); }, []);
   useEffect(() => { const refresh = () => void load(); window.addEventListener('job-sheet:submitted', refresh); return () => window.removeEventListener('job-sheet:submitted', refresh); }, []);
@@ -133,17 +137,20 @@ export default function ReportsToCheck() {
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2"><ClipboardCheck className="h-6 w-6 text-primary" /> Reports to check</h1>
         <p className="text-sm text-muted-foreground">Reports engineers have submitted, oldest first.</p>
+        <label className="mt-2 inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={onlyFlagged} onChange={(e) => setOnlyFlagged(e.target.checked)} />Only show reports with changes since last year</label>
       </div>
       {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : rows.length === 0 ? (
         <Card className="p-6 text-center text-muted-foreground">Nothing waiting — all caught up.</Card>
       ) : (
         <div className="space-y-2">
-          {rows.map((r) => (
+          {rows.filter((r) => !onlyFlagged || (flagCounts[r.jobId] || 0) > 0).map((r) => (
             <Card key={r.jobId} className="p-3 flex flex-wrap items-center gap-3 cursor-pointer hover:border-primary/60" onClick={() => openRow(r)}>
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate"><span className="font-mono">{r.ref}</span> — {r.site}
                   {r.visualOnly && <Badge variant="outline" className="ml-2 border-amber-400 text-amber-800 dark:text-amber-300">Pressure test outstanding</Badge>}
-                  {r.reasonCheck && <Badge variant="outline" className="ml-2">Reason to check</Badge>}</p>
+                  {r.reasonCheck && <Badge variant="outline" className="ml-2">Reason to check</Badge>}
+                  {flagCounts[r.jobId] > 0 && <Badge variant="outline" className="ml-2">{flagCounts[r.jobId]} change{flagCounts[r.jobId] === 1 ? "" : "s"} since last year</Badge>}
+                  {flagCounts[r.jobId] === 0 && <Badge variant="outline" className="ml-2 text-muted-foreground">Matches last year</Badge>}</p>
                 <p className="text-xs text-muted-foreground truncate">{r.name} · {r.engineer}{r.submittedAt && ` · ${format(new Date(r.submittedAt), "dd/MM/yyyy HH:mm")}`}</p>
                 {r.address && <MapAddress address={r.address} postcode={r.postcode} jobId={r.jobId} className="text-xs text-muted-foreground" />}
                 {r.totalReports > 0 && r.completedReports < r.totalReports && (
@@ -160,6 +167,7 @@ export default function ReportsToCheck() {
         <DialogContent className="max-w-5xl w-[calc(100vw-1.5rem)] h-[92dvh] flex flex-col">
           <DialogHeader><DialogTitle>{open?.ref} — {open?.site}</DialogTitle></DialogHeader>
           {open?.visualOnly && <VisualOnlyReportNotice jobId={open.jobId} />}
+          {open && <ReportComparisonPanel jobId={open.jobId} />}
           <div className="flex-1 min-h-0 rounded border bg-muted/30">
             {pdfUrl ? <iframe src={pdfUrl} title="Report PDF" className="w-full h-full rounded" />
               : <div className="h-full flex items-center justify-center text-sm text-muted-foreground">{open?.pdfPath ? "Loading PDF…" : "No PDF on file"}</div>}

@@ -40,6 +40,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { buildJobSheetPrefill, deriveScopeFromTemplateName, fetchJobPrefillContext, formatDateForField } from "@/lib/jobSheetPrefill";
 import { buildLastVisitPrefill, findLastVisitReport, type LastVisit } from "@/lib/lastVisitPrefill";
+import { findPreviousReport, lastYearHints, displayValue } from "@/lib/reportComparison";
 import { logReportEdits, jobHasSignatures } from "@/lib/logReportEdits";
 import { enqueueReportSubmission, discardReportSubmission, newReportId } from "@/lib/reportSubmissionQueue";
 import { isNetworkError } from "@/lib/syncQueue";
@@ -198,6 +199,17 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   const [jobAssetId, setJobAssetId] = useState<string | null>(null);
   const [activeResponse, setActiveResponse] = useState<Response | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
+  // "Last year: …" hints — previous submitted report of this type for the same riser (same company via RLS).
+  useEffect(() => {
+    if (!activeTemplate) { setLastYear(undefined); return; }
+    let live = true;
+    setLastYearDismissed(new Set());
+    findPreviousReport(supabase, { jobId, templateId: activeTemplate.id, riserAssetId: formData.riser_asset_id || null, siteId: jobSiteId || null, riserLocation: formData.riser_location || null })
+      .then((prev) => { if (live) setLastYear(prev ? { answers: prev.answers, hints: lastYearHints(activeTemplate.fields as any, prev.answers) } : null); })
+      .catch(() => { if (live) setLastYear(null); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTemplate?.id, formData.riser_asset_id, formData.riser_location, jobSiteId, jobId]);
   useEffect(()=>{if(!activeTemplate||!jobSiteId)return;let current=true;loadSiteAccess(jobSiteId).then(row=>{const details=row?.details as any;if(!current||!details)return;const keys=[details.cabinet_key_type,details.cabinet_key_held].filter(Boolean).join(' — ');if(!keys)return;setFormData(data=>{const next={...data};for(const field of activeTemplate.fields){if(accessNoteField(field.label)&&/cabinet/i.test(field.label)&&!next[field.id])next[field.id]=keys;}return next;});}).catch(()=>{});return()=>{current=false;};},[activeTemplate?.id,jobSiteId]);
   const [sitePhotos, setSitePhotos] = useState<PendingSitePhoto[]>([]);
   const sitePhotosRef = useRef<PendingSitePhoto[]>([]);
@@ -236,6 +248,8 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
   const [lastVisit, setLastVisit] = useState<LastVisit | null>(null);
   const [lastVisitApplied, setLastVisitApplied] = useState(false);
   const [lastVisitFieldIds, setLastVisitFieldIds] = useState<Set<string>>(new Set());
+  const [lastYear, setLastYear] = useState<{ answers: Record<string, any>; hints: Record<string, string> } | null | undefined>(undefined);
+  const [lastYearDismissed, setLastYearDismissed] = useState<Set<string>>(new Set());
 
   // Auto-save template form data — IndexedDB-backed for offline resilience
   const templateFormKey = activeTemplate && draftReportId ? `template-form-${jobId}-${activeTemplate.id}-${draftReportId}` : null;
@@ -2754,7 +2768,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                       className={`border-b border-border last:border-b-0 scroll-mt-24 ${lastVisitFieldIds.has(field.id) ? "bg-amber-50" : ""} ${transcribedUnclear.has(field.id) ? "bg-warning/10" : transcribedRead.has(field.id) ? "bg-primary/5" : ""}`}
                     >
                       <div className="grid grid-cols-[1fr,1fr]">
-                        <div className="px-3 py-2 border-r border-border flex items-start">
+                        <div className="px-3 py-2 border-r border-border flex flex-col items-start">
                           <Label className="text-xs leading-tight">
                             {field.label}
                             {isFieldRequired(field) && <span className="text-destructive ml-0.5">*</span>}
@@ -2766,6 +2780,22 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                               </span>
                             )}
                           </Label>
+                          {lastYear?.hints[field.id] && (() => {
+                            const prev = lastYear.hints[field.id]; const cur = displayValue(formData[field.id]);
+                            const changed = !!cur && cur.toLowerCase() !== prev.toLowerCase() && !lastYearDismissed.has(field.id);
+                            return (
+                              <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                                Last year: {prev}
+                                {changed && (
+                                  <div className="mt-0.5 rounded bg-muted px-1.5 py-1 text-foreground">
+                                    Last year this was {prev}. Is it still {prev}?{" "}
+                                    <button type="button" className="underline font-medium" onClick={() => handleFieldValue(field.id, lastYear.answers[field.id])}>Yes, still {prev}</button>{" · "}
+                                    <button type="button" className="underline" onClick={() => setLastYearDismissed((d) => new Set(d).add(field.id))}>No, it's changed</button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                           <SaveAccessNote siteId={jobSiteId} label={field.label} value={formData[field.id]}/>
                         </div>
                         <div className="px-2 py-1.5 flex items-center">

@@ -9091,6 +9091,47 @@ export type Database = {
           },
         ]
       }
+      report_comparison_reviews: {
+        Row: {
+          decided_at: string
+          decided_by: string
+          decision: string
+          flag_key: string
+          id: string
+          org_id: string
+          previous_response_id: string | null
+          response_id: string
+        }
+        Insert: {
+          decided_at?: string
+          decided_by?: string
+          decision: string
+          flag_key: string
+          id?: string
+          org_id: string
+          previous_response_id?: string | null
+          response_id: string
+        }
+        Update: {
+          decided_at?: string
+          decided_by?: string
+          decision?: string
+          flag_key?: string
+          id?: string
+          org_id?: string
+          previous_response_id?: string | null
+          response_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_comparison_reviews_response_id_fkey"
+            columns: ["response_id"]
+            isOneToOne: false
+            referencedRelation: "job_sheet_responses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_defect_dismissals: {
         Row: {
           created_at: string

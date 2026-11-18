@@ -279,3 +279,9 @@
 - [x] Print customer, then site name, then site address on separate lines; an address that only repeats the site name is left out and the postcode prints once — one shared rule in src/lib/siteDetailsPrint.ts used by paper sheets, Word documents and PDF headers.
 - [x] Update Help & guides (job page guide) and the AGENTS print rule; 9 new tests pass, the full suite's 23 pre-existing failures are unchanged, build clean; three sample sheets rendered and inspected.
 - [ ] Physical printing — no printer available.
+
+## Changes since last year
+- [x] Previous same-type report per riser (fallback site + location), Check/Note flags, office panel with OK/Needs fixing saved per line, flagged-only filter, engineer "Last year:" hints with one-tap confirm. 10 tests; Bosden Stair 1 comparison run.
+- [x] Site riser coverage count shown in panel.
+- [ ] Dedicated "read old PDF/paper report into history" import (stage 2) — waiting for go-ahead; existing Convert to digital report can be used meanwhile.
+- [ ] Help guide entry — database refused the write (read-only).
