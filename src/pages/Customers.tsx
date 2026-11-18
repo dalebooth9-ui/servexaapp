@@ -20,6 +20,7 @@ import BulkImportCustomersDialog from "@/components/BulkImportCustomersDialog";
 import BulkAiEnrichDialog from "@/components/BulkAiEnrichDialog";
 import TableSkeleton from "@/components/TableSkeleton";
 import { fuzzyFilter } from "@/lib/fuzzyMatch";
+import { findLookAlike, normaliseName } from "@/lib/similarName";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import PrintBrandingFields from '@/components/customers/PrintBrandingFields';
 import CustomerLogo from '@/components/customers/CustomerLogo';
@@ -55,6 +56,7 @@ export default function Customers() {
   const { toast } = useToast();
   const { deleteWithUndo, editWithUndo } = useUndoAction();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [lookAlike, setLookAlike] = useState<{ id: string; name: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -99,6 +101,14 @@ export default function Customers() {
     setDialogOpen(true);
   };
 
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("new") === "1") {
+      window.history.replaceState(null, "", window.location.pathname);
+      openCreate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const openEdit = (c: Customer) => {
     setEditingId(c.id);
     setForm({
@@ -111,12 +121,19 @@ export default function Customers() {
     setDialogOpen(true);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (skipLookAlike = false) => {
     if (!form.name.trim()) {
       toast({ title: "Name is required", variant: "destructive" });
       return;
     }
     setSaving(true);
+    if (!editingId && !skipLookAlike) {
+      const word = normaliseName(form.name).split(" ").sort((a, b) => b.length - a.length)[0] || form.name.trim();
+      const { data: candidates } = await supabase.from("customers").select("id, name").ilike("name", `%${word.slice(0, 5)}%`).limit(200);
+      const match = findLookAlike(form.name, (candidates || []) as { id: string; name: string }[]);
+      if (match) { setLookAlike(match); setSaving(false); return; }
+    }
+    setLookAlike(null);
     const payload = {
       name: form.name.trim(),
       address: form.address.trim() || null,
@@ -510,9 +527,18 @@ export default function Customers() {
             </div>
             {userRole==='admin'&&<PrintBrandingFields value={{print_logo_url:form.print_logo_url||'',brand_colour:form.brand_colour||'#1f4e79',use_print_branding:form.use_print_branding===true}} onChange={values=>setForm({...form,...values})}/>}
           </div>
+          {lookAlike && (
+            <div className="space-y-2 rounded-md border border-amber-400 p-3">
+              <p className="text-sm font-medium">This looks like “{lookAlike.name}”, use that one?</p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => { const id = lookAlike.id; setLookAlike(null); setDialogOpen(false); navigate(`/customers/${id}`); }}>Use “{lookAlike.name}”</Button>
+                <Button size="sm" variant="outline" disabled={saving} onClick={() => handleSave(true)}>No, create a new customer</Button>
+              </div>
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button variant="outline" onClick={() => { setLookAlike(null); setDialogOpen(false); }}>Cancel</Button>
+            <Button onClick={() => handleSave()} disabled={saving}>
               {saving ? "Saving…" : editingId ? "Update" : "Create"}
             </Button>
           </DialogFooter>

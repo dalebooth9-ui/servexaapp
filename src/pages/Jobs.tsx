@@ -431,6 +431,14 @@ export default function Jobs() {
   }, [user, statusTab, pageSize, search]);
 
 
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("new") === "1") {
+      window.history.replaceState(null, "", window.location.pathname);
+      setDialogOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Keyboard shortcut: n j → open new job dialog
   useEffect(() => {
     const handler = () => setDialogOpen(true);

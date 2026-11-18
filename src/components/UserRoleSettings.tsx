@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Shield, ShieldCheck, Plus, Minus, Trash2, UserPlus, Eye, KeyRound, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { ENGINEER_TOGGLABLE_PAGES, DEFAULT_ENGINEER_PAGES } from "@/lib/engineerPages";
@@ -288,6 +289,8 @@ export default function UserRoleSettings() {
     }
   };
 
+  const dupNames = (() => { const c = new Map<string, number>(); users.forEach((u: any) => { const k = (u.full_name || "").trim().toLowerCase(); if (k) c.set(k, (c.get(k) || 0) + 1); }); return new Set([...c].filter(([, n]) => n > 1).map(([k]) => k)); })();
+
   return (
     <Card>
       <CardHeader>
@@ -332,83 +335,31 @@ export default function UserRoleSettings() {
                 const isSelf = u.user_id === user?.id;
                 return (
                   <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
+                    <TableCell className="font-medium">{u.full_name || "—"}{dupNames.has((u.full_name || "").trim().toLowerCase()) && <Badge variant="outline" className="ml-2 border-amber-400 text-amber-800 dark:text-amber-300" title="Another person has the same name. Check whether one account should be removed.">Possible duplicate</Badge>}</TableCell>
                     <TableCell className="text-sm text-muted-foreground break-all">{emailMap[u.user_id] || "—"}</TableCell>
                     <TableCell>
-                      <div className="flex gap-1.5">
-                        {isAdmin && <Badge variant="default" className="gap-1"><ShieldCheck className="h-3 w-3" />Admin</Badge>}
-                        {isEngineer && <Badge variant="secondary">Engineer</Badge>}
-                        {!isAdmin && !isEngineer && <span className="text-xs text-muted-foreground">No role</span>}
-                      </div>
+                      <span className="text-sm">{isAdmin && isEngineer ? "Admin and engineer" : isAdmin ? "Admin" : isEngineer ? "Engineer" : "No role"}</span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openEditUser(u.user_id, u.full_name || "this user")}
-                          title="Edit user details"
-                        >
-                          <Pencil className="mr-1 h-3 w-3" />
-                          Edit
-                        </Button>
-                        {isEngineer && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openPageAccess(u.user_id, u.full_name || "this user")}
-                            title="Manage page access"
-                          >
-                            <Eye className="mr-1 h-3 w-3" />
-                            Pages
-                          </Button>
-                        )}
-                        <Button
-                          variant={isAdmin ? "destructive" : "outline"}
-                          size="sm"
-                          disabled={toggling === `${u.user_id}-admin` || (isAdmin && isSelf)}
-                          title={isAdmin && isSelf ? "You cannot remove your own admin role" : undefined}
-                          onClick={() => {
-                            if (isAdmin) {
-                              setConfirmRemove({ userId: u.user_id, name: u.full_name || "this user" });
-                            } else {
-                              toggleRole(u.user_id, "admin", false);
-                            }
-                          }}
-                        >
-                          {isAdmin ? <Minus className="mr-1 h-3 w-3" /> : <Plus className="mr-1 h-3 w-3" />}
-                          Admin
-                        </Button>
-                        <Button
-                          variant={isEngineer ? "destructive" : "outline"}
-                          size="sm"
-                          disabled={toggling === `${u.user_id}-engineer`}
-                          onClick={() => toggleRole(u.user_id, "engineer", isEngineer)}
-                        >
-                          {isEngineer ? <Minus className="mr-1 h-3 w-3" /> : <Plus className="mr-1 h-3 w-3" />}
-                          Engineer
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          disabled={resettingId === u.user_id}
-                          title="Send password reset email"
-                          onClick={() => handleSendPasswordReset(u.user_id, u.full_name || "this user")}
-                        >
-                          <KeyRound className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          disabled={isSelf}
-                          title={isSelf ? "You cannot delete your own account" : "Delete user"}
-                          onClick={() => setConfirmDelete({ userId: u.user_id, name: u.full_name || "this user" })}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm"><Pencil className="mr-1 h-3 w-3" />Edit</Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEditUser(u.user_id, u.full_name || "this user")}>Edit details</DropdownMenuItem>
+                          {isEngineer && <DropdownMenuItem onClick={() => openPageAccess(u.user_id, u.full_name || "this user")}>Choose pages they can see</DropdownMenuItem>}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem disabled={toggling === `${u.user_id}-admin` || (isAdmin && isSelf)} onClick={() => { if (isAdmin) setConfirmRemove({ userId: u.user_id, name: u.full_name || "this user" }); else toggleRole(u.user_id, "admin", false); }}>
+                            {isAdmin ? (isSelf ? "You cannot remove your own admin role" : "Remove admin role") : "Make admin"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={toggling === `${u.user_id}-engineer`} onClick={() => toggleRole(u.user_id, "engineer", isEngineer)}>
+                            {isEngineer ? "Remove engineer role" : "Make engineer"}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem disabled={resettingId === u.user_id} onClick={() => handleSendPasswordReset(u.user_id, u.full_name || "this user")}>Send password reset email</DropdownMenuItem>
+                          <DropdownMenuItem disabled={isSelf} className="text-destructive" onClick={() => setConfirmDelete({ userId: u.user_id, name: u.full_name || "this user" })}>{isSelf ? "You cannot delete your own account" : "Delete user"}</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 );

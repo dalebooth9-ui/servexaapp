@@ -54,55 +54,37 @@ type NavGroupDef = {
  */
 const NAV_GROUPS: NavGroupDef[] = [
   {
-    id: "work",
-    label: "Work",
+    id: "daily",
+    label: "Daily",
     items: [
       { to: "/", label: "Dashboard", icon: LayoutDashboard },
       { to: "/jobs", label: "Jobs", icon: Briefcase },
       { to: "/planner", label: "Planner", icon: CalendarDays },
-      { to: '/due-visits', label: 'Due visits', icon: CalendarDays, adminOnly: true },
-    ],
-  },
-  {
-    id: "customers",
-    label: "Customers",
-    items: [
+      { to: "/reports-to-check", label: "Reports to check", icon: ClipboardCheck, adminOnly: true },
+      { to: "/defects", label: "Defects", icon: ShieldAlert, adminOnly: true },
       { to: "/customers", label: "Customers", icon: Building2, adminOnly: true },
       { to: "/sites", label: "Sites", icon: MapPin, adminOnly: true },
       { to: "/assets", label: "Assets", icon: Package, adminOnly: true },
-      { to: "/assets/review", label: "Asset review", icon: Package, adminOnly: true },
-      { to: "/site-surveys", label: "Site Surveys", icon: ClipboardList },
     ],
   },
   {
-    id: "commercial",
-    label: "Commercial",
+    id: "more",
+    label: "More",
     items: [
+      { to: '/due-visits', label: 'Due visits', icon: CalendarDays, adminOnly: true },
+      { to: "/assets/review", label: "Asset review", icon: Package, adminOnly: true },
+      { to: "/site-surveys", label: "Site Surveys", icon: ClipboardList },
       { to: "/quotes", label: "Quotes", icon: ClipboardList, adminOnly: true },
       { to: "/invoices", label: "Invoices", icon: FileText, adminOnly: true },
       { to: "/agreements", label: "Agreements", icon: FileText, adminOnly: true },
       { to: "/contracts", label: "Contracts", icon: FileText, adminOnly: true },
       { to: "/renewals", label: "Renewals", icon: CalendarDays, adminOnly: true },
-    ],
-  },
-  {
-    id: "compliance",
-    label: "Compliance",
-    items: [
-      { to: "/reports-to-check", label: "Reports to check", icon: ClipboardCheck, adminOnly: true },
-      { to: "/defects", label: "Defects", icon: ShieldAlert, adminOnly: true },
       { to: "/defects/review", label: "Defects Review", icon: ShieldAlert, adminOnly: true },
       { to: "/rams/start", label: "RAMS", icon: Shield, adminOnly: true },
       { to: "/compliance", label: "Compliance", icon: Shield, adminOnly: true },
       { to: "/audits", label: "Audits", icon: ClipboardCheck, adminOnly: true },
       { to: "/report-downloads", label: "Reports & certificates", icon: FileArchive, adminOnly: true },
       { to: "/paper-scans", label: "Paper scans & archive", icon: ScanLine, adminOnly: true },
-    ],
-  },
-  {
-    id: "resources",
-    label: "Resources",
-    items: [
       { to: "/engineers", label: "Engineers", icon: Users, adminOnly: true },
       { to: "/stock", label: "Van stock", icon: Truck },
       { to: "/parts-library", label: "Parts library", icon: Library, adminOnly: true },
@@ -110,12 +92,6 @@ const NAV_GROUPS: NavGroupDef[] = [
       { to: "/fleet", label: "Vehicle checks", icon: Truck, adminOnly: true },
       { to: "/timesheets", label: "Timesheets", icon: ClipboardList, adminOnly: true },
       { to: "/industry-templates", label: "Templates", icon: BookOpen, adminOnly: true },
-    ],
-  },
-  {
-    id: "insights",
-    label: "Insights",
-    items: [
       { to: "/reports", label: "Reports", icon: BarChart2, adminOnly: true },
       { to: "/reports/engineers", label: "Performance", icon: TrendingUp, adminOnly: true },
       { to: "/audit-log", label: "Audit log", icon: History, adminOnly: true },
@@ -125,6 +101,16 @@ const NAV_GROUPS: NavGroupDef[] = [
     ],
   },
 ];
+
+/** Short explanation shown when hovering a red number badge. */
+const BADGE_HINTS: Record<string, string> = {
+  "/defects": "Open defects not yet fixed",
+  "/assets/review": "Assets waiting for you to check",
+  "/jobs": "Jobs with reports waiting for office review",
+  "/platform/support": "Open support tickets",
+  "/paper-scans": "Paper scans waiting to be reviewed",
+  "/admin/error-log": "App errors in the last few days",
+};
 
 const UTILITY_ITEMS: NavItemDef[] = [
   { to: "/help", label: "Help & guides", icon: BookOpen },
@@ -155,7 +141,7 @@ function NavItem({
   badge?: number;
 }) {
   const badgeEl = badge && badge > 0 ? (
-    <span className={cn(
+    <span title={`${badge} — ${BADGE_HINTS[item.to] || "Items needing attention"}`} className={cn(
       "ml-auto inline-flex items-center justify-center rounded-full text-[10px] font-semibold px-1.5 min-w-[18px] h-[18px]",
       isActive ? "bg-white/25 text-white" : "bg-orange-500/90 text-white"
     )}>
@@ -168,7 +154,7 @@ function NavItem({
       <Link
         to={item.to}
         onClick={onClick}
-        title={item.label + (badge ? ` (${badge} open)` : "")}
+        title={item.label + (badge ? ` — ${badge}: ${BADGE_HINTS[item.to] || "items needing attention"}` : "")}
         data-tour={`nav-${item.to.replace(/^\//, "").replace(/\//g, "-") || "dashboard"}`}
         className={cn(
           "relative flex items-center justify-center w-full rounded-lg p-2.5 transition-all duration-150",
@@ -229,7 +215,8 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
 
   const toggleGroup = (id: string) => {
     setGroupOpen((prev) => {
-      const next = { ...prev, [id]: prev[id] === false ? true : false };
+      const cur = id === "more" ? prev[id] === true : prev[id] !== false;
+      const next = { ...prev, [id]: !cur };
       try { localStorage.setItem(GROUP_OPEN_KEY, JSON.stringify(next)); } catch { /* ignore */ }
       return next;
     });
@@ -454,7 +441,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
               const sidebarCollapsed = !desktopExpanded;
               const hasActive = group.items.some((i) => isItemActive(i.to));
               // Default open; a group containing the active route is always open.
-              const open = sidebarCollapsed || hasActive || groupOpen[group.id] !== false;
+              const open = sidebarCollapsed || hasActive || (group.id === "more" ? groupOpen[group.id] === true : groupOpen[group.id] !== false);
               return (
                 <div key={group.id} className="mb-1">
                   {!sidebarCollapsed ? (

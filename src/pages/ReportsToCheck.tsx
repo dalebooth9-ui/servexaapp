@@ -85,7 +85,7 @@ export default function ReportsToCheck() {
       const e = latest.get(j.id);
       return {
         jobId: j.id,
-        ref: j.customer_po ? `PO ${j.customer_po}` : j.reference_number || "—",
+        ref: j.customer_po ? `PO ${String(j.customer_po).trim().replace(/^(?:p\.?\s*o\.?\s*[:#-]?\s*)+/i, '')}` : j.reference_number || "—",
         site: j.sites?.name || j.address || "",
         address: j.sites?.address || j.address || null,
         postcode: j.sites?.postcode || null,
@@ -144,15 +144,16 @@ export default function ReportsToCheck() {
       ) : (
         <div className="space-y-2">
           {rows.filter((r) => !onlyFlagged || (flagCounts[r.jobId] || 0) > 0).map((r) => (
-            <Card key={r.jobId} className="p-3 flex flex-wrap items-center gap-3 cursor-pointer hover:border-primary/60" onClick={() => openRow(r)}>
+            <Card key={r.jobId} className={`p-3 flex ${r.submittedAt && Date.now() - new Date(r.submittedAt).getTime() > 14 * 86400000 ? 'border-destructive border-l-4' : ''} flex-wrap items-center gap-3 cursor-pointer hover:border-primary/60`} onClick={() => openRow(r)}>
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate"><span className="font-mono">{r.ref}</span> — {r.site}
+                  {r.submittedAt && Date.now() - new Date(r.submittedAt).getTime() > 14 * 86400000 && <Badge variant="destructive" className="ml-2">Waiting {Math.floor((Date.now() - new Date(r.submittedAt).getTime()) / 86400000)} days</Badge>}
                   {r.visualOnly && <Badge variant="outline" className="ml-2 border-amber-400 text-amber-800 dark:text-amber-300">Pressure test outstanding</Badge>}
                   {r.reasonCheck && <Badge variant="outline" className="ml-2">Reason to check</Badge>}
                   {flagCounts[r.jobId] > 0 && <Badge variant="outline" className="ml-2">{flagCounts[r.jobId]} change{flagCounts[r.jobId] === 1 ? "" : "s"} since previous report</Badge>}
                   {flagCounts[r.jobId] === 0 && <Badge variant="outline" className="ml-2 text-muted-foreground">Matches previous report</Badge>}</p>
                 <p className="text-xs text-muted-foreground truncate">{r.name} · {r.engineer}{r.submittedAt && ` · ${format(new Date(r.submittedAt), "dd/MM/yyyy HH:mm")}`}</p>
-                {r.address && <MapAddress address={r.address} postcode={r.postcode} jobId={r.jobId} className="text-xs text-muted-foreground" />}
+                {r.address ? <MapAddress address={r.address} postcode={r.postcode} jobId={r.jobId} className="text-xs text-muted-foreground" /> : r.site ? <p className="text-xs text-muted-foreground">{r.site}</p> : null}
                 {r.totalReports > 0 && r.completedReports < r.totalReports && (
                   <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{r.completedReports} of {r.totalReports} reports completed</p>
                 )}

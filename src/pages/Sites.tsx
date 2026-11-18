@@ -1,6 +1,7 @@
 import MapAddress from "@/components/MapAddress";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import QuickAddSiteDialog from "@/components/sites/QuickAddSiteDialog";
 import { supabase } from "@/integrations/supabase/client";
 import SiteDryRisers from "@/components/assets/SiteDryRisers";
 import SiteAccessCard from '@/components/sites/SiteAccessCard';
@@ -218,6 +219,7 @@ export default function Sites() {
   const { convert: convertW3W } = useWhat3Words();
   const navigate = useNavigate();
   const [navigationParams] = useSearchParams();
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [sites, setSites] = useState<Site[]>([]);
   const [sitePageIds, setSitePageIds] = useState<string[]>([]);
   const [siteMore, setSiteMore] = useState(false);
@@ -1099,7 +1101,9 @@ export default function Sites() {
             <Button variant="outline" onClick={() => setFolderImportOpen(true)}><FolderOpen className="mr-2 h-4 w-4" /> Import from Folders</Button>
             <Button variant="outline" onClick={() => setBulkOpen(true)}><FileSpreadsheet className="mr-2 h-4 w-4" /> Bulk Import</Button>
             <Button variant="outline" onClick={() => setMergeOpen(true)}><Combine className="mr-2 h-4 w-4" /> Merge duplicate sites</Button>
-            <Button onClick={() => openCreate(null, "region")} data-setup="add-site"><Plus className="mr-2 h-4 w-4" /> Add Region</Button>
+            <Button onClick={() => setQuickAddOpen(true)} data-setup="add-site"><Plus className="mr-2 h-4 w-4" /> Add site</Button>
+            <Button variant="outline" onClick={() => openCreate(null, "region")}><Plus className="mr-2 h-4 w-4" /> Add Region</Button>
+            <QuickAddSiteDialog open={quickAddOpen} onOpenChange={setQuickAddOpen} onCreated={() => { fetchSites(); }} />
           </div>
         )}
       </div>
@@ -1186,7 +1190,7 @@ export default function Sites() {
               {loading && filteredRoots.length===0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">Loading...</p>
               ) : filteredRoots.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">{search ? "No sites match your search." : "No sites yet. Add a region to get started."}</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">{search ? "No sites match your search." : "No sites yet. Use Add site to get started."}</p>
               ) : (
                 <div aria-busy={loading} className={loading || search.trim()!==serverSearch ? "pointer-events-none opacity-60" : undefined}>{filteredRoots.map((site) => renderTreeRow(site, 0))}</div>
               )}

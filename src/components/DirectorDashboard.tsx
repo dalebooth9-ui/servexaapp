@@ -14,6 +14,7 @@ import { ResponsiveContainer, BarChart, Bar, Tooltip, XAxis } from "recharts";
 import { formatDistanceToNow, startOfWeek, addWeeks, format, startOfMonth, subMonths } from "date-fns";
 import VehicleCheckReviewCard from "@/components/VehicleCheckReviewCard";
 import SetupChecklist from "@/components/SetupChecklist";
+import FirstStepsChecklist from "@/components/dashboard/FirstStepsChecklist";
 import NeedsAttentionToday from "@/components/dashboard/NeedsAttentionToday";
 
 import { toast } from "sonner";
@@ -361,6 +362,7 @@ export default function DirectorDashboard() {
         <p className="text-sm text-muted-foreground">What needs your attention today.</p>
       </div>
 
+      <FirstStepsChecklist />
       <SetupChecklist />
 
       <NeedsAttentionToday />

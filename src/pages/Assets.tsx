@@ -250,6 +250,15 @@ export default function Assets() {
     setForm(emptyAsset);
     setDialogOpen(true);
   };
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("new") === "1") {
+      window.history.replaceState(null, "", window.location.pathname);
+      openCreate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
 
   const openEdit = (asset: Asset) => {
     setEditing(asset);
