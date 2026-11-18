@@ -631,6 +631,13 @@
       "when": 1795006141858,
       "tag": "0089_report_comparison_reviews",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1795006534900,
+      "tag": "0090_scan_items_typed_text",
+      "breakpoints": true
     }
   ]
 }

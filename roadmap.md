@@ -286,4 +286,5 @@
 - [x] Most recent filed report of any year (app or paper/PDF archive), dated "Compared with report dated…", unclear reads kept separate, Yes/No for unlinked archive matches.
 - [ ] Direct SharePoint folder reading — needs a SharePoint connection; files must be put into Paper scans & archive for now.
 - [ ] Automatic reading of not-yet-read archive files on submit — only archive items already read are used.
+- [x] Typed PDFs/Word files in archive uploads are read from their typed text, not the handwriting reader; originals kept unchanged.
 - [ ] Help guide entry — database refused the write (read-only).

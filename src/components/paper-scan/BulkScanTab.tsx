@@ -63,7 +63,15 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
     // Gentle heads-up when the device is on cellular data.
     maybeShowMobileDataAdvisory("scan uploads");
 
-    const raw = Array.from(fs);
+    let raw = Array.from(fs);
+    // Typed old reports (typed PDFs / Word files) are read from their text,
+    // never by the handwriting reader. Scans and photos carry on below.
+    if (mode === "archive" && user) {
+      const typedDone = await fileTypedReports(raw);
+      if (typedDone === null) return;
+      raw = raw.filter((f) => !typedDone.has(f));
+      if (raw.length === 0) return;
+    }
     const pdfs = raw.filter(
       (f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name),
     );
@@ -217,6 +225,65 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
       }));
       setGroups((prev) => [...prev, ...newGroups]);
     }
+  };
+
+  /** Files typed PDFs/Word files as typed items; returns the files handled, or null on failure. */
+  const fileTypedReports = async (files: File[]): Promise<Set<File> | null> => {
+    const { pdfText, docxText, looksTyped, isDocx } = await import("@/lib/typedDocText");
+    const typed: { file: File; text: string }[] = [];
+    for (const f of files) {
+      try {
+        if (isDocx(f)) { const t = await docxText(f); if (t.trim()) typed.push({ file: f, text: t }); }
+        else if (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) {
+          const { text, pages } = await pdfText(f);
+          if (looksTyped(text, pages)) typed.push({ file: f, text });
+        }
+      } catch (e) { console.warn("[BulkScanTab] typed text check failed", f.name, e); }
+    }
+    if (!typed.length) return new Set();
+    setExpanding(true);
+    try {
+      const { data: profile } = await supabase.from("profiles").select("org_id").eq("user_id", user!.id).maybeSingle();
+      const orgId = (profile as any)?.org_id;
+      if (!orgId) throw new Error("Your account has no organisation.");
+      const { data: batch, error: batchErr } = await supabase.from("paper_scan_batches")
+        .insert({ org_id: orgId, created_by: user!.id, status: "processing", total_items: typed.length, processed_items: 0, mode } as any)
+        .select("id").single();
+      if (batchErr) throw batchErr;
+      const bId = (batch as any).id as string;
+      const { renderPdfToJpegFilesDetailed } = await import("@/lib/pdfToImages");
+      const rows: any[] = [];
+      for (let i = 0; i < typed.length; i++) {
+        const { file, text } = typed[i];
+        const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        // Keep the original typed file unchanged as evidence.
+        const origPath = await buildOrgPathAsync(`paper-batches/${bId}/typed-${i + 1}-${Date.now()}-${safe}`);
+        const { error: oErr } = await supabase.storage.from("submissions").upload(origPath, file, { upsert: false, contentType: file.type || "application/octet-stream" });
+        if (oErr) throw oErr;
+        // Page pictures for the review screen (PDFs only).
+        const paths: string[] = [];
+        if (!isDocx(file)) {
+          const rep = await renderPdfToJpegFilesDetailed(file, { maxPages: 20 });
+          for (let pi = 0; pi < rep.pages.length; pi++) {
+            const pp = await buildOrgPathAsync(`paper-batches/${bId}/typed-${i + 1}-page-${pi + 1}-${Date.now()}.jpg`);
+            const { error } = await supabase.storage.from("submissions").upload(pp, rep.pages[pi], { upsert: true, contentType: "image/jpeg" });
+            if (error) throw error;
+            paths.push(pp);
+          }
+        }
+        rows.push({ batch_id: bId, org_id: orgId, image_paths: paths.length ? paths : [origPath], mode, source_kind: "typed", typed_text: text.slice(0, 60000), source_file_path: origPath });
+      }
+      const { error: itemsErr } = await supabase.from("paper_scan_batch_items").insert(rows as any);
+      if (itemsErr) throw itemsErr;
+      supabase.functions.invoke("process-paper-scan-batch", { body: { batch_id: bId } }).catch((e) => console.error("processor kick-off failed", e));
+      toast({ title: `${typed.length} typed report${typed.length === 1 ? "" : "s"} found`, description: "Read from the typed text (not the handwriting reader). Opening the review queue…" });
+      onClose();
+      navigate(`/paper-scans?tab=review&batch=${bId}&mode=archive`);
+      return new Set(typed.map((t) => t.file));
+    } catch (e: any) {
+      toast({ title: "Typed report upload failed", description: e?.message || "Please try again.", variant: "destructive" });
+      return null;
+    } finally { setExpanding(false); }
   };
 
   // Subscribe to batch progress once created
@@ -406,7 +473,7 @@ export default function BulkScanTab({ onClose, mode = "job" }: Props) {
             <input
               ref={fileRef}
               type="file"
-              accept="image/*,application/pdf"
+              accept="image/*,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               multiple
               className="hidden"
               onChange={(e) => addFiles(e.target.files)}

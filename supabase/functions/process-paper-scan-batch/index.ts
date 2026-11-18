@@ -9,6 +9,7 @@
 // The function processes up to CHUNK_SIZE items and if more remain,
 // re-invokes itself to continue (so we never exhaust one edge invocation).
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { readTypedReport } from "../_shared/typedReportRead.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -352,7 +353,7 @@ serve(async (req) => {
     // Pick up to CHUNK_SIZE pending items
     const { data: items } = await service
       .from("paper_scan_batch_items")
-      .select("id, image_paths, org_id")
+      .select("id, image_paths, org_id, typed_text, source_kind")
       .eq("batch_id", batchId)
       .eq("status", "pending")
       .limit(CHUNK_SIZE);
@@ -392,6 +393,22 @@ serve(async (req) => {
       const paths: string[] = item.image_paths || [];
 
       try {
+        // Typed PDFs / Word files: read the typed text directly — never the handwriting reader.
+        if (item.source_kind === "typed" && item.typed_text) {
+          const apiKey = Deno.env.get("LOVABLE_API_KEY");
+          if (!apiKey) throw new Error("LOVABLE_API_KEY is not configured");
+          const r = await readTypedReport(service, apiKey, orgId, item.typed_text);
+          await service.from("paper_scan_batch_items").update({
+            status: r.confidence >= 0.7 ? "ready" : "low_confidence",
+            confidence: r.confidence,
+            detected_template_id: r.template.id,
+            candidate_matches: [{ template_id: r.template.id, template_name: r.template.name, confidence: r.confidence }],
+            extracted: r.extracted,
+            header_data: r.header,
+            error: null,
+          }).eq("id", itemId);
+          return;
+        }
         // Download and base64 the images. Images are already downscaled
         // client-side by fileToScanBase64 / PDF splitter, so we ship them
         // straight to OCR without re-decoding here (which was OOMing).

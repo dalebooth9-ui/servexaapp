@@ -7214,7 +7214,10 @@ export type Database = {
           org_id: string
           reviewed_at: string | null
           reviewed_by: string | null
+          source_file_path: string | null
+          source_kind: string
           status: string
+          typed_text: string | null
           updated_at: string
         }
         Insert: {
@@ -7238,7 +7241,10 @@ export type Database = {
           org_id: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          source_file_path?: string | null
+          source_kind?: string
           status?: string
+          typed_text?: string | null
           updated_at?: string
         }
         Update: {
@@ -7262,7 +7268,10 @@ export type Database = {
           org_id?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          source_file_path?: string | null
+          source_kind?: string
           status?: string
+          typed_text?: string | null
           updated_at?: string
         }
         Relationships: [
