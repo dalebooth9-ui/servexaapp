@@ -244,9 +244,9 @@ const newer = (a: PreviousReport | null, b: PreviousReport | null) => {
  */
 export async function findArchivePrevious(
   supabase: any,
-  opts: { orgId?: string | null; siteId: string | null; site: { name?: string | null; address?: string | null; postcode?: string | null }; templateId: string; templateName?: string | null; riserLocation?: string | null; before?: string | null; decisions?: Record<string, "ok" | "needs_fixing"> },
+  opts: { orgId?: string | null; siteId: string | null; site: { name?: string | null; address?: string | null; postcode?: string | null }; templateId: string; templateName?: string | null; riserLocation?: string | null; riserAssetId?: string | null; before?: string | null; decisions?: Record<string, "ok" | "needs_fixing"> },
 ): Promise<{ confident: PreviousReport | null; possible: PossibleArchive[] }> {
-  let q = supabase.from("archived_documents").select("id, site_id, site_name, site_address, title, document_type, template_id, document_date, extracted, header_data, file_paths, status, org_id");
+  let q = supabase.from("archived_documents").select("id, site_id, asset_id, site_name, site_address, title, document_type, template_id, document_date, extracted, header_data, file_paths, status, org_id");
   if (opts.orgId) q = q.eq("org_id", opts.orgId);
   const { data, error } = await q.limit(1000);
   if (error || !data) return { confident: null, possible: [] };
@@ -259,6 +259,11 @@ export async function findArchivePrevious(
     if (!sameType) continue;
     const prev = archiveToPrevious(d);
     if (opts.before && prev.date && prev.date > opts.before.slice(0, 10)) continue;
+    // Filed against a riser: that choice wins over location text.
+    if (d.asset_id && opts.riserAssetId) {
+      if (d.asset_id !== opts.riserAssetId) continue;
+      confident = newer(confident, prev); continue;
+    }
     const dloc = String(prev.answers.riser_location || "").trim().toLowerCase();
     if (loc && dloc && dloc !== loc) continue; // a different riser at the same site
     const decision = opts.decisions?.[`archive_match:${d.id}`];
@@ -283,7 +288,7 @@ export async function findMostRecentPrevious(
     const { data } = await supabase.from("sites").select("name, address, postcode").eq("id", opts.siteId).maybeSingle();
     site = data || {};
   }
-  const arch = await findArchivePrevious(supabase, { orgId: opts.orgId, siteId: opts.siteId || null, site, templateId: opts.templateId, templateName: opts.templateName, riserLocation: opts.riserLocation, before: opts.before, decisions: opts.decisions }).catch(() => ({ confident: null, possible: [] as PossibleArchive[] }));
+  const arch = await findArchivePrevious(supabase, { orgId: opts.orgId, siteId: opts.siteId || null, site, templateId: opts.templateId, templateName: opts.templateName, riserLocation: opts.riserLocation, riserAssetId: opts.riserAssetId || null, before: opts.before, decisions: opts.decisions }).catch(() => ({ confident: null, possible: [] as PossibleArchive[] }));
   const previous = newer(app, arch.confident);
   // Only ask about an unlinked archive file when it would be newer than what we already have.
   const possible = arch.possible.filter((p) => !previous || (p.date || "") > (previous.date || ""));

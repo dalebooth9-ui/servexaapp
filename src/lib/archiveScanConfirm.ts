@@ -20,6 +20,8 @@ export type ArchiveScanConfirmInput = {
   documentType: string | null;
   customerId: string | null;
   siteId: string | null;
+  /** Riser/asset chosen by the office in the review screen. Never guessed. */
+  assetId?: string | null;
   documentDate: string | null; // yyyy-mm-dd
   title: string | null;
   notes: string | null;
@@ -67,6 +69,7 @@ export async function archiveScanConfirm(
     documentType,
     customerId,
     siteId,
+    assetId = null,
     documentDate,
     title,
     notes,
@@ -133,6 +136,7 @@ export async function archiveScanConfirm(
       org_id: orgId,
       customer_id: customerId,
       site_id: siteId,
+      asset_id: status === "filed" && siteId ? assetId : null,
       site_name: siteName ?? (header as any)?.site ?? null,
       site_address: siteAddress ?? (header as any)?.site ?? null,
       document_date: documentDate,
@@ -206,6 +210,14 @@ export async function archiveScanConfirm(
     }
   }
 
+  // 3b. Add the filed report to the chosen riser's History, like in-app reports.
+  if (status === "filed" && siteId && assetId) {
+    await addArchiveToRiserHistory({
+      archivedId, orgId, siteId, assetId, templateId, templateName,
+      documentType, documentDate, extracted, originalPath: destPaths[0] || null,
+    });
+  }
+
   // 4. Mark the queue item as confirmed and link back to the archive.
   await supabase
     .from("paper_scan_batch_items")
@@ -218,4 +230,46 @@ export async function archiveScanConfirm(
     .eq("id", itemId);
 
   return { archivedId, reportPdfPath };
+}
+
+/** Visit type, using the same values as reports from in-app jobs. */
+export function archiveInspectionType(name: string | null | undefined): string | null {
+  const n = (name || "").toLowerCase();
+  if (n.includes("pressure")) return "pressure_test";
+  if (n.includes("visual")) return "visual";
+  if (n.includes("commission") || n.includes("install")) return "commissioning";
+  if (n.includes("remedial") || n.includes("repair")) return "remedial";
+  return null;
+}
+
+/** Result, read from the same answers as reports from in-app jobs. */
+export function archiveResultSummary(extracted: Record<string, any> | null | undefined): string | null {
+  for (const k of ["overall_result", "result", "pass_fail", "test_result"]) {
+    const v = extracted?.[k];
+    if (v != null && String(v).trim()) return String(v).trim();
+  }
+  return null;
+}
+
+async function addArchiveToRiserHistory(a: {
+  archivedId: string; orgId: string; siteId: string; assetId: string;
+  templateId: string | null; templateName: string | null; documentType: string | null;
+  documentDate: string | null; extracted: Record<string, any>; originalPath: string | null;
+}) {
+  const outlets = Number.parseInt(String(a.extracted?.number_of_outlets ?? a.extracted?.no_of_outlets ?? ""), 10);
+  const { error } = await (supabase as any).from("asset_service_history").insert({
+    asset_id: a.assetId,
+    site_id: a.siteId,
+    org_id: a.orgId,
+    archived_document_id: a.archivedId,
+    template_id: a.templateId,
+    template_name: a.templateName || a.documentType,
+    inspection_type: archiveInspectionType(a.templateName || a.documentType),
+    inspection_date: a.documentDate ? `${a.documentDate}T12:00:00Z` : null,
+    result_summary: archiveResultSummary(a.extracted),
+    outlets_count: Number.isFinite(outlets) ? outlets : null,
+    riser_location: a.extracted?.riser_location ? String(a.extracted.riser_location) : null,
+    report_file: a.originalPath ? `storage://submissions/${a.originalPath}` : null,
+  });
+  if (error && error.code !== "23505") console.error("[archiveScanConfirm] riser history insert failed", error);
 }

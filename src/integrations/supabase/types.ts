@@ -157,6 +157,7 @@ export type Database = {
       }
       archived_documents: {
         Row: {
+          asset_id: string | null
           created_at: string
           customer_id: string | null
           document_date: string | null
@@ -183,6 +184,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          asset_id?: string | null
           created_at?: string
           customer_id?: string | null
           document_date?: string | null
@@ -209,6 +211,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          asset_id?: string | null
           created_at?: string
           customer_id?: string | null
           document_date?: string | null
@@ -235,6 +238,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "archived_documents_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "archived_documents_customer_id_fkey"
             columns: ["customer_id"]
@@ -539,6 +549,7 @@ export type Database = {
       }
       asset_service_history: {
         Row: {
+          archived_document_id: string | null
           asset_id: string | null
           created_at: string
           id: string
@@ -558,6 +569,7 @@ export type Database = {
           template_name: string | null
         }
         Insert: {
+          archived_document_id?: string | null
           asset_id?: string | null
           created_at?: string
           id?: string
@@ -577,6 +589,7 @@ export type Database = {
           template_name?: string | null
         }
         Update: {
+          archived_document_id?: string | null
           asset_id?: string | null
           created_at?: string
           id?: string
@@ -596,6 +609,13 @@ export type Database = {
           template_name?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "asset_service_history_archived_document_id_fkey"
+            columns: ["archived_document_id"]
+            isOneToOne: false
+            referencedRelation: "archived_documents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "asset_service_history_asset_id_fkey"
             columns: ["asset_id"]

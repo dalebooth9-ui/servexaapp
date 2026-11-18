@@ -185,6 +185,10 @@ export default function ScanReviewDialog({
   const [siteId, setSiteId] = useState("");
   const [siteName, setSiteName] = useState("");
   const [siteAddress, setSiteAddress] = useState("");
+  // Archive mode: riser the filed report belongs to. "" = not chosen yet,
+  // "none" = office confirmed it isn't for a specific riser.
+  const [siteRisers, setSiteRisers] = useState<{ id: string; label: string; location: string }[]>([]);
+  const [riserId, setRiserId] = useState("");
   const [docDate, setDocDate] = useState(""); // yyyy-mm-dd for archive
   const [ukDate, setUkDate] = useState(""); // dd/mm/yyyy for job
   const [dateUnknown, setDateUnknown] = useState(false);
@@ -550,6 +554,34 @@ export default function ScanReviewDialog({
     }
   };
 
+  // Archive mode: load the chosen site's risers. Only pre-pick when the sheet's
+  // riser location matches exactly one riser; otherwise the office must choose.
+  useEffect(() => {
+    if (mode !== "archive" || !siteId) { setSiteRisers([]); setRiserId(""); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("assets")
+        .select("id, asset_tag, riser_location, asset_type, category, status")
+        .eq("site_id", siteId)
+        .or("asset_type.ilike.%riser%,category.ilike.%riser%");
+      if (cancelled) return;
+      const list = ((data as any[]) || [])
+        .filter((a) => a.status !== "retired" && a.status !== "merged")
+        .map((a) => ({
+          id: a.id,
+          location: String(a.riser_location || "").trim(),
+          label: [a.riser_location || "Unnamed riser", a.asset_type || a.category, a.asset_tag].filter(Boolean).join(" · "),
+        }));
+      setSiteRisers(list);
+      const loc = String((answers as any)?.riser_location || "").trim().toLowerCase();
+      const exact = loc ? list.filter((r) => r.location.toLowerCase() === loc) : [];
+      setRiserId(exact.length === 1 ? exact[0].id : "");
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, siteId]);
+
   // Shared "file it" — archive mode
   const fileArchive = async (asUnmatched = false) => {
     if (!user || !item) return;
@@ -563,6 +595,14 @@ export default function ScanReviewDialog({
         title: "Pick a customer",
         description:
           "Choose a customer to file this under, or send it to the Unmatched bucket.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!asUnmatched && siteId && siteRisers.length > 0 && !riserId) {
+      toast({
+        title: "Choose the riser",
+        description: "This site has risers. Pick which riser this report is for, or choose \"Not for a specific riser\".",
         variant: "destructive",
       });
       return;
@@ -603,6 +643,7 @@ export default function ScanReviewDialog({
         documentType: docType || null,
         customerId: asUnmatched ? null : customerId || null,
         siteId: asUnmatched ? null : siteId || null,
+        assetId: asUnmatched || !siteId || !riserId || riserId === "none" ? null : riserId,
         siteName: asUnmatched ? null : siteName || null,
         siteAddress: asUnmatched ? null : siteAddress || null,
         documentDate: docDate || null,
@@ -1159,6 +1200,27 @@ export default function ScanReviewDialog({
                 </Label>
                 <SiteCombobox value={siteId} sites={sites} onChange={setSiteId} />
               </div>
+              {!isJob && siteId && siteRisers.length > 0 && (
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label>Riser this report is for</Label>
+                  <Select value={riserId} onValueChange={setRiserId}>
+                    <SelectTrigger className={riserId ? "" : "border-destructive"}>
+                      <SelectValue placeholder="Choose the riser" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {siteRisers.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>
+                      ))}
+                      <SelectItem value="none">Not for a specific riser</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {!riserId && (
+                    <p className="text-xs text-destructive">
+                      Not sure which riser this is — please choose before filing.
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="space-y-1.5 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Site name (from sheet)</Label>
