@@ -1,4 +1,5 @@
 import MapAddress from "@/components/MapAddress";
+import { complianceStatus } from "@/lib/complianceStatus";
 import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -158,7 +159,7 @@ export default function CustomerPortal() {
         const { data: cd } = await supabase.from("compliance_records")
           .select("id, title, status, expiry_date, record_type, file_url, file_name")
           .in("site_id", siteIds).order("expiry_date", { ascending: true });
-        setCompliance((cd || []) as Compliance[]);
+        setCompliance(((cd || []) as Compliance[]).map((r: any) => ({ ...r, status: complianceStatus(r.expiry_date, r.status) })));
       }
 
       // Sign-offs

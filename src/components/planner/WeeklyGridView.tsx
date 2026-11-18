@@ -162,7 +162,7 @@ function DraggableUnallocatedJob({
       </button>
       <div className="relative z-[1]">
         <div className="flex items-start justify-between gap-1 mb-0.5 pr-5">
-          <div className="text-foreground break-words line-clamp-2 flex-1 min-w-0 pr-1">{job.name}</div>
+          <div className="text-foreground break-words flex-1 min-w-0 pr-1">{job.name}</div>
           {isOverdue ? (
             <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
               <AlertTriangle className="h-2.5 w-2.5" /> OVERDUE
@@ -177,7 +177,7 @@ function DraggableUnallocatedJob({
             </span>
           ) : null}
         </div>
-        <JobCardSubtitle job={job} className="text-muted-foreground truncate text-[10px]" />
+        <JobCardSubtitle job={job} className="text-muted-foreground break-words whitespace-normal text-[10px]" />
         {((job as any).customers?.name || job.customer) && <div className="text-muted-foreground break-words line-clamp-2 text-[10px]">{(job as any).customers?.name || job.customer}</div>}
         <div className="flex flex-wrap gap-1 mt-0.5">
           {(job as any).preassigned_engineer_name && (
@@ -720,7 +720,7 @@ export default function WeeklyGridView({
                   All Jobs
                 </button>
               </div>
-              <ScrollArea className="h-[calc(100vh-340px)]">
+              <ScrollArea className="h-[calc(100vh-340px)] [&_[data-radix-scroll-area-viewport]>div]:!block">
                 {sidebarMode === "unallocated" ? (
                   groupedUnallocated.length === 0 ? (
                     <p className="text-xs text-muted-foreground py-4 text-center">All jobs allocated</p>
@@ -854,10 +854,10 @@ export default function WeeklyGridView({
         )}
 
         {/* Grid */}
-        <div className="flex-1 overflow-x-auto">
-          <div className="min-w-[1120px]">
+        <div className="flex-1 min-w-0 overflow-x-auto">
+          <div className="min-w-0">
             {/* Day headers */}
-            <div className="grid gap-1 mb-1" style={{ gridTemplateColumns: `140px repeat(${weekDays.length}, minmax(140px, 1fr))` }}>
+            <div className="grid gap-1 mb-1" style={{ gridTemplateColumns: `96px repeat(${weekDays.length}, minmax(0, 1fr))` }}>
               <div className="text-xs font-semibold text-muted-foreground px-2 py-1">Engineer</div>
               {weekDays.map((d) => {
                 const isToday = isSameDay(d, new Date());
@@ -1039,7 +1039,7 @@ function SortableEngineerRow({
       {/* Main grid row */}
       <div
         className="grid gap-1"
-        style={{ gridTemplateColumns: `140px repeat(${weekDays.length}, minmax(140px, 1fr))` }}
+        style={{ gridTemplateColumns: `96px repeat(${weekDays.length}, minmax(0, 1fr))` }}
       >
         {/* Engineer name column */}
         <div
@@ -1049,7 +1049,7 @@ function SortableEngineerRow({
             isPairDropOver && !partnerEng && "bg-primary/15 ring-1 ring-primary/50"
           )}
         >
-          <div className="flex items-center gap-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-1 min-w-0">
             {isAdmin && (
               <span {...sortAttrs} {...sortListeners} className="shrink-0 cursor-grab text-muted-foreground hover:text-foreground" title="Drag to reorder">
                 <GripVertical className="h-3.5 w-3.5" />
@@ -1066,9 +1066,9 @@ function SortableEngineerRow({
                 isPairDragging && "opacity-40",
                 isPairDropOver && !partnerEng && "text-primary font-semibold"
               )}
-              title={isAdmin && !partnerEng ? "Drag onto another engineer to pair them on this row" : undefined}
+              title={isAdmin && !partnerEng ? `${eng.full_name} — drag onto another engineer to pair them on this row` : eng.full_name}
             >
-              {eng.full_name}
+              {(eng.full_name || "").split(" ")[0] || eng.full_name}
             </span>
             {isPairDropOver && !partnerEng && (
               <span className="shrink-0 text-[9px] font-semibold text-primary">+ Pair</span>

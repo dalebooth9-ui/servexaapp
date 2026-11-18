@@ -25,12 +25,15 @@ function printSticker(v: Van) {
 export default function VansSettings() {
   const { orgId } = useAuth() as any;
   const [vans, setVans] = useState<Van[]>([]);
+  const [fleet, setFleet] = useState<{ id: string; registration: string; label: string | null; make: string | null; model: string | null }[]>([]);
   const [name, setName] = useState(""); const [reg, setReg] = useState("");
   const [rules, setRules] = useState({ standard_break_minutes: 0, break_button_enabled: true, missing_finish_time: "20:00", far_scan_km: 5, min_day_minutes: 2 });
 
   const load = async () => {
     const { data } = await supabase.from("vans").select("id, name, registration, qr_token, active").order("name");
     setVans((data as Van[]) || []);
+    const { data: veh } = await supabase.from("vehicles").select("id, registration, label, make, model").eq("active", true).order("registration");
+    setFleet((veh as any) || []);
     const { data: s } = await supabase.from("timesheet_settings").select("*").maybeSingle();
     if (s) setRules({ standard_break_minutes: s.standard_break_minutes, break_button_enabled: s.break_button_enabled, missing_finish_time: String(s.missing_finish_time).slice(0, 5), far_scan_km: Number(s.far_scan_km), min_day_minutes: s.min_day_minutes });
   };
@@ -67,7 +70,26 @@ export default function VansSettings() {
             <Input placeholder="Registration" value={reg} onChange={(e) => setReg(e.target.value)} />
             <Button onClick={add} disabled={!name.trim()}>Add van</Button>
           </div>
-          {vans.length === 0 ? <p className="text-sm text-muted-foreground">No vans yet.</p> : (
+          {(() => {
+            const regs = new Set(vans.map((v) => (v.registration || "").replace(/\s/g, "").toUpperCase()));
+            const missing = fleet.filter((f) => !regs.has((f.registration || "").replace(/\s/g, "").toUpperCase()));
+            if (!missing.length) return null;
+            return (
+              <div className="space-y-2 rounded-lg border border-dashed p-3">
+                <p className="text-sm">From your vehicle list (Vehicle checks) — no clocking sticker yet:</p>
+                {missing.map((f) => (
+                  <div key={f.id} className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm">{f.label || [f.make, f.model].filter(Boolean).join(" ") || "Vehicle"} · {f.registration}</span>
+                    <Button size="sm" variant="outline" onClick={async () => {
+                      const { error } = await supabase.from("vans").insert({ name: f.label || f.registration, registration: (f.registration || "").toUpperCase() || null } as any);
+                      if (error) toast.error(error.message); else { toast.success("Clocking sticker ready"); load(); }
+                    }}>Give this vehicle a clocking sticker</Button>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+          {vans.length === 0 ? <p className="text-sm text-muted-foreground">No clocking stickers yet.{fleet.length ? " Use the vehicles listed above." : ""}</p> : (
             <div className="grid gap-3 sm:grid-cols-2">
               {vans.map((v) => (
                 <div key={v.id} className="flex items-center gap-3 rounded-lg border p-3">

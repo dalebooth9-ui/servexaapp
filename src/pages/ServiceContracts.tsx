@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import CommercialPagesNote from "@/components/CommercialPagesNote";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -126,6 +127,7 @@ export default function ServiceContracts() {
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <FileSignature className="h-6 w-6 text-primary" /> Service Contracts
           </h1>
+          <CommercialPagesNote current="contracts" />
           <p className="text-sm text-muted-foreground">Your recurring revenue book — active contracts, renewals & billing.</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>

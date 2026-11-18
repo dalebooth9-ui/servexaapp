@@ -127,6 +127,8 @@ export default function WeeklyPlanner() {
       : (effectiveUserId ?? user?.id ?? null);
 
   const [view, setView] = useState<"grid" | "month" | "list" | "map">("grid");
+  const [showWeekend, setShowWeekend] = useState(() => { try { return localStorage.getItem("planner-show-weekend") === "1"; } catch { return false; } });
+  const toggleWeekend = (v: boolean) => { setShowWeekend(v); try { localStorage.setItem("planner-show-weekend", v ? "1" : "0"); } catch { /* ignore */ } };
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [monthDate, setMonthDate] = useState(new Date());
   const [engineers, setEngineers] = useState<Engineer[]>([]);
@@ -934,7 +936,7 @@ export default function WeeklyPlanner() {
           </Button>
 
           {isAdmin && (
-            <Button size="sm" onClick={() => { setAddDay(format(weekDays[0], "yyyy-MM-dd")); setAddEngineerId(""); setAddJobId(""); setAddSiteId(""); setAddNotes(""); setAddOpen(true); }}>
+            <Button size="sm" onClick={() => { setAddDay(format(new Date(), "yyyy-MM-dd")); setAddEngineerId(""); setAddJobId(""); setAddSiteId(""); setAddNotes(""); setAddOpen(true); }}>
               <Plus className="mr-1.5 h-4 w-4" /> Add Entry
             </Button>
           )}
@@ -1088,8 +1090,12 @@ export default function WeeklyPlanner() {
               No jobs scheduled this week — drag a job here to get started.
             </div>
           )}
+          <label className="mb-2 inline-flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={showWeekend} onChange={(e) => toggleWeekend(e.target.checked)} />
+            Show weekend
+          </label>
           <WeeklyGridView
-            weekDays={weekDays}
+            weekDays={showWeekend ? weekDays : weekDays.slice(0, 5)}
             engineers={visibleEngineers}
             schedule={filteredSchedule}
             jobs={scopedJobs}

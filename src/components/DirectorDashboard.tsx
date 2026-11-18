@@ -289,7 +289,7 @@ export default function DirectorDashboard() {
   const loadCompliance = async () => {
     const today = new Date().toISOString().slice(0, 10);
     const in30 = new Date();
-    in30.setDate(in30.getDate() + 30);
+    in30.setDate(in30.getDate() + 60);
 
     const { data } = await supabase
       .from("compliance_records")
@@ -618,7 +618,7 @@ export default function DirectorDashboard() {
             <CardContent className="space-y-3">
               <div>
                 <p className="text-3xl font-bold">{compliance?.upcoming ?? 0}</p>
-                <p className="text-xs text-muted-foreground">Due in next 30 days</p>
+                <p className="text-xs text-muted-foreground">Due in next 60 days</p>
               </div>
               <div className="space-y-2">
                 <Row icon={AlertCircle} label="Overdue" value={compliance?.overdue ?? 0} warn={(compliance?.overdue ?? 0) > 0} />

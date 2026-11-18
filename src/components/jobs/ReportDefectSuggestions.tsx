@@ -90,7 +90,7 @@ export default function ReportDefectSuggestions({ jobId, onCreated }: { jobId: s
                 <Checkbox checked={!!ticked[k]} onCheckedChange={v => setTicked(t => ({ ...t, [k]: !!v }))} className="mt-0.5" />
                 <div className="min-w-0 text-sm">
                   <p className="font-medium">{s.title}</p>
-                  <p className="text-xs text-muted-foreground">Works: {s.works_required}{s.materials_required ? ` · Materials: ${s.materials_required}` : ""}{s.photoCaption ? ` · Photo: "${s.photoCaption}"` : ""}</p>
+                  <p className="text-xs text-muted-foreground">Works: {s.works_required || "To be confirmed by office"}{s.materials_required ? ` · Materials: ${s.materials_required}` : ""}{s.photoCaption ? ` · Photo: "${s.photoCaption}"` : ""}</p>
                 </div>
               </label>
               <div className="flex flex-wrap items-center gap-1 pl-6">

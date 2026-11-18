@@ -1,4 +1,5 @@
 import { useEffect, useRef, useMemo, useState, useCallback } from "react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -1242,6 +1243,12 @@ export default function PlannerMapView({
             <MapPin className="mr-1.5 h-3.5 w-3.5" />
             {showUnallocated ? "Hide Unallocated" : "Show Unallocated"}
           </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm"><Route className="mr-1.5 h-3.5 w-3.5" />Route tools</Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-auto max-w-[min(92vw,420px)]">
+              <div className="flex flex-col items-stretch gap-2">
           <Button
             variant={showLiveRoutes ? "secondary" : "outline"}
             size="sm"
@@ -1322,6 +1329,9 @@ export default function PlannerMapView({
             {optimising ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Route className="mr-1.5 h-3.5 w-3.5" />}
             Optimise Route
           </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
           {startFromMyLocation && geoDenied && (
             <span className="text-[11px] text-muted-foreground italic">
               Enable location for door-to-door routing

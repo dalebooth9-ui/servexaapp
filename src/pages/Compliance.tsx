@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { complianceStatus } from "@/lib/complianceStatus";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -127,7 +128,7 @@ export default function Compliance() {
       supabase.from("sites").select("id, name").order("name"),
       supabase.from("jobs").select("id, name, reference_number, customer").order("name"),
     ]);
-    setRecords((recRes.data as ComplianceRecord[]) || []);
+    setRecords(((recRes.data as ComplianceRecord[]) || []).map((r) => ({ ...r, status: complianceStatus(r.expiry_date, r.status) })));
     setAssets((assetRes.data as LookupOption[]) || []);
     setSites((siteRes.data as LookupOption[]) || []);
     setJobs((jobRes.data as any[]) || []);

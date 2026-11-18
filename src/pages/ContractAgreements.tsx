@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import CommercialPagesNote from "@/components/CommercialPagesNote";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -71,6 +72,7 @@ export default function ContractAgreements() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Service agreements</h1>
+          <CommercialPagesNote current="agreements" />
           <p className="text-sm text-muted-foreground">Assembled from your approved wording and sent for signature.</p>
         </div>
         <div className="flex flex-wrap gap-2">

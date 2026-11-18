@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -102,23 +102,21 @@ export default function Invoices() {
 
   if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading...</div>;
 
+  const qs = new URLSearchParams(window.location.search);
+  if (qs.get("tab") === "quote" || qs.get("tab") === "quotes" || qs.get("type") === "quote") return <Navigate to="/quotes" replace />;
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Invoices & Quotes</h1>
-          <p className="text-sm text-muted-foreground">Manage invoices and quotes for jobs</p>
+          <h1 className="text-2xl font-bold">Invoices</h1>
+          <p className="text-sm text-muted-foreground">Invoices for jobs. Quotes have their own page: <Link to="/quotes" className="text-primary underline">Quotes</Link>.</p>
         </div>
         {userRole === "admin" && (
           <div className="flex items-center gap-2">
-            <CreateInvoiceDialog
-              documentType="quote"
-              trigger={
-                <Button size="sm" variant="outline" className="gap-1.5">
-                  <ClipboardList className="h-4 w-4" /> Create Quote
-                </Button>
-              }
-            />
+            <Button size="sm" variant="outline" className="gap-1.5" asChild>
+              <Link to="/quotes"><ClipboardList className="h-4 w-4" /> Quotes</Link>
+            </Button>
             <CreateInvoiceDialog
               trigger={
                 <Button size="sm" className="gap-1.5">
@@ -130,17 +128,6 @@ export default function Invoices() {
         )}
       </div>
 
-      {/* Tabs */}
-      <Tabs value={docTab} onValueChange={(v) => { setDocTab(v as any); setStatusFilter("all"); }} className="mb-6">
-        <TabsList>
-          <TabsTrigger value="invoice">
-            Invoices ({allRecords.filter((r) => (r.document_type || "invoice") === "invoice").length})
-          </TabsTrigger>
-          <TabsTrigger value="quote">
-            Quotes ({allRecords.filter((r) => r.document_type === "quote").length})
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
 
       {/* Summary cards */}
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">

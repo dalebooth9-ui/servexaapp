@@ -166,8 +166,8 @@ export default function Reports() {
       supabase.from("jobs").select("id", { count: "exact", head: true }).gte("created_at", prevFrom).lte("created_at", prevTo),
       supabase.from("jobs").select("id", { count: "exact", head: true }).eq("status", "completed").gte("updated_at", fromIso).lte("updated_at", toIso),
       supabase.from("jobs").select("id", { count: "exact", head: true }).eq("status", "completed").gte("updated_at", prevFrom).lte("updated_at", prevTo),
-      supabase.from("invoices").select("id, total, status, customer_name, job_id, created_at").gte("created_at", fromIso).lte("created_at", toIso),
-      supabase.from("invoices").select("total, status").gte("created_at", prevFrom).lte("created_at", prevTo),
+      supabase.from("invoices").select("id, total, status, customer_name, job_id, created_at").eq("document_type", "invoice").gte("created_at", fromIso).lte("created_at", toIso),
+      supabase.from("invoices").select("total, status").eq("document_type", "invoice").gte("created_at", prevFrom).lte("created_at", prevTo),
       supabase.from("job_assignments").select("engineer_id, job_id").gte("assigned_at", fromIso).lte("assigned_at", toIso),
       supabase.from("submissions").select("id, engineer_id, created_at").gte("created_at", fromIso).lte("created_at", toIso),
       supabase.from("jobs").select("id, status").lte("created_at", toIso),
@@ -194,10 +194,12 @@ export default function Reports() {
     const prevCompletedCount = prevCompletedRes.count || 0;
     const totalJobsAll = allJobs.length;
     const completedAll = allJobs.filter((j) => j.status === "completed").length;
-    const completionRate = totalJobsAll > 0 ? Math.round((completedAll / totalJobsAll) * 100) : 0;
+    const completedOfCreated = completedCount;
+    const completionRate = jobCount > 0 ? Math.min(100, Math.round((completedOfCreated / jobCount) * 100)) : 0;
+    void totalJobsAll; void completedAll;
     const activeEngineers = new Set((assignmentsRes.data || []).map((a) => a.engineer_id)).size;
-    const invoiceCount = invoices.length;
-    const outstanding = invoices.filter((i) => ["draft", "sent", "overdue"].includes(i.status)).reduce((s, i) => s + Number(i.total || 0), 0);
+    const invoiceCount = invoices.filter((i) => i.status !== "draft").length;
+    const outstanding = invoices.filter((i) => ["sent", "overdue"].includes(i.status)).reduce((s, i) => s + Number(i.total || 0), 0);
 
     const pct = (cur: number, prev: number) => prev === 0 ? null : Math.round(((cur - prev) / prev) * 100);
 
@@ -205,7 +207,7 @@ export default function Reports() {
       { label: "Revenue (Paid)", value: `£${revenue.toLocaleString()}`, prev: `£${prevRevenue.toLocaleString()}`, delta: pct(revenue, prevRevenue), icon: PoundSterling, color: "text-emerald-500", link: "/invoices" },
       { label: "Jobs Created", value: jobCount, prev: prevJobCount, delta: pct(jobCount, prevJobCount), icon: Briefcase, color: "text-primary", link: "/jobs" },
       { label: "Jobs Completed", value: completedCount, prev: prevCompletedCount, delta: pct(completedCount, prevCompletedCount), icon: CheckCircle2, color: "text-green-500" },
-      { label: "Completion Rate", value: `${completionRate}%`, delta: null, icon: Target, color: "text-blue-500" },
+      { label: "Completion Rate", value: `${completedOfCreated} of ${jobCount} (${completionRate}%)`, delta: null, icon: Target, color: "text-blue-500" },
       { label: "Active Engineers", value: activeEngineers, delta: null, icon: Users, color: "text-violet-500", link: "/engineers" },
       { label: "Invoices Raised", value: invoiceCount, delta: null, icon: Activity, color: "text-amber-500", link: "/invoices" },
       { label: "Outstanding", value: `£${outstanding.toLocaleString()}`, delta: null, icon: AlertTriangle, color: "text-destructive", link: "/invoices" },

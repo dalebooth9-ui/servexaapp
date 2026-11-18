@@ -376,7 +376,7 @@ export default function DefectsReview() {
                           </div>
                         ) : (
                           <p className="text-xs text-muted-foreground flex items-center gap-1 pl-7">
-                            <Camera className="h-3 w-3" /> No photos attached
+                            <Camera className="h-3 w-3" /> {/(^|\n)\s*photo:/i.test(String((d as any).description || "")) ? "A photo is mentioned in the report but the image is not attached here. Open the job to see the report photos." : "No photos attached"}
                           </p>
                         )}
                       </CardContent>

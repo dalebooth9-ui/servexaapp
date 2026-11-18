@@ -77,7 +77,7 @@ const InlineAddRow = forwardRef<HTMLTableRowElement, {
             onClick={() => setOpen(true)}
             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary py-1 px-2 w-full"
           >
-            <Plus className="h-3 w-3" /> Add part here
+            <Plus className="h-3 w-3" /> Add part
           </button>
         </td>
       </tr>
@@ -597,7 +597,7 @@ function PartsPanel({
                     <TableHead className="w-8" />
                     {isAdmin && <TableHead className="w-10"><Checkbox checked={selected.size === filteredParts.length && filteredParts.length > 0} onCheckedChange={toggleAll} /></TableHead>}
                     <TableHead>Part Name</TableHead>
-                    <TableHead>Part #</TableHead>
+                    <TableHead>Part number</TableHead>
                     <TableHead>Supplier</TableHead>
                     <TableHead>Category</TableHead>
                     {showInstallCosts ? (
@@ -622,8 +622,7 @@ function PartsPanel({
                   {!isSearching && (
                     <InlineAddRow isAdmin={isAdmin} showInstallCosts={showInstallCosts} colSpan={colCount} onAdd={(f) => handleAddAt(f, -1)} />
                   )}
-                  {filteredParts.map((part, idx) => (
-                    <>
+                  {filteredParts.map((part) => (
                       <SortableLibraryRow
                         key={part.id}
                         part={part}
@@ -639,10 +638,6 @@ function PartsPanel({
                         toggleSelect={toggleSelect}
                         handleDelete={handleDelete}
                       />
-                      {!isSearching && (
-                        <InlineAddRow key={`add-${part.id}`} isAdmin={isAdmin} showInstallCosts={showInstallCosts} colSpan={colCount} onAdd={(f) => handleAddAt(f, idx)} />
-                      )}
-                    </>
                   ))}
                 </TableBody>
               </Table>

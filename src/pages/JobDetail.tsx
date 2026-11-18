@@ -1,4 +1,5 @@
 import { updateJobStatus } from "@/lib/jobStatusUpdate";
+import { jobHeadline } from "@/lib/jobHeadline";
 import MapAddress from "@/components/MapAddress";
 import OutletResults from "@/components/assets/OutletResults";
 import { useEffect, useState, lazy, Suspense } from "react";
@@ -545,7 +546,10 @@ export default function JobDetail() {
       <div className="mb-6 space-y-3">
         {/* Row 1: title + meta */}
         <div>
-          <h1 className="text-2xl font-bold">{job.name}</h1>
+          {(() => { const h = jobHeadline(job.name, job.sites?.name, job.sites?.address || job.address); return (<>
+            <h1 className="text-2xl font-bold" title={job.name}>{h.title}</h1>
+            {h.address && <p className="text-sm text-muted-foreground">{h.address}</p>}
+          </>); })()}
           <p className="text-sm text-muted-foreground">
             {(job as any).customer_po ? (
               <>
@@ -557,8 +561,6 @@ export default function JobDetail() {
               <span className="font-mono">{job.reference_number}</span>
             )}
             {custName && <> · <span className="font-medium text-foreground">{custName}</span></>}
-            {job.sites?.name && <> · <span className="font-medium text-foreground">{job.sites.name}</span></>}
-            {!job.sites?.name && job.address && <> · <span className="text-foreground">{job.address}</span></>}
             {categoryDisplayName && userRole !== "admin" && <> · <span className="text-muted-foreground">{categoryDisplayName}</span></>}
           </p>
           {userRole === "admin" && job.org_id && (

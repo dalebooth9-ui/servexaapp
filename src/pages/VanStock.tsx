@@ -49,7 +49,7 @@ export default function VanStock() {
         setEngineers((engs as any) || []);
         setStocks((st as any) || []);
         setRequests((rq as any) || []);
-        if (engs && engs[0]) setSelectedEngineer(engs[0].user_id);
+        if (engs && engs[0]) setSelectedEngineer("__all__");
       } else {
         setSelectedEngineer(user.id);
       }
@@ -166,15 +166,34 @@ export default function VanStock() {
 
         <TabsContent value="overview" className="space-y-4 mt-4">
           <div className="flex items-center gap-2">
-            <Label className="text-sm">Engineer:</Label>
+            <Label className="text-sm">Show van for:</Label>
             <Select value={selectedEngineer} onValueChange={setSelectedEngineer}>
-              <SelectTrigger className="w-64"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-64" aria-label="Choose a van"><SelectValue placeholder="Choose an engineer's van" /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="__all__">All vans</SelectItem>
                 {engineers.map((e) => <SelectItem key={e.user_id} value={e.user_id}>{e.full_name || "Unnamed"}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-          {selectedEng && <VanStockGrid engineerId={selectedEng.user_id} isAdmin orgId={orgId} />}
+          {selectedEngineer === "__all__" ? (
+            <div className="space-y-4">
+              {engineers.filter((e) => stocks.some((st) => st.engineer_id === e.user_id)).map((e) => (
+                <div key={e.user_id} className="rounded-lg border p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="font-medium">{e.full_name || "Unnamed"}</p>
+                    <button className="text-sm text-primary underline" onClick={() => setSelectedEngineer(e.user_id)}>Open this van</button>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead className="text-left text-muted-foreground"><tr><th className="py-1">Part</th><th>Qty</th><th>Min</th></tr></thead>
+                    <tbody>{stocks.filter((st) => st.engineer_id === e.user_id).map((st) => (
+                      <tr key={st.id} className={`border-t ${st.quantity < st.min_quantity ? "text-destructive" : ""}`}><td className="py-1">{st.parts_library?.name || "Part"}</td><td>{st.quantity}</td><td>{st.min_quantity}</td></tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              ))}
+              {!stocks.length && <p className="text-sm text-muted-foreground">No van stock recorded yet.</p>}
+            </div>
+          ) : selectedEng && <VanStockGrid engineerId={selectedEng.user_id} isAdmin orgId={orgId} />}
         </TabsContent>
 
         <TabsContent value="low" className="space-y-3 mt-4">

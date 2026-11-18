@@ -548,7 +548,7 @@ export function renderPaperFormPage(
     const shown = remedials.slice(0, 4);
     const rows: PdfTemplateField[] = [];
     for (const r of shown) {
-      const works = r.works_required || r.title || '';
+      const works = r.works_required || 'To be confirmed by office';
       const parts = [r.riser ? `${r.riser}: ${r.title}` : r.title, `Works: ${works}`, r.materials_required ? `Materials: ${r.materials_required}` : 'Materials: —'].filter(Boolean);
       rows.push({ id: `remedial_${r.id}`, label: parts.join(' | '), type: 'select', section: sec, required: false, _printText: 'DONE / NOT DONE' } as unknown as PdfTemplateField);
       rows.push({ id: `remedial_comment_${r.id}`, label: 'Comments:', type: 'text', section: sec } as PdfTemplateField);

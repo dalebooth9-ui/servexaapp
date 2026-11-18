@@ -45,7 +45,7 @@ export default function CarriedRemedialsPanel({ jobId }: { jobId: string }) {
         {rows.map(r => (
           <div key={r.id} className="space-y-2 rounded-md border p-3 text-sm">
             <div className="font-medium">{r.riser || "Site"}: {r.title}</div>
-            <div><span className="text-muted-foreground">Works required:</span> {r.works_required || "—"}</div>
+            <div><span className="text-muted-foreground">Works required:</span> {r.works_required || "To be confirmed by office"}</div>
             <div><span className="text-muted-foreground">Materials required:</span> {r.materials_required || "—"}</div>
             <Textarea placeholder="Comments" value={comments[r.id] || ""} onChange={e => setComments({ ...comments, [r.id]: e.target.value })} />
             <div className="flex flex-wrap items-center gap-2">

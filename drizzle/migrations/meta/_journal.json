@@ -645,6 +645,13 @@
       "when": 1795007757472,
       "tag": "0091_archive_reports_riser_link",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1795010846571,
+      "tag": "0092_fix_platform_list_organisations",
+      "breakpoints": true
     }
   ]
 }

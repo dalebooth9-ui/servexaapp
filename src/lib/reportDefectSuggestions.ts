@@ -74,7 +74,7 @@ export function suggestDefectsFromReport(responses: Record<string, any> | null |
     // Materials-only group: "Missing drain plug" reads better than the comment fragment.
     if (material && comment && /missing/i.test(comment.text)) title = `Missing ${mat.toLowerCase()}`;
     const sources = g.items.map(i => `${i.kind === "comment" ? "Comments" : i.kind === "material" ? "Materials" : "Photo"}: ${i.text}`);
-    const works = comment ? sentence(comment.text) : material ? `Supply and fit ${mat.toLowerCase()}` : sentence((caption || g.items[0]).text);
+    const works = material ? `Supply and fit ${mat.toLowerCase()}` : "";
     const key = Array.from(g.words).sort().slice(0, 6).join("-") || title.toLowerCase().replace(/\W+/g, "-");
     return {
       key,

@@ -617,7 +617,7 @@ export default function Defects() {
                       {d.description && <p className="text-xs text-muted-foreground line-clamp-1">{d.description}</p>}
                       {d.scheduled_job_id && <Button variant="link" size="sm" className="h-auto px-0 whitespace-normal text-left" onClick={() => navigate(`/jobs/${d.scheduled_job_id}`)}>Added to {jobInfo[d.scheduled_job_id]?.ref || "job"} · {jobInfo[d.scheduled_job_id]?.reports || "Service report"}</Button>}
                       <div className="mt-1 text-xs">
-                        <span className="text-muted-foreground">Works:</span> {d.works_required || <span className="text-muted-foreground">—</span>}
+                        <span className="text-muted-foreground">Works:</span> {d.works_required || <span className="text-muted-foreground italic">To be confirmed by office</span>}
                         <span className="ml-3 text-muted-foreground">Materials:</span> {d.materials_required || <span className="text-muted-foreground">—</span>}
                         {isAdmin && (
                           <button type="button" className="ml-2 text-primary hover:underline" onClick={() => {

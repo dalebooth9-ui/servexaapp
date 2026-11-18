@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { jobHeadline } from "@/lib/jobHeadline";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +24,8 @@ type CompletedJob = {
   updated_at: string;
   created_at: string;
   customers: { name: string | null } | null;
-  sites: { name: string | null } | null;
+  sites: { name: string | null; address?: string | null } | null;
+  address?: string | null;
 };
 
 const safe = (s: string) =>
@@ -51,7 +53,7 @@ export default function ReportDownloads() {
     (async () => {
       const { data, error } = await supabase
         .from("jobs")
-        .select("id, reference_number, name, updated_at, created_at, customers(name), sites(name)")
+        .select("id, reference_number, name, address, updated_at, created_at, customers(name), sites(name, address)")
         .eq("status", "completed")
         .order("updated_at", { ascending: false })
         .limit(500);
@@ -652,9 +654,10 @@ ${imageEmbeds}
                         </span>
                       )}
                     </div>
-                    <div className="text-sm text-muted-foreground truncate">
-                      {[j.customers?.name, j.sites?.name, j.name].filter(Boolean).join(" · ") || "—"}
-                    </div>
+                    {(() => { const h = jobHeadline(j.name, j.sites?.name, j.sites?.address || j.address); return (<>
+                      <div className="text-sm">{[h.title, j.customers?.name].filter(Boolean).join(" · ") || "—"}</div>
+                      {h.address && <div className="text-xs text-muted-foreground">{h.address}</div>}
+                    </>); })()}
                   </div>
                   <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
                     <Button

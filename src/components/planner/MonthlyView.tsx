@@ -407,7 +407,7 @@ export default function MonthlyView({
                   All Jobs
                 </button>
               </div>
-              <ScrollArea className="h-[calc(100vh-360px)]">
+              <ScrollArea className="h-[calc(100vh-360px)] [&_[data-radix-scroll-area-viewport]>div]:!block">
                 {sidebarMode === "unallocated" ? (
                   groupedUnallocated.length === 0 ? (
                     <p className="text-xs text-muted-foreground py-4 text-center">All jobs allocated</p>

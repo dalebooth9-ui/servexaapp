@@ -16,7 +16,19 @@ const tidy = (s: string) => s.replace(/^(the|a|an)\s+/i, "").replace(/[.\s]+$/, 
 
 /** Best-effort works/materials suggestion from a defect's wording. Returns
  *  empty strings when nothing sensible can be inferred — never guesses parts. */
+/** Office placeholder when no real works wording is known. */
+export const WORKS_TBC = "To be confirmed by office";
+
+/** Suggested works/materials; never just repeats the defect title (left blank for the office instead). */
 export function suggestWorksAndMaterials(title: string, description?: string | null): { works: string; materials: string } {
+  const r = suggestRaw(title, description);
+  const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const t = norm(title), tail = norm(title.split(/[:—–-]\s+/).pop() || title);
+  if (r.works && (norm(r.works) === t || norm(r.works) === tail)) return { works: "", materials: r.materials };
+  return r;
+}
+
+function suggestRaw(title: string, description?: string | null): { works: string; materials: string } {
   const text = `${description || ""}`.trim() || title.trim();
   const tail = (s: string) => s.split(/[:—–-]\s+/).pop() || s;
   for (const src of [text, title]) {
@@ -64,7 +76,7 @@ export function carriedReportFields(rows: CarriedRemedial[]): { fields: PdfTempl
   for (const r of rows) {
     const id = `carried_${r.id}`;
     fields.push({ id, label: `${r.riser || "General item"}: ${r.title}`, type: "textarea", required: false, section: "REMEDIAL WORKS OUTSTANDING FROM PREVIOUS VISIT" });
-    answers[id] = [`Works required: ${r.works_required || r.title}`, `Materials required: ${r.materials_required || "—"}`, r.carry_outcome === "not_done" ? "Not done" : "Done / Not done", r.chargeable === false ? "Rectified at no charge" : "", r.carry_comment ? `Comments: ${r.carry_comment}` : ""].filter(Boolean).join("\n");
+    answers[id] = [`Works required: ${r.works_required || WORKS_TBC}`, `Materials required: ${r.materials_required || "—"}`, r.carry_outcome === "not_done" ? "Not done" : "Done / Not done", r.chargeable === false ? "Rectified at no charge" : "", r.carry_comment ? `Comments: ${r.carry_comment}` : ""].filter(Boolean).join("\n");
   }
   return { fields, answers };
 }

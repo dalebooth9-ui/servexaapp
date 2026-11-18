@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { engineerDuplicateWarnings } from "@/lib/engineerDuplicates";
 import ProfileSignatureCapture from "@/components/ProfileSignatureCapture";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -274,6 +275,9 @@ export default function Engineers() {
     }
   };
 
+  const dupWarnings = engineerDuplicateWarnings(engineers as any);
+  const addClash = engineerDuplicateWarnings([...(engineers as any[]), { user_id: "__new__", full_name: addForm.full_name, phone: addForm.phone }])["__new__"];
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
@@ -325,6 +329,7 @@ export default function Engineers() {
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span>{eng.full_name || "—"}</span>
+                        {dupWarnings[eng.user_id] && <Badge variant="outline" className="border-amber-400 text-amber-800 dark:text-amber-300 text-[10px]" title={dupWarnings[eng.user_id]}>Possible duplicate</Badge>}
                         {onboardingLogs[eng.user_id] && (
                           <Badge variant="secondary" className="text-[10px] gap-1 text-primary border-primary/30 bg-primary/10">
                             <Mail className="h-2.5 w-2.5" /> Onboarding sent
@@ -480,6 +485,7 @@ export default function Engineers() {
             <div className="space-y-2">
               <Label htmlFor="add-phone">Phone</Label>
               <Input id="add-phone" value={addForm.phone} onChange={(e) => setAddForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+44..." />
+              {addClash && <p className="text-xs text-amber-700 dark:text-amber-300">Check this is not a duplicate: {addClash}.</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="add-wa">WhatsApp Number</Label>

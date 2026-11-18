@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import CommercialPagesNote from "@/components/CommercialPagesNote";
 import { Link, useNavigate } from "react-router-dom";
 import { addMonths, differenceInDays, format, parseISO, startOfMonth } from "date-fns";
 import { AlertTriangle, CalendarClock, CheckCircle2, Mail, Plus, Send } from "lucide-react";
@@ -49,7 +50,7 @@ export default function Renewals() {
       supabase
         .from("site_service_schedules")
         .select(`id, org_id, site_id, customer_id, template_id, work_type,
-                 last_done_date, interval_months, next_due_date, next_job_id,
+                 last_done_date, interval_months, next_due_date, next_job_id, last_job_id,
                  reminder_lead_sent_at, reminder_due_sent_at,
                  site:sites(id, name, address),
                  customer:customers(id, name, email, renewal_reminders_opt_out),
@@ -59,7 +60,15 @@ export default function Renewals() {
         .limit(1000),
       supabase.from("organisations").select("renewal_reminders_enabled").maybeSingle(),
     ]);
-    setRows((schedules as any) || []);
+    const list = ((schedules as any) || []) as any[];
+    // Fill a missing site from the job the service was last done on (display only).
+    const jobIds = [...new Set(list.filter(r => !r.site && r.last_job_id).map(r => r.last_job_id))];
+    if (jobIds.length) {
+      const { data: jobs } = await supabase.from("jobs").select("id, address, site_id, sites(id, name, address)").in("id", jobIds.slice(0, 500));
+      const byId = new Map((jobs || []).map((j: any) => [j.id, j]));
+      list.forEach(r => { const j: any = r.last_job_id && byId.get(r.last_job_id); if (!r.site && j) r.site = j.sites ? { id: j.sites.id, name: j.sites.name, address: j.sites.address } : (j.address ? { id: "", name: j.address, address: null } : null); });
+    }
+    setRows(list);
     setRemindersEnabled(!!(org as any)?.renewal_reminders_enabled);
     setLoading(false);
   }
@@ -178,6 +187,7 @@ export default function Renewals() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <CalendarClock className="h-6 w-6 text-primary" /> Renewals & Compliance
           </h1>
+          <CommercialPagesNote current="renewals" />
           <p className="text-sm text-muted-foreground">
             Automatic due-date tracking from every filed job sheet, scan and historic report.
           </p>
