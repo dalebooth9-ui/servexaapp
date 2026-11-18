@@ -99,11 +99,15 @@ export function allConfirmedStickerMissing(numbers: number[], checks: OutletChec
   });
 }
 
-/** Apply a manual confirmation to several outlets at once, keeping per-outlet time, name and tag. */
+/** Apply the bulk action to several outlets at once, keeping per-outlet time, name and tag.
+ *  Bulk selection is only allowed for stickers that are missing or damaged — confirming an
+ *  outlet as checked must be done one outlet at a time (scan, or By hand). Any other reason
+ *  is ignored so a bulk tick can never mark outlets as checked. */
 export function bulkConfirm(
   checks: OutletChecks, numbers: number[], reason: string,
   who: { by?: string | null; by_name?: string | null }, tagFor: (n: number) => string | undefined, at = new Date().toISOString(),
 ): OutletChecks {
+  if (reason.trim() !== STICKER_MISSING_REASON) return checks;
   const next: OutletChecks = { ...checks };
   for (const n of numbers) {
     if (next[String(n)]?.status === "scanned") continue; // never overwrite a real scan

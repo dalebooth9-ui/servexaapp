@@ -56,4 +56,16 @@ describe("bulk outlet confirmation and omit", () => {
     expect(isOutletChecksOmitted({ __omitted_sections__: ["Outlet checks"] })).toBe(true);
     expect(isOutletChecksOmitted({})).toBe(false);
   });
+  it("refuses to mark outlets as checked in bulk for any reason other than a missing or damaged sticker", () => {
+    const before = { "1": { status: "missing" as const, at: "x", reason: "Outlet blocked or inaccessible" } };
+    for (const reason of ["Outlet blocked or inaccessible", "Outlet doesn't exist", "Sticker missing or damaged ", "Read the meter"]) {
+      const r = bulkConfirm(before, [1, 2, 3], reason, { by: "u", by_name: "Dale Booth" }, (n) => `A-${n}`, "t");
+      if (reason.trim() === STICKER_MISSING_REASON) {
+        expect(r["2"].status).toBe("manual");
+      } else {
+        expect(r).toBe(before);
+        expect(countChecked([1, 2, 3], r)).toBe(0);
+      }
+    }
+  });
 });

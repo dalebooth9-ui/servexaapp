@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { CheckCircle2, Circle, ScanLine, Hand, AlertTriangle } from "lucide-react";
 import {
   OUTLET_REASONS, STATUS_LABEL, countChecked, judgeScan, parseStickerTag,
@@ -43,8 +42,6 @@ export default function OutletChecksPanel({ assetId, checks, onChange, onTotal, 
   omitted?: boolean; onOmitChange?: (omit: boolean) => void;
 }) {
   const [selected, setSelected] = useState<number[]>([]);
-  const [bulkOtherOpen, setBulkOtherOpen] = useState(false);
-  const [bulkReason, setBulkReason] = useState("");
   const [omitPromptDismissed, setOmitPromptDismissed] = useState(false);
   const [info, setInfo] = useState<TagInfo | null>(null);
   const [failed, setFailed] = useState(false);
@@ -98,8 +95,8 @@ export default function OutletChecksPanel({ assetId, checks, onChange, onTotal, 
     const skipped = selected.filter((n) => checks[String(n)]?.status === "scanned").length;
     onChange(bulkConfirm(checks, selected, r, { by: userId, by_name: userName }, tagFor));
     const applied = selected.length - skipped;
-    setMsg({ tone: "ok", text: `${applied} outlet${applied === 1 ? "" : "s"} manually confirmed${skipped ? ` · ${skipped} already scanned, left as scanned` : ""}` });
-    setSelected([]); setBulkOtherOpen(false); setBulkReason(""); setOmitPromptDismissed(false);
+    setMsg({ tone: "ok", text: `${applied} outlet${applied === 1 ? "" : "s"} marked as ${r.toLowerCase()}${skipped ? ` · ${skipped} already scanned, left as scanned` : ""}` });
+    setSelected([]); setOmitPromptDismissed(false);
   };
   const omitToggle = onOmitChange && (
     <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
@@ -153,9 +150,9 @@ export default function OutletChecksPanel({ assetId, checks, onChange, onTotal, 
       {!locked && selected.length > 0 && (
         <div className="rounded-md border bg-muted/50 p-2 space-y-2">
           <p className="text-sm font-semibold">{selected.length} selected</p>
+          <p className="text-xs text-muted-foreground">Use this only for outlets with no sticker, or a damaged one. To confirm an outlet as checked, do it one at a time with Scan or By hand.</p>
           <div className="flex flex-wrap gap-2">
             <Button type="button" size="sm" onClick={() => applyBulk(STICKER_MISSING_REASON)}>Mark as sticker missing or damaged</Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => setBulkOtherOpen(true)}><Hand className="h-4 w-4 mr-1" />Confirm by hand</Button>
             <Button type="button" size="sm" variant="ghost" onClick={() => setSelected([])}>Clear</Button>
           </div>
         </div>
@@ -194,21 +191,6 @@ export default function OutletChecksPanel({ assetId, checks, onChange, onTotal, 
             {OUTLET_REASONS.filter((r) => r !== "Outlet doesn't exist").map((r) => (
               <Button key={r} type="button" variant="outline" className="h-12 justify-start" onClick={() => manualFor && confirmManual(manualFor, r)}>{r}</Button>
             ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={bulkOtherOpen} onOpenChange={setBulkOtherOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm {selected.length} outlets by hand</DialogTitle>
-            <DialogDescription>Each will be saved as "Manually confirmed" with your name and the time. Why couldn't you scan them?</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-2">
-            {OUTLET_REASONS.filter((r) => r !== "Outlet doesn't exist").map((r) => (
-              <Button key={r} type="button" variant="outline" className="h-12 justify-start" onClick={() => applyBulk(r)}>{r}</Button>
-            ))}
-            <Input placeholder="Other reason" value={bulkReason} onChange={(e) => setBulkReason(e.target.value)} className="h-12" />
-            <Button type="button" className="h-12" disabled={!bulkReason.trim()} onClick={() => applyBulk(bulkReason)}>Confirm with this reason</Button>
           </div>
         </DialogContent>
       </Dialog>
