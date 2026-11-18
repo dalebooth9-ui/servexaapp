@@ -91,13 +91,11 @@ Deno.serve(async (req) => {
       }
 
       const serviceClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-      const { data } = await serviceClient
-        .from("xero_connections")
-        .select("id, tenant_name, token_expires_at, created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // The connection belongs to the company, whoever authorised it.
+      const { data: mem } = await serviceClient.from("organisation_members").select("org_id").eq("user_id", user.id).limit(1).maybeSingle();
+      let q = serviceClient.from("xero_connections").select("id, tenant_name, token_expires_at, created_at");
+      q = mem?.org_id ? q.eq("org_id", mem.org_id) : q.eq("user_id", user.id);
+      const { data } = await q.order("created_at", { ascending: false }).limit(1).maybeSingle();
 
       return new Response(JSON.stringify({
         connected: !!data,

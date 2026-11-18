@@ -14,7 +14,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Send, FileText, Receipt, ClipboardList, Loader2, Mail, ClipboardCheck, ShieldCheck, Award, ListChecks } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import CustomerReportPdf from "./CustomerReportPdf";
+import CustomerReportPdf, { buildCustomerReportDoc } from "./CustomerReportPdf";
+import { buildInvoicePdf } from "@/lib/invoicePdf";
+import { syncInvoiceToXero } from "@/lib/invoiceHelpers";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import PreviousReportsForJob from "./PreviousReportsForJob";
 import { generateJobSheetPdf } from "./JobSheetPdfExport";
 import { useJobCategories } from "@/hooks/useJobCategories";
@@ -163,11 +166,24 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     });
   };
 
+  /** Customer's email from the customer record (falls back to what the job page passed). */
+  const resolveCustomerEmail = async (): Promise<string> => {
+    const direct = customerEmail || job.customers?.email || "";
+    if (direct) return direct;
+    if (!job.customer_id) return "";
+    const { data } = await supabase.from("customers").select("email").eq("id", job.customer_id).maybeSingle();
+    return (data as any)?.email || "";
+  };
+
   const openDialog = async () => {
-    setEmail(customerEmail || "");
+    setEmail(customerEmail || job.customers?.email || "");
+    void resolveCustomerEmail().then((e) => { if (e) setEmail((prev) => prev || e); });
     setReportBase64(null);
     setSelectedInvoice("");
-    setSelectedDocs(new Set());
+    // Customer Report and Invoice are pre-ticked.
+    const preset = new Set<DocOption>(["report", "invoice"]);
+    setSelectedDocs(preset);
+    buildSubjectAndMessage(preset);
     setSelectedSheets(new Set());
     setSelectedRams(new Set());
     setSelectedCerts(new Set());
@@ -203,7 +219,9 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
         .order("created_at", { ascending: false }),
     ]);
     setInvoices(invRes.data || []);
-    if (invRes.data && invRes.data.length > 0) setSelectedInvoice(invRes.data[0].id);
+    const firstInvoice = (invRes.data || []).find((i: any) => (i.document_type || "invoice") === "invoice");
+    if (firstInvoice) setSelectedInvoice(firstInvoice.id);
+    else if (invRes.data && invRes.data.length > 0) setSelectedInvoice(invRes.data[0].id);
     setSheetResponses(sheetsRes.data || []);
     // Exclude [Cert] files from RAMS list
     setRamsSubmissions((ramsRes.data || []).filter((s: any) => s.file_name && s.file_url && !s.file_name.startsWith("[Cert]")));
@@ -233,8 +251,17 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     try {
       const attachments: { filename: string; content: string }[] = [];
 
-      if (selectedDocs.has("report") && reportBase64) {
-        attachments.push({ filename: reportFileName || `${job.reference_number}-report.pdf`, content: reportBase64 });
+      if (selectedDocs.has("report")) {
+        if (reportBase64) {
+          attachments.push({ filename: reportFileName || `${job.reference_number}-report.pdf`, content: reportBase64 });
+        } else {
+          const { doc, fileName } = await buildCustomerReportDoc(jobId, job);
+          attachments.push({ filename: fileName, content: doc.output("datauristring").split(",")[1] });
+        }
+      }
+      if (selectedDocs.has("invoice") && selectedInvoice && invoiceOptions.some((i: any) => i.id === selectedInvoice)) {
+        const inv = await buildInvoicePdf(selectedInvoice);
+        attachments.push({ filename: inv.fileName, content: inv.base64 });
       }
 
       // Attach selected RAMS / compliance documents
@@ -381,6 +408,11 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
         if (error) throw error;
       }
 
+      if (route !== "graph_draft") {
+        const invId = selectedDocs.has("invoice") && invoiceOptions.some((i: any) => i.id === selectedInvoice) ? selectedInvoice : null;
+        await markSentAfterEmail(invId, Array.from(selectedDocs).join(","));
+      }
+
       const docNames = Array.from(selectedDocs).map((d) => {
         if (d === "jobsheets") return "Job Sheets";
         return d.charAt(0).toUpperCase() + d.slice(1);
@@ -401,6 +433,99 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     }
   };
 
+  /** After a real send: invoice → Sent (+ Xero), job timeline → Sent to customer. */
+  const markSentAfterEmail = async (invoiceId: string | null, what: string) => {
+    if (invoiceId) {
+      // The Servexa mailer marks the invoice itself; Outlook sends need it here.
+      if (route !== "app_mailer") {
+        await supabase.from("invoices").update({ status: "sent", sent_at: new Date().toISOString() } as any)
+          .eq("id", invoiceId).neq("status", "paid");
+      }
+      const xr = await syncInvoiceToXero(invoiceId);
+      if (!xr.ok && !("skipped" in xr && xr.skipped)) {
+        toast({ title: "Not sent to Xero", description: (xr as any).error, variant: "destructive" });
+      }
+    }
+    const { data: auth } = await supabase.auth.getUser();
+    await supabase.from("job_activity_log").insert({
+      job_id: jobId, org_id: job.org_id, user_id: auth.user?.id ?? null,
+      action: "sent_to_customer", details: `Sent ${what} to ${email.trim() || "customer"}`,
+    } as any);
+  };
+
+  // ---- One step: Send report and invoice ----
+  const [oneStepOpen, setOneStepOpen] = useState(false);
+  const [oneStepEmail, setOneStepEmail] = useState("");
+  const [oneStepInvoice, setOneStepInvoice] = useState<any | null>(null);
+  const [oneStepLoading, setOneStepLoading] = useState(false);
+  const [oneStepSending, setOneStepSending] = useState(false);
+
+  const openOneStep = async () => {
+    setOneStepOpen(true);
+    setOneStepLoading(true);
+    const [mail, invRes, gs] = await Promise.all([
+      resolveCustomerEmail(),
+      supabase.from("invoices").select("id, invoice_number, total, status, subtotal")
+        .eq("job_id", jobId).eq("document_type", "invoice").neq("status", "cancelled")
+        .order("created_at", { ascending: false }).limit(1),
+      getGraphSendStatus(),
+    ]);
+    setOneStepEmail(mail);
+    setOneStepInvoice(invRes.data?.[0] ?? null);
+    setGraphStatus(gs);
+    setRoute(gs.ready && gs.mode === "send" ? "graph_send" : "app_mailer");
+    setOneStepLoading(false);
+  };
+
+  const handleOneStepSend = async () => {
+    const to = oneStepEmail.trim();
+    if (!to) { toast({ title: "Customer email needed", description: "Add an email to the customer record or type one in.", variant: "destructive" }); return; }
+    if (!oneStepInvoice) { toast({ title: "No invoice yet", description: "Create the invoice for this job first.", variant: "destructive" }); return; }
+    setOneStepSending(true);
+    try {
+      const [{ doc, fileName }, invPdf] = await Promise.all([
+        buildCustomerReportDoc(jobId, job),
+        buildInvoicePdf(oneStepInvoice.id),
+      ]);
+      const attachments = [
+        { filename: fileName, content: doc.output("datauristring").split(",")[1] },
+        { filename: invPdf.fileName, content: invPdf.base64 },
+      ];
+      const customerName = job.customers?.name || job.customer || "Customer";
+      const subj = `Report & Invoice — ${job.reference_number}`;
+      const body = `Please find attached the report and your invoice for job ${job.reference_number} (${job.name}).\n\nAny questions, just give us a call or drop us an email.\n\nKind regards,\nViva Fire Protection`;
+      const useGraph = route === "graph_send";
+      if (useGraph) {
+        await sendViaGraph({
+          toEmail: to, toName: customerName, subject: subj, htmlBody: `Dear ${customerName},<br/><br/>` + body.replace(/\n/g, "<br/>"),
+          attachments: attachments.map((a) => ({ ...a, contentType: "application/pdf" })),
+          logContext: { kind: "job", jobId, emailType: "report,invoice" },
+          overrideMode: "send",
+        });
+      } else {
+        const { error } = await supabase.functions.invoke("send-customer-email", {
+          body: { customerEmail: to, customerName, subject: subj, htmlBody: body.replace(/\n/g, "<br/>"), attachments, jobId, emailType: "report,invoice", invoiceId: oneStepInvoice.id },
+        });
+        if (error) throw error;
+      }
+      setEmail(to);
+      await markSentAfterEmail(oneStepInvoice.id, "report and invoice");
+      await supabase.from("job_activity_log").insert({
+        job_id: jobId, org_id: job.org_id, action: "invoiced",
+        details: `Invoice ${oneStepInvoice.invoice_number || ""} sent with the report`,
+      } as any);
+      toast({ title: "Report and invoice sent", description: `Sent to ${to}. Job marked Sent to customer and Invoiced.` });
+      setOneStepOpen(false);
+      window.dispatchEvent(new CustomEvent("servexa:job-updated", { detail: { jobId } }));
+    } catch (err: any) {
+      let detail = err?.message || "Failed to send.";
+      try { const t = await err?.context?.text?.(); if (t) { const j = JSON.parse(t); detail = j.error || j.detail || detail; } } catch { /* keep message */ }
+      toast({ title: "Not sent", description: detail, variant: "destructive" });
+    } finally {
+      setOneStepSending(false);
+    }
+  };
+
   const invoiceOptions = invoices.filter((i) => (i.document_type || "invoice") === "invoice");
   const quoteOptions = invoices.filter((i) => i.document_type === "quote");
 
@@ -417,6 +542,47 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
       <Button size="sm" variant="default" className="gap-1.5" onClick={openDialog}>
         <Send className="h-4 w-4" /> Send to Customer
       </Button>
+      <Button size="sm" variant="outline" className="gap-1.5" onClick={openOneStep}>
+        <Receipt className="h-4 w-4" /> Send report and invoice
+      </Button>
+
+      <AlertDialog open={oneStepOpen} onOpenChange={(o) => { if (!oneStepSending) setOneStepOpen(o); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send report and invoice</AlertDialogTitle>
+            <AlertDialogDescription>
+              The customer report and the invoice go in one email. The job is then marked Sent to customer and Invoiced.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {oneStepLoading ? (
+            <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Getting things ready…</p>
+          ) : (
+            <div className="space-y-3 text-sm">
+              <div>
+                <Label>Customer email</Label>
+                <Input type="email" value={oneStepEmail} onChange={(e) => setOneStepEmail(e.target.value)} placeholder="customer@example.com" />
+              </div>
+              <div>
+                Invoice:{" "}
+                {oneStepInvoice
+                  ? <span className="font-medium">{oneStepInvoice.invoice_number} — £{Number(oneStepInvoice.total).toFixed(2)}</span>
+                  : <span className="text-destructive">No invoice yet — create the invoice first.</span>}
+              </div>
+              {oneStepInvoice && Number(oneStepInvoice.total) <= 0 && (
+                <p className="text-amber-600 flex items-start gap-1.5"><AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" /> This invoice has no price yet.</p>
+              )}
+              <p className="text-muted-foreground">Sends from {route === "graph_send" ? graphStatus?.mailbox || "Outlook" : "the Servexa mailer"}.</p>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={oneStepSending}>Cancel</AlertDialogCancel>
+            <Button onClick={handleOneStepSend} disabled={oneStepLoading || oneStepSending || !oneStepInvoice} className="gap-1.5">
+              {oneStepSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {oneStepSending ? "Sending…" : "Send"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">

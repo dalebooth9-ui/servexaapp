@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { DEFAULT_INVOICE_VAT, defaultInvoiceDueDate, jobPoValue, syncInvoiceToXero } from "@/lib/invoiceHelpers";
 
 /**
  * Creates a draft invoice for a finished job. If the job has an accepted quote,
@@ -8,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 export async function createInvoiceForJob(job: {
   id: string; customer_id?: string | null; site_id?: string | null;
   customer?: string | null; customers?: { name?: string | null; email?: string | null } | null;
+  name?: string | null; customer_po?: string | null; po_value?: number | string | null;
 }): Promise<string> {
   const { data: auth, error: authError } = await supabase.auth.getUser();
   if (authError) throw authError;
@@ -20,6 +22,12 @@ export async function createInvoiceForJob(job: {
     .eq("document_type", "quote").eq("job_id", job.id).eq("status", "accepted")
     .order("created_at", { ascending: false }).limit(1);
   const q: any = quotes?.[0];
+  // No accepted quote: price the single job line from the customer's PO value
+  // (customers have their own prices); with no PO value the line stays unpriced.
+  const poValue = q ? null : jobPoValue(job);
+  const rate = q?.tax_rate ?? DEFAULT_INVOICE_VAT;
+  const sub = q ? Number(q.subtotal) || 0 : poValue ?? 0;
+  const tax = q ? Number(q.tax_amount) || 0 : Math.round(sub * rate) / 100;
 
   const { data: inv, error } = await supabase.from("invoices").insert({
     created_by: auth.user.id,
@@ -30,10 +38,12 @@ export async function createInvoiceForJob(job: {
     customer_email: q?.customer_email ?? job.customers?.email ?? null,
     customer_address: q?.customer_address ?? null,
     notes: q?.notes ?? null,
-    subtotal: q?.subtotal ?? 0,
-    tax_rate: q?.tax_rate ?? 20,
-    tax_amount: q?.tax_amount ?? 0,
-    total: q?.total ?? 0,
+    subtotal: sub,
+    tax_rate: rate,
+    tax_amount: tax,
+    total: q ? Number(q.total) || 0 : sub + tax,
+    due_date: defaultInvoiceDueDate(),
+    customer_po: job.customer_po || null,
     invoice_number: "",
     document_type: "invoice",
   } as any).select("id").single();
@@ -50,5 +60,13 @@ export async function createInvoiceForJob(job: {
       if (lErr) throw lErr;
     }
   }
+  if (!q && poValue != null) {
+    const { error: lErr } = await supabase.from("invoice_line_items").insert({
+      invoice_id: inv.id, description: job.name || "Works as per purchase order",
+      quantity: 1, unit_price: poValue, amount: poValue, sort_order: 0,
+    } as any);
+    if (lErr) throw lErr;
+  }
+  void syncInvoiceToXero(inv.id);
   return inv.id;
 }

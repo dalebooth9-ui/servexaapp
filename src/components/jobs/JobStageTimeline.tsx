@@ -24,12 +24,13 @@ export default function JobStageTimeline({ jobId, status }: { jobId: string; sta
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      const [sched, sheets, subs, emails, invoices] = await Promise.all([
+      const [sched, sheets, subs, emails, invoices, sentLog] = await Promise.all([
         supabase.from("job_schedule").select("id").eq("job_id", jobId).limit(1),
         supabase.from("job_sheet_responses").select("id, status, submitted_at, last_amended_at").eq("job_id", jobId),
         supabase.from("submissions").select("id").eq("job_id", jobId).limit(1),
         supabase.from("job_emails").select("id").eq("job_id", jobId).eq("direction", "outbound").limit(1),
         supabase.from("invoices").select("id").eq("job_id", jobId).eq("document_type", "invoice").limit(1),
+        supabase.from("job_activity_log").select("id").eq("job_id", jobId).eq("action", "sent_to_customer").limit(1),
       ]);
 
       const sheetRows = sheets.data || [];
@@ -45,7 +46,7 @@ export default function JobStageTimeline({ jobId, status }: { jobId: string; sta
         "On site": (subs.data || []).length > 0 || sheetRows.length > 0 || ["in_progress", "pending_review", "completed", "archived"].includes(status),
         "Report complete": reportComplete,
         Reviewed: reviewed,
-        "Sent to customer": (emails.data || []).length > 0,
+        "Sent to customer": (emails.data || []).length > 0 || (sentLog.data || []).length > 0,
         Invoiced: (invoices.data || []).length > 0,
       });
     };

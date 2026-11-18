@@ -4522,6 +4522,7 @@ export type Database = {
           customer_email: string | null
           customer_id: string | null
           customer_name: string
+          customer_po: string | null
           document_type: string
           due_date: string | null
           freeagent_invoice_id: string | null
@@ -4545,6 +4546,7 @@ export type Database = {
           total: number
           updated_at: string
           xero_invoice_id: string | null
+          xero_sync_error: string | null
           xero_synced_at: string | null
         }
         Insert: {
@@ -4559,6 +4561,7 @@ export type Database = {
           customer_email?: string | null
           customer_id?: string | null
           customer_name?: string
+          customer_po?: string | null
           document_type?: string
           due_date?: string | null
           freeagent_invoice_id?: string | null
@@ -4582,6 +4585,7 @@ export type Database = {
           total?: number
           updated_at?: string
           xero_invoice_id?: string | null
+          xero_sync_error?: string | null
           xero_synced_at?: string | null
         }
         Update: {
@@ -4596,6 +4600,7 @@ export type Database = {
           customer_email?: string | null
           customer_id?: string | null
           customer_name?: string
+          customer_po?: string | null
           document_type?: string
           due_date?: string | null
           freeagent_invoice_id?: string | null
@@ -4619,6 +4624,7 @@ export type Database = {
           total?: number
           updated_at?: string
           xero_invoice_id?: string | null
+          xero_sync_error?: string | null
           xero_synced_at?: string | null
         }
         Relationships: [
@@ -6446,6 +6452,7 @@ export type Database = {
           other_qty: number
           other_service_type: string | null
           paperwork_review_note: string | null
+          po_value: number | null
           pressure_test_qty: number
           priority: string
           recurrence_end_date: string | null
@@ -6507,6 +6514,7 @@ export type Database = {
           other_qty?: number
           other_service_type?: string | null
           paperwork_review_note?: string | null
+          po_value?: number | null
           pressure_test_qty?: number
           priority?: string
           recurrence_end_date?: string | null
@@ -6568,6 +6576,7 @@ export type Database = {
           other_qty?: number
           other_service_type?: string | null
           paperwork_review_note?: string | null
+          po_value?: number | null
           pressure_test_qty?: number
           priority?: string
           recurrence_end_date?: string | null

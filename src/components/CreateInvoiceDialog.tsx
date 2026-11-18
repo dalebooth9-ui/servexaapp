@@ -12,11 +12,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Plus, Trash2, FileText, Package, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UKDateInput } from "@/components/ui/uk-date-input";
+import { DEFAULT_INVOICE_VAT, defaultInvoiceDueDate, jobPoValue, syncInvoiceToXero } from "@/lib/invoiceHelpers";
 
 type LineItem = {
   description: string;
   quantity: number;
-  unit_price: number;
+  /** null = not priced yet (left blank for the office to fill in). */
+  unit_price: number | null;
 };
 
 export default function CreateInvoiceDialog({
@@ -27,6 +29,8 @@ export default function CreateInvoiceDialog({
   jobName,
   trigger,
   documentType = "invoice",
+  customerPo,
+  poValue,
 }: {
   jobId?: string;
   customerName?: string;
@@ -35,6 +39,8 @@ export default function CreateInvoiceDialog({
   jobName?: string;
   trigger?: React.ReactNode;
   documentType?: "invoice" | "quote";
+  customerPo?: string | null;
+  poValue?: number | string | null;
 }) {
   const isQuote = documentType === "quote";
   const navigate = useNavigate();
@@ -59,14 +65,28 @@ export default function CreateInvoiceDialog({
     customer_name: customerName || "",
     customer_email: customerEmail || "",
     customer_address: customerAddress || "",
-    due_date: "",
+    due_date: isQuote ? "" : defaultInvoiceDueDate(),
     notes: "",
-    tax_rate: 0,
+    tax_rate: isQuote ? 0 : DEFAULT_INVOICE_VAT,
+    customer_po: customerPo || "",
   });
 
+  // Invoices from a job are priced from the customer's PO value; with no PO
+  // value the price is left blank for the office (no fixed price list).
+  const initialPrice = isQuote ? 0 : jobPoValue({ po_value: poValue });
   const [items, setItems] = useState<LineItem[]>([
-    { description: jobName || "", quantity: 1, unit_price: 0 },
+    { description: jobName || "", quantity: 1, unit_price: initialPrice },
   ]);
+
+  // Refresh the defaults each time the dialog opens (job data may have loaded since).
+  useEffect(() => {
+    if (!open || isQuote) return;
+    setForm((prev) => ({ ...prev, customer_po: prev.customer_po || customerPo || "", due_date: prev.due_date || defaultInvoiceDueDate() }));
+    const pv = jobPoValue({ po_value: poValue });
+    setItems((prev) => prev.length === 1 && (prev[0].unit_price === null || prev[0].unit_price === 0) && pv != null
+      ? [{ ...prev[0], unit_price: pv }] : prev);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // Load customers and parts library when dialog opens
   useEffect(() => {
@@ -143,7 +163,7 @@ export default function CreateInvoiceDialog({
     setItems((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const subtotal = items.reduce((s, it) => s + it.quantity * it.unit_price, 0);
+  const subtotal = items.reduce((s, it) => s + it.quantity * (it.unit_price ?? 0), 0);
   const taxAmount = subtotal * (form.tax_rate / 100);
   const total = subtotal + taxAmount;
 
@@ -168,6 +188,11 @@ export default function CreateInvoiceDialog({
       return;
     }
 
+    if (!isQuote && items.some((it) => it.description.trim() && it.unit_price === null)) {
+      toast({ title: "Price needed", description: "Enter a price for each line before creating the invoice.", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
     try {
       const { data: inv, error: invErr } = await supabase
@@ -186,6 +211,7 @@ export default function CreateInvoiceDialog({
           created_by: user.id,
           invoice_number: "",
           document_type: documentType,
+          customer_po: form.customer_po.trim() || null,
         } as any)
         .select()
         .single();
@@ -198,8 +224,8 @@ export default function CreateInvoiceDialog({
           invoice_id: inv.id,
           description: it.description.trim(),
           quantity: it.quantity,
-          unit_price: it.unit_price,
-          amount: (it.quantity * it.unit_price).toFixed(2),
+          unit_price: it.unit_price ?? 0,
+          amount: (it.quantity * (it.unit_price ?? 0)).toFixed(2),
           sort_order: idx,
         }));
 
@@ -208,6 +234,8 @@ export default function CreateInvoiceDialog({
         if (itemsErr) throw itemsErr;
       }
 
+      // Goes into Xero automatically when Xero is connected (no-op otherwise).
+      if (!isQuote) await syncInvoiceToXero(inv.id);
       toast({ title: `${isQuote ? "Quote" : "Invoice"} created`, description: `${inv.invoice_number} created successfully.` });
       setOpen(false);
       navigate(`/invoices/${inv.id}`);
@@ -271,10 +299,17 @@ export default function CreateInvoiceDialog({
               <UKDateInput  value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
             </div>
             <div>
-              <Label>Tax Rate (%)</Label>
+              <Label>{isQuote ? "Tax Rate (%)" : "VAT (%)"}</Label>
               <Input type="number" min={0} max={100} step={0.01} value={form.tax_rate} onChange={(e) => setForm({ ...form, tax_rate: parseFloat(e.target.value) || 0 })} />
             </div>
           </div>
+
+          {!isQuote && (
+            <div className="sm:w-1/2">
+              <Label>Customer PO number</Label>
+              <Input value={form.customer_po} onChange={(e) => setForm({ ...form, customer_po: e.target.value })} placeholder="Shown on the invoice" />
+            </div>
+          )}
 
           {/* Line items */}
           <div>
@@ -394,12 +429,12 @@ export default function CreateInvoiceDialog({
                       min={0}
                       step={0.01}
                       placeholder="Unit price"
-                      value={item.unit_price}
-                      onChange={(e) => updateItem(idx, "unit_price", parseFloat(e.target.value) || 0)}
+                      value={item.unit_price ?? ""}
+                      onChange={(e) => updateItem(idx, "unit_price", e.target.value === "" ? (null as any) : parseFloat(e.target.value) || 0)}
                     />
                   </div>
                   <div className="w-24 flex items-center justify-end gap-1">
-                    <span className="text-sm font-medium">£{(item.quantity * item.unit_price).toFixed(2)}</span>
+                    <span className="text-sm font-medium">£{(item.quantity * (item.unit_price ?? 0)).toFixed(2)}</span>
                     {items.length > 1 && (
                       <button type="button" onClick={() => removeItem(idx)} className="text-muted-foreground hover:text-destructive">
                         <Trash2 className="h-3.5 w-3.5" />

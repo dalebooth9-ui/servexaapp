@@ -924,6 +924,7 @@ serve(async (req) => {
     source: "email_po",
     brief: briefParts.join("\n").trim() || null,
     customer_po: poNum || null,
+    po_value: poValueNum,
   };
 
 

@@ -86,13 +86,6 @@ serve(async (req) => {
       senderName = (prof as any)?.full_name || null;
     } catch { /* ignore, falls back to company name */ }
 
-    // Mark invoice as sent if applicable
-    if (emailType === "invoice" && invoiceId) {
-      await supabaseAdmin
-        .from("invoices")
-        .update({ status: "sent", sent_at: new Date().toISOString() })
-        .eq("id", invoiceId);
-    }
 
     const greeting = customerName ? `<p>Dear ${customerName},</p>` : `<p>Hi,</p>`;
     const html = wrapCustomerEmail(branding, {
@@ -119,6 +112,16 @@ serve(async (req) => {
         JSON.stringify({ error: "Failed to send email", detail: sendResult.body }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
+    }
+
+    // Mark the invoice as sent only once the email has actually gone (it may
+    // travel with other documents, e.g. "report,invoice").
+    if (invoiceId && String(emailType || "").split(",").includes("invoice")) {
+      await supabaseAdmin
+        .from("invoices")
+        .update({ status: "sent", sent_at: new Date().toISOString() })
+        .eq("id", invoiceId)
+        .neq("status", "paid");
     }
 
     if (jobId) {

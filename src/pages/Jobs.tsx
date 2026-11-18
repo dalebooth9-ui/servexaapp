@@ -366,7 +366,7 @@ export default function Jobs() {
     // never fall through to the admin's full company-wide job list.
     if (isGenericEngineerPreview) { setJobs([]); setHasMore(false); return; }
 
-    const COLUMNS = "id, org_id, category_suggestion, category_other_types, reference_number, customer_po, name, customer, customer_id, site_id, address, status, completed_at, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, template_mismatch_reason, detected_work_types, submissions(id, type), customers(id, name, email), sites(id, name, address, postcode)";
+    const COLUMNS = "id, org_id, category_suggestion, category_other_types, reference_number, customer_po, po_value, name, customer, customer_id, site_id, address, status, completed_at, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, template_mismatch_reason, detected_work_types, submissions(id, type), customers(id, name, email), sites(id, name, address, postcode)";
     let query = supabase.from("jobs").select(COLUMNS).order("created_at", { ascending: false });
     // When user is actively searching, fetch across ALL statuses so completed jobs
     // still surface regardless of the current tab. Otherwise, scope by tab.

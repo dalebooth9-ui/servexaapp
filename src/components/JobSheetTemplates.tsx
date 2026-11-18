@@ -1473,23 +1473,9 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     return run;
   };
 
-  // After a reload, reopen the report that was open on this job.
-  useEffect(() => {
-    if (reopenTriedRef.current || activeTemplate || allTemplates.length === 0) return;
-    reopenTriedRef.current = true;
-    let saved: { templateId?: string; responseId?: string | null; draftId?: string | null } | null = null;
-    try { saved = JSON.parse(localStorage.getItem(openFormKey) || "null"); } catch { saved = null; }
-    if (!saved?.templateId) return;
-    const wantedId = saved.responseId || saved.draftId || null;
-    const resp = wantedId ? responses.find((r) => r.id === wantedId) : undefined;
-    if (saved.responseId && !resp) return;
-    if (resp && resp.status === "submitted") return;
-    void (async () => {
-      const tpl = await loadTemplateById(resp?.template_id || saved?.templateId);
-      if (tpl) void handleStartForm(tpl, resp, saved?.draftId || undefined);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allTemplates, responses]);
+  // The report editor never opens by itself when a job page opens — only via
+  // Fill in report / Continue. Answers are kept by the autosaved draft.
+  void reopenTriedRef;
 
   /** Fill the remedial works table from the job's remedial checklist (if empty). */
   const withRemedialWorks = async (data: Record<string, any>, fields: any[]): Promise<Record<string, any>> => {

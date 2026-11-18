@@ -10,16 +10,32 @@ const corsHeaders = {
 const XERO_API_URL = "https://api.xero.com/api.xro/2.0";
 const XERO_TOKEN_URL = "https://identity.xero.com/connect/token";
 
-async function getValidToken(supabase: any, userId: string): Promise<{ accessToken: string; tenantId: string } | null> {
-  const { data: conn } = await supabase
-    .from("xero_connections")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+/** Turns a Xero API error body into a short plain-English reason. */
+function xeroReason(errText: string, status?: number): string {
+  try {
+    const j = JSON.parse(errText);
+    const msgs: string[] = [];
+    for (const el of j?.Elements || []) for (const v of el?.ValidationErrors || []) if (v?.Message) msgs.push(v.Message);
+    if (msgs.length) return Array.from(new Set(msgs)).join("; ");
+    if (j?.Detail) return String(j.Detail);
+    if (j?.Message) return String(j.Message);
+    if (j?.Title) return String(j.Title);
+  } catch { /* not JSON */ }
+  if (status === 401 || status === 403) return "Xero refused access — reconnect Xero in Settings > Integrations.";
+  if (status === 429) return "Xero is busy (too many requests). Try again in a minute.";
+  return (errText || `Xero error ${status ?? ""}`).slice(0, 300);
+}
 
-  if (!conn) return null;
+type TokenResult = { accessToken: string; tenantId: string } | { reason: string; notConnected?: boolean };
+
+async function getValidToken(supabase: any, userId: string): Promise<TokenResult> {
+  // The Xero connection belongs to the company, whoever authorised it.
+  const { data: mem } = await supabase.from("organisation_members").select("org_id").eq("user_id", userId).limit(1).maybeSingle();
+  let q = supabase.from("xero_connections").select("*");
+  q = mem?.org_id ? q.eq("org_id", mem.org_id) : q.eq("user_id", userId);
+  const { data: conn } = await q.order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+  if (!conn) return { reason: "Xero not connected. Please connect Xero first.", notConnected: true };
 
   // Check if token is expired, refresh if needed
   if (new Date(conn.token_expires_at) < new Date()) {
@@ -40,9 +56,9 @@ async function getValidToken(supabase: any, userId: string): Promise<{ accessTok
 
     if (!refreshRes.ok) {
       console.error("Token refresh failed:", await refreshRes.text());
-      // Delete stale connection
+      // Delete stale connection so Settings shows "Connect to Xero" again.
       await supabase.from("xero_connections").delete().eq("id", conn.id);
-      return null;
+      return { reason: "The Xero connection has expired. Reconnect Xero in Settings > Integrations, then press Send to Xero." };
     }
 
     const tokens = await refreshRes.json();
@@ -87,16 +103,23 @@ Deno.serve(async (req) => {
   }
 
   const serviceClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const body = await req.json();
+  const action = body.action;
   const tokenData = await getValidToken(serviceClient, user.id);
-  if (!tokenData) {
-    return new Response(JSON.stringify({ error: "Xero not connected. Please connect Xero first." }), {
+  if ("reason" in tokenData) {
+    // Record an expired connection on the invoice so its page shows why.
+    if (!tokenData.notConnected && action === "sync_invoice" && body.invoiceId) {
+      const __c0 = await resolveCaller(req);
+      if (!("error" in __c0) && (await ownsRecord(__c0, "invoices", body.invoiceId))) {
+        await serviceClient.from("invoices").update({ xero_sync_error: tokenData.reason } as any).eq("id", body.invoiceId);
+      }
+    }
+    return new Response(JSON.stringify({ error: tokenData.reason, reason: tokenData.reason }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
   const { accessToken, tenantId } = tokenData;
-  const body = await req.json();
-  const action = body.action;
 
   const xeroHeaders = {
     Authorization: `Bearer ${accessToken}`,
@@ -126,6 +149,14 @@ Deno.serve(async (req) => {
 
       const inv = invRes.data;
       const items = itemsRes.data || [];
+      const fail = async (reason: string, details?: string) => {
+        await serviceClient.from("invoices").update({ xero_sync_error: reason } as any).eq("id", invoiceId);
+        return new Response(JSON.stringify({ error: reason, reason, details }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      };
+      if (!inv.customer_name) return await fail("The invoice has no customer name.");
+      if (items.length === 0) return await fail("The invoice has no lines.");
       const isQuote = inv.document_type === "quote";
 
       // Find or create Xero contact
@@ -134,6 +165,7 @@ Deno.serve(async (req) => {
         const searchRes = await fetch(`${XERO_API_URL}/Contacts?where=EmailAddress="${inv.customer_email}"`, {
           headers: xeroHeaders,
         });
+        if (!searchRes.ok) { const t = await searchRes.text(); return await fail(xeroReason(t, searchRes.status), t); }
         const searchData = await searchRes.json();
         if (searchData.Contacts?.length) {
           contactId = searchData.Contacts[0].ContactID;
@@ -152,8 +184,10 @@ Deno.serve(async (req) => {
             }],
           }),
         });
-        const createData = await createRes.json();
-        contactId = createData.Contacts?.[0]?.ContactID;
+        const createText = await createRes.text();
+        if (!createRes.ok) return await fail(`Couldn't create the customer in Xero: ${xeroReason(createText, createRes.status)}`, createText);
+        try { contactId = JSON.parse(createText).Contacts?.[0]?.ContactID ?? null; } catch { contactId = null; }
+        if (!contactId) return await fail("Xero didn't return a contact for this customer.", createText);
       }
 
       const lineItemsPayload = items.map((item: any) => ({
@@ -208,9 +242,7 @@ Deno.serve(async (req) => {
         if (!xeroRes.ok) {
           const errText = await xeroRes.text();
           console.error("Xero quote sync failed:", errText);
-          return new Response(JSON.stringify({ error: "Failed to sync quote to Xero", details: errText }), {
-            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return await fail(xeroReason(errText, xeroRes.status), errText);
         }
 
         const xeroData = await xeroRes.json();
@@ -231,7 +263,7 @@ Deno.serve(async (req) => {
           LineItems: lineItemsPayload,
           Status: statusMap[inv.status] || "DRAFT",
           InvoiceNumber: inv.invoice_number,
-          Reference: inv.invoice_number,
+          Reference: inv.customer_po ? `PO ${inv.customer_po}` : inv.invoice_number,
           CurrencyCode: "GBP",
         };
 
@@ -257,9 +289,7 @@ Deno.serve(async (req) => {
         if (!xeroRes.ok) {
           const errText = await xeroRes.text();
           console.error("Xero invoice sync failed:", errText);
-          return new Response(JSON.stringify({ error: "Failed to sync invoice to Xero", details: errText }), {
-            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return await fail(xeroReason(errText, xeroRes.status), errText);
         }
 
         const xeroData = await xeroRes.json();
@@ -271,7 +301,10 @@ Deno.serve(async (req) => {
         await serviceClient.from("invoices").update({
           xero_invoice_id: xeroResultId,
           xero_synced_at: new Date().toISOString(),
-        }).eq("id", invoiceId);
+          xero_sync_error: null,
+        } as any).eq("id", invoiceId);
+      } else {
+        return await fail("Xero didn't confirm the invoice was saved.");
       }
 
       return new Response(JSON.stringify({ success: true, xero_invoice_id: xeroResultId }), {

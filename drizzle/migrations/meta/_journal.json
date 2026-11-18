@@ -666,6 +666,13 @@
       "when": 1795012291183,
       "tag": "0094_fix_delete_empty_customers_org_lookup",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1795026615580,
+      "tag": "0095_invoice_po_and_xero_status",
+      "breakpoints": true
     }
   ]
 }

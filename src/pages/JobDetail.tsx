@@ -599,6 +599,8 @@ export default function JobDetail() {
                   customerEmail={customerEmail}
                   customerAddress={job.address || ""}
                   jobName={job.name}
+                  customerPo={(job as any).customer_po || null}
+                  poValue={(job as any).po_value ?? null}
                   trigger={<Button size="sm"><FileText className="mr-1.5 h-3.5 w-3.5" /> {JOB_MAIN_ACTION_LABEL[main]}</Button>}
                 />
               );

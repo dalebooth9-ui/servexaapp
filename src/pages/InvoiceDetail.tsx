@@ -19,6 +19,7 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { useRef } from "react";
 import DeleteRecordAction from "@/components/common/DeleteRecordAction";
+import { syncInvoiceToXero } from "@/lib/invoiceHelpers";
 import QuotePricingControls from '@/components/invoices/QuotePricingControls';
 
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
@@ -133,6 +134,7 @@ export default function InvoiceDetail() {
       due_date: invoice.due_date || "",
       notes: invoice.notes || "",
       tax_rate: Number(invoice.tax_rate) || 0,
+      customer_po: invoice.customer_po || "",
     });
     setEditItems(lineItems.map((it) => ({ ...it })));
     setEditing(true);
@@ -172,6 +174,7 @@ export default function InvoiceDetail() {
         due_date: editForm.due_date || null,
         notes: editForm.notes.trim() || null,
         tax_rate: editForm.tax_rate,
+        customer_po: (editForm.customer_po || "").trim() || null,
         subtotal: editSubtotal.toFixed(2),
         tax_amount: editTaxAmount.toFixed(2),
         total: editTotal.toFixed(2),
@@ -299,6 +302,16 @@ export default function InvoiceDetail() {
     } else {
       setInvoice((prev: any) => ({ ...prev, ...updates }));
       toast({ title: "Status updated" });
+      if (newStatus === "sent" && !isQuote) void autoXero(id);
+    }
+  };
+
+  /** Invoices go into Xero automatically (when connected) on create and send. */
+  const autoXero = async (invoiceId: string) => {
+    const r = await syncInvoiceToXero(invoiceId);
+    if (!("skipped" in r && r.skipped)) await fetchData();
+    if (!r.ok && !("skipped" in r && r.skipped)) {
+      toast({ title: "Not sent to Xero", description: (r as any).error, variant: "destructive" });
     }
   };
 
@@ -342,6 +355,7 @@ export default function InvoiceDetail() {
       }
 
       await supabase.from("invoices").update({ status: "accepted" } as any).eq("id", id);
+      await syncInvoiceToXero(newInv.id);
       toast({ title: "Converted to invoice", description: `${newInv.invoice_number} created from quote.` });
       navigate(`/invoices/${newInv.id}`);
     } catch (err: any) {
@@ -531,6 +545,8 @@ export default function InvoiceDetail() {
 
       if (invoice.status === "draft") {
         await handleStatusChange("sent");
+      } else if (!isQuote) {
+        void autoXero(id!);
       }
       toast({ title: `${isQuote ? "Quote" : "Invoice"} sent`, description: `Email sent to ${invoice.customer_email}` });
     } catch (err: any) {
@@ -541,21 +557,14 @@ export default function InvoiceDetail() {
   };
 
   const handleSyncXero = async () => {
+    if (!id) return;
     setSyncingXero(true);
     try {
-      const { data, error } = await supabase.functions.invoke("xero-sync", {
-        body: { action: "sync_invoice", invoiceId: id },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      setInvoice((prev: any) => ({
-        ...prev,
-        xero_invoice_id: data.xero_invoice_id,
-        xero_synced_at: new Date().toISOString(),
-      }));
-      toast({ title: "Synced to Xero" });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message || "Failed to sync.", variant: "destructive" });
+      const r = await syncInvoiceToXero(id);
+      await fetchData();
+      if (r.ok) toast({ title: "Sent to Xero" });
+      else if ("skipped" in r && r.skipped) toast({ title: "Xero isn't connected", description: "Connect it in Settings > Integrations.", variant: "destructive" });
+      else toast({ title: "Not sent to Xero", description: (r as any).error, variant: "destructive" });
     } finally {
       setSyncingXero(false);
     }
@@ -652,6 +661,19 @@ export default function InvoiceDetail() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">{invoice.invoice_number}</h1>
+            {!isQuote && (invoice.xero_invoice_id || invoice.xero_sync_error || accounting.xero) && (
+              invoice.xero_sync_error ? (
+                <Badge variant="destructive" title={invoice.xero_sync_error} className="max-w-full whitespace-normal">
+                  Not sent to Xero: {invoice.xero_sync_error}
+                </Badge>
+              ) : invoice.xero_invoice_id ? (
+                <Badge variant="secondary" className="bg-accent/10 text-accent">
+                  Sent to Xero{invoice.xero_synced_at ? ` · ${format(new Date(invoice.xero_synced_at), "dd MMM yyyy HH:mm")}` : ""}
+                </Badge>
+              ) : (
+                <Badge variant="outline">Not in Xero yet</Badge>
+              )
+            )}
             {isQuote && <Badge variant="outline">Quote</Badge>}
           </div>
           <p className="text-sm text-muted-foreground">
@@ -677,27 +699,6 @@ export default function InvoiceDetail() {
               <Button size="sm" variant="outline" onClick={startEditing}>
                 <Pencil className="mr-1.5 h-4 w-4" /> Edit
               </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button size="sm" variant="outline" className="text-destructive hover:text-destructive">
-                    <Trash2 className="mr-1.5 h-4 w-4" /> Delete
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete {isQuote ? "quote" : "invoice"} {invoice.invoice_number}?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently delete this {isQuote ? "quote" : "invoice"} and all its line items. This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                      {deleting ? "Deleting..." : "Delete"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
             </>
           )}
           {editing && (
@@ -876,6 +877,13 @@ export default function InvoiceDetail() {
               </div>
             </div>
 
+            {!isQuote && (
+              <div className="sm:w-1/2">
+                <Label>Customer PO number</Label>
+                <Input value={editForm.customer_po || ""} onChange={(e) => setEditForm({ ...editForm, customer_po: e.target.value })} />
+              </div>
+            )}
+
             {/* Editable line items */}
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -1026,6 +1034,7 @@ export default function InvoiceDetail() {
                   <p className="font-mono font-semibold" style={{ color: "#213D63" }}>{invoice.invoice_number}</p>
                   <p>Date: {format(new Date(invoice.created_at), "dd MMM yyyy")}</p>
                   {invoice.due_date && <p>{isQuote ? "Valid Until" : "Due"}: {format(new Date(invoice.due_date), "dd MMM yyyy")}</p>}
+                  {invoice.customer_po && <p>PO: {invoice.customer_po}</p>}
                   <Badge variant="secondary" className={`mt-1 ${statusStyles[invoice.status]}`}>
                     {invoice.status}
                   </Badge>
