@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import AppLayout from "@/components/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -75,7 +75,7 @@ type Item = {
 const STATUS_LABEL: Record<string, string> = {
   pending: "Queued",
   processing: "Processing",
-  ready: "Ready to review",
+  ready: "Needs review",
   low_confidence: "Low confidence",
   failed: "Failed to read",
   confirmed: "Filed",
@@ -106,10 +106,11 @@ interface PaperScanQueueProps {
 
 export default function PaperScanQueue({ embedded = false, onGoUpload }: PaperScanQueueProps = {}) {
   const { userRole, user, orgId } = useAuth();
+  const [params] = useSearchParams();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"pending" | "all">("pending");
-  const [modeTab, setModeTab] = useState<"job" | "archive">("job");
+  const [modeTab, setModeTab] = useState<"job" | "archive">(params.get("mode") === "archive" ? "archive" : "job");
   const [openItem, setOpenItem] = useState<
     (ScanQueueItemInput & { _mode: "job" | "archive" }) | null
   >(null);
@@ -392,7 +393,7 @@ export default function PaperScanQueue({ embedded = false, onGoUpload }: PaperSc
     if (!user || !orgId || selectedReadyArchive.length === 0) return;
     setBulkBusy(true);
     try {
-      const { filed, failed } = await bulkFileAndConvertArchiveItems({
+      const { filed, failed, reasons } = await bulkFileAndConvertArchiveItems({
         items: selectedReadyArchive.map((i) => ({
           id: i.id,
           batch_id: i.batch_id,
@@ -409,11 +410,11 @@ export default function PaperScanQueue({ embedded = false, onGoUpload }: PaperSc
         orgId,
       });
       toast({
-        title: `Filed ${filed} and queued for conversion`,
+        title: `${filed} queued for conversion — needs review`,
         description:
           failed > 0
-            ? `${failed} failed to file — check the queue.`
-            : "AI will extract answers and generate the electronic report in the background.",
+            ? `${failed} could not be prepared: ${Array.from(new Set(reasons)).join("; ")}`
+            : "No site or riser linked. Confirm them on the review screen after conversion.",
         variant: failed > 0 ? "destructive" : "default",
       });
       setSelectedIds(new Set());
@@ -453,6 +454,12 @@ export default function PaperScanQueue({ embedded = false, onGoUpload }: PaperSc
         : [],
     });
   };
+
+  useEffect(() => {
+    const id = params.get("item");
+    const item = items.find((i) => i.id === id);
+    if (item && (item.status === "ready" || item.status === "low_confidence")) openReview(item);
+  }, [items, params]);
 
 
 

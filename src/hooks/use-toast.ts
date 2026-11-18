@@ -1,4 +1,5 @@
 import * as React from "react";
+import { plainError } from "@/lib/plainError";
 
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
 
@@ -139,11 +140,14 @@ function toast({ ...props }: Toast) {
 
   // Central capture: record destructive toasts to the error log.
   if ((props as { variant?: string }).variant === "destructive") {
+    const rawReason = typeof props.description === "string" && props.description.trim() ? props.description : typeof props.title === "string" ? props.title : "";
+    props.description = plainError(rawReason);
+    if (props.title === "Error") props.title = "Could not complete this";
     void import("@/lib/errorLogger").then(({ logError }) => {
       logError({
         source: "toast",
-        message: typeof props.title === "string" ? props.title : "Error toast",
-        context: { description: typeof props.description === "string" ? props.description : undefined },
+        message: typeof props.description === "string" ? props.description : "Could not complete this",
+        context: { originalReason: rawReason, title: typeof props.title === "string" ? props.title : undefined },
       });
     }).catch(() => {});
   }

@@ -19,6 +19,8 @@
 // pre-convert state so a retry is safe and idempotent.
 import { convertArchivedDocument } from "@/lib/convertArchivedDocument";
 import type { ProposedDefect } from "@/lib/proposeArchiveDefects";
+import { logError } from "@/lib/errorLogger";
+import { plainError } from "@/lib/plainError";
 
 export type QueueState = "queued" | "converting" | "done" | "failed";
 
@@ -164,13 +166,15 @@ class ArchiveConversionQueue {
         entry.documentDate = res.documentDate;
       } else {
         entry.state = "failed";
-        entry.reason = (res as { ok: false; reason: string }).reason;
+        entry.reason = plainError((res as { ok: false; reason: string }).reason);
+        logError({ message: entry.reason, context: { action: "archive_conversion", archivedId: id } });
       }
     } catch (e: any) {
       const entry = this.entries.get(id);
       if (entry) {
         entry.state = "failed";
-        entry.reason = e?.message || "Unknown error";
+        entry.reason = plainError(e);
+        logError({ error: e, message: entry.reason, context: { action: "archive_conversion", archivedId: id } });
       }
     }
   }

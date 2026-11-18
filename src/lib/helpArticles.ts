@@ -51,6 +51,7 @@ const RULES: SlugRule[] = [
   { test: (p) => p.startsWith("/jobs/") && p.includes("/site-visit-report"), slug: "site-visit-report" },
   { test: (p) => p.startsWith("/rams"), slug: "rams" },
   { test: (p) => p.startsWith("/settings/rams-library"), slug: "rams.auto-attach" },
+  // Bulk archive conversion stays unlinked and Needs review until office confirmation.
   { test: (p) => p === "/paper-scans" || p.startsWith("/paper-scans"), slug: "paper-scans" },
   { test: (p) => p === "/customers", slug: "customers" },
   { test: (p) => p === '/customers/print-branding' || p === '/customers/logo-help', slug: 'customers.print-branding' },

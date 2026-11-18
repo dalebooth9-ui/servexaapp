@@ -144,7 +144,7 @@ export async function convertArchivedDocument(
     priorHeader._manual_customer_signature_path || null;
   const manualEngineerSignaturePath: string | null =
     priorHeader._manual_engineer_signature_path || null;
-  const mergedHeader: Record<string, any> = { ...(header || {}) };
+  const mergedHeader: Record<string, any> = { ...(header || {}), _needs_review: priorHeader._needs_review === true };
   if (manualCustomerSignaturePath) {
     mergedHeader._manual_customer_signature_path = manualCustomerSignaturePath;
   }
@@ -201,7 +201,7 @@ export async function convertArchivedDocument(
     manualEngineerSignaturePath,
   });
 
-  await (supabase as any)
+  const { error: saveError } = await (supabase as any)
     .from("archived_documents")
     .update({
       template_id: (tpl as any).id,
@@ -215,13 +215,21 @@ export async function convertArchivedDocument(
         ...(pageCount > 1 ? { _report_pdf_page_warning: `Electronic report rendered as ${pageCount} pages` } : {}),
       },
       report_pdf_path: path,
-      status: "filed",
+      status: priorHeader._needs_review === true ? "unmatched" : "filed",
       site_name:
         (doc as any).site_name || (header as any)?.site || null,
       site_address:
         (doc as any).site_address || (header as any)?.site || null,
     })
     .eq("id", archivedId);
+  if (saveError) throw saveError;
+  if (priorHeader._needs_review === true) {
+    const { error: reviewError } = await supabase.from("paper_scan_batch_items").update({
+      detected_template_id: (tpl as any).id, extracted,
+      header_data: { ...mergedHeader, _field_confidence: fieldConfidence },
+    } as any).eq("archived_document_id", archivedId);
+    if (reviewError) throw reviewError;
+  }
 
   const proposedDefects = proposeDefectsFromExtraction(
     fields as any,

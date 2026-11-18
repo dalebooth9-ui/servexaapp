@@ -33,6 +33,8 @@ export type ArchiveScanConfirmInput = {
   header: Record<string, any>;
   storagePhotoPaths: string[]; // paths in 'submissions' bucket
   status?: "filed" | "unmatched";
+  /** Bulk conversion is not office approval. Keep it in the review queue. */
+  needsReview?: boolean;
   /**
    * Full template fields — when supplied and status === "filed", the
    * electronic PDF report is rendered and attached.
@@ -83,11 +85,13 @@ export async function archiveScanConfirm(
     technicianName,
     manualCustomerSignaturePath,
     manualEngineerSignaturePath,
+    needsReview = false,
   } = input;
 
   // Preserve manual signatures in header_data so a later re-convert can
   // pick them up and never re-derive over the office's choice.
   const headerWithManualSigs: Record<string, any> = { ...(header || {}) };
+  headerWithManualSigs._needs_review = needsReview;
   if (manualCustomerSignaturePath) {
     headerWithManualSigs._manual_customer_signature_path = manualCustomerSignaturePath;
   }
@@ -130,13 +134,14 @@ export async function archiveScanConfirm(
   }
 
   // 2. Insert the archive row first so we have an id to name the PDF with.
-  const { data, error } = await supabase
-    .from("archived_documents" as any)
-    .insert({
+  const { data: existing, error: lookupError } = await supabase.from("archived_documents" as any)
+    .select("id").eq("source_item_id", itemId).eq("org_id", orgId).maybeSingle();
+  if (lookupError) throw lookupError;
+  const row = {
       org_id: orgId,
       customer_id: customerId,
-      site_id: siteId,
-      asset_id: status === "filed" && siteId ? assetId : null,
+      site_id: needsReview ? null : siteId,
+      asset_id: !needsReview && status === "filed" && siteId ? assetId : null,
       site_name: siteName ?? (header as any)?.site ?? null,
       site_address: siteAddress ?? (header as any)?.site ?? null,
       document_date: documentDate,
@@ -153,9 +158,11 @@ export async function archiveScanConfirm(
       source_batch_id: batchId,
       source_item_id: itemId,
       filed_by: userId,
-    } as any)
-    .select("id")
-    .single();
+    };
+  const write = existing
+    ? supabase.from("archived_documents" as any).update(row as any).eq("id", (existing as any).id).eq("org_id", orgId)
+    : supabase.from("archived_documents" as any).insert(row as any);
+  const { data, error } = await write.select("id").single();
   if (error) throw error;
   const archivedId = (data as any).id as string;
 
@@ -219,15 +226,17 @@ export async function archiveScanConfirm(
   }
 
   // 4. Mark the queue item as confirmed and link back to the archive.
-  await supabase
+  const { error: queueError } = await supabase
     .from("paper_scan_batch_items")
     .update({
-      status: "confirmed",
-      reviewed_by: userId,
-      reviewed_at: new Date().toISOString(),
+      status: needsReview ? "ready" : "confirmed",
+      reviewed_by: needsReview ? null : userId,
+      reviewed_at: needsReview ? null : new Date().toISOString(),
+      ...(needsReview ? { guess_site_id: null, header_data: headerWithManualSigs } : {}),
       archived_document_id: archivedId,
     } as any)
     .eq("id", itemId);
+  if (queueError) throw queueError;
 
   return { archivedId, reportPdfPath };
 }

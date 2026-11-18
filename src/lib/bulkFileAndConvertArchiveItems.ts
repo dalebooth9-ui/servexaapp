@@ -2,11 +2,11 @@
 //
 // The archive conversion queue operates on archived_documents rows, but
 // queue items in "ready"/"low_confidence" haven't been filed yet. This
-// helper auto-files each selected item as scan-only using its best-guess
-// customer/site/date, then enqueues the resulting archived_document id
+// helper stores an unlinked, unreviewed scan-only copy, then enqueues its id
 // for conversion so the AI extraction + electronic PDF is generated
 // exactly as it would be from the archive library.
-import { supabase } from "@/integrations/supabase/client";
+import { logError } from "@/lib/errorLogger";
+import { plainError } from "@/lib/plainError";
 import { archiveScanConfirm } from "@/lib/archiveScanConfirm";
 import { archiveConversionQueue } from "@/lib/archiveConversionQueue";
 
@@ -31,10 +31,11 @@ export async function bulkFileAndConvertArchiveItems({
   items: BulkArchiveConvertItem[];
   userId: string;
   orgId: string;
-}): Promise<{ filed: number; failed: number }> {
+}): Promise<{ filed: number; failed: number; reasons: string[] }> {
   let filed = 0;
   let failed = 0;
   const archivedIds: string[] = [];
+  const reasons: string[] = [];
 
   for (const i of items) {
     try {
@@ -48,16 +49,18 @@ export async function bulkFileAndConvertArchiveItems({
         templateName: i.template_name ?? (header?.template_name as string) ?? null,
         documentType: (header?.document_type as string) || null,
         customerId: i.guess_customer_id,
-        siteId: i.guess_site_id,
+        siteId: null,
+        assetId: null,
         documentDate: i.guess_date,
         title: (header?.title as string) || null,
         notes: null,
         siteName: (header?.site as string) || null,
         siteAddress: (header?.site as string) || null,
         extracted: i.extracted || {},
-        header,
+        header: { ...header, _needs_review: true },
         storagePhotoPaths: i.image_paths || [],
-        status: i.guess_customer_id ? "filed" : "unmatched",
+        status: "unmatched",
+        needsReview: true,
         // No templateFields → filed as scan-only. Conversion queue will
         // run classification + OCR and generate the electronic report.
         templateFields: null,
@@ -66,6 +69,8 @@ export async function bulkFileAndConvertArchiveItems({
       filed++;
     } catch (e) {
       console.error("[bulkFileAndConvertArchiveItems] file failed", i.id, e);
+      logError({ error: e, context: { action: "bulk_file_convert", itemId: i.id } });
+      reasons.push(plainError(e));
       failed++;
     }
   }
@@ -73,6 +78,5 @@ export async function bulkFileAndConvertArchiveItems({
   if (archivedIds.length > 0) {
     archiveConversionQueue.enqueue(archivedIds);
   }
-  void supabase;
-  return { filed, failed };
+  return { filed, failed, reasons };
 }

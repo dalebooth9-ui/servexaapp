@@ -9,6 +9,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { plainError } from "@/lib/plainError";
 
 
 export type ErrorSource = "client" | "api" | "edge" | "boundary" | "unhandled" | "promise" | "toast";
@@ -239,11 +240,15 @@ function installToastCapture() {
       try {
         const [msg, opts] = args as [unknown, { description?: unknown } | undefined];
         const text = typeof msg === "string" ? msg : msg instanceof Error ? msg.message : "Error toast";
+        const rawReason = typeof opts?.description === "string" && opts.description.trim() ? opts.description : text;
+        const reason = plainError(rawReason);
+        if (/^error$/i.test(text)) args[0] = "Could not complete this";
+        args[1] = { ...(opts || {}), description: reason };
         logError({
           source: "toast",
-          message: text,
+          message: reason,
           context: {
-            description: typeof opts?.description === "string" ? opts.description : undefined,
+            originalReason: rawReason,
           },
         });
       } catch {

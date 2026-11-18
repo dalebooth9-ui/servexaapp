@@ -33,9 +33,20 @@ export default function ReportsToCheck() {
   const [reason, setReason] = useState("");
   const [flagCounts, setFlagCounts] = useState<Record<string, number>>({});
   const [onlyFlagged, setOnlyFlagged] = useState(false);
+  const [archiveReviews, setArchiveReviews] = useState<{ id: string; header_data: any; created_at: string }[]>([]);
 
   const load = async () => {
     setLoading(true);
+    const pendingArchives: { id: string; header_data: any; created_at: string }[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase.from("paper_scan_batch_items")
+        .select("id,header_data,created_at").eq("mode", "archive").eq("status", "ready")
+        .not("archived_document_id", "is", null).order("created_at").range(from, from + 999);
+      if (error) { setLoading(false); toast({ title: "Archive reviews could not load", description: error.message, variant: "destructive" }); return; }
+      pendingArchives.push(...(data || []).filter((r) => (r.header_data as any)?._needs_review === true));
+      if ((data || []).length < 1000) break;
+    }
+    setArchiveReviews(pendingArchives);
     // Include saved submitted sheets even before whole-job completion. No job
     // status, visits or locks are changed simply to make a sheet reviewable.
     const submittedJobIds = new Set<string>();
@@ -139,7 +150,13 @@ export default function ReportsToCheck() {
         <p className="text-sm text-muted-foreground">Reports engineers have submitted, oldest first.</p>
         <label className="mt-2 inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={onlyFlagged} onChange={(e) => setOnlyFlagged(e.target.checked)} />Only show reports with changes since the previous report</label>
       </div>
-      {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : rows.length === 0 ? (
+      {!loading && archiveReviews.map((r) => (
+        <Card key={r.id} className="p-3 flex flex-wrap items-center gap-3">
+          <div className="flex-1 min-w-0"><p className="font-medium">{r.header_data?.title || r.header_data?.site || "Archive report"} <Badge variant="outline">Needs review</Badge></p><p className="text-xs text-muted-foreground">No site or riser linked · {format(new Date(r.created_at), "dd/MM/yyyy")}</p></div>
+          <Button size="sm" asChild><Link to={`/paper-scans?tab=review&mode=archive&item=${r.id}`}>Review</Link></Button>
+        </Card>
+      ))}
+      {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : rows.length === 0 && archiveReviews.length === 0 ? (
         <Card className="p-6 text-center text-muted-foreground">Nothing waiting — all caught up.</Card>
       ) : (
         <div className="space-y-2">

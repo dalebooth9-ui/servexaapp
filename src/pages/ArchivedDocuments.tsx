@@ -878,7 +878,7 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                           }
                           return (
                             <Badge variant={d.status === "unmatched" ? "outline" : "secondary"}>
-                              {d.status}
+                              {(d.header_data as any)?._needs_review ? "Needs review" : d.status}
                             </Badge>
                           );
                         })()}

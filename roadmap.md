@@ -1,5 +1,9 @@
 # Roadmap
 
+## Unreviewed bulk archive filing and clear errors
+- [x] Bulk conversions stay unmatched with no site/asset, ready for review; conversion preserves review state and confirmation reuses the archive row. Reports to check links to review.
+- [x] Clear error reasons and original details logged; four tests passed and a controlled admin-page permission failure displayed and read back from the error log. Help updated. No pending archive scans exist to exercise a real filing/conversion end to end.
+
 ## Online PDF logo and declaration clearance
 - [x] Restored larger visible-ink cover logo and consistent two-thirds continuation logos only on online PDFs; later generic overlay cannot shrink them.
 - [x] Reserved full-size accreditation strip with 4mm declaration gap; tightened cell whitespace without reducing text or logos. Both saved Bosden PDFs and unsaved 12-outlet visual/fully populated pressure samples regenerated as office and visually checked: two pages each, signatures/declaration on page one, pressure wording intact; no reports changed.
