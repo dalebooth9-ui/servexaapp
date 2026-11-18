@@ -102,7 +102,7 @@ export default function ReportsToCheck() {
     out.sort((a, b) => a.submittedAt.localeCompare(b.submittedAt)); // oldest first
     setRows(out);
     setLoading(false);
-    (async () => { for (const r of out) { try { const items = await loadJobComparisons(r.jobId); setFlagCounts((c) => ({ ...c, [r.jobId]: items.some((i) => i.previous) ? items.reduce((n, i) => n + i.flags.length, 0) : -1 })); } catch { /* advisory only */ } } })();
+    (async () => { for (const r of out) { try { const items = await loadJobComparisons(r.jobId); setFlagCounts((c) => ({ ...c, [r.jobId]: items.some((i) => i.previous) ? items.reduce((n, i) => n + i.flags.filter((f) => f.level !== "unclear").length + i.possible.length, 0) : -1 })); } catch { /* advisory only */ } } })();
   };
   useEffect(() => { load(); }, []);
   useEffect(() => { const refresh = () => void load(); window.addEventListener('job-sheet:submitted', refresh); return () => window.removeEventListener('job-sheet:submitted', refresh); }, []);
@@ -137,7 +137,7 @@ export default function ReportsToCheck() {
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2"><ClipboardCheck className="h-6 w-6 text-primary" /> Reports to check</h1>
         <p className="text-sm text-muted-foreground">Reports engineers have submitted, oldest first.</p>
-        <label className="mt-2 inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={onlyFlagged} onChange={(e) => setOnlyFlagged(e.target.checked)} />Only show reports with changes since last year</label>
+        <label className="mt-2 inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={onlyFlagged} onChange={(e) => setOnlyFlagged(e.target.checked)} />Only show reports with changes since the previous report</label>
       </div>
       {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : rows.length === 0 ? (
         <Card className="p-6 text-center text-muted-foreground">Nothing waiting — all caught up.</Card>
@@ -149,8 +149,8 @@ export default function ReportsToCheck() {
                 <p className="font-medium truncate"><span className="font-mono">{r.ref}</span> — {r.site}
                   {r.visualOnly && <Badge variant="outline" className="ml-2 border-amber-400 text-amber-800 dark:text-amber-300">Pressure test outstanding</Badge>}
                   {r.reasonCheck && <Badge variant="outline" className="ml-2">Reason to check</Badge>}
-                  {flagCounts[r.jobId] > 0 && <Badge variant="outline" className="ml-2">{flagCounts[r.jobId]} change{flagCounts[r.jobId] === 1 ? "" : "s"} since last year</Badge>}
-                  {flagCounts[r.jobId] === 0 && <Badge variant="outline" className="ml-2 text-muted-foreground">Matches last year</Badge>}</p>
+                  {flagCounts[r.jobId] > 0 && <Badge variant="outline" className="ml-2">{flagCounts[r.jobId]} change{flagCounts[r.jobId] === 1 ? "" : "s"} since previous report</Badge>}
+                  {flagCounts[r.jobId] === 0 && <Badge variant="outline" className="ml-2 text-muted-foreground">Matches previous report</Badge>}</p>
                 <p className="text-xs text-muted-foreground truncate">{r.name} · {r.engineer}{r.submittedAt && ` · ${format(new Date(r.submittedAt), "dd/MM/yyyy HH:mm")}`}</p>
                 {r.address && <MapAddress address={r.address} postcode={r.postcode} jobId={r.jobId} className="text-xs text-muted-foreground" />}
                 {r.totalReports > 0 && r.completedReports < r.totalReports && (

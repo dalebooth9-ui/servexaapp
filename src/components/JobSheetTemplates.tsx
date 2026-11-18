@@ -40,7 +40,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { buildJobSheetPrefill, deriveScopeFromTemplateName, fetchJobPrefillContext, formatDateForField } from "@/lib/jobSheetPrefill";
 import { buildLastVisitPrefill, findLastVisitReport, type LastVisit } from "@/lib/lastVisitPrefill";
-import { findPreviousReport, lastYearHints, displayValue } from "@/lib/reportComparison";
+import { findMostRecentPrevious, lastYearHints, displayValue } from "@/lib/reportComparison";
 import { logReportEdits, jobHasSignatures } from "@/lib/logReportEdits";
 import { enqueueReportSubmission, discardReportSubmission, newReportId } from "@/lib/reportSubmissionQueue";
 import { isNetworkError } from "@/lib/syncQueue";
@@ -204,8 +204,8 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     if (!activeTemplate) { setLastYear(undefined); return; }
     let live = true;
     setLastYearDismissed(new Set());
-    findPreviousReport(supabase, { jobId, templateId: activeTemplate.id, riserAssetId: formData.riser_asset_id || null, siteId: jobSiteId || null, riserLocation: formData.riser_location || null })
-      .then((prev) => { if (live) setLastYear(prev ? { answers: prev.answers, hints: lastYearHints(activeTemplate.fields as any, prev.answers) } : null); })
+    findMostRecentPrevious(supabase, { jobId, templateId: activeTemplate.id, templateName: activeTemplate.name, riserAssetId: formData.riser_asset_id || null, siteId: jobSiteId || null, riserLocation: formData.riser_location || null })
+      .then(({ previous: prev }) => { if (live) setLastYear(prev ? { answers: prev.answers, hints: Object.fromEntries(Object.entries(lastYearHints(activeTemplate.fields as any, prev.answers)).filter(([k]) => !(prev.unclear || []).includes(k))) } : null); })
       .catch(() => { if (live) setLastYear(null); });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2785,10 +2785,10 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                             const changed = !!cur && cur.toLowerCase() !== prev.toLowerCase() && !lastYearDismissed.has(field.id);
                             return (
                               <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">
-                                Last year: {prev}
+                                Last report: {prev}
                                 {changed && (
                                   <div className="mt-0.5 rounded bg-muted px-1.5 py-1 text-foreground">
-                                    Last year this was {prev}. Is it still {prev}?{" "}
+                                    Last report this was {prev}. Is it still {prev}?{" "}
                                     <button type="button" className="underline font-medium" onClick={() => handleFieldValue(field.id, lastYear.answers[field.id])}>Yes, still {prev}</button>{" · "}
                                     <button type="button" className="underline" onClick={() => setLastYearDismissed((d) => new Set(d).add(field.id))}>No, it's changed</button>
                                   </div>

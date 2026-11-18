@@ -7,7 +7,7 @@
  */
 
 export type CompareField = { id: string; label: string; type: string; section?: string; options?: string[] };
-export type FlagLevel = "check" | "note";
+export type FlagLevel = "check" | "note" | "unclear";
 export type ComparisonFlag = {
   key: string;
   label: string;
@@ -22,7 +22,12 @@ export type PreviousReport = {
   jobReference: string | null;
   date: string | null;
   answers: Record<string, any>;
+  source?: "app" | "archive";
+  fileName?: string | null;
+  /** Field ids the reader could not read clearly on an old scanned report. */
+  unclear?: string[];
 };
+export type PossibleArchive = { id: string; fileName: string; siteName: string | null; date: string | null; previous: PreviousReport };
 
 const IDENTITY = /(riser\s*location|valve\s*type|cabinet\s*key|number\s*of\s*outlets|no\.?\s*of\s*outlets|outlets?\s*count|how many outlets|inlet\s*type)/i;
 const SKIP_LABEL = /(signature|\bsign(ed)?\b|date|time|photo|po\s*number|engineer|technician|customer|site\s*details|comment|note|materials|declaration)/i;
@@ -66,8 +71,10 @@ export function compareReports(
   previous: Record<string, any>,
   current: Record<string, any>,
   previousDefects: { id: string; title: string; status?: string | null }[] = [],
+  unclear: string[] = [],
 ): ComparisonFlag[] {
   const flags: ComparisonFlag[] = [];
+  const unclearSet = new Set(unclear);
   const countField = fields.find((x) => x.id === "number_of_outlets" || (/outlet/i.test(x.label || "") && /(number|no\.?|count|how many)/i.test(x.label || "")));
   for (const f of fields || []) {
     if (!f?.id || f.id.startsWith("_") || /signature|photo|file|image|table|repeating/i.test(f.type || "")) continue;
@@ -75,8 +82,12 @@ export function compareReports(
     if (!identity && SKIP_LABEL.test(f.label || "")) continue;
     const p = displayValue(previous?.[f.id]);
     const c = displayValue(current?.[f.id]);
-    if (!p) continue; // nothing to compare against
     const label = (f.label || f.id).replace(/^BS\s?9990:2015\s[\d.]+\s*/i, "").replace(/:\s*$/, "");
+    if (unclearSet.has(f.id)) {
+      if (p || c) flags.push({ key: f.id, label, previous: p || "unreadable", current: c, level: "unclear", reason: "Unclear on the old report — not treated as a difference" });
+      continue;
+    }
+    if (!p) continue; // nothing to compare against
     if (!c) {
       flags.push({ key: f.id, label, previous: p, current: "", level: "check", reason: "Answered last year, blank this year" });
       continue;
@@ -109,7 +120,8 @@ export function compareReports(
     if (mentioned) continue;
     flags.push({ key: `defect:${d.id}`, label: `Defect last year: ${d.title}`, previous: d.status || "open", current: "Not mentioned", level: "check", reason: "Raised last year and not mentioned — fixed, or missed?" });
   }
-  return flags.sort((a, b) => (a.level === b.level ? 0 : a.level === "check" ? -1 : 1));
+  const rank = { check: 0, note: 1, unclear: 2 } as const;
+  return flags.sort((a, b) => rank[a.level] - rank[b.level]);
 }
 
 /** One-line "Last year: …" hints for the engineer form, keyed by field id. */
@@ -166,7 +178,7 @@ export async function findPreviousReport(
   const row = rows[0];
   if (!row) return null;
   const { data: job } = await supabase.from("jobs").select("reference_number").eq("id", row.job_id).maybeSingle();
-  return { responseId: row.id, jobId: row.job_id, jobReference: job?.reference_number ?? null, date: row.submitted_at, answers: parseAnswers(row.responses) };
+  return { responseId: row.id, jobId: row.job_id, jobReference: job?.reference_number ?? null, date: row.submitted_at, answers: parseAnswers(row.responses), source: "app" };
 }
 
 /** Defects raised from the previous report/job for this riser. */
@@ -176,14 +188,116 @@ export async function loadPreviousDefects(supabase: any, prev: PreviousReport, r
   return (data || []).filter((d: any) => !riserAssetId || !d.asset_id || d.asset_id === riserAssetId || d.source_response_id === prev.responseId);
 }
 
+/** Parse a UK date ("8/7/22", "14/03/2021", ISO) to ISO yyyy-mm-dd, or null. */
+export function parseUkDate(v: any): string | null {
+  if (blank(v)) return null;
+  const t = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
+  const m = t.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})$/);
+  if (!m) return null;
+  const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+  const mo = Number(m[2]), d = Number(m[1]);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+const UNCLEAR_BELOW = 0.6;
+const UNCLEAR_TEXT = /^(\?+|unclear|illegible|unreadable)$/i;
+
+/** Turn a filed archive document (already read by the sheet reader) into comparable answers. */
+export function archiveToPrevious(doc: any): PreviousReport {
+  const header = (doc.header_data && typeof doc.header_data === "object") ? doc.header_data : {};
+  const extracted = (doc.extracted && typeof doc.extracted === "object") ? doc.extracted : {};
+  const answers: Record<string, any> = { ...extracted };
+  for (const k of ["riser_location", "number_of_outlets", "cabinet_keys", "valve_type"]) if (blank(answers[k]) && !blank(header[k])) answers[k] = header[k];
+  const conf = header._field_confidence && typeof header._field_confidence === "object" ? header._field_confidence : {};
+  const unclear = Object.entries(conf).filter(([, v]) => typeof v === "number" && v < UNCLEAR_BELOW).map(([k]) => k);
+  for (const [k, v] of Object.entries(answers)) if (typeof v === "string" && UNCLEAR_TEXT.test(v.trim())) unclear.push(k);
+  const paths: string[] = Array.isArray(doc.file_paths) ? doc.file_paths : [];
+  const fileName = doc.title || (paths[0] ? paths[0].split("/").pop() : null) || doc.document_type || "Archived report";
+  const date = doc.document_date || parseUkDate(extracted.date) || parseUkDate(header.date) || null;
+  return { responseId: doc.id, jobId: "", jobReference: null, date, answers, source: "archive", fileName, unclear: Array.from(new Set(unclear)) };
+}
+
+const words = (s: string | null | undefined) => new Set(String(s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 2));
+const postcode = (s: string | null | undefined) => (String(s || "").toUpperCase().match(/[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/)?.[0] || "").replace(/\s+/g, "");
+
+/** Name/address similarity between a site and an unlinked archive document (0–1). */
+export function siteSimilarity(site: { name?: string | null; address?: string | null; postcode?: string | null }, docSite: string | null): number {
+  if (!docSite) return 0;
+  const pc = postcode(site.postcode || site.address);
+  if (pc && postcode(docSite) === pc) return 1;
+  const a = words(`${site.name || ""} ${site.address || ""}`), b = words(docSite);
+  if (!a.size || !b.size) return 0;
+  let hit = 0; b.forEach((w) => a.has(w) && hit++);
+  return hit / Math.min(a.size, b.size);
+}
+
+const newer = (a: PreviousReport | null, b: PreviousReport | null) => {
+  if (!a) return b; if (!b) return a;
+  return (b.date || "") > (a.date || "") ? b : a;
+};
+
+/**
+ * Archived (paper/PDF) reports already read by the sheet reader, same company and
+ * report type. Linked to the site = confident; unlinked but similar = possible.
+ */
+export async function findArchivePrevious(
+  supabase: any,
+  opts: { orgId?: string | null; siteId: string | null; site: { name?: string | null; address?: string | null; postcode?: string | null }; templateId: string; templateName?: string | null; riserLocation?: string | null; before?: string | null; decisions?: Record<string, "ok" | "needs_fixing"> },
+): Promise<{ confident: PreviousReport | null; possible: PossibleArchive[] }> {
+  let q = supabase.from("archived_documents").select("id, site_id, site_name, site_address, title, document_type, template_id, document_date, extracted, header_data, file_paths, status, org_id");
+  if (opts.orgId) q = q.eq("org_id", opts.orgId);
+  const { data, error } = await q.limit(1000);
+  if (error || !data) return { confident: null, possible: [] };
+  const typeName = (opts.templateName || "").toLowerCase();
+  const loc = (opts.riserLocation || "").trim().toLowerCase();
+  let confident: PreviousReport | null = null;
+  const possible: PossibleArchive[] = [];
+  for (const d of data as any[]) {
+    const sameType = d.template_id === opts.templateId || (!!typeName && String(d.document_type || d.template_name || "").toLowerCase() === typeName);
+    if (!sameType) continue;
+    const prev = archiveToPrevious(d);
+    if (opts.before && prev.date && prev.date > opts.before.slice(0, 10)) continue;
+    const dloc = String(prev.answers.riser_location || "").trim().toLowerCase();
+    if (loc && dloc && dloc !== loc) continue; // a different riser at the same site
+    const decision = opts.decisions?.[`archive_match:${d.id}`];
+    if (decision === "needs_fixing") continue;
+    if ((opts.siteId && d.site_id === opts.siteId) || decision === "ok") { confident = newer(confident, prev); continue; }
+    if (!d.site_id && siteSimilarity(opts.site, d.site_name || d.site_address) >= 0.6) {
+      possible.push({ id: d.id, fileName: prev.fileName || "Archived report", siteName: d.site_name || d.site_address || null, date: prev.date, previous: prev });
+    }
+  }
+  possible.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  return { confident, possible };
+}
+
+/** Most recent filed report (in-app or archive), whatever year it is from. */
+export async function findMostRecentPrevious(
+  supabase: any,
+  opts: { jobId: string; templateId: string; templateName?: string | null; riserAssetId?: string | null; siteId?: string | null; riserLocation?: string | null; before?: string | null; orgId?: string | null; excludeResponseId?: string | null; decisions?: Record<string, "ok" | "needs_fixing"> },
+): Promise<{ previous: PreviousReport | null; possible: PossibleArchive[] }> {
+  const app = await findPreviousReport(supabase, opts);
+  let site: any = {};
+  if (opts.siteId) {
+    const { data } = await supabase.from("sites").select("name, address, postcode").eq("id", opts.siteId).maybeSingle();
+    site = data || {};
+  }
+  const arch = await findArchivePrevious(supabase, { orgId: opts.orgId, siteId: opts.siteId || null, site, templateId: opts.templateId, templateName: opts.templateName, riserLocation: opts.riserLocation, before: opts.before, decisions: opts.decisions }).catch(() => ({ confident: null, possible: [] as PossibleArchive[] }));
+  const previous = newer(app, arch.confident);
+  // Only ask about an unlinked archive file when it would be newer than what we already have.
+  const possible = arch.possible.filter((p) => !previous || (p.date || "") > (previous.date || ""));
+  return { previous, possible };
+}
+
 /** Full comparison for one saved report row. */
-export async function compareSavedResponse(supabase: any, row: { id: string; job_id: string; template_id: string; org_id?: string | null; submitted_at?: string | null; responses: any }, fields: CompareField[], siteId: string | null) {
+export async function compareSavedResponse(supabase: any, row: { id: string; job_id: string; template_id: string; org_id?: string | null; submitted_at?: string | null; responses: any }, fields: CompareField[], siteId: string | null, templateName?: string | null, decisions: Record<string, "ok" | "needs_fixing"> = {}) {
   const answers = parseAnswers(row.responses);
-  const prev = await findPreviousReport(supabase, {
-    jobId: row.job_id, templateId: row.template_id, riserAssetId: answers.riser_asset_id || null,
-    siteId, riserLocation: answers.riser_location || null, before: row.submitted_at || null, orgId: row.org_id || null, excludeResponseId: row.id,
+  const { previous: prev, possible } = await findMostRecentPrevious(supabase, {
+    jobId: row.job_id, templateId: row.template_id, templateName, riserAssetId: answers.riser_asset_id || null,
+    siteId, riserLocation: answers.riser_location || null, before: row.submitted_at || null, orgId: row.org_id || null, excludeResponseId: row.id, decisions,
   });
-  if (!prev) return { previous: null, flags: [] as ComparisonFlag[], answers };
-  const defects = await loadPreviousDefects(supabase, prev, answers.riser_asset_id || null);
-  return { previous: prev, flags: compareReports(fields, prev.answers, answers, defects), answers };
+  if (!prev) return { previous: null, possible, flags: [] as ComparisonFlag[], answers };
+  const defects = prev.source === "app" ? await loadPreviousDefects(supabase, prev, answers.riser_asset_id || null) : [];
+  return { previous: prev, possible, flags: compareReports(fields, prev.answers, answers, defects, prev.unclear || []), answers };
 }

@@ -283,5 +283,7 @@
 ## Changes since last year
 - [x] Previous same-type report per riser (fallback site + location), Check/Note flags, office panel with OK/Needs fixing saved per line, flagged-only filter, engineer "Last year:" hints with one-tap confirm. 10 tests; Bosden Stair 1 comparison run.
 - [x] Site riser coverage count shown in panel.
-- [ ] Dedicated "read old PDF/paper report into history" import (stage 2) — waiting for go-ahead; existing Convert to digital report can be used meanwhile.
+- [x] Most recent filed report of any year (app or paper/PDF archive), dated "Compared with report dated…", unclear reads kept separate, Yes/No for unlinked archive matches.
+- [ ] Direct SharePoint folder reading — needs a SharePoint connection; files must be put into Paper scans & archive for now.
+- [ ] Automatic reading of not-yet-read archive files on submit — only archive items already read are used.
 - [ ] Help guide entry — database refused the write (read-only).

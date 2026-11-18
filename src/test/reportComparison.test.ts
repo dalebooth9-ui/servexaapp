@@ -47,3 +47,23 @@ describe("report comparison", () => {
     expect(lastYearHints(fields, { signs: true, number_of_outlets: 6, date: "x" })).toEqual({ signs: "YES", number_of_outlets: "6" });
   });
 });
+
+import { archiveToPrevious, parseUkDate, siteSimilarity } from "@/lib/reportComparison";
+describe("archived old reports", () => {
+  it("reads UK dates from old sheets", () => {
+    expect(parseUkDate("8/7/22")).toBe("2022-07-08");
+    expect(parseUkDate("14/03/2021")).toBe("2021-03-14");
+  });
+  it("low-confidence reads are unclear, not differences", () => {
+    const prev = archiveToPrevious({ id: "a", extracted: { relevant_signs_in_place: "yes", date: "14/03/2021" }, header_data: { number_of_outlets: "6", _field_confidence: { relevant_signs_in_place: 0.4 } }, file_paths: ["x/2021-bosden.pdf"] });
+    expect(prev.date).toBe("2021-03-14");
+    expect(prev.fileName).toBe("2021-bosden.pdf");
+    const f = compareReports(fields.concat({ id: "relevant_signs_in_place", label: "Signs present?", type: "checkbox" }), prev.answers, { relevant_signs_in_place: "no", number_of_outlets: "6" }, [], prev.unclear);
+    expect(f).toHaveLength(1);
+    expect(f[0]).toMatchObject({ key: "relevant_signs_in_place", level: "unclear" });
+  });
+  it("site matching by postcode is confident, unrelated names are not", () => {
+    expect(siteSimilarity({ name: "Acton 2", address: "117 Gunnersbury Lane", postcode: "W3 8HQ" }, "ACTON 2, 117 GUNNERSBURY LANE, LONDON, W3 8HQ")).toBe(1);
+    expect(siteSimilarity({ name: "Bosden", address: "Greek Street, Stockport", postcode: "SK3 8AB" }, "WARWICK ESTATES, BLOCK A, CB1 3FJ")).toBeLessThan(0.6);
+  });
+});
