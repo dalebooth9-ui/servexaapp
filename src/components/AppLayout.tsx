@@ -40,6 +40,7 @@ type NavItemDef = {
   icon: any;
   adminOnly?: boolean;
   platformOnly?: boolean;
+  section?: string;
 };
 
 type NavGroupDef = {
@@ -71,33 +72,33 @@ const NAV_GROUPS: NavGroupDef[] = [
     id: "more",
     label: "More",
     items: [
-      { to: '/due-visits', label: 'Due visits', icon: CalendarDays, adminOnly: true },
-      { to: "/assets/review", label: "Asset review", icon: Package, adminOnly: true },
-      { to: "/site-surveys", label: "Site Surveys", icon: ClipboardList },
-      { to: "/quotes", label: "Quotes", icon: ClipboardList, adminOnly: true },
-      { to: "/invoices", label: "Invoices", icon: FileText, adminOnly: true },
-      { to: "/agreements", label: "Agreements", icon: FileText, adminOnly: true },
-      { to: "/contracts", label: "Contracts", icon: FileText, adminOnly: true },
-      { to: "/renewals", label: "Renewals", icon: CalendarDays, adminOnly: true },
-      { to: "/defects/review", label: "Defects Review", icon: ShieldAlert, adminOnly: true },
-      { to: "/rams/start", label: "RAMS", icon: Shield, adminOnly: true },
-      { to: "/compliance", label: "Compliance", icon: Shield, adminOnly: true },
-      { to: "/audits", label: "Audits", icon: ClipboardCheck, adminOnly: true },
-      { to: "/report-downloads", label: "Reports & certificates", icon: FileArchive, adminOnly: true },
-      { to: "/paper-scans", label: "Paper scans & archive", icon: ScanLine, adminOnly: true },
-      { to: "/engineers", label: "Engineers", icon: Users, adminOnly: true },
-      { to: "/stock", label: "Van stock", icon: Truck },
-      { to: "/parts-library", label: "Parts library", icon: Library, adminOnly: true },
-      { to: "/leave", label: "Leave", icon: Palmtree },
-      { to: "/fleet", label: "Vehicle checks", icon: Truck, adminOnly: true },
-      { to: "/timesheets", label: "Timesheets", icon: ClipboardList, adminOnly: true },
-      { to: "/industry-templates", label: "Templates", icon: BookOpen, adminOnly: true },
-      { to: "/reports", label: "Reports", icon: BarChart2, adminOnly: true },
-      { to: "/reports/engineers", label: "Performance", icon: TrendingUp, adminOnly: true },
-      { to: "/audit-log", label: "Audit log", icon: History, adminOnly: true },
-      { to: "/admin/error-log", label: "Error log", icon: Bug, adminOnly: true },
-      { to: "/platform/organisations", label: "Platform Orgs", icon: Building2, adminOnly: true, platformOnly: true },
-      { to: "/platform/support", label: "Platform Support", icon: LifeBuoy, adminOnly: true, platformOnly: true },
+      { to: '/due-visits', label: 'Due visits', icon: CalendarDays, adminOnly: true, section: "Customers & sales" },
+      { to: "/assets/review", label: "Asset review", icon: Package, adminOnly: true, section: "Customers & sales" },
+      { to: "/site-surveys", label: "Site Surveys", icon: ClipboardList, section: "Customers & sales" },
+      { to: "/quotes", label: "Quotes", icon: ClipboardList, adminOnly: true, section: "Customers & sales" },
+      { to: "/invoices", label: "Invoices", icon: FileText, adminOnly: true, section: "Customers & sales" },
+      { to: "/agreements", label: "Agreements", icon: FileText, adminOnly: true, section: "Customers & sales" },
+      { to: "/contracts", label: "Contracts", icon: FileText, adminOnly: true, section: "Customers & sales" },
+      { to: "/renewals", label: "Renewals", icon: CalendarDays, adminOnly: true, section: "Customers & sales" },
+      { to: "/defects/review", label: "Defects Review", icon: ShieldAlert, adminOnly: true, section: "Compliance" },
+      { to: "/rams/start", label: "RAMS", icon: Shield, adminOnly: true, section: "Compliance" },
+      { to: "/compliance", label: "Compliance", icon: Shield, adminOnly: true, section: "Compliance" },
+      { to: "/audits", label: "Audits", icon: ClipboardCheck, adminOnly: true, section: "Compliance" },
+      { to: "/report-downloads", label: "Reports & certificates", icon: FileArchive, adminOnly: true, section: "Compliance" },
+      { to: "/paper-scans", label: "Paper scans & archive", icon: ScanLine, adminOnly: true, section: "Compliance" },
+      { to: "/engineers", label: "Engineers", icon: Users, adminOnly: true, section: "Team" },
+      { to: "/stock", label: "Van stock", icon: Truck, section: "Team" },
+      { to: "/parts-library", label: "Parts library", icon: Library, adminOnly: true, section: "Team" },
+      { to: "/leave", label: "Leave", icon: Palmtree, section: "Team" },
+      { to: "/fleet", label: "Vehicle checks", icon: Truck, adminOnly: true, section: "Team" },
+      { to: "/timesheets", label: "Timesheets", icon: ClipboardList, adminOnly: true, section: "Team" },
+      { to: "/industry-templates", label: "Templates", icon: BookOpen, adminOnly: true, section: "Team" },
+      { to: "/reports", label: "Reports", icon: BarChart2, adminOnly: true, section: "Insights" },
+      { to: "/reports/engineers", label: "Performance", icon: TrendingUp, adminOnly: true, section: "Insights" },
+      { to: "/audit-log", label: "Audit log", icon: History, adminOnly: true, section: "Insights" },
+      { to: "/admin/error-log", label: "Error log", icon: Bug, adminOnly: true, section: "Insights" },
+      { to: "/platform/organisations", label: "Platform Orgs", icon: Building2, adminOnly: true, platformOnly: true, section: "Platform" },
+      { to: "/platform/support", label: "Platform Support", icon: LifeBuoy, adminOnly: true, platformOnly: true, section: "Platform" },
     ],
   },
 ];
@@ -449,7 +450,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                       onClick={() => toggleGroup(group.id)}
                       className="mt-3 mb-1 flex w-full items-center gap-1 px-4 text-[10px] font-bold uppercase tracking-widest text-[hsl(25,95%,60%)] hover:text-white transition-colors select-none"
                     >
-                      <span className="flex-1 text-left">{group.label}</span>
+                      <span className="flex-1 text-left">{group.label}{group.id === "more" && !open ? ` — ${group.items.length} more pages, tap to open` : ""}</span>
                       <ChevronDown className={cn("h-3 w-3 transition-transform", open && "rotate-180")} />
                     </button>
                   ) : (
@@ -457,7 +458,11 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                   )}
                   {open && (
                     <div className="space-y-0.5">
-                      {group.items.map((item) => (
+                      {group.items.map((item, idx) => (
+                        <div key={item.to}>
+                        {!sidebarCollapsed && item.section && item.section !== group.items[idx - 1]?.section && (
+                          <p className="mt-2 mb-0.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/60">{item.section}</p>
+                        )}
                         <NavItem
                           key={item.to}
                           item={item}
@@ -466,6 +471,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                           collapsed={sidebarCollapsed}
                           badge={badgeFor(item.to)}
                         />
+                        </div>
                       ))}
                     </div>
                   )}
