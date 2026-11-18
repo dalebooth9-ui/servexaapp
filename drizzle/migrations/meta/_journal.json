@@ -652,6 +652,20 @@
       "when": 1795010846571,
       "tag": "0092_fix_platform_list_organisations",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1795012211235,
+      "tag": "0093_harden_merge_cleanup_functions",
+      "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1795012291183,
+      "tag": "0094_fix_delete_empty_customers_org_lookup",
+      "breakpoints": true
     }
   ]
 }
