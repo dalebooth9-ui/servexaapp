@@ -32,6 +32,9 @@ export function namesLookAlike(a: string, b: string): boolean {
   if (!x || !y) return false;
   if (x === y) return true;
   if (x.replace(/ /g, "") === y.replace(/ /g, "")) return true;
+  // One name is the other plus extra words, e.g. "Apex House" vs "APEX HOUSE, 59-65 Lowlands Road".
+  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+  if (short.replace(/ /g, "").length >= 3 && long.startsWith(short + " ")) return true;
   if ((x.match(/\d+/g) || []).join(",") !== (y.match(/\d+/g) || []).join(",")) return false;
   const len = Math.min(x.length, y.length);
   return len >= 6 && distance(x, y) <= 1;

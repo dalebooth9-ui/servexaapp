@@ -1,3 +1,5 @@
+import { loadNamesForCheck } from "@/components/shared/LookAlikeNotice";
+import { findLookAlike, normaliseName } from "@/lib/similarName";
 import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -109,17 +111,20 @@ export default function BulkImportSitesDialog({ open, onOpenChange, onImported }
   };
 
   const checkDuplicates = async (sites: ParsedSite[]): Promise<ParsedSite[]> => {
-    const names = sites.map((s) => s.name.trim().toLowerCase());
-    const { data: existing } = await supabase.from("sites").select("name").in("name", sites.map((s) => s.name.trim()));
-    const existingNames = new Set((existing || []).map((s: any) => s.name.trim().toLowerCase()));
+    const existingRows = await loadNamesForCheck("site");
     // Also flag within-batch duplicates
     const seenInBatch = new Set<string>();
-    return sites.map((s) => {
-      const key = s.name.trim().toLowerCase();
-      const isDuplicate = existingNames.has(key) || seenInBatch.has(key);
+    const toastLike: string[] = [];
+    const out = sites.map((s) => {
+      const key = normaliseName(s.name);
+      const like = findLookAlike(s.name, existingRows);
+      if (like) toastLike.push(`${s.name} → ${like.name}`);
+      const isDuplicate = (!!like && normaliseName(like.name) === key) || seenInBatch.has(key);
       seenInBatch.add(key);
       return { ...s, isDuplicate };
     });
+    if (toastLike.length) toast({ title: `${toastLike.length} site name(s) look like existing sites`, description: `Check before importing: ${toastLike.slice(0, 5).join("; ")}${toastLike.length > 5 ? "…" : ""}. Exact matches are skipped; nothing is merged.` });
+    return out;
   };
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {

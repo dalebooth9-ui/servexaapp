@@ -1,3 +1,5 @@
+import { loadNamesForCheck } from "@/components/shared/LookAlikeNotice";
+import { findLookAlike, normaliseName } from "@/lib/similarName";
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -128,18 +130,22 @@ export default function BulkImportCustomersDialog({ open, onOpenChange, onImport
     if (all.length === 0) { setError("No valid customer rows found. Ensure your file has a 'Name' column."); setLoading(false); return; }
 
     // Fetch existing customer names for duplicate detection
-    const { data: existing } = await supabase.from("customers").select("name");
-    const existingNames = new Set((existing || []).map((c: any) => c.name.trim().toLowerCase()));
+    const existingRows = await loadNamesForCheck("customer");
+    const existingNames = new Set(existingRows.map((c) => normaliseName(c.name)));
+    const looks: string[] = [];
 
     const seenInBatch = new Set<string>();
     const deduped = all.filter((c) => {
-      const key = c.name.trim().toLowerCase();
+      const key = normaliseName(c.name);
       if (!key || existingNames.has(key) || seenInBatch.has(key)) return false;
+      const like = findLookAlike(c.name, existingRows);
+      if (like) looks.push(`${c.name} → ${like.name}`);
       seenInBatch.add(key);
       return true;
     });
 
     const skipped = all.length - deduped.length;
+    if (looks.length) toast({ title: `${looks.length} customer name(s) look like existing customers`, description: `Check before importing: ${looks.slice(0, 5).join("; ")}${looks.length > 5 ? "…" : ""}. Nothing is merged.` });
     if (skipped > 0) toast({ title: `${skipped} duplicate${skipped > 1 ? "s" : ""} skipped`, description: `${skipped} customer${skipped > 1 ? "s" : ""} already exist and won't be re-imported.` });
     if (deduped.length === 0) { setError("All extracted customers already exist in the database."); setLoading(false); return; }
 

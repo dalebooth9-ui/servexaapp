@@ -1,5 +1,6 @@
 import { updateJobStatus } from "@/lib/jobStatusUpdate";
 import { isQueued, readQueue } from "@/lib/reportReview";
+import { useLookAlike, LookAlikeNotice, findExistingLookAlike } from "@/components/shared/LookAlikeNotice";
 import JobDeleteDialog from "@/components/jobs/JobDeleteDialog";
 import { createInvoiceForJob } from "@/lib/createInvoiceForJob";
 import { useEffect, useState, useCallback, useRef } from "react";
@@ -110,6 +111,8 @@ export default function Jobs() {
   const [openFolders, setOpenFolders] = useState<string[]>([]);
   const [newCustomerDialogOpen, setNewCustomerDialogOpen] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState("");
+  const [newCustFinalMatch, setNewCustFinalMatch] = useState<{ id: string; name: string } | null>(null);
+  const newCustLookAlike = useLookAlike("customer", newCustomerName, newCustomerDialogOpen);
   const [pendingNewCustomerJob, setPendingNewCustomerJob] = useState<any>(null);
   const [knownCustomers, setKnownCustomers] = useState<Set<string>>(new Set());
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
@@ -1515,13 +1518,18 @@ export default function Jobs() {
     }
   };
 
-  const handleNewCustomerConfirm = async () => {
-    const trimmed = newCustomerName.trim();
+  const handleNewCustomerConfirm = async (skipLookAlike = false, useName?: string) => {
+    const trimmed = (useName ?? newCustomerName).trim();
     if (!trimmed || !pendingNewCustomerJob) return;
+    setNewCustFinalMatch(null);
     setNewCustomerDialogOpen(false);
 
     // Create customer record if it doesn't exist
     let cust = customers.find((c) => c.name.toLowerCase() === trimmed.toLowerCase());
+    if (!cust && !skipLookAlike) {
+      const match = await findExistingLookAlike("customer", trimmed);
+      if (match && !newCustLookAlike.isDismissed(match.id)) { setNewCustomerDialogOpen(true); setNewCustFinalMatch(match); return; }
+    }
     if (!cust) {
       const { data: newCust } = await supabase.from("customers").insert({ name: trimmed, created_by: user?.id } as any).select("id, name").single();
       if (newCust) {
@@ -2679,6 +2687,9 @@ export default function Jobs() {
             <div className="space-y-2">
               <Label>Customer Name</Label>
               <Input value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} placeholder="Enter new customer name" autoFocus required />
+              {(newCustFinalMatch || newCustLookAlike.match) && (() => { const m = (newCustFinalMatch || newCustLookAlike.match)!; return (
+                <LookAlikeNotice match={m} onUse={() => handleNewCustomerConfirm(true, m.name)} onDifferent={() => { newCustLookAlike.dismiss(m.id); if (newCustFinalMatch) handleNewCustomerConfirm(true); }} />
+              ); })()}
             </div>
             <p className="text-sm text-muted-foreground">
               <span className="font-medium">{pendingNewCustomerJob?.reference_number}</span> — {pendingNewCustomerJob?.name} will be moved to this folder.

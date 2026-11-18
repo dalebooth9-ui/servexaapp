@@ -20,7 +20,7 @@ import BulkImportCustomersDialog from "@/components/BulkImportCustomersDialog";
 import BulkAiEnrichDialog from "@/components/BulkAiEnrichDialog";
 import TableSkeleton from "@/components/TableSkeleton";
 import { fuzzyFilter } from "@/lib/fuzzyMatch";
-import { findLookAlike, normaliseName } from "@/lib/similarName";
+import { useLookAlike, LookAlikeNotice, findExistingLookAlike } from "@/components/shared/LookAlikeNotice";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import PrintBrandingFields from '@/components/customers/PrintBrandingFields';
 import CustomerLogo from '@/components/customers/CustomerLogo';
@@ -57,6 +57,7 @@ export default function Customers() {
   const { deleteWithUndo, editWithUndo } = useUndoAction();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [lookAlike, setLookAlike] = useState<{ id: string; name: string } | null>(null);
+  const [liveCheckOn, setLiveCheckOn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -121,6 +122,9 @@ export default function Customers() {
     setDialogOpen(true);
   };
 
+  const liveLookAlike = useLookAlike("customer", form.name, dialogOpen && !editingId);
+  const useExistingCustomer = (id: string) => { setLookAlike(null); setDialogOpen(false); navigate(`/customers/${id}`); };
+
   const handleSave = async (skipLookAlike = false) => {
     if (!form.name.trim()) {
       toast({ title: "Name is required", variant: "destructive" });
@@ -128,10 +132,8 @@ export default function Customers() {
     }
     setSaving(true);
     if (!editingId && !skipLookAlike) {
-      const word = normaliseName(form.name).split(" ").sort((a, b) => b.length - a.length)[0] || form.name.trim();
-      const { data: candidates } = await supabase.from("customers").select("id, name").ilike("name", `%${word.slice(0, 5)}%`).limit(200);
-      const match = findLookAlike(form.name, (candidates || []) as { id: string; name: string }[]);
-      if (match) { setLookAlike(match); setSaving(false); return; }
+      const match = await findExistingLookAlike("customer", form.name);
+      if (match && !liveLookAlike.isDismissed(match.id)) { setLookAlike(match); setSaving(false); return; }
     }
     setLookAlike(null);
     const payload = {
@@ -512,6 +514,9 @@ export default function Customers() {
             <div>
               <Label htmlFor="cust-name">Name *</Label>
               <Input id="cust-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Company or customer name" />
+              {!lookAlike && liveLookAlike.match && (
+                <LookAlikeNotice match={liveLookAlike.match} onUse={() => useExistingCustomer(liveLookAlike.match!.id)} onDifferent={() => liveLookAlike.dismiss(liveLookAlike.match!.id)} />
+              )}
             </div>
             <div>
               <Label htmlFor="cust-email">Email</Label>
@@ -528,13 +533,7 @@ export default function Customers() {
             {userRole==='admin'&&<PrintBrandingFields value={{print_logo_url:form.print_logo_url||'',brand_colour:form.brand_colour||'#1f4e79',use_print_branding:form.use_print_branding===true}} onChange={values=>setForm({...form,...values})}/>}
           </div>
           {lookAlike && (
-            <div className="space-y-2 rounded-md border border-amber-400 p-3">
-              <p className="text-sm font-medium">This looks like “{lookAlike.name}”, use that one?</p>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => { const id = lookAlike.id; setLookAlike(null); setDialogOpen(false); navigate(`/customers/${id}`); }}>Use “{lookAlike.name}”</Button>
-                <Button size="sm" variant="outline" disabled={saving} onClick={() => handleSave(true)}>No, create a new customer</Button>
-              </div>
-            </div>
+            <LookAlikeNotice match={lookAlike} onUse={() => useExistingCustomer(lookAlike.id)} onDifferent={() => handleSave(true)} />
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => { setLookAlike(null); setDialogOpen(false); }}>Cancel</Button>
