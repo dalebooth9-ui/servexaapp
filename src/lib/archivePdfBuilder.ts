@@ -224,10 +224,15 @@ export async function generateAndUploadArchivePdf(
     Array.isArray(template.fields) ? template.fields : [],
   );
 
-  if (documentDate && !responsesWithDate.date) {
+  if (documentDate) {
     // format as dd/mm/yyyy for the header renderer's fallback picker
     const m = documentDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
     responsesWithDate.date = m ? `${m[3]}/${m[2]}/${m[1]}` : documentDate;
+    responsesWithDate._paper_completion_at = `${documentDate.slice(0, 10)}T12:00:00Z`;
+    for (const field of template.fields || []) {
+      if (/^(date|inspection date|service date|visit date|test date|date of test|completion date|commissioning date)$/i.test(String(field.label || "").trim())) responsesWithDate[field.id] = responsesWithDate.date;
+    }
+    if (responsesWithDate._customer_sign_date) responsesWithDate._customer_sign_date = responsesWithDate.date;
   }
   // Seed the technician name into the response payload so the job PDF
   // generator's tech-name resolution picks it up even when the template

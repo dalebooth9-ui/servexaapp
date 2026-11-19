@@ -76,7 +76,6 @@ import ZoomPane from "@/components/ZoomPane";
 import ArchiveSummarySection from "@/components/archive/ArchiveSummarySection";
 import JSZip from "jszip";
 import { paperReportFilename, uniquePaperFilename, savePaperBlob } from "@/lib/paperReportDownload";
-import { refreshPaperReportPdfs } from "@/lib/updatePaperReportDate";
 
 
 type EmailSend = {
@@ -541,12 +540,6 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
       let single: { blob: Blob; name: string } | null = null;
       for (const d of items) {
         let paths = d.report_pdf_paths?.length ? d.report_pdf_paths : d.report_pdf_path ? [d.report_pdf_path] : [];
-        if (d.kind === "job" && d.job_id) {
-          await refreshPaperReportPdfs(d.job_id);
-          const { data, error } = await supabase.from("job_documents").select("file_url").eq("job_id", d.job_id).eq("document_type", "report");
-          if (error) throw error;
-          paths = (data || []).map(r => submissionsPathFromSignedUrl(r.file_url)).filter((p): p is string => Boolean(p));
-        }
         const { urls, failed } = await resolveSubmissionsSignedUrls(paths);
         if (failed.length || urls.length !== paths.length || !urls.length) throw new Error("A converted PDF could not be loaded. Please try again.");
         const signedUrls = urls.map(u => u.signedUrl);
