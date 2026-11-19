@@ -17,3 +17,4 @@
 - Converted scan downloads share paperReportFilename and prepare authenticated PDF/ZIP blobs before the save click — why: sheet dates and identities stay consistent and iOS retains user activation.
 - Paper review stores confirmed proposals in _paper_review_defects; the insert trigger creates job/site/asset defects under an office check and asset-scoped lock — why: unticks are respected and concurrent filings cannot duplicate open defects.
 - ScanPreviousReport reuses reportComparison with strict earlier, filed site/asset matching and opens PDFs inline — why: late paper reviews must compare the correct riser without navigation or guessed archive matches.
+- Sticker dialogs use per-open printLogo overrides and per-label printed timestamps for pack defaults; unknown counts leave first-report numbers blank — why: inlet printing must not invent outlets or repeat printed labels.

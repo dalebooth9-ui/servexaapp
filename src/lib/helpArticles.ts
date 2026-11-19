@@ -31,6 +31,8 @@ const RULES: SlugRule[] = [
   // the job type — Pressure: BS 9990:2015 at 12 bar for 15 minutes; Visual: BS 9990:2015
   // visual inspection with no pressure/bar/minutes wording.
   { test: (p) => p === '/printed-paperwork', slug: 'printed-paperwork' },
+  // Sticker dialogs offer per-print Leave logo off; unknown outlets never block inlets.
+  // Pack defaults tick only unprinted labels and show inlet/outlet printed status.
   // Job guide includes Print reports beside Print sticker pack for per-riser engineer sheets,
   // both also in the top button row on riser jobs; saved Risers on this job selections,
   // exact duplicate warnings and confirmed Merge jobs archival are in jobs.detail.

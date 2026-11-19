@@ -12,6 +12,7 @@ import { buildStickerPackPdf, loadOffsets, saveOffsets, LABEL_STATUS_LABEL, type
 import { resolveStickerBranding, missingStickerLogoNote, type StickerLogoChoice } from "@/lib/stickerBranding";
 import { Link } from "react-router-dom";
 import {loadJobRisers} from '@/lib/jobRisers';
+import { printLogo, unprintedStickerKeys, outletCountUnknown } from '@/lib/stickerPrintOptions';
 
 const inletKey = (id: string) => `i:${id}`;
 const outletKey = (id: string, n: number) => `o:${id}:${n}`;
@@ -27,6 +28,8 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
   const [risers, setRisers] = useState<SiteRiser[] | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [outletTags, setOutletTags] = useState<Record<string, string>>({});
+  const [printed, setPrinted] = useState<Record<string, string | null>>({});
+  const [leaveLogoOff, setLeaveLogoOff] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [lastPrinted, setLastPrinted] = useState<string | null>(null);
   const [offsets, setOffsets] = useState<StickerOffsets>(loadOffsets());
@@ -43,17 +46,20 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
     if (!siteId) { setRisers([]); return Promise.resolve(); }
     return fetchSiteRisers(siteId).then(async (list) => {
       const tags: Record<string, string> = {};
+      const printedDates: Record<string, string | null> = {};
+      list.forEach(r => { printedDates[inletKey(r.id)] = r.label_printed_at || (r.label_status === "placed" || r.label_status === "printed" ? r.label_status : null); });
       for (let from = 0; from < list.length; from += 100) {
         const { data, error } = await supabase.rpc('ensure_riser_outlet_tags', { _asset_ids: list.slice(from, from + 100).map(r => r.id) });
         if (error) throw error;
-        (data || []).forEach(t => { tags[outletKey(t.asset_id, t.outlet_number)] = t.outlet_tag; });
+        (data || []).forEach(t => { tags[outletKey(t.asset_id, t.outlet_number)] = t.outlet_tag; printedDates[outletKey(t.asset_id, t.outlet_number)] = t.label_printed_at; });
       }
       setOutletTags(tags);
+      setPrinted(printedDates);
       setRisers(list); noteLast(list);
-      if (resetPick) {const membership=jobId?await loadJobRisers(jobId):null;setPicked(new Set(allKeys(membership?list.filter(r=>membership.some(m=>m.asset_id===r.id&&m.selected)):list,tags)));}
+      if (resetPick) {const membership=jobId?await loadJobRisers(jobId):null;setPicked(unprintedStickerKeys(allKeys(membership?list.filter(r=>membership.some(m=>m.asset_id===r.id&&m.selected)):list,tags).map(key => ({ key, printedAt: printedDates[key] }))));}
     }).catch(() => { setRisers([]); toast.error("Couldn't load risers"); });
   };
-  useEffect(() => { if (open) load(true); }, [open, siteId]);
+  useEffect(() => { if (open) { setLeaveLogoOff(false); load(true); } }, [open, siteId]);
   useEffect(() => { if (siteId) fetchSiteRisers(siteId).then(noteLast).catch(() => {}); }, [siteId]);
 
   const selected = useMemo(
@@ -99,7 +105,7 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
       }
       const doc = await buildStickerPackPdf({
         items,
-        logoUrl: test ? null : await resolveLogo(),
+        logoUrl: test || leaveLogoOff ? null : printLogo(leaveLogoOff, await resolveLogo()),
         offsets,
         testPage: test,
         startPosition,
@@ -110,7 +116,7 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
         const { error } = selected.length ? await supabase.rpc("mark_assets_label_printed", { _asset_ids: selected.map((r) => r.id) }) : { error: null };
         const { error: e2 } = outletIds.length ? await supabase.rpc("mark_outlet_labels_printed", { _ids: outletIds }) : { error: null };
         if (error || e2) toast.error("PDF made, but sticker status couldn't be saved as printed");
-        else { toast.success(`${items.length} sticker(s) ready to print`); load(); }
+        else { toast.success(`${items.length} sticker(s) ready to print`); load(true); }
       }
     } catch (e: any) {
       toast.error(e?.message || "Couldn't make the sticker PDF");
@@ -147,7 +153,7 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
         <DialogHeader>
           <DialogTitle>Riser sticker pack</DialogTitle>
           <DialogDescription>Avery L4778 sheets (45.7 × 21.2 mm, 48 per A4). One inlet sticker per riser plus one per outlet (landing valve), dry and wet risers at {siteName || "this site"}.</DialogDescription>
-          {branding?.choice.kind === "missing" && <p role="alert" className="text-sm rounded border border-destructive/40 bg-destructive/10 p-2">{missingStickerLogoNote(branding.choice.customerName)}{" "}{branding.choice.customerId && <Link className="underline font-medium" to={`/customers/${branding.choice.customerId}`}>Upload a logo</Link>}</p>}
+          {branding?.choice.kind === "missing" && !leaveLogoOff && <p role="alert" className="text-sm rounded border border-destructive/40 bg-destructive/10 p-2">{missingStickerLogoNote(branding.choice.customerName)}{" "}{branding.choice.customerId && <Link className="underline font-medium" to={`/customers/${branding.choice.customerId}`}>Upload a logo</Link>}</p>}
         </DialogHeader>
 
         {!siteId ? <p className="text-sm text-muted-foreground">This job has no site, so there are no risers to print stickers for.</p> : risers === null ? <p className="text-sm text-muted-foreground">Loading…</p> : risers.length === 0 ? (
@@ -165,6 +171,7 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
           </div>
         ) : (
           <div className="space-y-3">
+            <label className="flex items-center gap-2 text-sm"><Checkbox checked={leaveLogoOff} onCheckedChange={v => setLeaveLogoOff(v === true)} />Leave logo off</label>
             <div className="flex items-center gap-2">
               <Button type="button" variant="ghost" size="sm" onClick={() => setPicked(new Set(allKeys(risers,outletTags)))}>Select all</Button>
               <Button type="button" variant="ghost" size="sm" onClick={() => setKeys(risers.flatMap((r) => outletNums(r,outletTags).map((n) => outletKey(r.id, n))), true)}>Select all outlets</Button>
@@ -181,22 +188,23 @@ export default function StickerPackDialog({ siteId, siteName, customerLogoUrl, t
                     <div className="flex items-center gap-3 px-3 py-1.5 text-sm">
                       <Checkbox checked={onCount === 0 ? false : onCount === keys.length ? true : "indeterminate"} disabled={!keys.length}
                         onCheckedChange={(v) => setKeys(keys, !!v)} aria-label={`Whole riser ${r.riser_location || ""}`} />
-                      <Button type="button" variant="ghost" className="flex-1 min-w-0 truncate text-left justify-start h-auto px-0" onClick={() => setExpanded((p) => { const n = new Set(p); open ? n.delete(r.id) : n.add(r.id); return n; })}>
+                      <Button type="button" variant="ghost" className="flex-1 min-w-0 flex-wrap gap-1 text-left justify-start h-auto px-0" onClick={() => setExpanded((p) => { const n = new Set(p); open ? n.delete(r.id) : n.add(r.id); return n; })}>
                         {r.riser_location || "Unnamed riser"} <span className="text-xs text-muted-foreground">({1 + nums.length} sticker{nums.length ? "s" : ""}{nums.length ? ` · ${open ? "hide" : "choose"}` : ""})</span>
                       </Button>
                       <span className="font-mono font-bold">{r.asset_tag}</span>
                       <span className="text-xs text-muted-foreground w-14 text-right">{LABEL_STATUS_LABEL[r.label_status] || r.label_status}</span>
                     </div>
+                    <p className="px-3 pb-1 text-xs text-muted-foreground">Inlet: {printed[inletKey(r.id)] ? "Printed" : "Not printed"}{outletCountUnknown(r.outlets_count) ? " · outlets not counted yet" : ` · Outlets: ${nums.filter(n => printed[outletKey(r.id, n)]).length} of ${nums.length} printed`}</p>
                     {open && (
                       <div className="pl-10 pb-1.5 space-y-1">
                         <label className="flex items-center gap-3 text-sm cursor-pointer">
                           <Checkbox checked={picked.has(inletKey(r.id))} disabled={!r.asset_tag} onCheckedChange={(v) => setKeys([inletKey(r.id)], !!v)} />
-                          <span className="flex-1">Inlet</span><span className="font-mono">{r.asset_tag}</span>
+                          <span className="flex-1">Inlet <span className="text-xs text-muted-foreground">{printed[inletKey(r.id)] ? "Printed" : "Not printed"}</span></span><span className="font-mono">{r.asset_tag}</span>
                         </label>
                         {nums.map((n) => (
                           <label key={n} className="flex items-center gap-3 text-sm cursor-pointer">
                             <Checkbox checked={picked.has(outletKey(r.id, n))} onCheckedChange={(v) => setKeys([outletKey(r.id, n)], !!v)} />
-                            <span className="flex-1">Outlet {n}</span>
+                            <span className="flex-1">Outlet {n} <span className="text-xs text-muted-foreground">{printed[outletKey(r.id, n)] ? "Printed" : "Not printed"}</span></span>
                             <span className="font-mono text-muted-foreground">{outletTags[outletKey(r.id, n)]}</span>
                           </label>
                         ))}

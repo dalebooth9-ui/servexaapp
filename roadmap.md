@@ -1,5 +1,10 @@
 # Roadmap
 
+## Sticker options and unknown outlet counts
+- [x] Per-print Leave logo off in both sticker dialogs; default branding unchanged.
+- [x] Inlet-only printing before counting; printed-label defaults/statuses; first-report unknown counts left blank and existing report/office count synchronisation retained.
+- [x] Help and 22 focused tests passed. Office downloaded logo-free PDFs, printed a temporary uncounted inlet, saved two outlets and read back CODE-1/CODE-2 with inlet printed/outlets unprinted. Desktop/phone checked; temporary riser removed. Actual engineer report submission and physical label printing not exercised.
+
 ## Paper review defects and previous report
 - [x] Editable default-on defect proposals, job/site/asset links and server-side open-defect deduplication. Authenticated temporary report inserts produced one linked defect across two filings, preserving the edited description.
 - [x] Last report side-by-side with existing comparison checks, Help updates and authenticated verification. Review showed 12 Jul 2025 and three differences with both PDFs visible; no-previous state checked. Temporary verification records removed.
