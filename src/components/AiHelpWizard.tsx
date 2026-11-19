@@ -22,6 +22,8 @@ type Message = {
 
 // Map route patterns to human-readable names for context
 function describeCurrentPage(pathname: string): string {
+  if (pathname === "/money") return `Money — ${resolveHelpSlug(pathname) ?? "quotes"}`;
+  if (pathname === "/compliance") return `Compliance — ${resolveHelpSlug(pathname) ?? "compliance"}`;
   if (pathname === "/") return "Dashboard (/)";
   if (pathname === "/jobs") return "Jobs list (/jobs)";
   if (pathname.startsWith("/jobs/")) return `Job detail page (${pathname})`;
@@ -45,6 +47,7 @@ function describeCurrentPage(pathname: string): string {
 }
 
 function getPageLabel(pathname: string): string {
+  if (pathname === "/money" || pathname === "/compliance") return resolveHelpSlug(pathname)?.replace("defects.review", "Defects review") ?? pathname.slice(1);
   if (pathname === "/") return "Dashboard";
   if (pathname === "/jobs") return "Jobs";
   if (pathname.startsWith("/jobs/")) return "Job Detail";
@@ -69,6 +72,9 @@ function getPageLabel(pathname: string): string {
 
 // Page-specific suggested questions
 function getPageSuggestions(pathname: string): string[] {
+  if (pathname === "/money") return ["How do I create a quote or invoice?", "Where are agreements, contracts and renewals?", "How do I sync invoices with Xero?"];
+  if (pathname === "/compliance" && resolveHelpSlug(pathname) === "audits") return getPageSuggestions("/audits");
+  if (pathname === "/compliance" && resolveHelpSlug(pathname) === "defects.review") return ["How do I review defects?", "How do I raise a quote from defects?"];
   if (pathname === "/") return [
     "What's shown on the dashboard?",
     "How do I see today's jobs?",
@@ -357,7 +363,7 @@ export default function AiHelpWizard() {
     setLoading(true);
     setMessages([{ role: "assistant", content: "" }]);
 
-    callWizard([{ role: "user", content: contextPrompt }], currentPage, resolveHelpSlug(location.pathname))
+    callWizard([{ role: "user", content: contextPrompt }], currentPage, resolveHelpSlug(location.pathname + location.search))
       .then(({ message, quick_actions }) => {
         const newMessages: Message[] = [{ role: "assistant", content: message, quick_actions }];
         setMessages(newMessages);
@@ -402,7 +408,7 @@ export default function AiHelpWizard() {
       if (classifyAssistantQuestion(text) === "data") {
         const res = await callDataAssistant(history, currentPage);
         if (res.route === "help" || !res.message) {
-          const fallback = await callWizard(history, currentPage, resolveHelpSlug(location.pathname));
+          const fallback = await callWizard(history, currentPage, resolveHelpSlug(location.pathname + location.search));
           message = fallback.message;
           quick_actions = fallback.quick_actions || [];
         } else {
@@ -411,11 +417,11 @@ export default function AiHelpWizard() {
           receipts = res.receipts || [];
         }
       } else {
-        const res = await callWizard(history, currentPage, resolveHelpSlug(location.pathname));
+        const res = await callWizard(history, currentPage, resolveHelpSlug(location.pathname + location.search));
         message = res.message;
         quick_actions = res.quick_actions || [];
         // Always offer the full step-by-step guide alongside the quick answer.
-        const guideSlug = resolveHelpSlug(location.pathname);
+        const guideSlug = resolveHelpSlug(location.pathname + location.search);
         if (!quick_actions.some((a) => a.url.startsWith("/help"))) {
           quick_actions = [
             ...quick_actions,
@@ -443,7 +449,7 @@ export default function AiHelpWizard() {
     } finally {
       setLoading(false);
     }
-  }, [loading, messages, location.pathname, debouncedSave]);
+  }, [loading, messages, location.pathname, location.search, debouncedSave]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {

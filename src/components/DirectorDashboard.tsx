@@ -518,7 +518,7 @@ export default function DirectorDashboard() {
               <CardTitle className="text-base flex items-center gap-2">
                 <PoundSterling className="h-4 w-4 text-primary" /> Revenue
               </CardTitle>
-              <Link to="/invoices" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+              <Link to="/money?tab=invoices" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
                 View <ArrowRight className="h-3 w-3" />
               </Link>
             </CardHeader>

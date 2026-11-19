@@ -186,7 +186,7 @@ export default function ContractAgreementDetail() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <Link to="/agreements" className="text-sm text-muted-foreground hover:underline inline-flex items-center gap-1">
+          <Link to="/money?tab=agreements" className="text-sm text-muted-foreground hover:underline inline-flex items-center gap-1">
             <ArrowLeft className="h-3.5 w-3.5" /> All agreements
           </Link>
           <h1 className="text-2xl font-bold">{row.title}</h1>

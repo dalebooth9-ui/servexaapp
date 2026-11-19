@@ -103,19 +103,19 @@ export default function Invoices() {
   if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading...</div>;
 
   const qs = new URLSearchParams(window.location.search);
-  if (qs.get("tab") === "quote" || qs.get("tab") === "quotes" || qs.get("type") === "quote") return <Navigate to="/quotes" replace />;
+  if (qs.get("tab") === "quote" || qs.get("tab") === "quotes" || qs.get("type") === "quote") return <Navigate to="/money?tab=quotes" replace />;
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Invoices</h1>
-          <p className="text-sm text-muted-foreground">Invoices for jobs. Quotes have their own page: <Link to="/quotes" className="text-primary underline">Quotes</Link>.</p>
+          <p className="text-sm text-muted-foreground">Invoices for jobs. Quotes are under Money: <Link to="/money?tab=quotes" className="text-primary underline">Quotes</Link>.</p>
         </div>
         {userRole === "admin" && (
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" className="gap-1.5" asChild>
-              <Link to="/quotes"><ClipboardList className="h-4 w-4" /> Quotes</Link>
+              <Link to="/money?tab=quotes"><ClipboardList className="h-4 w-4" /> Quotes</Link>
             </Button>
             <CreateInvoiceDialog
               trigger={

@@ -46,7 +46,7 @@ export default function RenewalPipelineCard() {
         <CardTitle className="text-base flex items-center gap-2">
           <Repeat className="h-4 w-4 text-primary" /> Renewal autopilot
         </CardTitle>
-        <Link to="/contracts" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+        <Link to="/money?tab=contracts" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
           Contracts <ArrowRight className="h-3 w-3" />
         </Link>
       </CardHeader>
@@ -87,7 +87,7 @@ export default function RenewalPipelineCard() {
               })}
             </ul>
             <Button asChild variant="outline" size="sm" className="w-full">
-              <Link to="/contracts">Review renewals</Link>
+              <Link to="/money?tab=contracts">Review renewals</Link>
             </Button>
           </>
         )}

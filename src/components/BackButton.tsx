@@ -1,6 +1,7 @@
 import { ChevronLeft } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { groupedPageUrl } from "@/lib/groupedPages";
 
 /**
  * Global registry of "unsaved change" guards. Any page that has state which
@@ -36,6 +37,8 @@ function checkGuards(): boolean {
 const ROOT_ROUTES = new Set<string>([
   "/",
   "/app",
+  "/money",
+  "/agreements",
   "/dashboard",
   "/jobs",
   "/customers",
@@ -96,12 +99,12 @@ const PARENT_OVERRIDES: Array<[RegExp, string]> = [
 
 function resolveFallback(pathname: string): string {
   for (const [pattern, parent] of PARENT_OVERRIDES) {
-    if (pattern.test(pathname)) return parent;
+    if (pattern.test(pathname)) return groupedPageUrl(parent);
   }
   const trimmed = pathname.replace(/\/+$/, "");
   const cut = trimmed.lastIndexOf("/");
   if (cut <= 0) return "/";
-  return trimmed.slice(0, cut) || "/";
+  return groupedPageUrl(trimmed.slice(0, cut) || "/");
 }
 
 export function shouldShowBack(pathname: string): boolean {

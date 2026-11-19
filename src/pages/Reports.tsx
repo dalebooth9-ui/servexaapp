@@ -204,13 +204,13 @@ export default function Reports() {
     const pct = (cur: number, prev: number) => prev === 0 ? null : Math.round(((cur - prev) / prev) * 100);
 
     setKpis([
-      { label: "Revenue (Paid)", value: `£${revenue.toLocaleString()}`, prev: `£${prevRevenue.toLocaleString()}`, delta: pct(revenue, prevRevenue), icon: PoundSterling, color: "text-emerald-500", link: "/invoices" },
+      { label: "Revenue (Paid)", value: `£${revenue.toLocaleString()}`, prev: `£${prevRevenue.toLocaleString()}`, delta: pct(revenue, prevRevenue), icon: PoundSterling, color: "text-emerald-500", link: "/money?tab=invoices" },
       { label: "Jobs Created", value: jobCount, prev: prevJobCount, delta: pct(jobCount, prevJobCount), icon: Briefcase, color: "text-primary", link: "/jobs" },
       { label: "Jobs Completed", value: completedCount, prev: prevCompletedCount, delta: pct(completedCount, prevCompletedCount), icon: CheckCircle2, color: "text-green-500" },
       { label: "Completion Rate", value: `${completedOfCreated} of ${jobCount} (${completionRate}%)`, delta: null, icon: Target, color: "text-blue-500" },
       { label: "Active Engineers", value: activeEngineers, delta: null, icon: Users, color: "text-violet-500", link: "/engineers" },
-      { label: "Invoices Raised", value: invoiceCount, delta: null, icon: Activity, color: "text-amber-500", link: "/invoices" },
-      { label: "Outstanding", value: `£${outstanding.toLocaleString()}`, delta: null, icon: AlertTriangle, color: "text-destructive", link: "/invoices" },
+      { label: "Invoices Raised", value: invoiceCount, delta: null, icon: Activity, color: "text-amber-500", link: "/money?tab=invoices" },
+      { label: "Outstanding", value: `£${outstanding.toLocaleString()}`, delta: null, icon: AlertTriangle, color: "text-destructive", link: "/money?tab=invoices" },
       { label: "Hours Logged", value: Math.round(clocks.reduce((s, c) => s + (c.total_minutes || 0), 0) / 60), delta: null, icon: Clock, color: "text-cyan-500" },
     ]);
 

@@ -75,15 +75,9 @@ const NAV_GROUPS: NavGroupDef[] = [
       { to: '/due-visits', label: 'Due visits', icon: CalendarDays, adminOnly: true, section: "Customers & sales" },
       { to: "/assets/review", label: "Asset review", icon: Package, adminOnly: true, section: "Customers & sales" },
       { to: "/site-surveys", label: "Site Surveys", icon: ClipboardList, section: "Customers & sales" },
-      { to: "/quotes", label: "Quotes", icon: ClipboardList, adminOnly: true, section: "Customers & sales" },
-      { to: "/invoices", label: "Invoices", icon: FileText, adminOnly: true, section: "Customers & sales" },
-      { to: "/agreements", label: "Agreements", icon: FileText, adminOnly: true, section: "Customers & sales" },
-      { to: "/contracts", label: "Contracts", icon: FileText, adminOnly: true, section: "Customers & sales" },
-      { to: "/renewals", label: "Renewals", icon: CalendarDays, adminOnly: true, section: "Customers & sales" },
-      { to: "/defects/review", label: "Defects Review", icon: ShieldAlert, adminOnly: true, section: "Compliance" },
+      { to: "/money", label: "Money", icon: CreditCard, adminOnly: true, section: "Customers & sales" },
       { to: "/rams/start", label: "RAMS", icon: Shield, adminOnly: true, section: "Compliance" },
       { to: "/compliance", label: "Compliance", icon: Shield, adminOnly: true, section: "Compliance" },
-      { to: "/audits", label: "Audits", icon: ClipboardCheck, adminOnly: true, section: "Compliance" },
       { to: "/report-downloads", label: "Reports & certificates", icon: FileArchive, adminOnly: true, section: "Compliance" },
       { to: "/paper-scans", label: "Paper scans & archive", icon: ScanLine, adminOnly: true, section: "Compliance" },
       { to: "/engineers", label: "Engineers", icon: Users, adminOnly: true, section: "Team" },
@@ -360,6 +354,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
     to === "/admin/error-log" ? recentErrorCount : undefined;
 
   const isItemActive = (to: string) =>
+    (to === "/money" && /^\/(invoices|agreements|contracts)(\/|$)/.test(location.pathname)) ||
     location.pathname === to || (to !== "/" && location.pathname.startsWith(to));
 
   const visibleGroups = NAV_GROUPS

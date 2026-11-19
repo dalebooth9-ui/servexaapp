@@ -48,7 +48,7 @@ export default function RenewalsTile() {
           </div>
         </div>
         <Button asChild variant="outline" size="sm" className="w-full">
-          <Link to="/renewals">Open renewals</Link>
+          <Link to="/money?tab=renewals">Open renewals</Link>
         </Button>
       </CardContent>
     </Card>

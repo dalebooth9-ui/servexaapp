@@ -72,7 +72,7 @@ export default function OnboardingChecklist() {
       id: "invoice",
       label: "Create an invoice",
       description: "Turn completed jobs into invoices and track your revenue.",
-      href: "/invoices",
+      href: "/money?tab=invoices",
       check: async () => {
         const { count } = await supabase.from("invoices").select("id", { count: "exact", head: true });
         return (count ?? 0) > 0;

@@ -224,7 +224,7 @@ export function CustomerAtAGlance({ customerId, customerName }: { customerId: st
           sub: outstandingQuotes.length
             ? `Quotes out · £${quoteValue.toLocaleString("en-GB", { maximumFractionDigits: 0 })}`
             : "Quotes outstanding",
-          to: `/quotes?${q}`,
+          to: `/money?tab=quotes&${q}`,
           zero: outstandingQuotes.length === 0,
         },
         {
@@ -236,7 +236,7 @@ export function CustomerAtAGlance({ customerId, customerName }: { customerId: st
             soonestDays !== null
               ? `Agreements · renews in ${soonestDays}d`
               : "Active agreements",
-          to: `/agreements?${q}`,
+          to: `/money?tab=agreements&${q}`,
           tone: soonestDays !== null && soonestDays <= 60 ? "warning" : "default",
           zero: activeAgreements.length === 0,
         },
@@ -246,7 +246,7 @@ export function CustomerAtAGlance({ customerId, customerName }: { customerId: st
           label: "Renewals (90d)",
           value: `${renewalCount || 0}`,
           sub: "Renewals next 90 days",
-          to: `/renewals?${q}`,
+          to: `/money?tab=renewals&${q}`,
           zero: !renewalCount,
         },
         {

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
+import LegacyGroupedPageRedirect from "@/components/LegacyGroupedPageRedirect";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import PWAPrompts from "@/components/PWAPrompts";
 import ConflictResolutionDialog from "@/components/ConflictResolutionDialog";
@@ -37,14 +38,10 @@ const Assets = lazy(() => import("@/pages/Assets"));
 const AssetDetail = lazy(() => import("@/pages/AssetDetail"));
 const AssetReview = lazy(() => import("@/pages/AssetReview"));
 const AssetDuplicates = lazy(() => import('@/pages/AssetDuplicates'));
-const Compliance = lazy(() => import("@/pages/Compliance"));
-const Audits = lazy(() => import("@/pages/Audits"));
-const Invoices = lazy(() => import("@/pages/Invoices"));
+const ComplianceHub = lazy(() => import("@/pages/ComplianceHub"));
+const Money = lazy(() => import("@/pages/Money"));
 const InvoiceDetail = lazy(() => import("@/pages/InvoiceDetail"));
-const Quotes = lazy(() => import("@/pages/Quotes"));
 const ReportsToCheck = lazy(() => import("@/pages/ReportsToCheck"));
-const ServiceContracts = lazy(() => import("@/pages/ServiceContracts"));
-const ContractAgreements = lazy(() => import("@/pages/ContractAgreements"));
 const ContractAgreementDetail = lazy(() => import("@/pages/ContractAgreementDetail"));
 const ContractTemplates = lazy(() => import("@/pages/ContractTemplates"));
 const ServiceContractDetail = lazy(() => import("@/pages/ServiceContractDetail"));
@@ -82,13 +79,11 @@ const SiteVisitReportEditor = lazy(() => import("@/pages/SiteVisitReportEditor")
 const GenericRamsPage = lazy(() => import("@/pages/GenericRamsPage"));
 const NewRamsPage = lazy(() => import("@/pages/NewRamsPage"));
 const RamsLibrary = lazy(() => import("@/pages/RamsLibrary"));
-const Renewals = lazy(() => import("@/pages/Renewals"));
 const DueVisits = lazy(() => import('@/pages/DueVisits'));
 const RamsDetail = lazy(() => import("@/pages/RamsDetail"));
 const Offline = lazy(() => import("@/pages/Offline"));
 const LeaveCalendar = lazy(() => import("@/pages/LeaveCalendar"));
 const Defects = lazy(() => import("@/pages/Defects"));
-const DefectsReview = lazy(() => import("@/pages/DefectsReview"));
 const QuoteApproval = lazy(() => import("@/pages/QuoteApproval"));
 const FireLog = lazy(() => import("@/pages/FireLog"));
 const PublicGallery = lazy(() => import("@/pages/PublicGallery"));
@@ -249,20 +244,21 @@ const App = () => (
               <Route path="/rams/start" element={<AccessRoute pageSlug="jobs"><NewRamsPage /></AccessRoute>} />
               <Route path="/rams/view/:id" element={<AccessRoute pageSlug="jobs"><RamsDetail /></AccessRoute>} />
               <Route path="/settings/rams-library" element={<AdminRoute><RamsLibrary /></AdminRoute>} />
-              <Route path="/renewals" element={<AdminRoute><Suspense fallback={<PageFallback />}><Renewals /></Suspense></AdminRoute>} />
+              <Route path="/renewals" element={<LegacyGroupedPageRedirect />} />
               <Route path="/due-visits" element={<AdminRoute><Suspense fallback={<PageFallback />}><DueVisits /></Suspense></AdminRoute>} />
               <Route path="/planner" element={<AccessRoute pageSlug="planner"><WeeklyPlanner /></AccessRoute>} />
               <Route path="/leave" element={<AccessRoute pageSlug="leave"><LeaveCalendar /></AccessRoute>} />
               <Route path="/customers" element={<AccessRoute pageSlug="customers"><Customers /></AccessRoute>} />
               <Route path="/customers/duplicates" element={<AdminRoute><Suspense fallback={<PageFallback />}><CustomerDuplicates /></Suspense></AdminRoute>} />
               <Route path="/customers/:id" element={<AccessRoute pageSlug="customers"><CustomerDetail /></AccessRoute>} />
-              <Route path="/quotes" element={<AdminRoute><Quotes /></AdminRoute>} />
+              <Route path="/money" element={<AdminRoute><Money /></AdminRoute>} />
+              <Route path="/quotes" element={<LegacyGroupedPageRedirect />} />
               <Route path="/reports-to-check" element={<AdminRoute><Suspense fallback={<PageFallback />}><ReportsToCheck /></Suspense></AdminRoute>} />
-              <Route path="/invoices" element={<AdminRoute><Invoices /></AdminRoute>} />
+              <Route path="/invoices" element={<LegacyGroupedPageRedirect />} />
               <Route path="/invoices/:id" element={<AdminRoute><InvoiceDetail /></AdminRoute>} />
-              <Route path="/contracts" element={<AdminRoute><Suspense fallback={<PageFallback />}><ServiceContracts /></Suspense></AdminRoute>} />
+              <Route path="/contracts" element={<LegacyGroupedPageRedirect />} />
               <Route path="/contracts/:id" element={<AdminRoute><Suspense fallback={<PageFallback />}><ServiceContractDetail /></Suspense></AdminRoute>} />
-              <Route path="/agreements" element={<AdminRoute><Suspense fallback={<PageFallback />}><ContractAgreements /></Suspense></AdminRoute>} />
+              <Route path="/agreements" element={<LegacyGroupedPageRedirect />} />
               <Route path="/agreements/templates" element={<AdminRoute><Suspense fallback={<PageFallback />}><ContractTemplates /></Suspense></AdminRoute>} />
               <Route path="/agreements/:id" element={<AdminRoute><Suspense fallback={<PageFallback />}><ContractAgreementDetail /></Suspense></AdminRoute>} />
               <Route path="/sites" element={<AccessRoute pageSlug="sites"><Sites /></AccessRoute>} />
@@ -276,10 +272,10 @@ const App = () => (
               <Route path="/stock" element={<ProtectedRoute><VanStock /></ProtectedRoute>} />
               <Route path="/industry-templates" element={<AdminRoute><IndustryTemplates /></AdminRoute>} />
               <Route path="/templates" element={<Navigate to="/industry-templates" replace />} />
-              <Route path="/compliance" element={<AccessRoute pageSlug="compliance"><Compliance /></AccessRoute>} />
-              <Route path="/audits" element={<AccessRoute pageSlug="audits"><Audits /></AccessRoute>} />
+              <Route path="/compliance" element={<ProtectedRoute><ComplianceHub /></ProtectedRoute>} />
+              <Route path="/audits" element={<LegacyGroupedPageRedirect />} />
               <Route path="/defects" element={<AdminRoute><Defects /></AdminRoute>} />
-              <Route path="/defects/review" element={<AdminRoute><DefectsReview /></AdminRoute>} />
+              <Route path="/defects/review" element={<LegacyGroupedPageRedirect />} />
               <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
               <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
               <Route path="/billing" element={<AdminRoute><BillingPage /></AdminRoute>} />

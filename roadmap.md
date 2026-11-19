@@ -292,3 +292,8 @@
 - [ ] Automatic reading of not-yet-read archive files on submit — only archive items already read are used.
 - [x] Typed PDFs/Word files in archive uploads are read from their typed text, not the handwriting reader; originals kept unchanged.
 - [ ] Help guide entry — database refused the write (read-only).
+
+## Money and Compliance navigation
+- [x] Existing screens grouped under Money and Compliance tabs; permissions and document/report addresses unchanged.
+- [x] Legacy list redirects preserve filters and anchors; dashboard, return, cross-tab and assistant links updated; all nine Help guides updated.
+- [x] Office browser check passed all eight destinations and five Money tab switches; desktop/phone screenshots reviewed, no runtime errors. Engineer account was refused Money as expected. 27 focused tests passed; two unrelated pre-existing engineer-sidebar test expectations disagree with the unchanged allow-list and remain untouched.

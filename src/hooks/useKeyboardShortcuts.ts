@@ -34,7 +34,7 @@ const GOTO_MAP: Record<string, string> = {
   p: "/planner",
   c: "/customers",
   e: "/engineers",
-  i: "/invoices",
+  i: "/money?tab=invoices",
   r: "/reports",
   s: "/settings",
 };

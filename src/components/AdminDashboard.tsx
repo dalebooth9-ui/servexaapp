@@ -366,7 +366,7 @@ export default function AdminDashboard() {
           <Button onClick={() => navigate("/customers")} variant="outline">
             <Building2 className="mr-2 h-4 w-4" /> New Customer
           </Button>
-          <Button onClick={() => navigate("/quotes")} variant="outline">
+          <Button onClick={() => navigate("/money?tab=quotes")} variant="outline">
             <ClipboardList className="mr-2 h-4 w-4" /> New Quote
           </Button>
           <Button onClick={() => setFolderImportOpen(true)} variant="outline">

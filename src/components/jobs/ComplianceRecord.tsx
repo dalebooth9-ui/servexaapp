@@ -244,12 +244,12 @@ export default function ComplianceRecord({ jobId }: { jobId: string }) {
           ) : (
             <>
               {links.quotes.map((q: any) => (
-                <Link key={q.id} to="/quotes" className="rounded border px-2 py-1 text-xs hover:border-primary/60">
+                <Link key={q.id} to="/money?tab=quotes" className="rounded border px-2 py-1 text-xs hover:border-primary/60">
                   Quote {q.invoice_number} · {q.status}
                 </Link>
               ))}
               {links.invoices.map((v: any) => (
-                <Link key={v.id} to="/invoices" className="rounded border px-2 py-1 text-xs hover:border-primary/60">
+                <Link key={v.id} to="/money?tab=invoices" className="rounded border px-2 py-1 text-xs hover:border-primary/60">
                   Invoice {v.invoice_number} · {v.status}
                 </Link>
               ))}

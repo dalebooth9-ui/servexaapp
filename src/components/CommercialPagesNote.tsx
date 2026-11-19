@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
 
 const PAGES = {
-  agreements: { to: "/agreements", label: "Agreements", text: "Agreements are the signed documents you send a customer for signature." },
-  contracts: { to: "/contracts", label: "Contracts", text: "Contracts record what you service for a customer, how often and at what price." },
-  renewals: { to: "/renewals", label: "Renewals", text: "Renewals track when each service is next due so you can book it in time." },
+  agreements: { to: "/money?tab=agreements", label: "Agreements", text: "Agreements are the signed documents you send a customer for signature." },
+  contracts: { to: "/money?tab=contracts", label: "Contracts", text: "Contracts record what you service for a customer, how often and at what price." },
+  renewals: { to: "/money?tab=renewals", label: "Renewals", text: "Renewals track when each service is next due so you can book it in time." },
 } as const;
 
 /** One-line explanation of how Agreements, Contracts and Renewals differ, with links to the other two. */

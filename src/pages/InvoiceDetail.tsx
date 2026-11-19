@@ -282,7 +282,7 @@ export default function InvoiceDetail() {
       const { error } = await supabase.from("invoices").delete().eq("id", id);
       if (error) throw error;
       toast({ title: `${isQuote ? "Quote" : "Invoice"} deleted` });
-      navigate("/invoices");
+      navigate(isQuote ? "/money?tab=quotes" : "/money?tab=invoices");
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to delete.", variant: "destructive" });
     } finally {
@@ -650,7 +650,7 @@ export default function InvoiceDetail() {
         <BreadcrumbList>
           <BreadcrumbItem><BreadcrumbLink asChild><Link to="/">Dashboard</Link></BreadcrumbLink></BreadcrumbItem>
           <BreadcrumbSeparator />
-          <BreadcrumbItem><BreadcrumbLink asChild><Link to="/invoices">Invoices & Quotes</Link></BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbItem><BreadcrumbLink asChild><Link to={isQuote ? "/money?tab=quotes" : "/money?tab=invoices"}>{isQuote ? "Quotes" : "Invoices"}</Link></BreadcrumbLink></BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem><BreadcrumbPage>{invoice.invoice_number}</BreadcrumbPage></BreadcrumbItem>
         </BreadcrumbList>
@@ -796,7 +796,7 @@ export default function InvoiceDetail() {
                     const { error } = await supabase.from("invoices").delete().eq("id", invoice.id);
                     if (error) throw new Error(error.message);
                   }}
-                  onDeleted={() => navigate("/invoices")}
+                  onDeleted={() => navigate(isQuote ? "/money?tab=quotes" : "/money?tab=invoices")}
                 />
               )}
 

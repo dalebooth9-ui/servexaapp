@@ -135,6 +135,14 @@ const RULES: SlugRule[] = [
 ];
 
 export function resolveHelpSlug(pathname: string): string | null {
+  const url = new URL(pathname, "https://servexaapp.com");
+  const tab = url.searchParams.get("tab") ?? (typeof window !== "undefined" && window.location.pathname === url.pathname ? new URLSearchParams(window.location.search).get("tab") : null);
+  if (url.pathname === "/money") {
+    return tab && ["quotes", "invoices", "agreements", "contracts", "renewals"].includes(tab) ? tab : "quotes";
+  }
+  if (url.pathname === "/compliance") {
+    return tab === "audits" ? "audits" : tab === "defects-review" ? "defects.review" : "compliance";
+  }
   pathname = pathname.split(/[?#]/)[0];
   for (const rule of RULES) {
     if (rule.test(pathname)) return rule.slug;

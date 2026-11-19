@@ -1,3 +1,4 @@
+import { groupedPageUrl, LEGACY_PAGE_TABS } from "./groupedPages";
 export type AssistantDestination = { label: string; path: string; tab?: string; section?: string; aliases?: string[]; job?: boolean };
 const settings = (label:string,tab:string,section?:string,aliases?:string[]):AssistantDestination => ({label,path:'/settings',tab,section,aliases});
 export const ASSISTANT_DESTINATIONS: AssistantDestination[] = [
@@ -16,9 +17,13 @@ export const ASSISTANT_DESTINATIONS: AssistantDestination[] = [
   {label:'Print reports',path:'/jobs',job:true,tab:'documents'}, {label:'Print sticker pack',path:'/jobs',job:true,tab:'documents'},
   {label:'Print QR labels',path:'/assets',aliases:['Reprint QR labels']},
   {label:'Possible duplicates',path:'/assets/duplicates',aliases:['Merge duplicate assets','Asset duplicates']},
+  {label:'Money',path:'/money'}, {label:'Defects review',path:'/compliance',tab:'defects-review'},
   {label:'Paper Scans',path:'/paper-scans',tab:'upload',aliases:['Paper scans & archive']}, {label:'Review queue',path:'/paper-scans',tab:'review'}, {label:'History & archive',path:'/paper-scans',tab:'history'},
   ...[['Dashboard','/'],['Jobs','/jobs'],['Customers','/customers'],['Sites','/sites'],['Assets','/assets'],['Planner','/planner'],['Due visits','/due-visits'],['Renewals','/renewals'],['Quotes','/quotes'],['Invoices','/invoices'],['Settings','/settings'],['Engineers','/engineers'],['Reports','/reports'],['Defects','/defects'],['Audits','/audits'],['Compliance','/compliance'],['Contracts','/contracts'],['Agreements','/agreements'],['Help & guides','/help'],['Import Data','/settings/import'],['Import historic reports','/settings/import-historic-reports'],['RAMS Library','/settings/rams-library'],['Price Book','/settings/price-book'],['Extinguisher servicing rates','/settings/extinguisher-rates'],['Parts library','/parts-library'],['Templates','/industry-templates'],['Site surveys','/site-surveys'],['Reports to check','/reports-to-check'],['Fleet vehicles','/fleet'],['Leave','/leave'],['Sync status','/sync-status']].map(([label,path])=>({label,path})),
-];
+].map((destination) => {
+  const grouped = LEGACY_PAGE_TABS[destination.path];
+  return grouped ? { ...destination, path: grouped.path, tab: grouped.tab } : destination;
+});
 export const normaliseDestination = (s:string) => s.replace(/^go to\s+/i,'').replace(/[^a-z0-9]/gi,'').toLowerCase();
 export function findDestination(label:string) { const key=normaliseDestination(label); return ASSISTANT_DESTINATIONS.find(d=>[d.label,...(d.aliases||[])].some(name=>normaliseDestination(name)===key)); }
 export function destinationUrl(d:AssistantDestination,currentPath:string,suppliedPath?:string) {
@@ -28,13 +33,18 @@ export function destinationUrl(d:AssistantDestination,currentPath:string,supplie
   if(d.tab&&(!d.job||path!=='/jobs'))params.set('tab',d.tab);
   if(d.section)params.set('section',d.section);
   params.set('focus',d.job&&path==='/jobs'?'Jobs':d.label);
-  return `${path}?${params}`;
+  return groupedPageUrl(path, `?${params}`);
 }
 export function safeAssistantUrl(url:string) { return url.startsWith('/')&&!url.startsWith('//')&&!/[\\\u0000-\u001f]/.test(url); }
 export function resolveAssistantUrl(label:string,url:string,currentPath:string) {
   if(url==='#raise-support')return url;
   if(!safeAssistantUrl(url))return null;
   const parsed=new URL(url,'https://servexaapp.com');
+  const grouped = LEGACY_PAGE_TABS[parsed.pathname];
+  if (grouped) {
+    parsed.pathname = grouped.path;
+    parsed.searchParams.set('tab', grouped.tab);
+  }
   const d=findDestination(label);
   // Enrich generic page shortcuts, never replace a specific record or existing filter.
   if(d && (parsed.pathname===d.path || (d.job&&/^\/jobs\/[^/]+$/.test(parsed.pathname)))) {

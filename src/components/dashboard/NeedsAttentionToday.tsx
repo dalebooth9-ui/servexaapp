@@ -172,9 +172,9 @@ export default function NeedsAttentionToday() {
         { key: "defects", label: "Defects awaiting quote", value: n(defectsRes), help: "Open defects that have no quote yet.", to: "/defects?status=open&filter=unquoted", icon: ShieldAlert, tone: "warn" },
         { key: "high-defects", label: "High-priority defects not quoted", value: n(highDefectsRes), help: "Open high, critical or urgent defects that have no quote yet.", to: "/defects?status=open&filter=unquoted", icon: ShieldAlert, tone: "urgent" },
         { key: "overdue-remedials", label: "Jobs with overdue remedials", value: overdueRemedialJobs, help: "Jobs due today or earlier that still carry unfinished remedials from a previous visit.", to: "/defects?filter=unquoted&source=carried_forward", icon: History, tone: "urgent" },
-        { key: "quotes", label: "Quotes expiring", value: n(quotesRes), help: "Open quotes that expire within the next 7 days.", to: "/quotes", icon: Clock, tone: "warn" },
-        { key: "stale-quotes", label: "Quotes sent, no reply in 14 days", value: n(staleQuotesRes), help: "Quotes sent more than 14 days ago that are still waiting for an answer.", to: "/quotes", icon: Clock, tone: "warn" },
-        { key: "agreements", label: "Agreements expiring in 30 days", value: n(expiringAgreementsRes), help: "Signed agreements that end within the next 30 days.", to: "/agreements", icon: FileSignature, tone: "warn" },
+        { key: "quotes", label: "Quotes expiring", value: n(quotesRes), help: "Open quotes that expire within the next 7 days.", to: "/money?tab=quotes", icon: Clock, tone: "warn" },
+        { key: "stale-quotes", label: "Quotes sent, no reply in 14 days", value: n(staleQuotesRes), help: "Quotes sent more than 14 days ago that are still waiting for an answer.", to: "/money?tab=quotes", icon: Clock, tone: "warn" },
+        { key: "agreements", label: "Agreements expiring in 30 days", value: n(expiringAgreementsRes), help: "Signed agreements that end within the next 30 days.", to: "/money?tab=agreements", icon: FileSignature, tone: "warn" },
         { key: "invoice", label: `job${notInvoiced === 1 ? "" : "s"} finished, not yet invoiced`, value: notInvoiced, sub: invoiceSub, help: "Completed jobs that don't have an invoice yet; the value comes from each job's accepted quote.", to: "/jobs?view=ready-to-invoice", icon: PoundSterling, tone: "normal" },
         { key: "today", label: "Jobs scheduled today", value: scheduledToday, help: "Jobs with a visit booked on the planner for today.", to: "/planner", icon: CalendarDays, tone: "normal" },
       ]);
@@ -256,7 +256,7 @@ export default function NeedsAttentionToday() {
           <Link to="/defects?created=this-week" className="hover:text-foreground hover:underline">
             New defects found this week: {show(week.defects)} ({show(week.openDefects)} open in total)
           </Link>
-          <Link to="/invoices?status=unpaid" className="hover:text-foreground hover:underline">
+          <Link to="/money?tab=invoices&status=unpaid" className="hover:text-foreground hover:underline">
             Unpaid invoices: {show(week.unpaid)} ({week.unpaidValue == null ? "—" : week.unpaidValue.toLocaleString("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 })})
           </Link>
         </div>
