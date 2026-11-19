@@ -529,7 +529,9 @@ export async function buildCustomerReportDoc(jobId: string, job: any): Promise<{
       y = checkPage(30, y);
       const sigData: PdfSignatureData = {
         dateStr: new Date(
-          signatures[0]?.created_at || job.completed_at || Date.now(),
+          (job.historic_backfill || String(job.source || "").startsWith("paper backfill"))
+            ? (job.completed_at || Date.now())
+            : (signatures[0]?.created_at || job.completed_at || Date.now()),
         ).toLocaleDateString("en-GB"),
         technicianName: engineerSig?.signer_name || technicianName,
         customerName: customerSig?.signer_name || customerName,

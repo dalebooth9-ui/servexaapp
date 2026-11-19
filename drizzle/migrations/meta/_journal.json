@@ -673,6 +673,13 @@
       "when": 1795026615580,
       "tag": "0095_invoice_po_and_xero_status",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1795086961678,
+      "tag": "0096_paper_scan_completion_dates",
+      "breakpoints": true
     }
   ]
 }

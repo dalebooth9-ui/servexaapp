@@ -73,6 +73,8 @@ import {
 } from "lucide-react";
 import JobSheetPdfExport from "./JobSheetPdfExport";
 import ReportSummaryEditor from "./reports/ReportSummaryEditor";
+import PaperReportDateEditor from "./reports/PaperReportDateEditor";
+import { isPaperReport, paperCompletionIso } from "@/lib/paperReportDate";
 
 import SignatureCapture from "./SignatureCapture";
 import BlankTemplatePdfExport from "./BlankTemplatePdfExport";
@@ -142,7 +144,7 @@ type PendingSitePhoto = { id: string; file: File; preview: string; caption: stri
 type SubmittedSummary = { response: Response; templateName: string; riserCount: number; answers: number; totalFields: number; photos: number };
 
 type JobInfo = {
-  id?:string;site_id?:string;
+  id?:string;site_id?:string;historic_backfill?:boolean;completed_at?:string|null;
   address: string | null;
   customer: string | null;
   customers?: { name: string; logo_url?: string | null } | null;
@@ -328,7 +330,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     // Job first (small) so we can server-side filter templates by category
     const jobRes = await supabase
       .from("jobs")
-      .select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, asset_id, customers(name, email, phone, logo_url), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)")
+      .select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, asset_id, historic_backfill, completed_at, customers(name, email, phone, logo_url), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)")
       .eq("id", jobId)
       .single();
 
@@ -447,6 +449,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
 
       setJobInfo({
         id:jd.id,site_id:jd.site_id,
+        historic_backfill: jd.historic_backfill, completed_at: jd.completed_at,
         name: jd.name,
         address: jd.address,
         customer: jd.customers?.name || jd.customer,
@@ -1788,7 +1791,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
         responses: finalFormData as any,
         submitted_by: activeResponse ? undefined : user?.id,
         status: finalStatus,
-        submitted_at: hasSignature ? new Date().toISOString() : null,
+        submitted_at: hasSignature ? (isPaperReport(finalFormData, jobInfo?.historic_backfill) ? paperCompletionIso(finalFormData.date || finalFormData.inspection_date) : new Date().toISOString()) : null,
       };
 
       if (templateFormKey) await saveFormDraft(templateFormKey, finalFormData, true);
@@ -2287,6 +2290,7 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
                       <p className="text-[11px] text-muted-foreground pl-5">
                         {submitted ? `Submitted${by ? ` by ${by}` : ""}` : `Draft${by ? ` · ${by}` : ""}`}{!earlier ? ` · ${when}` : ""}
                       </p>
+                      {userRole === "admin" && isPaperReport(resp.responses, jobInfo?.historic_backfill) && <PaperReportDateEditor responseId={resp.id} date={resp.responses._paper_completion_at || jobInfo?.completed_at || resp.submitted_at} onSaved={() => void fetchData()} />}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {submitted ? (

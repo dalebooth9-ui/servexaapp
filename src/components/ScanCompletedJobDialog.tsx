@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { paperCompletionIso, paperDateText } from "@/lib/paperReportDate";
 import { runScanExtraction } from "@/lib/scanPipeline";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -785,15 +786,6 @@ export default function ScanCompletedJobDialog({
       });
       return;
     }
-    if (!completionDate && !dateUnknown) {
-      toast({
-        title: "Enter the date from the sheet",
-        description:
-          "Type the date handwritten on the paper form (dd/mm/yyyy) — or tick 'Date unknown' to file it without one. Backlog jobs must never silently default to today.",
-        variant: "destructive",
-      });
-      return;
-    }
     setSaving(true);
     try {
       // Auto-create the site from the free-text sheet fields if the reviewer
@@ -829,18 +821,8 @@ export default function ScanCompletedJobDialog({
       // reviewer explicitly ticked "date unknown", we still need a value for
       // completed_at, so fall back to today but tag the job so it's obvious
       // in reports/history.
-      let completedAt: string | null = null;
-      let dateKnown = true;
-      if (completionDate) {
-        const m = completionDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-        if (m) {
-          completedAt = new Date(`${m[3]}-${m[2]}-${m[1]}T12:00:00Z`).toISOString();
-        }
-      }
-      if (!completedAt) {
-        completedAt = new Date().toISOString();
-        dateKnown = false;
-      }
+      const completedAt = paperCompletionIso(completionDate);
+      const dateKnown = Boolean(completionDate);
 
       // Job category is derived from the CLASSIFIED template — never left as
       // "general" for a scan whose template clearly belongs to a service
@@ -888,9 +870,8 @@ export default function ScanCompletedJobDialog({
       if (header.po_ref && !fullResponses["po_number"]) {
         fullResponses.po_number = String(header.po_ref);
       }
-      if (completionDate && !fullResponses["date"]) {
-        fullResponses.date = completionDate;
-      }
+      fullResponses.date = paperDateText(completedAt);
+      fullResponses._paper_completion_at = completedAt;
       if (header.engineer && !fullResponses["technician_name"]) {
         fullResponses.technician_name = header.engineer;
       }
@@ -1674,13 +1655,12 @@ export default function ScanCompletedJobDialog({
               </div>
               <div className="space-y-1.5">
                 <Label>
-                  Date on paper form (dd/mm/yyyy) *
+                  Date on paper form (dd/mm/yyyy)
                 </Label>
                 <Input
                   value={completionDate}
                   placeholder="dd/mm/yyyy"
-                  disabled={dateUnknown}
-                  onChange={(e) => setCompletionDate(e.target.value)}
+                  onChange={(e) => { setCompletionDate(e.target.value); setDateUnknown(false); }}
                 />
                 <label className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
                   <input
@@ -1691,8 +1671,7 @@ export default function ScanCompletedJobDialog({
                       if (e.target.checked) setCompletionDate("");
                     }}
                   />
-                  Date unknown — file it anyway (job will be flagged
-                  "date unknown" instead of silently dated today)
+                  Date unknown — use today's date
                 </label>
               </div>
             </div>

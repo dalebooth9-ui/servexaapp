@@ -21,6 +21,7 @@ interface PrevJob {
   reference_number: string | null;
   status: string | null;
   due_date: string | null;
+  completed_at: string | null;
   created_at: string;
 }
 
@@ -115,7 +116,7 @@ export default function SiteHistoryPanel({ currentJobId, siteId, address }: Site
         if (siteId) {
           const { data } = await supabase
             .from("jobs")
-            .select("id, name, reference_number, status, due_date, created_at")
+            .select("id, name, reference_number, status, due_date, completed_at, created_at")
             .eq("site_id", siteId)
             .neq("id", currentJobId)
             .order("created_at", { ascending: false })
@@ -134,7 +135,7 @@ export default function SiteHistoryPanel({ currentJobId, siteId, address }: Site
 
           let query = supabase
             .from("jobs")
-            .select("id, name, reference_number, status, due_date, created_at, address")
+            .select("id, name, reference_number, status, due_date, completed_at, created_at, address")
             .neq("id", currentJobId)
             .not("address", "is", null)
             .order("created_at", { ascending: false })
@@ -234,6 +235,7 @@ export default function SiteHistoryPanel({ currentJobId, siteId, address }: Site
           <ul className="divide-y rounded-md border">
             {jobs.map((j) => {
               const dateLabel =
+                formatDate(j.completed_at) ||
                 formatDate(j.due_date) ||
                 formatDate(j.created_at) ||
                 "";

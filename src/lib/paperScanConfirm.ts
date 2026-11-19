@@ -3,6 +3,7 @@
 // and attaches source-scan photos as job_documents.
 import { supabase } from "@/integrations/supabase/client";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { paperCompletionIso, paperDateText } from "@/lib/paperReportDate";
 
 export type PaperScanConfirmInput = {
   userId: string;
@@ -68,15 +69,7 @@ export async function paperScanConfirm(
 
   const jobAddress = [siteAddress, sitePostcode].filter(Boolean).join(", ");
 
-  let completedAt = new Date().toISOString();
-  if (completionDate) {
-    const m = completionDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (m) {
-      completedAt = new Date(
-        `${m[3]}-${m[2]}-${m[1]}T12:00:00Z`,
-      ).toISOString();
-    }
-  }
+  const completedAt = paperCompletionIso(completionDate);
 
   const category = deriveCategory(template);
 
@@ -124,9 +117,8 @@ export async function paperScanConfirm(
   if (header.po_ref && !fullResponses["po_number"]) {
     fullResponses.po_number = String(header.po_ref);
   }
-  if (completionDate && !fullResponses["date"]) {
-    fullResponses.date = completionDate;
-  }
+  fullResponses.date = paperDateText(completedAt);
+  fullResponses._paper_completion_at = completedAt;
   if (header.engineer && !fullResponses["technician_name"]) {
     fullResponses.technician_name = header.engineer;
   }
@@ -138,7 +130,7 @@ export async function paperScanConfirm(
       template_id: template.id,
       submitted_by: userId,
       status: "submitted",
-      submitted_at: new Date().toISOString(),
+      submitted_at: completedAt,
       responses: fullResponses,
     } as any);
   if (respErr) throw respErr;

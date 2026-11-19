@@ -1,5 +1,9 @@
 # Roadmap
 
+## Paper-scan completion dates
+- [ ] Use reviewed completion dates for submitted reports, PDFs and history; blank review dates use today.
+- [ ] Allow office date corrections after filing, synchronise saved PDFs/history, update Help and verify.
+
 ## Unreviewed bulk archive filing and clear errors
 - [x] Bulk conversions stay unmatched with no site/asset, ready for review; conversion preserves review state and confirmation reuses the archive row. Reports to check links to review.
 - [x] Clear error reasons and original details logged; four tests passed and a controlled admin-page permission failure displayed and read back from the error log. Help updated. No pending archive scans exist to exercise a real filing/conversion end to end.

@@ -12558,6 +12558,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      paper_report_date_answers: {
+        Args: { _answers: Json; _at: string; _template: string }
+        Returns: Json
+      }
       platform_list_organisations: {
         Args: never
         Returns: {
@@ -12711,6 +12715,10 @@ export type Database = {
       }
       set_job_riser: {
         Args: { _asset_id: string; _job_id: string; _selected: boolean }
+        Returns: undefined
+      }
+      set_paper_report_completion_date: {
+        Args: { _date: string; _response_id: string }
         Returns: undefined
       }
       set_quote_attendance: {

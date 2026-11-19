@@ -9,6 +9,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { paperCompletionIso, paperDateText } from "@/lib/paperReportDate";
 
 export type ConfirmScanAsJobInput = {
   userId: string;
@@ -35,20 +36,8 @@ export type ConfirmScanAsJobInput = {
 export type ConfirmScanAsJobResult = {
   jobId: string;
   jobRef: string;
+  responseId: string;
 };
-
-function parseCompletionToIso(raw: string | null, dateKnown: boolean): string {
-  if (raw) {
-    const m = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (m) {
-      return new Date(`${m[3]}-${m[2]}-${m[1]}T12:00:00Z`).toISOString();
-    }
-    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-      return new Date(`${raw}T12:00:00Z`).toISOString();
-    }
-  }
-  return new Date().toISOString();
-}
 
 export async function confirmScanQueueAsJob(
   input: ConfirmScanAsJobInput,
@@ -71,7 +60,7 @@ export async function confirmScanQueueAsJob(
     engineerSignatureBlob,
   } = input;
 
-  const completedAt = parseCompletionToIso(completionDate, dateKnown);
+  const completedAt = paperCompletionIso(completionDate);
 
   const fullResponses: Record<string, any> = {};
   for (const [k, v] of Object.entries(responses)) {
@@ -81,9 +70,8 @@ export async function confirmScanQueueAsJob(
   if (header.po_ref && !fullResponses["po_number"]) {
     fullResponses.po_number = String(header.po_ref);
   }
-  if (completionDate && !fullResponses["date"]) {
-    fullResponses.date = completionDate;
-  }
+  fullResponses.date = paperDateText(completedAt);
+  fullResponses._paper_completion_at = completedAt;
   if (header.engineer && !fullResponses["technician_name"]) {
     fullResponses.technician_name = header.engineer;
   }
@@ -122,6 +110,10 @@ export async function confirmScanQueueAsJob(
   if (!row?.job_id) throw new Error("Confirm did not return a job id");
   const jobId: string = row.job_id;
   const jobRef: string = row.reference_number;
+  const { data: savedReport, error: reportError } = await supabase.from("job_sheet_responses")
+    .select("id").eq("job_id", jobId).eq("template_id", templateId)
+    .order("created_at", { ascending: false }).limit(1).single();
+  if (reportError) throw reportError;
 
   // Copy the queue-item's original page images onto the job so they render
   // in job documents as the source scan.
@@ -178,5 +170,5 @@ export async function confirmScanQueueAsJob(
   if (customerSignatureBlob) await uploadSig(customerSignatureBlob, "customer");
   if (engineerSignatureBlob) await uploadSig(engineerSignatureBlob, "engineer");
 
-  return { jobId, jobRef };
+  return { jobId, jobRef, responseId: savedReport.id };
 }

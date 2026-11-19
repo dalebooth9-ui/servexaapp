@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { buildOrgPath, getCurrentOrgId } from "@/lib/orgStoragePath";
 import { buildDurableRef } from "@/lib/durableStorageRef";
 import { TRANSCRIBED_KEY } from "@/lib/handwrittenConversion";
+import { paperCompletionIso, paperDateText } from "@/lib/paperReportDate";
 
 export type SaveJobScanReportInput = {
   jobId: string;
@@ -135,8 +136,11 @@ export async function saveJobScanReport(
 
   // ── B) extracted fields → job_sheet_responses ──────────────────────────
   const nowIso = new Date().toISOString();
+  const completedAt = paperCompletionIso(header?.date || responses.date || responses.inspection_date);
   const payload: Record<string, any> = {
     ...responses,
+    date: paperDateText(completedAt),
+    _paper_completion_at: completedAt,
     _scan_source: convertFrom ? "job_media_conversion" : "paper_scan_job_page",
     _scan_header: header || {},
     _scan_image_paths: convertFrom ? convertFrom.storagePaths : storedPaths,
@@ -187,7 +191,7 @@ export async function saveJobScanReport(
         submitted_by: userId,
         ...(convertFrom
           ? { status: "draft" }
-          : { status: "submitted", submitted_at: nowIso }),
+          : { status: "submitted", submitted_at: completedAt }),
       } as any)
       .select("id")
       .single();

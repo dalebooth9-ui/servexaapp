@@ -17,6 +17,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { paperCompletionIso, paperDateText } from "@/lib/paperReportDate";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -958,19 +959,14 @@ export default function ScanReviewDialog({
             const { path, pageCount } = await buildElectronicReportPdf({
               archivedId: result.jobId, // used only for filename
               template: tpl as any,
-              responses: answers,
-              header: headerWithPo,
+              responses: { ...answers, date: paperDateText(paperCompletionIso(ukDate)) },
+              header: { ...headerWithPo, date: paperDateText(paperCompletionIso(ukDate)) },
               sourcePaths: item.imagePaths || [],
               customerId,
               siteId: effectiveSiteId,
               siteName: siteName || null,
               siteAddress: siteAddress || null,
-              documentDate: ukDate
-                ? (() => {
-                    const m = ukDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-                    return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
-                  })()
-                : null,
+              documentDate: paperCompletionIso(ukDate).slice(0, 10),
               technicianName:
                 chosenEng && chosenEng.has_signature ? chosenEng.full_name : null,
               manualCustomerSignaturePath,
@@ -988,7 +984,7 @@ export default function ScanReviewDialog({
             const { data: signed } = await supabase.storage
               .from("submissions")
               .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
-            await supabase.from("job_documents" as any).insert({
+            const { data: pdfDocument, error: pdfDocumentError } = await supabase.from("job_documents" as any).insert({
               job_id: result.jobId,
               document_type: "report",
               label: `Electronic report — ${tpl.name}`,
@@ -998,7 +994,17 @@ export default function ScanReviewDialog({
                 .replace(/[^\w\-. ]+/g, "-")}.pdf`,
               source: "manual",
               created_by: user.id,
-            });
+            }).select("id").single();
+            if (pdfDocumentError) throw pdfDocumentError;
+            const { data: reportRow, error: reportReadError } = await supabase.from("job_sheet_responses").select("responses").eq("id", result.responseId).single();
+            if (reportReadError) throw reportReadError;
+            const { error: metadataError } = await supabase.from("job_sheet_responses").update({ responses: {
+              ...(reportRow.responses as Record<string, any>),
+              _paper_pdf_input: { documentId: (pdfDocument as any).id, header: headerWithPo,
+                sourcePaths: item.imagePaths || [], technicianName: chosenEng && chosenEng.has_signature ? chosenEng.full_name : null,
+                manualCustomerSignaturePath, manualEngineerSignaturePath },
+            } }).eq("id", result.responseId);
+            if (metadataError) throw metadataError;
           }
         } catch (pdfErr) {
           console.warn(
@@ -1553,7 +1559,6 @@ export default function ScanReviewDialog({
                     <Input
                       value={ukDate}
                       onChange={(e) => setUkDate(e.target.value)}
-                      disabled={dateUnknown}
                       placeholder="dd/mm/yyyy"
                     />
                     <label className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1565,7 +1570,7 @@ export default function ScanReviewDialog({
                           if (on) setUkDate("");
                         }}
                       />
-                      Date unknown — file without one
+                      Date unknown — use today's date
                     </label>
                   </div>
                 </div>
