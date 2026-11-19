@@ -680,6 +680,13 @@
       "when": 1795086961678,
       "tag": "0096_paper_scan_completion_dates",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1795088082028,
+      "tag": "0097_paper_review_defects",
+      "breakpoints": true
     }
   ]
 }

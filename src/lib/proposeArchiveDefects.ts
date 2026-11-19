@@ -24,12 +24,12 @@ const REMARK_KEYWORDS = [
   "seized", "blocked", "obstructed", "expired", "out of date", "not working",
   "inoperable", "u/s", "u\\s", "unserviceable", "replace", "require",
   "required", "needed", "needs", "worn", "loose", "snapped", "bent",
-  "damaged strap", "no padlock", "no strap", "no cap", "no chain",
+  "damaged strap", "no padlock", "no strap", "no cap", "no chain", "remedial", "repair",
 ];
 
 const CRITICAL_HINTS = ["fire", "leaking", "pressure", "hazard", "critical", "life"];
 
-const NO_LIKE = new Set(["no", "fail", "failed", "unsatisfactory", "u/s"]);
+const NO_LIKE = new Set(["no", "fail", "failed", "unsatisfactory", "u/s", "false"]);
 
 const looksLikeNo = (v: unknown) =>
   typeof v === "string" && NO_LIKE.has(v.trim().toLowerCase());
@@ -114,7 +114,8 @@ export function proposeDefectsFromExtraction(
 
     // Ignore explicit N/A responses — they aren't defects.
     const lower = value.toLowerCase();
-    if (lower === "n/a" || lower === "na") continue;
+    if (lower === "n/a" || lower === "na" || /^n\/?a\b/i.test(value)) continue;
+    if (/signature|photo|image|date|declaration/i.test(f.type || "") || /^(date|customer|site|technician|engineer)/i.test(f.label)) continue;
 
     const isRemarkField = REMARK_FIELD_HINTS.test(f.label || "");
     if (isRemarkField) {

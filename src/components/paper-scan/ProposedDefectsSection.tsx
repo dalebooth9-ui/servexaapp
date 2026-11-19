@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ShieldAlert } from "lucide-react";
@@ -14,6 +16,7 @@ import {
 import type { ProposedDefect } from "@/lib/proposeArchiveDefects";
 
 interface Props {
+  jobMode?: boolean;
   proposals: ProposedDefect[];
   /** Map of key → true when this proposal will be created. Defaults to all ticked. */
   selection: Record<string, boolean>;
@@ -34,6 +37,7 @@ export default function ProposedDefectsSection({
   onSelectionChange,
   overrides,
   onOverridesChange,
+  jobMode = false,
 }: Props) {
   const selectedCount = useMemo(
     () => proposals.filter((p) => selection[p.key] !== false).length,
@@ -61,34 +65,34 @@ export default function ProposedDefectsSection({
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold">
             <ShieldAlert className="h-4 w-4 text-orange-500" />
-            Proposed defects
+            {jobMode ? "Raise as defect" : "Proposed defects"}
             <Badge variant="outline" className="ml-1">
               {selectedCount} of {proposals.length} to create
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-1 max-w-prose">
+          {!jobMode && <p className="text-xs text-muted-foreground mt-1 max-w-prose">
             These deficiencies were read off the scanned sheet. Untick anything
             long since resolved — this sheet may be years old. Ticked items
             become open defects linked to the customer &amp; site (no job) when
             you file.
-          </p>
+          </p>}
         </div>
         <div className="flex gap-2 text-xs">
-          <button
+          <Button variant="ghost" size="sm"
             type="button"
             onClick={() => toggleAll(true)}
             className="underline text-muted-foreground hover:text-foreground"
           >
             Tick all
-          </button>
+          </Button>
           <span className="text-muted-foreground">·</span>
-          <button
+          <Button variant="ghost" size="sm"
             type="button"
             onClick={() => toggleAll(false)}
             className="underline text-muted-foreground hover:text-foreground"
           >
             Untick all
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -112,7 +116,7 @@ export default function ProposedDefectsSection({
                   checked={isOn}
                   onCheckedChange={(c) => toggle(p.key, !!c)}
                   className="mt-1"
-                  aria-label={`Create defect: ${title}`}
+                  aria-label={`${jobMode ? "Raise as defect" : "Create defect"}: ${title}`}
                 />
                 <div className="flex-1 min-w-0 space-y-2">
                   <Input
@@ -120,6 +124,7 @@ export default function ProposedDefectsSection({
                     onChange={(e) => patchOverride(p.key, { title: e.target.value })}
                     className="text-sm font-medium"
                   />
+                  <Textarea rows={2} aria-label={`Defect description: ${title}`} value={override.description ?? p.description} onChange={e => patchOverride(p.key, { description: e.target.value })} />
                   <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-2">
                     <div>
                       <Label className="text-[10px] uppercase text-muted-foreground">

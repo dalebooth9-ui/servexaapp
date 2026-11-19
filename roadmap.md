@@ -1,5 +1,9 @@
 # Roadmap
 
+## Paper review defects and previous report
+- [x] Editable default-on defect proposals, job/site/asset links and server-side open-defect deduplication. Authenticated temporary report inserts produced one linked defect across two filings, preserving the edited description.
+- [x] Last report side-by-side with existing comparison checks, Help updates and authenticated verification. Review showed 12 Jul 2025 and three differences with both PDFs visible; no-previous state checked. Temporary verification records removed.
+
 ## Paper-scan completion dates
 - [x] Use reviewed completion dates for submitted reports, PDFs and history; blank review dates use today.
 - [x] Allow office date corrections after filing, synchronise saved PDFs/history, update Help and verify. Authenticated office save regenerated electronic copies and read back matching Submitted dates.

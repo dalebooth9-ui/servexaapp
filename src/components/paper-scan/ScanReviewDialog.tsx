@@ -83,6 +83,7 @@ import ScanResultView, {
 } from "@/components/paper-scan/ScanResultView";
 import { buildElectronicReportPdf } from "@/lib/electronicReportPdf";
 import { UKDateInput } from "@/components/ui/uk-date-input";
+import ScanPreviousReport from "@/components/paper-scan/ScanPreviousReport";
 
 const createDefectSuffix = (n: number) =>
   n > 0 ? ` · ${n} defect${n === 1 ? "" : "s"} logged` : "";
@@ -450,7 +451,7 @@ export default function ScanReviewDialog({
   }, [templateFields]);
 
   const proposedDefects = useMemo(() => {
-    if (!item || mode !== "archive") return [] as ProposedDefect[];
+    if (!item) return [] as ProposedDefect[];
     return proposeDefectsFromExtraction(
       templateFields as any,
       answers,
@@ -558,7 +559,7 @@ export default function ScanReviewDialog({
   // Archive mode: load the chosen site's risers. Only pre-pick when the sheet's
   // riser location matches exactly one riser; otherwise the office must choose.
   useEffect(() => {
-    if (mode !== "archive" || !siteId) { setSiteRisers([]); setRiserId(""); return; }
+    if (!siteId) { setSiteRisers([]); setRiserId(""); return; }
     let cancelled = false;
     (async () => {
       const { data } = await (supabase as any)
@@ -739,6 +740,10 @@ export default function ScanReviewDialog({
     // here only as a defensive guard for direct callers, but they no longer
     // toast — the unified submit routes around them.
     if (!customerId) return;
+    if (siteId && siteRisers.length > 0 && !riserId) {
+      toast({ title: "Choose the riser", description: "Choose which riser this sheet is for before filing.", variant: "destructive" });
+      return;
+    }
     const headerSite = String((item.header as any)?.site || "").trim();
     const freeTextSite = (siteName || siteAddress || headerSite).trim();
     if (!siteId && !freeTextSite) return;
@@ -883,10 +888,11 @@ export default function ScanReviewDialog({
       };
       // Link the sheet to the site's riser so its last-service date (and
       // 12-month pressure / 6-month visual renewal) updates on filing.
-      let responsesToSave: Record<string, any> = answers as any;
+      let responsesToSave: Record<string, any> = { ...answers, _paper_review_defects: proposedDefects.filter(p => defectSelection[p.key] !== false).map(p => ({ ...p, ...(defectOverrides[p.key] || {}) })) };
+      if (riserId && riserId !== "none") responsesToSave.riser_asset_id = riserId;
       const tplName = `${item.templateName || ""}`.toLowerCase();
       const riserType = tplName.includes("wet riser") ? "Wet Riser" : tplName.includes("dry riser") ? "Dry Riser" : null;
-      if (riserType && !(answers as any)?.riser_asset_id) {
+      if (riserType && !responsesToSave.riser_asset_id && riserId !== "none") {
         const { data: risers } = await (supabase as any)
           .from("assets").select("id, riser_location, asset_type, category")
           .eq("site_id", effectiveSiteId);
@@ -897,7 +903,7 @@ export default function ScanReviewDialog({
         const pick = sameType.length === 1
           ? sameType[0]
           : loc ? sameType.find((a) => `${a.riser_location || ""}`.trim().toLowerCase() === loc) : null;
-        if (pick) responsesToSave = { ...(answers as any), riser_asset_id: pick.id };
+        if (pick) responsesToSave.riser_asset_id = pick.id;
       }
       const result = await confirmScanQueueAsJob({
         userId: user.id,
@@ -1206,7 +1212,7 @@ export default function ScanReviewDialog({
                 </Label>
                 <SiteCombobox value={siteId} sites={sites} onChange={setSiteId} />
               </div>
-              {!isJob && siteId && siteRisers.length > 0 && (
+              {siteId && siteRisers.length > 0 && (
                 <div className="space-y-1.5 md:col-span-2">
                   <Label>Riser this report is for</Label>
                   <Select value={riserId} onValueChange={setRiserId}>
@@ -1402,6 +1408,7 @@ export default function ScanReviewDialog({
 
             {proposedDefects.length > 0 && (
               <ProposedDefectsSection
+                jobMode={isJob}
                 proposals={proposedDefects}
                 selection={defectSelection}
                 onSelectionChange={setDefectSelection}
@@ -1409,6 +1416,8 @@ export default function ScanReviewDialog({
                 onOverridesChange={setDefectOverrides}
               />
             )}
+
+            {item.templateId && <ScanPreviousReport siteId={siteId} assetId={riserId && riserId !== "none" ? riserId : null} location={riserId === "none" ? "" : String(answers.riser_location || item.header?.riser_location || "")} templateId={item.templateId} templateName={item.templateName} before={(() => { try { return paperCompletionIso(isJob ? ukDate : docDate).slice(0,10); } catch { return new Date().toISOString().slice(0,10); } })()} fields={templateFields} answers={answers} sheetUrls={thumbs} />}
 
             {hasTemplate && (
               <div className="rounded border bg-muted/30 p-3 space-y-3">
