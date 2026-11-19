@@ -24,6 +24,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { paperReportFilename, savePaperBlob } from "@/lib/paperReportDownload";
 
 export type ScanResultDestination =
   | { kind: "job"; jobId: string; jobRef: string }
@@ -49,8 +50,24 @@ export default function ScanResultView({
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [fileName, setFileName] = useState("Electronic report.pdf");
 
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const isJob = destination.kind === "job";
+      const { data, error } = isJob
+        ? await supabase.from("jobs").select("completed_at,customers(name),sites(name)").eq("id", destination.jobId).single()
+        : await supabase.from("archived_documents").select("document_date,customers(name),sites(name)").eq("id", destination.archivedId).single();
+      if (cancelled || error || !data) return;
+      setFileName(paperReportFilename(data.customers?.name, data.sites?.name, "completed_at" in data ? data.completed_at : data.document_date, templateName));
+    })();
+    return () => { cancelled = true; };
+  }, [destination, templateName]);
+
+  useEffect(() => {
+    setPdfBlob(null);
     if (!reportPdfPath) {
       setSignedUrl(null);
       return;
@@ -73,6 +90,7 @@ export default function ScanResultView({
           : raw.slice(0, raw.size, "application/pdf");
         if (cancelled) return;
         created = URL.createObjectURL(b);
+        setPdfBlob(b);
         setSignedUrl(created);
       } catch {
         if (!cancelled) setSignedUrl(data.signedUrl);
@@ -85,13 +103,6 @@ export default function ScanResultView({
   }, [reportPdfPath]);
 
 
-  const fileName = useMemo(() => {
-    const stub = (templateName || "electronic-report")
-      .toLowerCase()
-      .replace(/[^\w\-. ]+/g, "-")
-      .replace(/\s+/g, "-");
-    return `${stub}.pdf`;
-  }, [templateName]);
 
   const openDestination = () => {
     if (destination.kind === "job") {
@@ -178,19 +189,12 @@ export default function ScanResultView({
           type="button"
           variant="outline"
           onClick={() => {
-            if (signedUrl) {
-              const a = document.createElement("a");
-              a.href = signedUrl;
-              a.download = fileName;
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-            }
+            if (pdfBlob) void savePaperBlob(pdfBlob, fileName);
           }}
-          disabled={!signedUrl}
+          disabled={!pdfBlob}
           className="min-h-11"
         >
-          <Download className="mr-1.5 h-4 w-4" /> Download
+          <Download className="mr-1.5 h-4 w-4" /> Download PDF
         </Button>
         <Button
           type="button"

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { isPaperReport } from "@/lib/paperReportDate";
+import { paperReportFilename } from "@/lib/paperReportDownload";
 import { transcriptionNote, TRANSCRIBED_KEY } from "@/lib/handwrittenConversion";
 import { loadCarriedRemedials, carriedReportFields } from "@/lib/defectCarryForward";
 import { Button } from "@/components/ui/button";
@@ -1467,7 +1469,9 @@ export async function generateJobSheetPdf(
 
   const safeSite = siteDisplay.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
   const filenameRef = jobInfo?.reference_number || "job-sheet";
-  const fileName = (options?.draft ? "DRAFT-" : "") + [filenameRef, safeSite || null, reportName.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
+  const fileName = (options?.draft ? "DRAFT-" : "") + (isPaperReport(formData, (jobInfo as any)?.historic_backfill)
+    ? paperReportFilename(customerName, (jobInfo as any)?.site?.name || siteDisplay, formData._paper_completion_at || (jobInfo as any)?.completed_at || submittedAt || formData.date, reportName)
+    : [filenameRef, safeSite || null, reportName.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf");
   // Only the main sheet counts towards the single-page check; photo pages are expected extras.
   warnIfUnexpectedPdfPageSpill({ getNumberOfPages: () => mainSheetPages } as unknown as jsPDF, template.name, fileName, {
     jobId,
@@ -1586,6 +1590,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
         </Button>
         <Button variant="outline" size="sm" onClick={() => generate("download")} disabled={generating} title="Download PDF">
           {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+          {isPaperReport(formData, (jobInfo as any)?.historic_backfill) && <span className="ml-1">Download PDF</span>}
         </Button>
       </div>
       {previewDialog}

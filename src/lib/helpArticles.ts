@@ -53,6 +53,8 @@ const RULES: SlugRule[] = [
   { test: (p) => p.startsWith("/settings/rams-library"), slug: "rams.auto-attach" },
   // Paper scans use the reviewed completion date (blank = today); office can
   // Edit completion date on the job report afterwards, updating PDFs and history.
+  // Converted reports: Download PDF in Review, History or job Reports;
+  // tick History rows and Download ZIP; names use Customer - Site - sheet date - type.
   // Bulk archive conversion stays unlinked and Needs review until office confirmation.
   { test: (p) => p === "/paper-scans" || p.startsWith("/paper-scans"), slug: "paper-scans" },
   { test: (p) => p === "/customers", slug: "customers" },

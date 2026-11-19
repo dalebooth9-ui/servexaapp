@@ -23,6 +23,7 @@ type CompletedJob = {
   name: string | null;
   updated_at: string;
   created_at: string;
+  completed_at: string | null;
   customers: { name: string | null } | null;
   sites: { name: string | null; address?: string | null } | null;
   address?: string | null;
@@ -53,7 +54,7 @@ export default function ReportDownloads() {
     (async () => {
       const { data, error } = await supabase
         .from("jobs")
-        .select("id, reference_number, name, address, updated_at, created_at, customers(name), sites(name, address)")
+        .select("id, reference_number, name, address, completed_at, updated_at, created_at, customers(name), sites(name, address)")
         .eq("status", "completed")
         .order("updated_at", { ascending: false })
         .limit(500);
@@ -185,7 +186,7 @@ export default function ReportDownloads() {
         `Job Reference: ${fullJob.reference_number || ""}`,
         `Customer: ${fullJob.customers?.name || ""}`,
         `Site: ${fullJob.sites?.name || ""}`,
-        `Completed: ${fullJob.updated_at || fullJob.created_at}`,
+        `Completed: ${fullJob.completed_at || fullJob.updated_at || fullJob.created_at}`,
         `Generated: ${new Date().toISOString()}`,
         "",
         `Files:`,
@@ -520,7 +521,7 @@ ${imageEmbeds}
                 children: [
                   new TextRun({ text: `Completed: `, bold: true }),
                   new TextRun({
-                    text: new Date(fullJob.updated_at || fullJob.created_at).toLocaleString("en-GB"),
+                    text: new Date(fullJob.completed_at || fullJob.updated_at || fullJob.created_at).toLocaleString("en-GB"),
                   }),
                 ],
               }),

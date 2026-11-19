@@ -9,7 +9,11 @@ export async function updatePaperReportDate(responseId: string, rawDate: string)
   if (error) throw error;
   const { data: report, error: readError } = await supabase.from("job_sheet_responses").select("job_id").eq("id", responseId).single();
   if (readError) throw readError;
-  const { data: job, error: jobError } = await supabase.from("jobs").select("id,customer_id,site_id,completed_at,historic_backfill").eq("id", report.job_id).single();
+  await refreshPaperReportPdfs(report.job_id, responseId);
+}
+
+export async function refreshPaperReportPdfs(jobId: string, responseId?: string) {
+  const { data: job, error: jobError } = await supabase.from("jobs").select("id,customer_id,site_id,completed_at,historic_backfill").eq("id", jobId).single();
   if (jobError) throw jobError;
   const { data: reports, error: reportsError } = await supabase.from("job_sheet_responses").select("id,template_id,responses,submitted_at").eq("job_id", job.id);
   if (reportsError) throw reportsError;

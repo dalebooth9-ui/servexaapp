@@ -1,8 +1,9 @@
 # Roadmap
 
 ## Paper-scan completion dates
-- [ ] Use reviewed completion dates for submitted reports, PDFs and history; blank review dates use today.
-- [ ] Allow office date corrections after filing, synchronise saved PDFs/history, update Help and verify.
+- [x] Use reviewed completion dates for submitted reports, PDFs and history; blank review dates use today.
+- [x] Allow office date corrections after filing, synchronise saved PDFs/history, update Help and verify. Authenticated office save regenerated electronic copies and read back matching Submitted dates.
+- [x] Clear PDF downloads on scan Review/History and job reports; Customer - Site - sheet date - Report type filenames; ZIP download for ticked converted scans. Real History PDF and two-report ZIP downloads passed; 12 focused tests passed.
 
 ## Unreviewed bulk archive filing and clear errors
 - [x] Bulk conversions stay unmatched with no site/asset, ready for review; conversion preserves review state and confirmation reuses the archive row. Reports to check links to review.

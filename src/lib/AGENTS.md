@@ -14,3 +14,4 @@
 - Error toasts use plainError and log both the displayed reason and original detail — why: clear failures without inventing missing causes.
 - Money and Compliance tabs reuse existing pages; groupedPages redirects only exact list routes with filters intact and preserves per-tab access — why: bookmarks and document workflows must not break.
 - Paper scans use reviewed completion dates; office corrections use set_paper_report_completion_date and rebuild saved electronic copies while preserving originals — why: late filing must not red ate inspections or leave stale PDFs/history.
+- Converted scan downloads share paperReportFilename and prepare authenticated PDF/ZIP blobs before the save click — why: sheet dates and identities stay consistent and iOS retains user activation.

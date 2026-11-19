@@ -74,6 +74,9 @@ import { ClipboardCheck, CheckCircle2 } from "lucide-react";
 import PdfCanvasViewer from "@/components/PdfCanvasViewer";
 import ZoomPane from "@/components/ZoomPane";
 import ArchiveSummarySection from "@/components/archive/ArchiveSummarySection";
+import JSZip from "jszip";
+import { paperReportFilename, uniquePaperFilename, savePaperBlob } from "@/lib/paperReportDownload";
+import { refreshPaperReportPdfs } from "@/lib/updatePaperReportDate";
 
 
 type EmailSend = {
@@ -152,6 +155,8 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [downloadBusy, setDownloadBusy] = useState(false);
+  const [readyDownload, setReadyDownload] = useState<{ blob: Blob; name: string } | null>(null);
 
   const [sendDoc, setSendDoc] = useState<ArchivedDoc | null>(null);
   const [sendJobId, setSendJobId] = useState<string | null>(null);
@@ -522,6 +527,46 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
   const selectedConvertible = selectedDocs.filter(
     (d) => !d.report_pdf_path && d.file_paths?.length > 0,
   );
+  const selectedConverted = selectedDocs.filter(d => Boolean(d.report_pdf_path));
+  const downloadName = (d: ArchivedDoc) => paperReportFilename(
+    d.customer_id ? customers[d.customer_id] : d.header_data?.customer_name,
+    d.site_id ? sites[d.site_id] : d.header_data?.site_name,
+    d.document_date || d.created_at, d.template_name || d.document_type,
+  );
+  const prepareDownload = async (items: ArchivedDoc[], zip: boolean) => {
+    setDownloadBusy(true); setReadyDownload(null);
+    try {
+      const archive = new JSZip();
+      const used = new Set<string>();
+      let single: { blob: Blob; name: string } | null = null;
+      for (const d of items) {
+        let paths = d.report_pdf_paths?.length ? d.report_pdf_paths : d.report_pdf_path ? [d.report_pdf_path] : [];
+        if (d.kind === "job" && d.job_id) {
+          await refreshPaperReportPdfs(d.job_id);
+          const { data, error } = await supabase.from("job_documents").select("file_url").eq("job_id", d.job_id).eq("document_type", "report");
+          if (error) throw error;
+          paths = (data || []).map(r => submissionsPathFromSignedUrl(r.file_url)).filter((p): p is string => Boolean(p));
+        }
+        const { urls, failed } = await resolveSubmissionsSignedUrls(paths);
+        if (failed.length || urls.length !== paths.length || !urls.length) throw new Error("A converted PDF could not be loaded. Please try again.");
+        const signedUrls = urls.map(u => u.signedUrl);
+        const merged = signedUrls.length > 1 ? await mergePdfUrlsToBlobUrl(signedUrls) : null;
+        try {
+          const res = await fetch(merged || signedUrls[0]);
+          if (!res.ok) throw new Error("The PDF could not be downloaded. Please try again.");
+          const bytes = await res.arrayBuffer();
+          if (!bytes.byteLength || new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") throw new Error("The saved electronic report is not a valid PDF.");
+          const blob = new Blob([bytes], { type: "application/pdf" });
+          const name = uniquePaperFilename(downloadName(d), used);
+          archive.file(name, blob); single = { blob, name };
+        } finally { if (merged?.startsWith("blob:")) URL.revokeObjectURL(merged); }
+      }
+      if (zip) setReadyDownload({ blob: await archive.generateAsync({ type: "blob", compression: "STORE" }), name: "Converted reports.zip" });
+      else setReadyDownload(single);
+    } catch (error: any) {
+      toast({ title: "Could not prepare download", description: error.message, variant: "destructive" });
+    } finally { setDownloadBusy(false); }
+  };
   const selectedInFlight = selectedDocs.filter((d) => {
     const entry = archiveConversionQueue.getEntry(d.id);
     return entry?.state === "queued" || entry?.state === "converting";
@@ -889,6 +934,11 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                             <ConvertCell doc={d} onConvert={handleConvert} />
                           )}
                           {d.report_pdf_path && (
+                            <Button size="sm" variant="outline" disabled={downloadBusy} onClick={() => void prepareDownload([d], false)}>
+                              <Download className="h-3.5 w-3.5 mr-1" /> Download PDF
+                            </Button>
+                          )}
+                          {d.report_pdf_path && (
                             <Button
                               size="sm"
                               variant="default"
@@ -948,6 +998,7 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
           count={selectedIds.size}
           onClear={() => setSelectedIds(new Set())}
         >
+          {selectedConverted.length > 0 && <Button size="sm" variant="outline" disabled={downloadBusy} onClick={() => void prepareDownload(selectedConverted, true)}><Download className="mr-1 h-3.5 w-3.5" /> Download ZIP ({selectedConverted.length})</Button>}
           {selectedConvertible.length > 0 && (
             <Button
               size="sm"
@@ -970,6 +1021,11 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
       </div>
 
       <ArchiveScanDialog open={scanOpen} onOpenChange={setScanOpen} />
+      <Dialog open={downloadBusy || Boolean(readyDownload)} onOpenChange={(open) => { if (!open && !downloadBusy) setReadyDownload(null); }}>
+        <DialogContent className="max-w-sm"><DialogHeader><DialogTitle>{downloadBusy ? "Preparing download…" : "Ready to save"}</DialogTitle></DialogHeader>
+          {downloadBusy ? <Loader2 className="h-5 w-5 animate-spin" /> : readyDownload && <Button onClick={() => void savePaperBlob(readyDownload.blob, readyDownload.name)}><Download className="mr-2 h-4 w-4" /> {readyDownload.name.endsWith(".zip") ? "Download ZIP" : "Download PDF"}</Button>}
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={confirmBulkDelete} onOpenChange={setConfirmBulkDelete}>
         <AlertDialogContent>
@@ -1081,13 +1137,9 @@ export default function ArchivedDocuments({ embedded = false, onGoReview }: Arch
                     </Button>
                   </div>
                   {openPdfUrl && openView !== "scan" && (
-                    <a
-                      href={openPdfUrl}
-                      download
-                      className="inline-flex items-center text-sm text-primary hover:underline"
-                    >
+                    <Button variant="outline" size="sm" disabled={downloadBusy} onClick={() => void prepareDownload([openDoc], false)}>
                       <Download className="h-3.5 w-3.5 mr-1" /> Download PDF
-                    </a>
+                    </Button>
                   )}
                   <Button
                     size="sm"
