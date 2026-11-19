@@ -701,6 +701,20 @@
       "when": 1795089111026,
       "tag": "0099_record_qr_printed_status",
       "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1795096589215,
+      "tag": "0100_residential_sprinkler_register",
+      "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1795097387716,
+      "tag": "0101_sprinkler_submit_links_system_asset",
+      "breakpoints": true
     }
   ]
 }

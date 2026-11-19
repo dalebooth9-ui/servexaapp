@@ -27,6 +27,7 @@ import EngineerJobHero from "@/components/engineer/EngineerJobHero";
 import SiteVisitReportExtra from "@/components/jobs/SiteVisitReportExtra";
 import CarriedRemedialsPanel from "@/components/jobs/CarriedRemedialsPanel";
 import SiteAccessCard from '@/components/sites/SiteAccessCard';
+import SprinklerReportButton from '@/components/sprinklers/SprinklerReportButton';
 
 const JobDocuments = lazy(() => import("@/components/JobDocuments"));
 const ScanDocumentButton = lazy(() => import("@/components/documents/ScanDocumentButton"));
@@ -280,6 +281,7 @@ export default function EngineerJobView({ jobId, job, engineers, currentUserId, 
 
       {/* Site documents — RAMS PDFs, access notes, previous reports */}
       {isAssignedEngineer&&<SiteAccessCard siteId={job?.site_id}/>}
+      {isAssignedEngineer&&job?.id&&<SprinklerReportButton jobId={job.id}/>}
       <section className="rounded-2xl border bg-card p-4 md:p-5 shadow-sm">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="text-base font-semibold">Site documents</h2>

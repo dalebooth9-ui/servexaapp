@@ -3,6 +3,7 @@ import { prepareReportPhoto, canSaveToPhone, saveToPhone, countSavedReportPhotos
 import ReportSitePhotos from "@/components/jobs/ReportSitePhotos";
 import { registerDraftSaver } from "@/lib/draftFlush";
 import SiteAccessCard from '@/components/sites/SiteAccessCard';
+import {isResidentialSprinklerTemplate,sprinklerTemplatePrefill} from '@/lib/sprinklers';
 import SaveAccessNote from '@/components/sites/SaveAccessNote';
 import {loadSiteAccess} from '@/lib/siteAccess';
 import {accessNoteField} from '@/lib/siteAccessRules';
@@ -1181,6 +1182,15 @@ export default function JobSheetTemplates({ jobId, hideSiteVisitExtra = false }:
     }
 
     const prefilled = getAutoPopulatedData(template, contextInfo);
+    // Residential sprinkler templates start from the site's sprinkler register (blanks only).
+    if (isResidentialSprinklerTemplate(template as any)) {
+      try {
+        const { data: sj } = await supabase.from("jobs").select("site_id").eq("id", jobId).maybeSingle();
+        const { data: ss } = sj?.site_id ? await supabase.from("sprinkler_systems").select("system_type,register,zones").eq("site_id", sj.site_id).maybeSingle() : { data: null };
+        const reg = sprinklerTemplatePrefill(ss as any, new Set(((template.fields || []) as any[]).map((f: any) => f.id)));
+        Object.entries(reg).forEach(([k, v]) => { if (prefilled[k] === undefined || prefilled[k] === null || prefilled[k] === "") prefilled[k] = v; });
+      } catch (e) { console.warn("[JobSheetTemplates] sprinkler register prefill failed", e); }
+    }
     // Only treat a field as "auto-populated" when we actually have a value for it.
     const autoPopulatedIds = new Set(
       Object.entries(prefilled)

@@ -10729,6 +10729,195 @@ export type Database = {
           },
         ]
       }
+      sprinkler_reports: {
+        Row: {
+          answers: Json
+          created_at: string
+          created_by: string | null
+          defects: Json
+          id: string
+          job_id: string
+          org_id: string
+          report_date: string
+          status: string
+          submitted_at: string | null
+          system_id: string
+          unit_results: Json
+          updated_at: string
+          visit_type: string
+        }
+        Insert: {
+          answers?: Json
+          created_at?: string
+          created_by?: string | null
+          defects?: Json
+          id?: string
+          job_id: string
+          org_id?: string
+          report_date?: string
+          status?: string
+          submitted_at?: string | null
+          system_id: string
+          unit_results?: Json
+          updated_at?: string
+          visit_type?: string
+        }
+        Update: {
+          answers?: Json
+          created_at?: string
+          created_by?: string | null
+          defects?: Json
+          id?: string
+          job_id?: string
+          org_id?: string
+          report_date?: string
+          status?: string
+          submitted_at?: string | null
+          system_id?: string
+          unit_results?: Json
+          updated_at?: string
+          visit_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sprinkler_reports_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sprinkler_reports_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sprinkler_reports_system_id_fkey"
+            columns: ["system_id"]
+            isOneToOne: false
+            referencedRelation: "sprinkler_systems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sprinkler_systems: {
+        Row: {
+          asset_id: string | null
+          created_at: string
+          id: string
+          last_annual: string | null
+          last_six_month: string | null
+          org_id: string
+          qr_tag: string | null
+          register: Json
+          reminder_state: Json
+          site_id: string
+          system_type: string
+          updated_at: string
+          zones: Json
+        }
+        Insert: {
+          asset_id?: string | null
+          created_at?: string
+          id?: string
+          last_annual?: string | null
+          last_six_month?: string | null
+          org_id?: string
+          qr_tag?: string | null
+          register?: Json
+          reminder_state?: Json
+          site_id: string
+          system_type?: string
+          updated_at?: string
+          zones?: Json
+        }
+        Update: {
+          asset_id?: string | null
+          created_at?: string
+          id?: string
+          last_annual?: string | null
+          last_six_month?: string | null
+          org_id?: string
+          qr_tag?: string | null
+          register?: Json
+          reminder_state?: Json
+          site_id?: string
+          system_type?: string
+          updated_at?: string
+          zones?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sprinkler_systems_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sprinkler_systems_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: true
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sprinkler_units: {
+        Row: {
+          access_notes: string | null
+          created_at: string
+          head_count: number | null
+          id: string
+          label: string
+          last_result: string | null
+          last_visited: string | null
+          org_id: string
+          revisit_pending: boolean
+          revisit_visited_at: string | null
+          sort_order: number
+          system_id: string
+        }
+        Insert: {
+          access_notes?: string | null
+          created_at?: string
+          head_count?: number | null
+          id?: string
+          label: string
+          last_result?: string | null
+          last_visited?: string | null
+          org_id?: string
+          revisit_pending?: boolean
+          revisit_visited_at?: string | null
+          sort_order?: number
+          system_id: string
+        }
+        Update: {
+          access_notes?: string | null
+          created_at?: string
+          head_count?: number | null
+          id?: string
+          label?: string
+          last_result?: string | null
+          last_visited?: string | null
+          org_id?: string
+          revisit_pending?: boolean
+          revisit_visited_at?: string | null
+          sort_order?: number
+          system_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sprinkler_units_system_id_fkey"
+            columns: ["system_id"]
+            isOneToOne: false
+            referencedRelation: "sprinkler_systems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_transactions: {
         Row: {
           created_at: string
@@ -12299,6 +12488,7 @@ export type Database = {
           outlet_tag: string
         }[]
       }
+      ensure_sprinkler_qr: { Args: { _system_id: string }; Returns: string }
       find_similar_customer: {
         Args: { _name: string; _threshold?: number }
         Returns: {
@@ -12456,6 +12646,10 @@ export type Database = {
       }
       mark_outlet_labels_printed: {
         Args: { _ids: string[] }
+        Returns: undefined
+      }
+      mark_sprinkler_unit_visited: {
+        Args: { _date: string; _unit_id: string }
         Returns: undefined
       }
       merge_asset_duplicates: {
@@ -12788,6 +12982,7 @@ export type Database = {
         }
         Returns: Json
       }
+      sprinkler_system_asset: { Args: { _system_id: string }; Returns: string }
       start_riser_scan_service: {
         Args: { _asset_id: string; _job_id?: string; _type?: string }
         Returns: Json
@@ -12808,6 +13003,10 @@ export type Database = {
         }[]
       }
       storage_object_org_id: { Args: { _name: string }; Returns: string }
+      submit_sprinkler_report: {
+        Args: { _report_id: string }
+        Returns: undefined
+      }
       suspend_organisation: {
         Args: {
           _message?: string

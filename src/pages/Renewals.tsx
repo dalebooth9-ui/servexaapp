@@ -9,6 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import SprinklerDueSection from "@/components/sprinklers/SprinklerDueSection";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -278,6 +279,7 @@ export default function Renewals() {
           No upcoming renewals match your filters.
         </CardContent></Card>
       )}
+      <SprinklerDueSection showRevisits={false} />
     </div>
   );
 }

@@ -50,6 +50,7 @@ const RULES: SlugRule[] = [
   // photos into a reviewed DRAFT report (unclear answers left blank) — see jobs.photos.
   { test: (p) => /^\/jobs\/[^/]+$/.test(p), slug: "jobs.detail" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/rams"), slug: "rams" },
+  { test: (p) => p.startsWith("/sprinklers/") || (p.startsWith("/jobs/") && p.includes("/sprinkler-report")), slug: "residential-sprinklers" },
   { test: (p) => p.startsWith("/jobs/") && p.includes("/site-visit-report"), slug: "site-visit-report" },
   { test: (p) => p.startsWith("/rams"), slug: "rams" },
   { test: (p) => p.startsWith("/settings/rams-library"), slug: "rams.auto-attach" },

@@ -92,6 +92,7 @@ const JobDocuments = lazy(() => import("@/components/JobDocuments"));
 const ScanDocumentButton = lazy(() => import("@/components/documents/ScanDocumentButton"));
 const ScanPaperReportButton = lazy(() => import("@/components/paper-scan/ScanPaperReportButton"));
 const SiteVisitReportButton = lazy(() => import("@/components/jobs/SiteVisitReportButton"));
+const SprinklerReportButton = lazy(() => import("@/components/sprinklers/SprinklerReportButton"));
 const SiteVisitReportList = lazy(() => import("@/components/jobs/SiteVisitReportButton").then((m) => ({ default: m.SiteVisitReportList })));
 
 const InstallationProjects = lazy(() => import("@/components/InstallationProjects"));
@@ -1298,6 +1299,7 @@ export default function JobDetail() {
       <div className="mb-6 space-y-4" id="job-sheets-section">
         <JobSheet jobId={id!} job={job} part="reports" />
         <Suspense fallback={null}><SiteVisitReportList jobId={id!} /></Suspense>
+        <Suspense fallback={null}><SprinklerReportButton jobId={id!} /></Suspense>
       </div>
       {id && userRole === "admin" && (
         <div className="mb-6">

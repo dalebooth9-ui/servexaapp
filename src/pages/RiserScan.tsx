@@ -56,6 +56,10 @@ export default function RiserScan() {
     (async () => {
       try {
       let riserTag = tag;
+      // Sprinkler plant labels open the site's sprinkler history (risers unchanged).
+      const { data: spr } = await supabase.from("sprinkler_systems").select("id").eq("qr_tag", tag).maybeSingle();
+      if (cancelled) return;
+      if (spr?.id) { navigate(`/sprinklers/${spr.id}`, { replace: true }); return; }
       let { data, error } = await supabase.rpc("lookup_asset_by_tag", { _tag: tag });
       if(error)throw error;
       if (cancelled) return;
