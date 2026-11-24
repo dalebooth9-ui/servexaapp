@@ -262,6 +262,12 @@ Rules:
     }));
     // Sort sheets by their first page for stable ordering.
     sheets.sort((a, b) => a.page_indices[0] - b.page_indices[0]);
+    // Scanner stacks are one sheet per page by default. The model's grouping
+    // only lends its template guess to each page; the office corrects with
+    // Merge with previous / Split here in the review queue.
+    sheets = sheets.flatMap((s) =>
+      s.page_indices.map((i: number) => ({ ...s, page_indices: [i] })),
+    );
 
     const documentKind = ["job_sheet", "purchase_order", "unknown"].includes(
       parsed?.document_kind,

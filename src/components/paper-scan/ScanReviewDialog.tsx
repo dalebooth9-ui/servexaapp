@@ -17,7 +17,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { paperCompletionIso, paperDateText } from "@/lib/paperReportDate";
+import { paperCompletionIso, paperDateText, parseSheetDate, sheetDateProblem } from "@/lib/paperReportDate";
+import { suggestFromSiblings, type DateSource } from "@/lib/scanSiblingSuggest";
+import { UNIT_KINDS, unitKindForTemplate, unitNumberFrom, unitResultFrom, proposeUnitDefects } from "@/lib/siteUnits";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -194,6 +196,11 @@ export default function ScanReviewDialog({
   const [docDate, setDocDate] = useState(""); // yyyy-mm-dd for archive
   const [ukDate, setUkDate] = useState(""); // dd/mm/yyyy for job
   const [dateUnknown, setDateUnknown] = useState(false);
+  const [dateSource, setDateSource] = useState<DateSource>("sheet");
+  // Site unit (hydrant etc.) this sheet belongs to, matched by site + number.
+  const [unitNumber, setUnitNumber] = useState("");
+  const [unitMatch, setUnitMatch] = useState<{ id: string; location: string | null } | null>(null);
+  const [engineerFromOther, setEngineerFromOther] = useState("");
   const [docType, setDocType] = useState("");
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
@@ -342,7 +349,22 @@ export default function ScanReviewDialog({
           has_signature: !!p.signature_data,
         }));
       setEngineers(list);
-      const raw = String((item.header as any)?.engineer || "").trim();
+      // Blank date/engineer on this sheet: borrow from another sheet of the same scan.
+      let siblings: any[] = [];
+      if ((item as any).batchId) {
+        const { data: sib } = await supabase
+          .from("paper_scan_batch_items")
+          .select("id, header_data")
+          .eq("batch_id", (item as any).batchId)
+          .neq("id", item.itemId);
+        siblings = ((sib as any[]) || []).map((r) => r.header_data || {});
+      }
+      const sug = suggestFromSiblings({ guessDate: item.guessDate, header: item.header as any }, siblings);
+      setUkDate(paperDateText(sug.dateIso));
+      setDocDate((d) => d || sug.dateIso);
+      setDateSource(sug.dateSource);
+      setEngineerFromOther(sug.engineerFromOther ? sug.engineer : "");
+      const raw = sug.engineer;
       if (raw && list.length > 0) {
         const withSig = list.filter((e) => e.has_signature);
         const pool = withSig.length > 0 ? withSig : list;
@@ -450,14 +472,38 @@ export default function ScanReviewDialog({
     return Array.from(map.entries());
   }, [templateFields]);
 
+  const unitKind = useMemo(() => unitKindForTemplate({ ...templateMeta, name: templateMeta.name || item?.templateName || null }), [templateMeta, item]);
+  useEffect(() => {
+    if (!open || !unitKind) { setUnitNumber(""); return; }
+    const n = unitNumberFrom({ ...(item?.header || {}), ...answers }, unitKind);
+    setUnitNumber((cur) => cur || (n ? String(n) : ""));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, unitKind, item]);
+  useEffect(() => {
+    setUnitMatch(null);
+    const n = Number(unitNumber);
+    if (!unitKind || !siteId || !Number.isInteger(n) || n < 1) return;
+    let live = true;
+    supabase.from("site_units").select("id, location").eq("site_id", siteId).eq("unit_kind", unitKind).eq("unit_number", n).maybeSingle()
+      .then(({ data }) => { if (live) setUnitMatch((data as any) || null); });
+    return () => { live = false; };
+  }, [unitKind, siteId, unitNumber]);
+
   const proposedDefects = useMemo(() => {
     if (!item) return [] as ProposedDefect[];
-    return proposeDefectsFromExtraction(
+    const base = proposeDefectsFromExtraction(
       templateFields as any,
       answers,
       (item.header || {}) as any,
     );
-  }, [item, mode, templateFields, answers]);
+    if (!unitKind) return base;
+    const label = `${UNIT_KINDS[unitKind].singular}${unitNumber ? ` ${unitNumber}` : ""}`;
+    const seen = new Set(base.map((p) => p.title.toLowerCase().replace(/[^a-z0-9]/g, "")));
+    const extra = proposeUnitDefects(answers, unitKind, label)
+      .filter((p) => !Array.from(seen).some((t) => t.includes(p.title.toLowerCase().replace(/^.*?:\s*/, "").replace(/[^a-z0-9]/g, ""))))
+      .map((p) => ({ key: p.key, title: p.title, description: p.description, severity: p.severity, category: p.category, location_on_site: unitMatch?.location || "", source_field_label: "" }));
+    return [...base, ...extra];
+  }, [item, mode, templateFields, answers, unitKind, unitNumber, unitMatch]);
 
   const renderFieldInput = (field: TemplateField) => {
     const value = answers[field.id];
@@ -799,8 +845,21 @@ export default function ScanReviewDialog({
       //   (b) same customer + same PO number (dates missing/mismatched is fine).
       // A matching PO is a strong signal it's the same visit even when the
       // recorded completion date shifts across pages/sheets in a batch.
+      // Several sheets in one scan (e.g. Hydrant 1 and 2) are one visit: join
+      // the job already filed from another sheet of this scan at the same site.
+      let sameScanJobId: string | null = null;
+      if (!opts?.forceNew && !opts?.existingJobId && !matchExistingJobId && item.batchId) {
+        const { data: sib } = await supabase
+          .from("paper_scan_batch_items")
+          .select("created_job_id, jobs:created_job_id(site_id, status)")
+          .eq("batch_id", item.batchId)
+          .neq("id", item.itemId)
+          .not("created_job_id", "is", null);
+        const hit = ((sib as any[]) || []).find((r) => r.jobs?.site_id === effectiveSiteId && r.jobs?.status !== "cancelled");
+        sameScanJobId = hit?.created_job_id || null;
+      }
       const chosenExistingJobId =
-        opts?.existingJobId ?? (matchExistingJobId || null);
+        opts?.existingJobId ?? (matchExistingJobId || sameScanJobId || null);
       const scanPo = poNumber.trim().toLowerCase();
       if (!opts?.forceNew && !chosenExistingJobId) {
         let candidate: {
@@ -812,8 +871,7 @@ export default function ScanReviewDialog({
 
         // (a) date-window match
         if (ukDate) {
-          const m = ukDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-          const iso = m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+          const iso = parseSheetDate(ukDate);
           if (iso) {
             const dayStart = `${iso}T00:00:00Z`;
             const dayEnd = `${iso}T23:59:59Z`;
@@ -904,6 +962,20 @@ export default function ScanReviewDialog({
           ? sameType[0]
           : loc ? sameType.find((a) => `${a.riser_location || ""}`.trim().toLowerCase() === loc) : null;
         if (pick) responsesToSave.riser_asset_id = pick.id;
+      }
+      if (unitKind && effectiveSiteId) {
+        const n = Number(unitNumber);
+        if (!Number.isInteger(n) || n < 1) {
+          toast({ title: `Enter the ${UNIT_KINDS[unitKind].singular.toLowerCase()} number`, description: `Each ${UNIT_KINDS[unitKind].singular.toLowerCase()} sheet is filed against its number at this site (e.g. 1 or 2).`, variant: "destructive" });
+          setSaving(false);
+          return;
+        }
+        const res = unitResultFrom(answers, unitKind, parseSheetDate(ukDate));
+        const { data: unitId, error: unitErr } = await supabase.rpc("ensure_site_unit", { _site_id: effectiveSiteId, _kind: unitKind, _number: n, _location: res.location, _type: res.type });
+        if (unitErr) throw unitErr;
+        responsesToSave._site_unit_id = unitId;
+        responsesToSave._site_unit_result = res;
+        responsesToSave._system_label = `${UNIT_KINDS[unitKind].singular} ${n}`;
       }
       const result = await confirmScanQueueAsJob({
         userId: user.id,
@@ -1417,7 +1489,18 @@ export default function ScanReviewDialog({
               />
             )}
 
-            {item.templateId && <ScanPreviousReport siteId={siteId} assetId={riserId && riserId !== "none" ? riserId : null} location={riserId === "none" ? "" : String(answers.riser_location || item.header?.riser_location || "")} templateId={item.templateId} templateName={item.templateName} before={(() => { try { return paperCompletionIso(isJob ? ukDate : docDate).slice(0,10); } catch { return new Date().toISOString().slice(0,10); } })()} fields={templateFields} answers={answers} sheetUrls={thumbs} />}
+            {unitKind && (
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="scan-unit-number">{UNIT_KINDS[unitKind].singular} number</Label>
+                  <Input id="scan-unit-number" className="w-24" inputMode="numeric" value={unitNumber} onChange={(e) => setUnitNumber(e.target.value.replace(/[^\d]/g, ""))} />
+                </div>
+                <p className="text-xs text-muted-foreground pb-2">
+                  {!siteId ? "Choose the site to match this to its hydrant." : !unitNumber ? "Enter the number written on the sheet." : unitMatch ? `Matches ${UNIT_KINDS[unitKind].singular} ${unitNumber} at this site${unitMatch.location ? ` (${unitMatch.location})` : ""}.` : `New — ${UNIT_KINDS[unitKind].singular} ${unitNumber} will be added to this site when filed.`}
+                </p>
+              </div>
+            )}
+            {item.templateId && <ScanPreviousReport siteId={siteId} assetId={riserId && riserId !== "none" ? riserId : null} siteUnitId={unitMatch?.id || null} location={riserId === "none" ? "" : String(answers.hydrant_location || answers.riser_location || item.header?.riser_location || "")} templateId={item.templateId} templateName={item.templateName} before={(() => { try { return paperCompletionIso(isJob ? ukDate : docDate).slice(0,10); } catch { return new Date().toISOString().slice(0,10); } })()} fields={templateFields} answers={answers} sheetUrls={thumbs} />}
 
             {hasTemplate && (
               <div className="rounded border bg-muted/30 p-3 space-y-3">
@@ -1570,6 +1653,16 @@ export default function ScanReviewDialog({
                       onChange={(e) => setUkDate(e.target.value)}
                       placeholder="dd/mm/yyyy"
                     />
+                    {sheetDateProblem(ukDate) ? (
+                      <p className="text-xs text-destructive">{sheetDateProblem(ukDate)} Leave it blank to use today's date.</p>
+                    ) : dateSource !== "sheet" && ukDate ? (
+                      <p className="text-xs text-muted-foreground">
+                        {dateSource === "other_sheet" ? "No date on this sheet — suggested from another sheet in this scan." : "No date on this sheet — suggested today's date."} You can change it.
+                      </p>
+                    ) : null}
+                    {engineerFromOther && (
+                      <p className="text-xs text-muted-foreground">No engineer on this sheet — suggested {engineerFromOther} from another sheet in this scan.</p>
+                    )}
                     <label className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Checkbox
                         checked={dateUnknown}

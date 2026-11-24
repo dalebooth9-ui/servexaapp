@@ -149,9 +149,9 @@ function parseAnswers(raw: any): Record<string, any> {
  */
 export async function findPreviousReport(
   supabase: any,
-  opts: { jobId: string; templateId: string; riserAssetId?: string | null; siteId?: string | null; riserLocation?: string | null; before?: string | null; orgId?: string | null; excludeResponseId?: string | null },
+  opts: { jobId: string; templateId: string; riserAssetId?: string | null; siteUnitId?: string | null; siteId?: string | null; riserLocation?: string | null; before?: string | null; orgId?: string | null; excludeResponseId?: string | null },
 ): Promise<PreviousReport | null> {
-  const { jobId, templateId, riserAssetId, siteId, riserLocation, before, orgId, excludeResponseId } = opts;
+  const { jobId, templateId, riserAssetId, siteUnitId, siteId, riserLocation, before, orgId, excludeResponseId } = opts;
   if (!templateId) return null;
   let q = supabase.from("job_sheet_responses")
     .select("id, job_id, responses, submitted_at, org_id")
@@ -162,7 +162,12 @@ export async function findPreviousReport(
   if (before) q = q.lt("submitted_at", before);
   if (excludeResponseId) q = q.neq("id", excludeResponseId);
   let rows: any[] = [];
-  if (riserAssetId) {
+  if (siteUnitId) {
+    // Site units (hydrants etc.) are matched by their own id, never by text.
+    const { data } = await q.eq("responses->>_site_unit_id", siteUnitId).limit(1);
+    rows = data || [];
+  }
+  if (!rows.length && riserAssetId) {
     const { data } = await q.eq("responses->>riser_asset_id", riserAssetId).limit(1);
     rows = data || [];
   }
@@ -291,7 +296,7 @@ export function isEarlierMatchingArchive(doc: { status: string; site_id: string 
 /** Most recent filed report (in-app or archive), whatever year it is from. */
 export async function findMostRecentPrevious(
   supabase: any,
-  opts: { jobId: string; templateId: string; templateName?: string | null; riserAssetId?: string | null; siteId?: string | null; riserLocation?: string | null; before?: string | null; orgId?: string | null; excludeResponseId?: string | null; decisions?: Record<string, "ok" | "needs_fixing">; strictIdentity?: boolean },
+  opts: { jobId: string; templateId: string; templateName?: string | null; riserAssetId?: string | null; siteUnitId?: string | null; siteId?: string | null; riserLocation?: string | null; before?: string | null; orgId?: string | null; excludeResponseId?: string | null; decisions?: Record<string, "ok" | "needs_fixing">; strictIdentity?: boolean },
 ): Promise<{ previous: PreviousReport | null; possible: PossibleArchive[] }> {
   const app = await findPreviousReport(supabase, opts);
   let site: any = {};

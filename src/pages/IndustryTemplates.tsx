@@ -328,7 +328,7 @@ export const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
     category: "fire_hydrant",
     fields: [
       ...SITE_DETAIL_FIELDS,
-      { id: "hydrant_type", label: "Hydrant Type", type: "select", section: "Hydrant Details", required: true, options: ["Surface Box", "Pillar", "Underground"] },
+      { id: "hydrant_type", label: "Hydrant Type", type: "select", section: "Hydrant Details", required: true, options: ["Screwdown", "Sluice", "Pillar", "Surface Box", "Underground"] },
       { id: "hydrant_location", label: "Exact Location / Map Reference", type: "text", section: "Hydrant Details", required: true },
       { id: "valve_condition", label: "Main Valve Condition", type: "select", section: "Inspection Checks", required: true, options: ["Satisfactory", "Stiff", "Leaking", "Inoperable"] },
       { id: "outlet_cap", label: "Outlet Cap / Blank Present", type: "select", section: "Inspection Checks", required: true, options: ["Yes", "No"] },

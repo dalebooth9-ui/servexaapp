@@ -43,12 +43,15 @@ import ScanReviewDialog, {
 } from "@/components/paper-scan/ScanReviewDialog";
 import BulkActionBar from "@/components/BulkActionBar";
 import { deletePaperScanItems } from "@/lib/deletePaperScanItems";
+import { canEditSheet, previousSheet, mergeWithPrevious, splitIntoPages } from "@/lib/paperScanSheetEdit";
+import { plainError } from "@/lib/plainError";
 import { bulkFileAndConvertArchiveItems } from "@/lib/bulkFileAndConvertArchiveItems";
 
 
 type Item = {
   id: string;
   batch_id: string;
+  org_id?: string;
   status: string;
   confidence: number | null;
   detected_template_id: string | null;
@@ -154,7 +157,7 @@ export default function PaperScanQueue({ embedded = false, onGoUpload }: PaperSc
     const { data } = await (supabase as any)
       .from("paper_scan_batch_items")
       .select(
-        "id, batch_id, status, confidence, detected_template_id, candidate_matches, extracted, header_data, guess_customer_id, guess_site_id, guess_date, image_paths, error, created_at, created_job_id, matched_existing_job, mode, archived_document_id",
+        "id, batch_id, org_id, status, confidence, detected_template_id, candidate_matches, extracted, header_data, guess_customer_id, guess_site_id, guess_date, image_paths, error, created_at, created_job_id, matched_existing_job, mode, archived_document_id",
       )
       .order("created_at", { ascending: false })
 
@@ -455,6 +458,24 @@ export default function PaperScanQueue({ embedded = false, onGoUpload }: PaperSc
     });
   };
 
+  const editSheets = async (i: any, kind: "merge" | "split") => {
+    try {
+      if (kind === "merge") {
+        const prev = previousSheet(i, items as any);
+        if (!prev) throw new Error("There's no earlier unfiled sheet in this scan to merge with.");
+        await mergeWithPrevious(i, prev as any);
+        toast({ title: "Merged with previous sheet", description: "Re-reading the combined sheet…" });
+      } else {
+        await splitIntoPages(i);
+        toast({ title: "Split into one sheet per page", description: "Re-reading each page…" });
+      }
+      load();
+    } catch (e) {
+      const msg = plainError(e);
+      toast({ title: kind === "merge" ? "Merge failed" : "Split failed", description: msg, variant: "destructive" });
+    }
+  };
+
   useEffect(() => {
     const id = params.get("item");
     const item = items.find((i) => i.id === id);
@@ -669,6 +690,20 @@ export default function PaperScanQueue({ embedded = false, onGoUpload }: PaperSc
                         })}
                       </TableCell>
                       <TableCell className="text-right">
+                        {canEditSheet(i) && (
+                          <div className="flex justify-end gap-1 mb-1">
+                            {previousSheet(i as any, items as any) && (
+                              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => editSheets(i, "merge")} title="This page belongs to the sheet before it">
+                                Merge with previous
+                              </Button>
+                            )}
+                            {(i.image_paths?.length || 0) > 1 && (
+                              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => editSheets(i, "split")} title="Make each page its own sheet">
+                                Split here ({i.image_paths.length} pages)
+                              </Button>
+                            )}
+                          </div>
+                        )}
                         {i.status === "confirmed" && i.created_job_id ? (
                           <Button size="sm" variant="outline" asChild>
                             <Link to={`/jobs/${i.created_job_id}`}>

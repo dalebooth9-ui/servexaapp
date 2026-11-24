@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { paperCompletionIso } from "@/lib/paperReportDate";
+import { paperCompletionIsoStrict as paperCompletionIso } from "@/lib/paperReportDate";
 import { buildElectronicReportPdf } from "@/lib/electronicReportPdf";
 import { buildDurableRef } from "@/lib/durableStorageRef";
 

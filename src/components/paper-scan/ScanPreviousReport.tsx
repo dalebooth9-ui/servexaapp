@@ -8,8 +8,8 @@ import { compareReports, findMostRecentPrevious, loadPreviousDefects, type Compa
 import { resolveSubmissionsSignedUrls } from "@/lib/resolveSubmissionsPath";
 import { Eye, Loader2, X } from "lucide-react";
 
-export default function ScanPreviousReport({ siteId, assetId, location, templateId, templateName, before, fields, answers, sheetUrls }: {
-  siteId: string; assetId: string | null; location: string; templateId: string; templateName: string | null; before: string;
+export default function ScanPreviousReport({ siteId, assetId, siteUnitId = null, location, templateId, templateName, before, fields, answers, sheetUrls }: {
+  siteId: string; assetId: string | null; siteUnitId?: string | null; location: string; templateId: string; templateName: string | null; before: string;
   fields: CompareField[]; answers: Record<string, any>; sheetUrls: string[];
 }) {
   const [previous, setPrevious] = useState<PreviousReport | null>(null);
@@ -21,11 +21,11 @@ export default function ScanPreviousReport({ siteId, assetId, location, template
   useEffect(() => {
     let live = true;
     setPrevious(null); setDefects([]); setView(false); setUrl(null); setError("");
-    if (!siteId || !templateId || (!assetId && !location)) return;
+    if (!siteId || !templateId || (!assetId && !siteUnitId && !location)) return;
     setLoading(true);
     (async () => {
       try {
-        const result = await findMostRecentPrevious(supabase, { jobId: "00000000-0000-0000-0000-000000000000", siteId, riserAssetId: assetId, riserLocation: location, templateId, templateName, before: `${before.slice(0,10)}T00:00:00Z`, strictIdentity: true });
+        const result = await findMostRecentPrevious(supabase, { jobId: "00000000-0000-0000-0000-000000000000", siteId, siteUnitId, riserAssetId: assetId, riserLocation: location, templateId, templateName, before: `${before.slice(0,10)}T00:00:00Z`, strictIdentity: true });
         if (!live) return;
         setPrevious(result.previous);
         if (result.previous?.source === "app") {
@@ -36,7 +36,7 @@ export default function ScanPreviousReport({ siteId, assetId, location, template
       finally { if (live) setLoading(false); }
     })();
     return () => { live = false; };
-  }, [siteId, assetId, location, templateId, templateName, before]);
+  }, [siteId, assetId, siteUnitId, location, templateId, templateName, before]);
   const flags = useMemo(() => previous ? compareReports(fields, previous.answers, answers, defects, previous.unclear || []) : [], [previous, fields, answers, defects]);
   const open = async () => {
     if (!previous) return;

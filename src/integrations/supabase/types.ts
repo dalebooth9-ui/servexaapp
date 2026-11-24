@@ -2467,6 +2467,7 @@ export type Database = {
           scheduled_visit_id: string | null
           severity: string
           site_id: string | null
+          site_unit_id: string | null
           site_visit_report_id: string | null
           source_archived_document_id: string | null
           source_key: string | null
@@ -2508,6 +2509,7 @@ export type Database = {
           scheduled_visit_id?: string | null
           severity?: string
           site_id?: string | null
+          site_unit_id?: string | null
           site_visit_report_id?: string | null
           source_archived_document_id?: string | null
           source_key?: string | null
@@ -2549,6 +2551,7 @@ export type Database = {
           scheduled_visit_id?: string | null
           severity?: string
           site_id?: string | null
+          site_unit_id?: string | null
           site_visit_report_id?: string | null
           source_archived_document_id?: string | null
           source_key?: string | null
@@ -2656,6 +2659,13 @@ export type Database = {
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_site_unit_id_fkey"
+            columns: ["site_unit_id"]
+            isOneToOne: false
+            referencedRelation: "site_units"
             referencedColumns: ["id"]
           },
           {
@@ -10382,6 +10392,68 @@ export type Database = {
           },
         ]
       }
+      site_units: {
+        Row: {
+          access_notes: string | null
+          created_at: string
+          details: Json
+          id: string
+          last_inspected: string | null
+          last_reading: number | null
+          last_reading_unit: string | null
+          last_result: string | null
+          location: string | null
+          org_id: string
+          site_id: string
+          unit_kind: string
+          unit_number: number
+          unit_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_notes?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          last_inspected?: string | null
+          last_reading?: number | null
+          last_reading_unit?: string | null
+          last_result?: string | null
+          location?: string | null
+          org_id?: string
+          site_id: string
+          unit_kind: string
+          unit_number: number
+          unit_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_notes?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          last_inspected?: string | null
+          last_reading?: number | null
+          last_reading_unit?: string | null
+          last_result?: string | null
+          location?: string | null
+          org_id?: string
+          site_id?: string
+          unit_kind?: string
+          unit_number?: number
+          unit_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_units_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_visit_report_photos: {
         Row: {
           caption: string
@@ -12285,6 +12357,10 @@ export type Database = {
           skipped: number
         }[]
       }
+      bulk_add_site_units: {
+        Args: { _from: number; _kind: string; _site_id: string; _to: number }
+        Returns: number
+      }
       can_act_on_job: { Args: { p_job: string }; Returns: boolean }
       cancel_organisation: {
         Args: { _org_id: string; _reason: string; _source?: string }
@@ -12487,6 +12563,16 @@ export type Database = {
           outlet_number: number
           outlet_tag: string
         }[]
+      }
+      ensure_site_unit: {
+        Args: {
+          _kind: string
+          _location?: string
+          _number: number
+          _site_id: string
+          _type?: string
+        }
+        Returns: string
       }
       ensure_sprinkler_qr: { Args: { _system_id: string }; Returns: string }
       find_similar_customer: {
@@ -12735,6 +12821,7 @@ export type Database = {
           scheduled_visit_id: string | null
           severity: string
           site_id: string | null
+          site_unit_id: string | null
           site_visit_report_id: string | null
           source_archived_document_id: string | null
           source_key: string | null
