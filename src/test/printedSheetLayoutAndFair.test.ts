@@ -20,9 +20,9 @@ describe("Printed-sheet layout", () => {
     "Dry Riser — Pressure Test", "Dry Riser — Visual Inspection", "Dry Riser — Commissioning",
     "Wet Riser — Annual Service & Test", "Wet Riser — Visual Inspection",
     "Fire Hydrant — Annual Inspection", "Fire Hydrant — 6 Month Visual Check",
+    "Residential & Domestic Sprinkler — Annual Service", "Commercial Sprinkler — Annual Service (BS EN 12845)",
   ])("%s uses the printed sheet", (n) => expect(usesPrintedSheetLayout(n)).toBe(true));
   it.each([
-    "Residential & Domestic Sprinkler — Annual Service", "Commercial Sprinkler — Annual Service (BS EN 12845)",
     "Dry Riser — Visual Inspection — RETIRED duplicate", "Emergency Lighting",
   ])("%s keeps the report layout", (n) => expect(usesPrintedSheetLayout(n)).toBe(false));
   it("table answers keep the report layout", () => {

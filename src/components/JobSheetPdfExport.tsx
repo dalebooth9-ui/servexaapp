@@ -1,4 +1,4 @@
-import { usesPrintedSheetLayout, hasTableAnswers } from "@/lib/printedSheetLayout";
+import { usesPrintedSheetLayout, hasTableAnswers, printedSheetHandlesTables } from "@/lib/printedSheetLayout";
 import { useState } from "react";
 import { isPaperReport } from "@/lib/paperReportDate";
 import { paperReportFilename } from "@/lib/paperReportDownload";
@@ -398,8 +398,8 @@ export async function generateJobSheetPdf(
   // sheet (signatures in its boxes); outlet checks and site photos follow on
   // their own pages. Drafts, carried remedials and table answers keep the
   // report layout so nothing is dropped.
-  const paperSheetMode = isValidUuid && isLiveReport && !options?.draft && carriedCount === 0
-    && usesPrintedSheetLayout(template.name) && !hasTableAnswers(template.fields as any, formData);
+  const paperSheetMode = isValidUuid && isLiveReport && !options?.draft && usesPrintedSheetLayout(template.name)
+    && (printedSheetHandlesTables(template.name) || (carriedCount === 0 && !hasTableAnswers(template.fields as any, formData)));
 
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -1497,7 +1497,10 @@ export async function generateJobSheetPdf(
     const custSig = signatures.find((x: any) => x.signer_role === "customer" && sigImages[x.id]);
     const { renderFilledRiserSheet } = await import("@/lib/archivePdfBuilder");
     const sheet = await renderFilledRiserSheet({
-      archivedId: jobId, template: template as any, responses: formData, header: formData._scan_header || {},
+      archivedId: jobId, template: template as any,
+      // Sprinkler sheets print last-visit remedials at the top, so keep their answers.
+      responses: { ...formData, ...Object.fromEntries(Object.entries(resolvedFormData).filter(([k]) => k.startsWith("carried_"))) },
+      header: formData._scan_header || {},
       customer: { name: customerName, logo_url: jobInfo?.customers?.logo_url ?? null },
       site: null, effectiveSite: { name: (jobInfo as any)?.site?.name || "", address: (jobInfo as any)?.site?.address || jobInfo?.address || null },
       documentDate: (submittedAt || formData.date || "").slice(0, 10) || null,

@@ -1,5 +1,6 @@
 import { applySheetNotes, fixLineBreaksInAnswers, realLineBreaks, hydrantLocationText, hydrantPoText, placeSheetItems } from "@/lib/paperSheetNotes";
 import { usesPrintedSheetLayout } from "@/lib/printedSheetLayout";
+import { isSprinklerSheet, type SheetDefect } from "@/lib/printedSheetModel";
 // Build the "electronic" filled report PDF for an archived (digitised-only)
 // document. Reuses the same generator as job-mode sheets so branding,
 // watermark, accreditations and layout are identical — the only difference
@@ -337,7 +338,10 @@ export async function generateAndUploadArchivePdf(
     const fullPath = await buildOrgPathAsync(rel);
     const { error } = await supabase.storage.from("submissions").upload(fullPath, blob, { upsert: true, contentType: "application/pdf" });
     if (error) throw error;
-    return { path: fullPath, pageCount: 1 };
+    const pageCount = isSprinklerSheet(template.name)
+      ? (await (await import("pdf-lib")).PDFDocument.load(await blob.arrayBuffer())).getPageCount()
+      : 1;
+    return { path: fullPath, pageCount };
   }
 
   // Non-UUID jobId => generator skips DB-driven signature / assignment / job
@@ -398,7 +402,7 @@ function imageToFill(img: HTMLImageElement | null | undefined): FillImage | null
   } catch { return null; }
 }
 
-async function dataUrlToFill(dataUrl: string | null | undefined): Promise<FillImage | null> {
+export async function dataUrlToFill(dataUrl: string | null | undefined): Promise<FillImage | null> {
   if (!dataUrl || !/^data:image\//.test(dataUrl)) return null;
   const img = await new Promise<HTMLImageElement | null>((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = dataUrl; });
   return imageToFill(img);
@@ -435,11 +439,16 @@ export async function renderFilledRiserSheet(o: {
   }
   const outlets = asset?.outlets_count ?? (r._number_of_outlets != null && r._number_of_outlets !== "" ? Number(r._number_of_outlets) : null);
   const isHydrant = /hydrant/i.test(o.template.name);
-  const riserLocation = isHydrant
+  const isSprinkler = isSprinklerSheet(o.template.name);
+  const riserLocation = isSprinkler
+    ? (r.wsr_location || byLabel(/room location|valve set ref|installation location/i) || r.tank_location || header?.riser_location || null)
+    : isHydrant
     ? hydrantLocationText(r, header)
     : asset?.riser_location || r.riser_location || byLabel(/riser\s*loc/i) || header?.riser_location || null;
   // A real PO only: hydrant numbers / internal refs must never print as a PO.
-  const poRaw = isHydrant
+  const poRaw = isSprinkler
+    ? (job?.customer_po || header?.po_ref || "")
+    : isHydrant
     ? hydrantPoText(job?.customer_po, r)
     : header?.po_ref || r.po_ref || byLabel(/po\s*number|purchase order/i) || job?.customer_po || "";
   const also = [
@@ -468,6 +477,12 @@ export async function renderFilledRiserSheet(o: {
     custDate: o.customerSig ? (o.custDate || r._customer_sign_date || date) : null,
     techSig, custSig,
   };
+  // Sprinkler sheets list defects raised on this job (title/location/priority only, never costs).
+  let sheetDefects: SheetDefect[] = [];
+  if (isSprinkler && jobId) {
+    const { data } = await supabase.from("defects").select("title, location_on_site, severity, scheduled_job_id").eq("job_id", jobId).limit(500);
+    sheetDefects = ((data || []) as any[]).filter((d) => !d.scheduled_job_id || d.scheduled_job_id !== jobId).map((d) => ({ title: d.title, location: d.location_on_site, priority: d.severity }));
+  }
   return generateBlankSheetPdfBlob(
     { id: o.template.id, name: o.template.name, description: o.template.description ?? null, fields, footer_text: o.template.footer_text ?? null, branding: o.template.branding },
     {
@@ -479,9 +494,10 @@ export async function renderFilledRiserSheet(o: {
       due_date: o.documentDate || null,
       site_id: o.site?.id,
       site: { name: o.effectiveSite?.name || "", address: o.effectiveSite?.address || null, postcode: null, contact_name: null, contact_phone: null, contact_email: null, riser_location: riserLocation },
-      riserVisit: isHydrant && !asset ? null : { asset_id: asset?.id || null, asset_tag: asset?.asset_tag || null, riser_name: asset ? (/^(dry|wet)\s*riser/i.test(asset.name || "") ? asset.name : `${riserKind} - ${asset.riser_location || asset.name || ""}`.replace(/ - $/, "")) : null, riser_location: riserLocation, outlets_count: outlets, job_reference: job?.reference_number || null },
+      riserVisit: (isHydrant || isSprinkler) && !asset ? null : { asset_id: asset?.id || null, asset_tag: asset?.asset_tag || null, riser_name: asset ? (/^(dry|wet)\s*riser/i.test(asset.name || "") ? asset.name : `${riserKind} - ${asset.riser_location || asset.name || ""}`.replace(/ - $/, "")) : null, riser_location: riserLocation, outlets_count: outlets, job_reference: job?.reference_number || null },
       filled: fill,
       ...(isHydrant ? { locationLabel: "HYDRANT NO. / LOCATION:", poOnly: true } : {}),
+      ...(isSprinkler ? { locationLabel: "SYSTEM / PLANT LOCATION:", poOnly: true, sheetDefects } : {}),
     },
     { copiesOverride: 1, watermarkOverride: { mode: "untinted", opacity: 0.12 } as any },
   );

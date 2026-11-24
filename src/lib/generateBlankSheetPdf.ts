@@ -60,6 +60,8 @@ export type BlankSheetJobInfo = {
   riserVisit?: Record<string, any> | null;
   /** Converted paper sheet answers (customer-facing filled sheet). */
   filled?: import('@/lib/paperFormFill').PaperFormFill | null;
+  /** Sprinkler sheets: defects raised on this visit (customer-safe wording only). */
+  sheetDefects?: import('@/lib/printedSheetModel').SheetDefect[] | null;
   site?: {
     name: string;
     address: string | null;

@@ -16,6 +16,8 @@ import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/li
 import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { isPaperFormTemplate, renderPaperFormPage } from "@/workers/paperFormRenderer";
+import { renderPrintedSheetPages } from "@/workers/printedSheetPages";
+import { buildSprinklerSheetModel, isSprinklerSheet } from "@/lib/printedSheetModel";
 import {drawEngineerAccessBox,type EngineerAccessPrint} from '@/lib/siteAccessPdf';
 
 /**
@@ -565,6 +567,15 @@ async function buildPdf(payload: WorkerPayload) {
   if (usePaperForm) {
     for (let sysIdx = 0; sysIdx < systemQty; sysIdx++) {
       if (sysIdx > 0) doc.addPage();
+      // Filled sprinkler reports: multi-page sheet with zone/flat/pump tables.
+      const sheetJob = jobInfo as unknown as import('@/workers/paperFormRenderer').PaperFormJobInfo | null;
+      if (sheetJob?.filled && isSprinklerSheet(cleanTemplateName)) {
+        renderPrintedSheetPages(doc, {
+          model: buildSprinklerSheetModel({ name: cleanTemplateName, fields: template.fields, answers: sheetJob.filled.answers || {}, issues: sheetJob.filled.issues, also: sheetJob.filled.also, defects: sheetJob.sheetDefects || [] }),
+          jobInfo: sheetJob, logo: paperLogoImage, accreditationLogos: (accreditationLogos.filter(Boolean) as LoadedImage[]), brandColor: accentColor,
+        });
+        continue;
+      }
       renderPaperFormPage(doc, {
         template: {
           name: cleanTemplateName,
