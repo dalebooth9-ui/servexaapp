@@ -54,3 +54,37 @@ describe("hydrant header cells", () => {
     expect(isPrintableFinancialField({ id: "hourly_rate", label: "Hourly rate" })).toBe(true);
   });
 });
+
+import { questionOnSheet, dropAnswersNotOnSheet } from "../../supabase/functions/_shared/notOnSheet";
+import { promoteUnmapped as promote2 } from "@/lib/paperSheetNotes";
+describe("hydrant answers only from the sheet", () => {
+  const ocr = "FIRE HYDRANT INSPECTION 1. IS SURROUNDING PAVEMENT SOUND? YES 5. INDICATOR PLATE CORRECT 8. FITTED WITH CAP 10. HYDRANT IN WORKING ORDER 11. UNABLE TO TEST 13. FLOW RATE LPM 295 LPS COMMENTS GRID NEEDS PAINTING INLET VALVE PN16";
+  const fields = [{ id: "valve_condition", label: "Main Valve Condition", type: "select" }, { id: "access_clear", label: "Access Clear (no obstruction)", type: "checkbox" }, { id: "working_order", label: "Hydrant in Working Order", type: "checkbox" }, { id: "flow_rate", label: "Flow Rate (L/min)", type: "number" }, { id: "comments", label: "Comments / Remedial Details", type: "textarea" }];
+  it("drops Main Valve Condition and Access Clear, keeps what is on the sheet", () => {
+    const r = dropAnswersNotOnSheet({ valve_condition: "Satisfactory", access_clear: "yes", working_order: "yes", flow_rate: 295, comments: "x" }, fields, ocr);
+    expect(r.dropped.sort()).toEqual(["access_clear", "valve_condition"]);
+    expect(r.kept.flow_rate).toBe(295);
+  });
+  it("matches a printed question", () => expect(questionOnSheet("Surrounding Pavement Sound", ocr)).toBe(true));
+  it("sheet wording maps to the existing row instead of a new one", () => {
+    const p = promote2([{ id: "outlet_cap", label: "Outlet Cap / Blank Present (Fitted With Cap)", type: "checkbox" }, { id: "marker_post", label: "Marker Post / Indicator Plate Visible and Correct", type: "checkbox" }], [{ label: "8. Fitted with cap?", value: "yes" }, { label: "5. Indicator plate correct", value: "yes" }] as any);
+    expect(p.added).toHaveLength(0);
+    expect(p.answers).toEqual({ outlet_cap: "yes", marker_post: "yes" });
+  });
+});
+
+import jsPDF from "jspdf";
+import { renderPaperFormPage } from "@/workers/paperFormRenderer";
+describe("filled hydrant sheet", () => {
+  const fields = [
+    { id: "valve_condition", label: "Main Valve Condition", type: "select", options: ["Satisfactory", "Stiff"], section: "Inspection Checks", required: false },
+    { id: "pit_dry", label: "Pit Dry", type: "checkbox", section: "Hydrant Pit Details", required: false },
+  ] as any;
+  const run = (answers: any) => { const doc = new jsPDF(); renderPaperFormPage(doc, { template: { name: "Fire Hydrant — Annual Inspection", fields }, jobInfo: { filled: { answers } } as any, logo: null, accreditationLogos: [], handfill: false }); return doc.output() as string; };
+  it("leaves out Main Valve Condition when the sheet had no answer", () => {
+    const t = run({ pit_dry: "yes" });
+    expect(t).not.toContain("Main Valve Condition");
+    expect(t).toContain("Pit Dry");
+  });
+  it("prints it when it was actually answered", () => expect(run({ valve_condition: "Stiff" })).toContain("Main Valve Condition"));
+});

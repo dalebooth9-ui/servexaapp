@@ -1,3 +1,4 @@
+import { dropAnswersNotOnSheet } from "../_shared/notOnSheet.ts";
 import { resolveCaller } from "../_shared/callerOrg.ts";
 import { loadJobSourceImages } from "../_shared/jobSourceImages.ts";
 import { readHandwrittenSheet } from "./conversionRead.ts";
@@ -619,6 +620,7 @@ RULES:
 2. The template name "${templateName}" is for context only — NEVER use it as a field value.
 3. Only map values that actually appear in the extracted text. If a field has no data, OMIT it (do NOT fabricate "n/a" as a filler — see rule 3a).
 3a. NEVER FABRICATE "N/A". "n/a" is a positive assertion an engineer WROTE on the sheet. If the extracted text does not clearly contain a tick/circle/handwritten mark for a row, OMIT that field entirely. Returning "n/a" for a row where no answer exists is a critical error — it puts a false assertion onto a certificate.
+3d. ONLY QUESTIONS PRINTED ON THE SHEET. Never fill a field whose question does not appear on the sheet, and never derive one field from another (e.g. "hydrant in working order" does NOT mean "main valve condition: satisfactory"; a written flow rate does NOT mean "flow test carried out"). Omit such fields.
 3b. CONFIDENCE (field_confidence): For every field you DO return, populate an entry in field_confidence with a number 0.0–1.0. Use <0.6 whenever the answer was ambiguous (e.g. the mark could belong to two rows, OCR text was noisy, or you had to guess between two plausible options). Use ≥0.85 only when the answer is unambiguous.
 3c. NEVER GUESS HANDWRITTEN NAMES OR FREE-TEXT. For any handwritten name field (customer_signed_name, engineer / technician name, print name, "signed by", client name, contact name) OR any handwritten free-text answer: if the writing is not clearly legible — i.e. you cannot confidently read every letter, or you have to guess between two plausible readings (e.g. "P. JONES" vs "R. JONES", "L" vs "P") — you MUST return an empty string / OMIT the field. Wrong data confidently presented on a compliance certificate is worse than a blank. A reviewer will fill it in manually. When in ANY doubt, leave the field blank and set its field_confidence entry to <0.5 so the review UI flags it. Do NOT invent plausible-sounding names. Do NOT copy a name from a different field (letterhead, header customer, previous sheet). Do NOT default to the first letter you can make out plus "..." — return truly empty.
 4. HEADER vs SIGNATURE BLOCK: "Customer:" in HEADER = COMPANY name. "Customer:" in SIGNATURE BLOCK = PERSON's name.
@@ -905,6 +907,7 @@ async function runExtractionPipeline(
   ocr_path: string;
 } | null> {
   let ocrPath = "unknown";
+  let ocrText = "";
   let bestExtraction:
     | { extracted: Record<string, any>; header: Record<string, any>; field_confidence: Record<string, number> }
     | null = null;
@@ -920,6 +923,7 @@ async function runExtractionPipeline(
       console.log(`Azure complete: ${azureResult.text.length} chars, confidence=${azureResult.confidence.toFixed(3)}, kvPairs=${azureResult.kvPairCount}, tables=${azureResult.tableCount}`);
       if (azureResult.text.length > 50) {
         console.log("Stage 2: GPT field mapping from Azure text...");
+        ocrText = azureResult.text;
         bestExtraction = await gptFieldMapping(azureResult.text, template_name, fields, LOVABLE_API_KEY);
         if (bestExtraction) ocrPath = `azure+gpt (confidence=${azureResult.confidence.toFixed(3)})`;
       } else {
@@ -1030,6 +1034,13 @@ async function runExtractionPipeline(
     if (forceNa && !isNaEquivalent(bestExtraction.extracted[f.id])) bestExtraction.extracted[f.id] = "n/a";
   }
 
+  // Hydrant sheets: never keep an answer for a question that isn't printed on the sheet.
+  if (/hydrant/i.test(template_name) && ocrText) {
+    const { kept, dropped } = dropAnswersNotOnSheet(bestExtraction.extracted, fieldArray, ocrText);
+    if (dropped.length) console.log(`Dropped answers not on the sheet: ${dropped.join(", ")}`);
+    bestExtraction.extracted = kept;
+    for (const id of dropped) delete (bestExtraction.field_confidence || {})[id];
+  }
   const normalisedExtracted = normalizeExtractedCheckboxValues(bestExtraction.extracted, fields);
   const confidenceMap: Record<string, number> = { ...(bestExtraction.field_confidence || {}) };
   for (const key of Object.keys(normalisedExtracted)) {

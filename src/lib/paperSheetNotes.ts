@@ -100,7 +100,7 @@ export function promoteUnmapped(fields: any[], items: UnmappedItem[]): {
     const clean = String(it.label).replace(/^\s*\d+[.)]\s*/, "").replace(/\?\s*$/, "").replace(/^is\s+/i, "").trim();
     const label = clean.charAt(0).toUpperCase() + clean.slice(1);
     const value = String(it.value ?? "").trim();
-    const existing = labels.get(label.toLowerCase().replace(/[^a-z0-9]/g, ""));
+    const existing = labels.get(label.toLowerCase().replace(/[^a-z0-9]/g, "")) || wordMatch(out, label);
     if (existing) { answers[existing.id] = normaliseValue(existing, value); continue; }
     let id = slug(label) || "sheet_item"; let n = 2;
     while (ids.has(id)) id = `${slug(label)}_${n++}`;
@@ -110,6 +110,19 @@ export function promoteUnmapped(fields: any[], items: UnmappedItem[]): {
     answers[id] = normaliseValue(f, value);
   }
   return { fields: out, added, answers, remaining };
+}
+
+/** Existing row whose label contains every word of the sheet question (fewest extra words wins). */
+function wordMatch(fields: any[], label: string): any | null {
+  const words = (t: string) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(" ").filter((w) => w.length > 2 && !["the", "and", "are", "has", "have"].includes(w));
+  const want = words(label);
+  if (want.length < 2) return null;
+  let best: any = null; let extra = Infinity;
+  for (const f of fields) {
+    const have = new Set(words(f?.label));
+    if (want.every((w) => have.has(w)) && have.size - want.length < extra) { best = f; extra = have.size - want.length; }
+  }
+  return best;
 }
 
 function normaliseValue(f: any, value: string): any {

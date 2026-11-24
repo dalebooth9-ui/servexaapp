@@ -87,6 +87,9 @@ export function isPaperFormTemplate(name: string): boolean {
   );
 }
 
+/** Hydrant template rows that are not on the Viva paper hydrant sheet. */
+export const HYDRANT_APP_ONLY = new Set(['valve_condition', 'access_clear', 'flow_test', 'residual_pressure', 'flow_result']);
+
 /** Field IDs to skip from the body because they render in the header/footer. */
 const realLineBreaksText = (t: string) => t.replace(/\\r\\n|\\n|\\r/g, "\n");
 
@@ -289,7 +292,9 @@ export function renderPaperFormPage(
   const bodyFields = template.fields.filter((f) => !skipInBody(f) && !(isRiserPressure && !answered(f) && (
     ['test_pressure_bar', 'hold_time_minutes'].includes(f.id.toLowerCase()) ||
     /^(?:test pressure\s*\(bar\)|hold time\s*\(minutes\))\s*:?$/i.test(f.label.trim())
-  )) && !(isRiserInspection && /^\s*general\s*$/i.test(f.section || "General")));
+  )) && !(isRiserInspection && /^\s*general\s*$/i.test(f.section || "General"))
+    // Filled hydrant sheets: app-only questions the paper sheet doesn't carry print only when answered.
+    && !(fill && /hydrant/i.test(template.name) && HYDRANT_APP_ONLY.has(f.id) && !answered(f)));
   const margin = bodyCount > 30 ? 6 : bodyCount > 24 ? 8 : 10;
   const maxWidth = pageWidth - margin * 2;
   const visit = jobInfo?.riserVisit;
