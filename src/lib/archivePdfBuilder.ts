@@ -1,4 +1,4 @@
-import { applySheetNotes, fixLineBreaksInAnswers, realLineBreaks, hydrantLocationText, hydrantPoText } from "@/lib/paperSheetNotes";
+import { applySheetNotes, fixLineBreaksInAnswers, realLineBreaks, hydrantLocationText, hydrantPoText, placeSheetItems } from "@/lib/paperSheetNotes";
 import { usesPrintedSheetLayout } from "@/lib/printedSheetLayout";
 // Build the "electronic" filled report PDF for an archived (digitised-only)
 // document. Reuses the same generator as job-mode sheets so branding,
@@ -142,8 +142,19 @@ function seedHeaderIntoResponses(
 }
 
 export async function generateAndUploadArchivePdf(
-  input: ArchivePdfInput,
+  rawInput: ArchivePdfInput,
 ): Promise<{ path: string; pageCount: number }> {
+  // Every converted report: sheet questions with no row become template rows
+  // (kept for next time); only free-text oddities stay "Also on the paper sheet".
+  const rawFields = Array.isArray(rawInput.template.fields) ? rawInput.template.fields : [];
+  const rawItems = cleanUnmapped(Array.isArray(rawInput.responses?._sheet_unmapped) ? rawInput.responses._sheet_unmapped : rawInput.header?.unmapped_items);
+  const placed = await placeSheetItems(supabase, rawInput.template.id, rawFields, { ...(rawInput.responses || {}), ...(rawInput.responses?.additional_notes == null && rawInput.header?.additional_notes ? { additional_notes: rawInput.header.additional_notes } : {}) }, rawItems);
+  const input: ArchivePdfInput = {
+    ...rawInput,
+    template: { ...rawInput.template, fields: placed.fields },
+    responses: placed.responses,
+    header: rawInput.header ? { ...rawInput.header, unmapped_items: placed.responses._sheet_unmapped ?? rawItems, ...("additional_notes" in placed.responses ? { additional_notes: placed.responses.additional_notes } : {}) } : rawInput.header,
+  };
   const {
     archivedId,
     template,
