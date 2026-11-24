@@ -77,8 +77,9 @@ async function rebuildPdf(jobId: string, responseId: string, templateName: strin
     exists = !!data;
   }
   if (!exists) {
-    const { data: byLabel } = await supabase.from("job_documents").select("id").eq("job_id", jobId).eq("document_type", "report").eq("label", `Electronic report — ${templateName}`).maybeSingle();
-    if (!byLabel) {
+    // Several sheets may share this label; refreshPaperReportPdfs pairs them.
+    const { data: byLabel } = await supabase.from("job_documents").select("id").eq("job_id", jobId).eq("document_type", "report").eq("label", `Electronic report — ${templateName}`);
+    if (!byLabel?.length) {
       const { data: doc, error } = await supabase.from("job_documents" as any).insert({
         job_id: jobId, document_type: "report", label: `Electronic report — ${templateName}`,
         file_name: `${templateName.toLowerCase().replace(/[^\w\-. ]+/g, "-")}.pdf`, source: "manual", created_by: userId,

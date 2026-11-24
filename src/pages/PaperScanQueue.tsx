@@ -4,6 +4,7 @@ import AppLayout from "@/components/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
+import { dateCheckReasons } from "@/lib/scanDateCheck";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -652,6 +653,13 @@ export default function PaperScanQueue({ embedded = false, onGoUpload }: PaperSc
                       <TableCell className="text-sm">
                         {i.guess_date || (i.header_data?.date as string) || (
                           <span className="text-muted-foreground">—</span>
+                        )}
+                        {i.status !== "confirmed" && dateCheckReasons({
+                          date: i.guess_date || (i.header_data?.date as string),
+                          siblingDates: filtered.filter((o) => o.batch_id === i.batch_id && o.id !== i.id).map((o) => o.guess_date || (o.header_data?.date as string)),
+                          lowConfidence: !!i.header_data?.date_low_confidence,
+                        }).length > 0 && (
+                          <Badge variant="outline" className="mt-1 border-warning bg-warning text-warning-foreground">Check date</Badge>
                         )}
                       </TableCell>
                       <TableCell>

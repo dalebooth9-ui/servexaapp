@@ -21,6 +21,8 @@ import { paperCompletionIso, paperDateText, parseSheetDate, sheetDateProblem } f
 import { cleanUnmapped } from "@/lib/paperSheetItems";
 import { applyRecordIdentity } from "@/lib/paperReportEdit";
 import { suggestFromSiblings, type DateSource } from "@/lib/scanSiblingSuggest";
+import { dateCheckReasons } from "@/lib/scanDateCheck";
+import { DateCropPreview, DateCheckNotice } from "@/components/paper-scan/ScanDateCheck";
 import { UNIT_KINDS, unitKindForTemplate, unitNumberFrom, unitResultFrom, proposeUnitDefects } from "@/lib/siteUnits";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -199,6 +201,8 @@ export default function ScanReviewDialog({
   const [ukDate, setUkDate] = useState(""); // dd/mm/yyyy for job
   const [dateUnknown, setDateUnknown] = useState(false);
   const [dateSource, setDateSource] = useState<DateSource>("sheet");
+  const [siblingDates, setSiblingDates] = useState<string[]>([]);
+  const [dateChecked, setDateChecked] = useState(false);
   // Site unit (hydrant etc.) this sheet belongs to, matched by site + number.
   const [unitNumber, setUnitNumber] = useState("");
   const [unitMatch, setUnitMatch] = useState<{ id: string; location: string | null } | null>(null);
@@ -278,6 +282,8 @@ export default function ScanReviewDialog({
     setDocDate(item.guessDate || "");
     setUkDate(isoToUk(item.guessDate));
     setDateUnknown(false);
+    setDateChecked(false);
+    setSiblingDates([]);
     setDocType(item.documentType || item.templateName || "");
     setTitle(item.templateName || "");
     setNotes("");
@@ -374,6 +380,7 @@ export default function ScanReviewDialog({
           })
           .sort((a, b) => Number(b._filed) - Number(a._filed));
       }
+      setSiblingDates(siblings.map((h: any) => String(h?.date || "")).filter(Boolean));
       const sug = suggestFromSiblings({ guessDate: item.guessDate, header: item.header as any }, siblings);
       setUkDate(paperDateText(sug.dateIso));
       setDocDate((d) => d || sug.dateIso);
@@ -1153,6 +1160,10 @@ export default function ScanReviewDialog({
   // block the reviewer — the PDF outcome always happens.
   const handleUnifiedSubmit = async () => {
     if (!user || !item) return;
+    if (dateCheckList.length && !dateChecked) {
+      toast({ title: "Check the date first", description: "This sheet's date is flagged. Compare it with the scan and tick Date checked before filing.", variant: "destructive" });
+      return;
+    }
     const headerSite = String((item.header as any)?.site || "").trim();
     const freeTextSite = (siteName || siteAddress || headerSite).trim();
     const canFileAsJob =
@@ -1187,6 +1198,26 @@ export default function ScanReviewDialog({
 
   const hasTemplate = !!item?.templateId;
   const isJob = mode === "job";
+  const hdr: any = item?.header || {};
+  const dateCheckList = dateCheckReasons({
+    date: isJob ? ukDate : docDate,
+    siblingDates,
+    lowConfidence: !!hdr.date_low_confidence && dateSource === "sheet",
+  });
+  const dateCheckUi = (setDate: (uk: string) => void) => (
+    <>
+      {thumbs.length > 0 && <DateCropPreview urls={thumbs} bbox={hdr.date_bbox} />}
+      <DateCheckNotice
+        reasons={dateCheckList}
+        siblingDates={siblingDates}
+        alternative={hdr.date_alternative}
+        currentDate={isJob ? ukDate : docDate}
+        onUseAlternative={setDate}
+        checked={dateChecked}
+        onCheckedChange={setDateChecked}
+      />
+    </>
+  );
 
   // Destination hint shown next to the primary button so the reviewer knows
   // where this sheet will land — inferred, not asked.
@@ -1362,6 +1393,7 @@ export default function ScanReviewDialog({
                       value={docDate}
                       onChange={(e) => setDocDate(e.target.value)}
                     />
+                    {dateCheckUi((uk) => setDocDate(parseSheetDate(uk) || ""))}
                   </div>
                   <div className="space-y-1.5">
                     <Label>Document type</Label>
@@ -1696,6 +1728,7 @@ export default function ScanReviewDialog({
                       onChange={(e) => setUkDate(e.target.value)}
                       placeholder="dd/mm/yyyy"
                     />
+                    {dateCheckUi((uk) => setUkDate(uk))}
                     {sheetDateProblem(ukDate) ? (
                       <p className="text-xs text-destructive">{sheetDateProblem(ukDate)} Leave it blank to use today's date.</p>
                     ) : dateSource !== "sheet" && ukDate ? (
