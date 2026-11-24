@@ -1,3 +1,4 @@
+import { parseSheetDate } from "@/lib/paperReportDate";
 /**
  * "Changes since last year" — compares a riser report with the most recent
  * earlier submitted report of the same type for the same riser (or the same
@@ -199,14 +200,7 @@ export async function loadPreviousDefects(supabase: any, prev: PreviousReport, r
 /** Parse a UK date ("8/7/22", "14/03/2021", ISO) to ISO yyyy-mm-dd, or null. */
 export function parseUkDate(v: any): string | null {
   if (blank(v)) return null;
-  const t = String(v).trim();
-  if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
-  const m = t.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})$/);
-  if (!m) return null;
-  const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
-  const mo = Number(m[2]), d = Number(m[1]);
-  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
-  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  return parseSheetDate(String(v));
 }
 
 const UNCLEAR_BELOW = 0.6;

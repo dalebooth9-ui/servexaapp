@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { paperCompletionIso, paperDateText } from "@/lib/paperReportDate";
+import { paperCompletionIso, paperDateText, sheetDateProblem } from "@/lib/paperReportDate";
 import { runScanExtraction } from "@/lib/scanPipeline";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -1662,6 +1662,7 @@ export default function ScanCompletedJobDialog({
                   placeholder="dd/mm/yyyy"
                   onChange={(e) => { setCompletionDate(e.target.value); setDateUnknown(false); }}
                 />
+                {sheetDateProblem(completionDate) && <p className="text-xs text-destructive">{sheetDateProblem(completionDate)} Leave it blank to use today's date.</p>}
                 <label className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
                   <input
                     type="checkbox"

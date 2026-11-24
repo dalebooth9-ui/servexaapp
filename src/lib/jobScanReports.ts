@@ -1,3 +1,4 @@
+import { parseSheetDate } from "@/lib/paperReportDate";
 import { supabase } from "@/integrations/supabase/client";
 import { buildElectronicReportPdf } from "@/lib/electronicReportPdf";
 import { submissionsPathFromSignedUrl } from "@/lib/resolveSubmissionsPath";
@@ -46,15 +47,7 @@ function safeFileBase(label: string): string {
 }
 
 function normaliseDate(raw?: string | null): string | null {
-  if (!raw) return null;
-  const s = String(raw).trim();
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
-  if (m) {
-    const y = m[3].length === 2 ? `20${m[3]}` : m[3];
-    return `${y}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
-  }
-  return null;
+  return parseSheetDate(raw);
 }
 
 export function jobDocumentSubmissionsPath(doc: { file_url?: string | null } | null | undefined): string | null {
