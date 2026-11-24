@@ -20,6 +20,7 @@ import type { PdfTemplateField } from "@/lib/pdfBody";
 import { drawQr, stickerUrl } from '@/lib/riserStickers';
 import { printName, printInspectionDate, printInspectionType, printInspectionResult } from '@/lib/printText';
 import { siteDetailLines } from '@/lib/siteDetailsPrint';
+import { fillText, pickOption, pickValveChoices, resolveFillValue, type PaperFormFill } from '@/lib/paperFormFill';
 
 export type LoadedImage = {
   dataUrl: string;
@@ -42,6 +43,8 @@ export type PaperFormJobInfo = {
   address?: string | null;
   printNotes?: string | null;
   riserVisit?: Record<string, any> | null;
+  /** Converted paper sheet answers: prints the same sheet, filled in. */
+  filled?: PaperFormFill | null;
   site?: {
     name: string;
     address: string | null;
@@ -262,8 +265,16 @@ export function renderPaperFormPage(
   const bodyCount = template.fields.filter((f) => !skipInBody(f)).length;
   const isRiserInspection = /(?:dry|wet)\s*riser/i.test(template.name) && /pressure\s*test|visual/i.test(template.name);
   const isRiserPressure = isRiserInspection && /pressure\s*test/i.test(template.name);
+  const fill = jobInfo?.filled || null;
+  const alsoItems: string[] = [...(fill?.also || [])];
+  const answered = (f: PdfTemplateField) => !!fill && !!fillText(fill.answers?.[f.id]);
+  if (fill && isRiserInspection) {
+    // General-section answers have no row on this sheet: keep them as notes.
+    for (const f of template.fields) if (!skipInBody(f) && /^\s*general\s*$/i.test(f.section || "General") && answered(f)) alsoItems.push(`${f.label.replace(/[:\s]+$/, "")}: ${fillText(fill.answers[f.id])}`);
+  }
   // Print-only omission: leave template definitions and recorded readings intact.
-  const bodyFields = template.fields.filter((f) => !skipInBody(f) && !(isRiserPressure && (
+  // Filled (converted) sheets keep pressure/hold rows when the sheet has a value.
+  const bodyFields = template.fields.filter((f) => !skipInBody(f) && !(isRiserPressure && !answered(f) && (
     ['test_pressure_bar', 'hold_time_minutes'].includes(f.id.toLowerCase()) ||
     /^(?:test pressure\s*\(bar\)|hold time\s*\(minutes\))\s*:?$/i.test(f.label.trim())
   )) && !(isRiserInspection && /^\s*general\s*$/i.test(f.section || "General")));
@@ -630,6 +641,7 @@ export function renderPaperFormPage(
     rowH: number,
     isSection: boolean,
     field?: PdfTemplateField,
+    picked?: { option?: string | null; valves?: string[] },
   ) => {
     if (isSection) {
       // Full-width bold shaded band.
@@ -675,9 +687,24 @@ export function renderPaperFormPage(
           const cy = yy + Math.floor(i / 2) * half;
           const box = Math.min(fs * 0.33, half - 0.8);
           doc.setDrawColor(0); doc.rect(cx, cy + (half - box) / 2, box, box);
+          if (picked?.valves?.includes(c)) { const bx = cx, by = cy + (half - box) / 2; doc.setLineWidth(0.4); doc.line(bx + box * 0.2, by + box * 0.55, bx + box * 0.42, by + box * 0.8); doc.line(bx + box * 0.42, by + box * 0.8, bx + box * 0.85, by + box * 0.2); doc.setLineWidth(0.2); }
           doc.text(c, cx + box + 1, cy + half / 2 + fs * 0.14);
         });
         doc.setDrawColor(120);
+      } else if (ans && picked?.option) {
+        // Filled sheet: print the options with the chosen one bold and boxed.
+        doc.setFontSize(fit.font.ans);
+        const aLineH = fit.font.ans * 0.4;
+        let x = ansX; const ty = yy + aLineH * 0.85;
+        ans.split(" / ").forEach((tok, i) => {
+          if (i > 0) { doc.setFont("helvetica", "normal"); doc.text(" / ", x, ty); x += doc.getTextWidth(" / "); }
+          const on = tok === picked.option;
+          doc.setFont("helvetica", on ? "bold" : "normal");
+          doc.text(tok, x, ty);
+          const w = doc.getTextWidth(tok);
+          if (on) { doc.setDrawColor(0); doc.setLineWidth(0.35); doc.rect(x - 0.8, ty - aLineH * 0.85, w + 1.6, aLineH * 1.15); doc.setLineWidth(0.2); doc.setDrawColor(120); }
+          x += w;
+        });
       } else if (ans) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(fit.font.ans);
@@ -700,7 +727,23 @@ export function renderPaperFormPage(
       const label = it.field.label;
       const ans = visit && /outlet/i.test(it.field.label) && it.field.type === 'number'
         ? String(visit.outlets_count ?? '') : (it.field as any)._printText ? (it.field as any)._printText : (it.field as any)._printOptions ? 'GOOD / FAIR / POOR' : handfill ? "" : answerCellText(it.field);
-      drawCell(label, ans, y, fieldH, false, it.field);
+      let cellAns = ans;
+      let picked: { option?: string | null; valves?: string[] } | undefined;
+      if (fill) {
+        const r = resolveFillValue(it.field, template.fields, fill);
+        if (r.consumedAlso) { const k = alsoItems.indexOf(r.consumedAlso); if (k >= 0) alsoItems.splice(k, 1); }
+        const optsText = (it.field as any)._printText || ((it.field as any)._printOptions ? 'GOOD / FAIR / POOR' : answerCellText(it.field));
+        if (it.field.id === 'outlet_valve_type') {
+          const valves = pickValveChoices(r.value);
+          picked = { valves };
+          if (!valves.length && fillText(r.value)) alsoItems.push(`Outlet valve type: ${fillText(r.value)}`);
+        } else if (optsText) {
+          const opt = pickOption(optsText.split(' / '), r.value);
+          if (opt) { cellAns = optsText; picked = { option: opt }; }
+          else cellAns = fillText(r.value) || optsText;
+        } else cellAns = fillText(r.value) || (visit && /outlet/i.test(it.field.label) && it.field.type === 'number' ? String(visit.outlets_count ?? '') : '');
+      }
+      drawCell(label, cellAns, y, fieldH, false, it.field, picked);
       y += fieldH;
     }
   }
@@ -724,6 +767,22 @@ export function renderPaperFormPage(
   doc.text("RECOMMENDATION:", margin + 2, issuesTop + thirds * 1.55);
   doc.text("PRIORITY:", margin + 2, issuesTop + thirds * 2.55);
   // Answer boxes intentionally have no internal rules; retain borders and signing lines.
+  if (fill) {
+    doc.setFont("helvetica", "normal");
+    const boxW = maxWidth - labelW - 4;
+    const writeIn = (text: string, top: number) => {
+      if (!text) return;
+      let pt = 9; doc.setFontSize(pt);
+      let lines = doc.splitTextToSize(text, boxW) as string[];
+      while (pt > 6 && lines.length * pt * 0.4 > thirds - 1.5) { pt -= 0.5; doc.setFontSize(pt); lines = doc.splitTextToSize(text, boxW) as string[]; }
+      const lh = pt * 0.4; const max = Math.max(1, Math.floor((thirds - 1) / lh));
+      lines.slice(0, max).forEach((ln, i) => doc.text(ln, margin + labelW + 2, top + lh * (i + 0.95)));
+    };
+    const issues = [fill.issues || "", alsoItems.length ? `Also on the paper sheet: ${alsoItems.join("; ")}` : ""].filter(Boolean).join("\n");
+    writeIn(issues, issuesTop);
+    writeIn(fill.recommendation || "", issuesTop + thirds);
+    writeIn(fill.priority || "", issuesTop + thirds * 2);
+  }
 
   // ─── SIGNATURE ROWS ────────────────────────────────────────────────
   const drawSigRow = (yy: number, hh: number, who: "Technician Name" | "Customer Name") => {
@@ -747,6 +806,22 @@ export function renderPaperFormPage(
     doc.line(margin + 2, ly, margin + cellDateW - 2, ly);
     doc.line(margin + cellDateW + 2, ly, margin + cellDateW + cellNameW - 2, ly);
     doc.line(margin + cellDateW + cellNameW + 2, ly, margin + maxWidth - 2, ly);
+    if (fill) {
+      const tech = who === "Technician Name";
+      const date = tech ? fill.techDate : fill.custDate;
+      const name = tech ? fill.techName : fill.custName;
+      const sig = tech ? fill.techSig : fill.custSig;
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+      const dLabel = doc.getTextWidth("Date: ") + 2;
+      if (date) doc.text(date, margin + dLabel + 1, yy + 3.5);
+      doc.setFont("helvetica", "bold"); const nLabel = doc.getTextWidth(`${who}: `) + 2; doc.setFont("helvetica", "normal");
+      if (name) doc.text((doc.splitTextToSize(name, cellNameW - nLabel - 2) as string[])[0] || "", margin + cellDateW + nLabel, yy + 3.5);
+      if (sig) {
+        const sx = margin + cellDateW + cellNameW + 20; const maxW = maxWidth - cellDateW - cellNameW - 22; const maxH = hh - 1;
+        let w = maxH * (sig.width / sig.height), h = maxH; if (w > maxW) { w = maxW; h = w / (sig.width / sig.height); }
+        try { doc.addImage(sig.dataUrl, sig.format, sx, yy + (hh - h) / 2, w, h); } catch { /* unreadable signature image: leave the line */ }
+      }
+    }
   };
   drawSigRow(techSigTop, SIG_ROW_H, "Technician Name");
   drawSigRow(custSigTop, SIG_ROW_H, "Customer Name");

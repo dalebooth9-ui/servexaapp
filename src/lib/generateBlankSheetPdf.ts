@@ -54,6 +54,8 @@ export type BlankSheetJobInfo = {
   printNotes?: string | null;
   /** Opt-in blank visit paperwork, never used by completed report exports. */
   riserVisit?: Record<string, any> | null;
+  /** Converted paper sheet answers (customer-facing filled sheet). */
+  filled?: import('@/lib/paperFormFill').PaperFormFill | null;
   site?: {
     name: string;
     address: string | null;
@@ -113,7 +115,8 @@ export async function generateBlankSheetPdfBlob(
   const accentColor=profile.accentColor;const orgFallbackLogoUrl=(await resolveToSignedUrl(orgLogo).catch(()=>null))||orgLogo;const orgWatermarkUrl=profile.watermarkUrl;
   const { blob } = await runWorker({
     template: {...template,branding:{...template.branding,logo_url:profile.logoUrl}},
-    jobInfo: jobInfo ? {...jobInfo,riserVisit:(jobInfo.id || jobInfo.riserVisit?.job_id)?{...jobInfo.riserVisit,remedials:await loadCarriedRemedials(jobInfo.id || jobInfo.riserVisit?.job_id,jobInfo.riserVisit?.asset_id)}:jobInfo.riserVisit,engineerAccess:await engineerAccessForPrint({siteId:jobInfo.site_id,jobId:jobInfo.id||jobInfo.riserVisit?.job_id,riserKey:jobInfo.riserVisit?.cabinet_key||null,riserSheet:!!jobInfo.riserVisit?.asset_id}).catch(()=>null)} : null,
+    // Filled (converted) reports are customer-facing: never site access codes or carried office notes.
+    jobInfo: jobInfo?.filled ? {...jobInfo,engineerAccess:null,printNotes:null} : jobInfo ? {...jobInfo,riserVisit:(jobInfo.id || jobInfo.riserVisit?.job_id)?{...jobInfo.riserVisit,remedials:await loadCarriedRemedials(jobInfo.id || jobInfo.riserVisit?.job_id,jobInfo.riserVisit?.asset_id)}:jobInfo.riserVisit,engineerAccess:await engineerAccessForPrint({siteId:jobInfo.site_id,jobId:jobInfo.id||jobInfo.riserVisit?.job_id,riserKey:jobInfo.riserVisit?.cabinet_key||null,riserSheet:!!jobInfo.riserVisit?.asset_id}).catch(()=>null)} : null,
     printBranding: {enabled:profile.isCustomerBranded,logoUrl:profile.logoUrl,watermarkUrl:profile.watermarkUrl,servicedBy:profile.servicedBy},
     handfill: false,
     watermarkOverride: {mode:"untinted",opacity:0.12},

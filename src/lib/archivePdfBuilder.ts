@@ -10,6 +10,8 @@ import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { generateJobSheetPdf } from "@/components/JobSheetPdfExport";
 import { cropSignatureFromScan } from "@/lib/archiveSignatureCrop";
 import { unmappedNotesText } from "@/lib/paperSheetItems";
+import { generateBlankSheetPdfBlob } from "@/lib/generateBlankSheetPdf";
+import type { FillImage, PaperFormFill } from "@/lib/paperFormFill";
 
 export type ArchivePdfInput = {
   archivedId: string;
@@ -311,6 +313,20 @@ export async function generateAndUploadArchivePdf(
     }
   }
 
+  // Dry riser sheets print on the same Viva sheet as the QR-flow paperwork,
+  // filled in from the scan, so converted reports look the same.
+  if (usesRiserPaperForm(template.name)) {
+    const blob = await renderFilledRiserSheet({
+      archivedId, template, responses: responsesWithDate, header, customer, site, effectiveSite,
+      documentDate, technicianName, sigImages, customerSig, engineerSigOverride,
+    });
+    const rel = `archive/report/${archivedId}-${Date.now()}.pdf`;
+    const fullPath = await buildOrgPathAsync(rel);
+    const { error } = await supabase.storage.from("submissions").upload(fullPath, blob, { upsert: true, contentType: "application/pdf" });
+    if (error) throw error;
+    return { path: fullPath, pageCount: 1 };
+  }
+
   // Non-UUID jobId => generator skips DB-driven signature / assignment / job
   // lookups and relies purely on the jobInfo we pass in.
   const fakeJobId = `archive-${archivedId}`;
@@ -351,4 +367,93 @@ export async function generateAndUploadArchivePdf(
     });
   if (error) throw error;
   return { path: fullPath, pageCount };
+}
+
+/** Dry riser templates that have a QR-flow paper sheet layout. */
+export function usesRiserPaperForm(name: string): boolean {
+  return /dry\s*riser/i.test(name || "") && /pressure\s*test|visual|commission/i.test(name || "");
+}
+
+function imageToFill(img: HTMLImageElement | null | undefined): FillImage | null {
+  if (!img || !img.naturalWidth) return null;
+  try {
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    c.getContext("2d")!.drawImage(img, 0, 0);
+    return { dataUrl: c.toDataURL("image/png"), width: c.width, height: c.height, format: "PNG" };
+  } catch { return null; }
+}
+
+async function dataUrlToFill(dataUrl: string | null | undefined): Promise<FillImage | null> {
+  if (!dataUrl || !/^data:image\//.test(dataUrl)) return null;
+  const img = await new Promise<HTMLImageElement | null>((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = dataUrl; });
+  return imageToFill(img);
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+const ukDate = (iso: string | null | undefined) => { const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : (iso || ""); };
+
+async function renderFilledRiserSheet(o: {
+  archivedId: string; template: ArchivePdfInput["template"]; responses: Record<string, any>; header: any;
+  customer: any; site: any; effectiveSite: any; documentDate: string | null; technicianName?: string | null;
+  sigImages: Record<string, HTMLImageElement>; customerSig: any; engineerSigOverride: any;
+}): Promise<Blob> {
+  const { responses: r, header } = o;
+  const fields: any[] = Array.isArray(o.template.fields) ? o.template.fields : [];
+  const byLabel = (re: RegExp) => { for (const f of fields) if (re.test(String(f.label || "")) && r[f.id] != null && String(r[f.id]).trim() !== "") return String(r[f.id]); return ""; };
+  // Job (for reference / PO) when this report belongs to a job.
+  let job: any = null;
+  const jobId = UUID_RE.exec(o.archivedId)?.[0];
+  if (jobId) {
+    const { data } = await supabase.from("jobs").select("reference_number, customer_po").eq("id", jobId).maybeSingle();
+    job = data;
+  }
+  // Linked riser record → QR, Riser ID and the riser line.
+  let asset: any = null;
+  const assetId = r.riser_asset_id || r._riser_asset_id;
+  if (assetId) {
+    const { data } = await (supabase as any).from("assets").select("id, asset_tag, name, riser_location, outlets_count").eq("id", assetId).maybeSingle();
+    asset = data;
+  }
+  const outlets = asset?.outlets_count ?? (r._number_of_outlets != null && r._number_of_outlets !== "" ? Number(r._number_of_outlets) : null);
+  const riserLocation = asset?.riser_location || r.riser_location || byLabel(/riser\s*loc/i) || header?.riser_location || null;
+  const poRaw = header?.po_ref || r.po_ref || byLabel(/po\s*number|purchase order/i) || job?.customer_po || "";
+  const also = String(r._additional_notes || "").split(/\n+/).map((x) => x.replace(/^•\s*/, "").trim())
+    .filter((x) => x && !/^Also on the paper sheet:?$/i.test(x));
+  // Engineer signature: office crop, scan crop, else the named engineer's stored signature.
+  let techSig = o.engineerSigOverride ? imageToFill(o.sigImages[o.engineerSigOverride.id]) : null;
+  if (!techSig && o.technicianName) {
+    const { data } = await supabase.from("profiles").select("signature_data").ilike("full_name", o.technicianName).limit(1).maybeSingle();
+    techSig = await dataUrlToFill((data as any)?.signature_data);
+  }
+  const custSig = o.customerSig ? imageToFill(o.sigImages[o.customerSig.id]) : null;
+  const date = ukDate(o.documentDate) || r.date || "";
+  const fill: PaperFormFill = {
+    answers: { ...r, _scan_header: header || r._scan_header },
+    issues: byLabel(/issues found|defects found|comments/i) || r.comments || "",
+    recommendation: byLabel(/recommendation/i),
+    priority: byLabel(/^\s*priority/i),
+    also,
+    techName: o.technicianName || header?.engineer || r.technician_name || byLabel(/technician name|engineer/i) || null,
+    techDate: date,
+    custName: o.customerSig ? (header?.customer_signed_name || o.customerSig.signer_name || null) : null,
+    custDate: o.customerSig ? (r._customer_sign_date || date) : null,
+    techSig, custSig,
+  };
+  return generateBlankSheetPdfBlob(
+    { id: o.template.id, name: o.template.name, description: o.template.description ?? null, fields, footer_text: o.template.footer_text ?? null, branding: o.template.branding },
+    {
+      address: o.effectiveSite?.address || null,
+      customer: o.customer?.name || null,
+      customers: o.customer ? { name: o.customer.name, logo_url: o.customer.logo_url } : null,
+      reference_number: job?.reference_number || "",
+      customer_po: poRaw ? String(poRaw) : null,
+      due_date: o.documentDate || null,
+      site_id: o.site?.id,
+      site: { name: o.effectiveSite?.name || "", address: o.effectiveSite?.address || null, postcode: null, contact_name: null, contact_phone: null, contact_email: null, riser_location: riserLocation },
+      riserVisit: { asset_id: asset?.id || null, asset_tag: asset?.asset_tag || null, riser_name: asset ? (/^dry\s*riser/i.test(asset.name || "") ? asset.name : `Dry Riser - ${asset.riser_location || asset.name || ""}`.replace(/ - $/, "")) : null, riser_location: riserLocation, outlets_count: outlets, job_reference: job?.reference_number || null },
+      filled: fill,
+    },
+    { copiesOverride: 1, watermarkOverride: { mode: "untinted", opacity: 0.12 } as any },
+  );
 }
