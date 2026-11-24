@@ -1,3 +1,4 @@
+import { placeSheetItems, fixLineBreaksInAnswers, realLineBreaks } from "@/lib/paperSheetNotes";
 // Edit / redo for converted paper reports (job documents side-by-side viewer).
 // The original scan pages are never touched; every replaced version of the
 // answers is kept in `_previous_versions` so nothing is permanently lost.
@@ -145,11 +146,11 @@ export async function savePaperReportEdit(input: SavePaperEditInput): Promise<vo
     const p = (prof as any[])?.[0];
     pdfInput.technicianName = p?.signature_data ? p.full_name : null;
   }
-  const answers = applyRecordIdentity({ ...input.answers }, (tpl as any).fields || [], { customerName, siteName: site?.name, siteAddress: site?.address });
+  const answers = applyRecordIdentity(fixLineBreaksInAnswers({ ...input.answers }), (tpl as any).fields || [], { customerName, siteName: site?.name, siteAddress: site?.address });
   pdfInput.header = {
     ...(pdfInput.header || {}),
     engineer,
-    additional_notes: input.additionalNotes.trim() || null,
+    additional_notes: realLineBreaks(input.additionalNotes.trim()) || null,
     riser_location: answers.riser_location ?? pdfInput.header?.riser_location ?? null,
     number_of_outlets: answers.number_of_outlets ?? pdfInput.header?.number_of_outlets ?? null,
     customer: customerName ?? pdfInput.header?.customer ?? null,
@@ -159,7 +160,7 @@ export async function savePaperReportEdit(input: SavePaperEditInput): Promise<vo
     ...old,
     ...answers,
     technician_name: engineer || answers.technician_name || null,
-    additional_notes: input.additionalNotes.trim() || null,
+    additional_notes: realLineBreaks(input.additionalNotes.trim()) || null,
     _sheet_unmapped: cleanUnmapped(input.unmapped),
     _paper_pdf_input: pdfInput,
     _paper_completion_at: `${day}T12:00:00.000Z`,
@@ -240,6 +241,8 @@ export async function redoPaperConversion(input: RedoInput): Promise<{ unmapped:
     },
     _previous_versions: withPreviousVersion(old, { at: new Date().toISOString(), byUserId: input.userId, reason: "redo conversion", templateId: (row as any).template_id }),
   };
+  const placed = await placeSheetItems(supabase, input.templateId, (tpl as any).fields || [], next, cleanUnmapped(header.unmapped_items));
+  Object.assign(next, placed.responses);
   const { error: uErr } = await supabase.from("job_sheet_responses").update({ template_id: input.templateId, responses: next as any }).eq("id", input.responseId);
   if (uErr) throw uErr;
   if (oldDocId) await supabase.from("job_documents").update({ label: `Electronic report — ${(tpl as any).name}` }).eq("id", oldDocId);

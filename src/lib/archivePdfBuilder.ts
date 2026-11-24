@@ -1,3 +1,4 @@
+import { applySheetNotes, fixLineBreaksInAnswers, realLineBreaks, hydrantLocationText, hydrantPoText } from "@/lib/paperSheetNotes";
 import { usesPrintedSheetLayout } from "@/lib/printedSheetLayout";
 // Build the "electronic" filled report PDF for an archived (digitised-only)
 // document. Reuses the same generator as job-mode sheets so branding,
@@ -10,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { generateJobSheetPdf } from "@/components/JobSheetPdfExport";
 import { cropSignatureFromScan } from "@/lib/archiveSignatureCrop";
-import { unmappedNotesText } from "@/lib/paperSheetItems";
+import { unmappedNotesText, cleanUnmapped } from "@/lib/paperSheetItems";
 import { generateBlankSheetPdfBlob } from "@/lib/generateBlankSheetPdf";
 import type { FillImage, PaperFormFill } from "@/lib/paperFormFill";
 
@@ -100,8 +101,8 @@ function seedHeaderIntoResponses(
   header: Record<string, any> | null | undefined,
   fields: any[],
 ): Record<string, any> {
-  if (!header) return responses;
-  const next = { ...responses };
+  if (!header) return fixLineBreaksInAnswers(responses);
+  const next = fixLineBreaksInAnswers({ ...responses });
   // Top-level aliases the PDF generator already reads directly. Do not seed
   // _customer_signed_name from OCR: customer signer names are only trusted when
   // paired with an explicit manual customer signature crop.
@@ -118,7 +119,7 @@ function seedHeaderIntoResponses(
   // as a native field).
   if (header.additional_notes && !next._additional_notes) {
     const raw = String(header.additional_notes).trim();
-    if (raw) next._additional_notes = raw;
+    if (raw) next._additional_notes = realLineBreaks(raw);
   }
   // Sheet questions the template has no row for are printed, never dropped.
   const unmapped = unmappedNotesText(Array.isArray(next._sheet_unmapped) ? next._sheet_unmapped : header.unmapped_items);
@@ -402,8 +403,10 @@ export async function renderFilledRiserSheet(o: {
   /** Tablet report: customer's printed name / signing date from the captured signature. */
   custName?: string | null; custDate?: string | null;
 }): Promise<Blob> {
-  const { responses: r, header } = o;
+  const { header } = o;
   const fields: any[] = Array.isArray(o.template.fields) ? o.template.fields : [];
+  // Inlet/outlet valve and access lines print in their own rows; literal "\n" becomes a line break.
+  const r = applySheetNotes({ ...o.responses, additional_notes: o.responses.additional_notes ?? header?.additional_notes ?? null }, fields);
   const byLabel = (re: RegExp) => { for (const f of fields) if (re.test(String(f.label || "")) && r[f.id] != null && String(r[f.id]).trim() !== "") return String(r[f.id]); return ""; };
   // Job (for reference / PO) when this report belongs to a job.
   let job: any = null;
@@ -420,10 +423,18 @@ export async function renderFilledRiserSheet(o: {
     asset = data;
   }
   const outlets = asset?.outlets_count ?? (r._number_of_outlets != null && r._number_of_outlets !== "" ? Number(r._number_of_outlets) : null);
-  const riserLocation = asset?.riser_location || r.riser_location || byLabel(/riser\s*loc/i) || header?.riser_location || null;
-  const poRaw = header?.po_ref || r.po_ref || byLabel(/po\s*number|purchase order/i) || job?.customer_po || "";
-  const also = String(r._additional_notes || "").split(/\n+/).map((x) => x.replace(/^•\s*/, "").trim())
-    .filter((x) => x && !/^Also on the paper sheet:?$/i.test(x));
+  const isHydrant = /hydrant/i.test(o.template.name);
+  const riserLocation = isHydrant
+    ? hydrantLocationText(r, header)
+    : asset?.riser_location || r.riser_location || byLabel(/riser\s*loc/i) || header?.riser_location || null;
+  // A real PO only: hydrant numbers / internal refs must never print as a PO.
+  const poRaw = isHydrant
+    ? hydrantPoText(job?.customer_po, r)
+    : header?.po_ref || r.po_ref || byLabel(/po\s*number|purchase order/i) || job?.customer_po || "";
+  const also = [
+    ...String(r.additional_notes || "").split(/\n+/),
+    ...cleanUnmapped(Array.isArray(r._sheet_unmapped) ? r._sheet_unmapped : header?.unmapped_items).map((i) => `${i.label}${i.value ? `: ${i.value}` : ""}`),
+  ].map((x) => x.replace(/^•\s*/, "").trim()).filter((x) => x && !/^Also on the paper sheet:?$/i.test(x));
   // Engineer signature: office crop, scan crop, else the named engineer's stored signature.
   let techSig = o.engineerSigOverride ? imageToFill(o.sigImages[o.engineerSigOverride.id]) : null;
   if (!techSig && o.technicianName) {
@@ -433,7 +444,6 @@ export async function renderFilledRiserSheet(o: {
   const custSig = o.customerSig ? imageToFill(o.sigImages[o.customerSig.id]) : null;
   const date = ukDate(o.documentDate) || r.date || "";
   const riserKind = /wet\s*riser/i.test(o.template.name) ? "Wet Riser" : "Dry Riser";
-  const isHydrant = /hydrant/i.test(o.template.name);
   const fill: PaperFormFill = {
     answers: { ...r, _scan_header: header || r._scan_header },
     // Some scans store line breaks as a literal "\n"; print real line breaks.
@@ -460,6 +470,7 @@ export async function renderFilledRiserSheet(o: {
       site: { name: o.effectiveSite?.name || "", address: o.effectiveSite?.address || null, postcode: null, contact_name: null, contact_phone: null, contact_email: null, riser_location: riserLocation },
       riserVisit: isHydrant && !asset ? null : { asset_id: asset?.id || null, asset_tag: asset?.asset_tag || null, riser_name: asset ? (/^(dry|wet)\s*riser/i.test(asset.name || "") ? asset.name : `${riserKind} - ${asset.riser_location || asset.name || ""}`.replace(/ - $/, "")) : null, riser_location: riserLocation, outlets_count: outlets, job_reference: job?.reference_number || null },
       filled: fill,
+      ...(isHydrant ? { locationLabel: "HYDRANT NO. / LOCATION:", poOnly: true } : {}),
     },
     { copiesOverride: 1, watermarkOverride: { mode: "untinted", opacity: 0.12 } as any },
   );

@@ -18,6 +18,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { paperCompletionIso, paperDateText, parseSheetDate, sheetDateProblem } from "@/lib/paperReportDate";
+import { placeSheetItems } from "@/lib/paperSheetNotes";
 import { cleanUnmapped } from "@/lib/paperSheetItems";
 import { applyRecordIdentity } from "@/lib/paperReportEdit";
 import { suggestFromSiblings, type DateSource } from "@/lib/scanSiblingSuggest";
@@ -992,6 +993,10 @@ export default function ScanReviewDialog({
       if (riserId && riserId !== "none") responsesToSave.riser_asset_id = riserId;
       const unmappedItems = cleanUnmapped((item.header as any)?.unmapped_items);
       if (unmappedItems.length) responsesToSave._sheet_unmapped = unmappedItems;
+      // Sheet questions with no row become template rows; notes go to their own rows.
+      if (responsesToSave.additional_notes == null && headerWithPo.additional_notes) responsesToSave.additional_notes = headerWithPo.additional_notes;
+      responsesToSave = (await placeSheetItems(supabase, item.templateId, templateFields as any[], responsesToSave, unmappedItems)).responses;
+      if (responsesToSave.additional_notes !== undefined) headerWithPo.additional_notes = responsesToSave.additional_notes;
       responsesToSave = applyRecordIdentity(responsesToSave, templateFields as any[], {
         customerName: customers.find((c) => c.id === customerId)?.name || null,
         siteName: siteName || null,

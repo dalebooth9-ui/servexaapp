@@ -42,6 +42,10 @@ export type PaperFormJobInfo = {
   due_date?: string | null;
   address?: string | null;
   printNotes?: string | null;
+  /** Label for the location cell, e.g. "HYDRANT NO. / LOCATION:". */
+  locationLabel?: string | null;
+  /** Print only a real customer PO (blank when none), never the internal ref. */
+  poOnly?: boolean;
   riserVisit?: Record<string, any> | null;
   /** Converted paper sheet answers: prints the same sheet, filled in. */
   filled?: PaperFormFill | null;
@@ -82,6 +86,8 @@ export function isPaperFormTemplate(name: string): boolean {
 }
 
 /** Field IDs to skip from the body because they render in the header/footer. */
+const realLineBreaksText = (t: string) => t.replace(/\\r\\n|\\n|\\r/g, "\n");
+
 function skipInBody(field: PdfTemplateField): boolean {
   const label = field.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
   const id = field.id.toLowerCase();
@@ -175,6 +181,8 @@ function complianceSentence(templateName: string): string {
     ? "commissioning"
     : /annual\s*service|service\s*&\s*test/.test(n)
     ? "annual service and test"
+    : /hydrant/.test(n) && /annual\s*inspection/.test(n)
+    ? "annual inspection"
     : "visual inspection";
   const standard = /sprinkler/.test(n) ? "BS EN 12845" : "BS 9990:2015";
   return `We have, today, carried out a ${asset} ${activity} to the requirements of ${standard}`;
@@ -386,7 +394,7 @@ export function renderPaperFormPage(
   // masquerade as a customer PO number.
   const custPoRaw = (jobInfo?.customer_po || "").toString().trim();
   const intRefRaw = (jobInfo?.reference_number || "").toString().trim();
-  const showAsPo = !!custPoRaw;
+  const showAsPo = !!custPoRaw || !!jobInfo?.poOnly;
   const poLabel = showAsPo ? "PO NUMBER:" : "REF:";
   const poVal = showAsPo ? custPoRaw : intRefRaw;
   doc.setFont("helvetica", "bold");
@@ -411,7 +419,7 @@ export function renderPaperFormPage(
   const riserY = detailsTop + detailRowH;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
-  doc.text("RISER LOCATION:", rightX + 2, riserY + 3.2);
+  doc.text(jobInfo?.locationLabel || "RISER LOCATION:", rightX + 2, riserY + 3.2);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   const riserLoc = printName(jobInfo?.site?.riser_location);
@@ -591,6 +599,34 @@ export function renderPaperFormPage(
   }
 
   const colSplit = margin + maxWidth * (isRiserInspection ? 0.63 : 0.70);
+  // The text (or picked option) a body row prints. `consume` is false while measuring.
+  const cellAnswer = (field: PdfTemplateField, consume: boolean): { cellAns: string; picked?: { option?: string | null; valves?: string[] } } => {
+    const it = { field };
+      const ans = visit && /outlet/i.test(it.field.label) && it.field.type === 'number'
+        ? String(visit.outlets_count ?? '') : (it.field as any)._printText ? (it.field as any)._printText : (it.field as any)._printOptions ? 'GOOD / FAIR / POOR' : handfill ? "" : answerCellText(it.field);
+      let cellAns = ans;
+      let picked: { option?: string | null; valves?: string[] } | undefined;
+      if (fill) {
+        const r = resolveFillValue(it.field, template.fields, fill);
+        if (consume && r.consumedAlso) { const k = alsoItems.indexOf(r.consumedAlso); if (k >= 0) alsoItems.splice(k, 1); }
+        const optsText = (it.field as any)._printText || ((it.field as any)._printOptions ? 'GOOD / FAIR / POOR' : answerCellText(it.field));
+        if (it.field.id === 'outlet_valve_type') {
+          const valves = pickValveChoices(r.value);
+          picked = { valves };
+          if (consume && !valves.length && fillText(r.value)) alsoItems.push(`Outlet valve type: ${fillText(r.value)}`);
+        } else if (optsText) {
+          const opt = pickOption(optsText.split(' / '), r.value);
+          if (opt) {
+            // Long option lists (e.g. SCREWDOWN / SLUICE / PILLAR / SURFACE BOX)
+            // can't fit the answer column; print just the chosen one, boxed.
+            const ansMaxW = margin + maxWidth - colSplit - 4;
+            cellAns = doc.getTextWidth(optsText) > ansMaxW ? opt : optsText; picked = { option: opt };
+          }
+          else cellAns = fillText(r.value) || optsText;
+        } else cellAns = fillText(r.value) || (visit && /outlet/i.test(it.field.label) && it.field.type === 'number' ? String(visit.outlets_count ?? '') : '');
+      }
+    return { cellAns: fill ? realLineBreaksText(cellAns) : cellAns, picked };
+  };
   const availH = bodyBottom - cursorY;
 
   // Adaptive fit — always one A4 page per sheet. Try the largest row
@@ -608,7 +644,13 @@ export function renderPaperFormPage(
     const width = it.kind === 'section' ? maxWidth - 4 : colSplit - margin - 4;
     const lines = doc.splitTextToSize(text, width) as string[];
     if (it.kind === 'row' && it.field.id === 'outlet_valve_type') return Math.max(rowH * 1.6, 2 * (pt * 0.4 + 1.6));
-    return Math.max(it.kind === 'section' ? secH : rowH, lines.length * pt * 0.4 + 1.2);
+    let ansLines = 0;
+    if (it.kind === 'row' && fill) {
+      // Filled answers wrap onto extra lines instead of being cut off.
+      const { cellAns, picked } = cellAnswer(it.field, false);
+      if (cellAns && !picked?.option) { doc.setFont('helvetica', 'normal'); ansLines = (doc.splitTextToSize(cellAns, margin + maxWidth - colSplit - 4) as string[]).length; }
+    }
+    return Math.max(it.kind === 'section' ? secH : rowH, Math.max(lines.length, ansLines) * pt * 0.4 + 1.2);
   };
   const minBodyPt = isRiserInspection ? 8 : 6;
   let fit = { rowH: 3.5, secH: 3.5, font: { label: minBodyPt, ans: minBodyPt, sec: minBodyPt }, forced: 0 };
@@ -728,29 +770,7 @@ export function renderPaperFormPage(
     } else {
       const fieldH = itemHeight(it,fit.rowH,fit.secH);
       const label = it.field.label;
-      const ans = visit && /outlet/i.test(it.field.label) && it.field.type === 'number'
-        ? String(visit.outlets_count ?? '') : (it.field as any)._printText ? (it.field as any)._printText : (it.field as any)._printOptions ? 'GOOD / FAIR / POOR' : handfill ? "" : answerCellText(it.field);
-      let cellAns = ans;
-      let picked: { option?: string | null; valves?: string[] } | undefined;
-      if (fill) {
-        const r = resolveFillValue(it.field, template.fields, fill);
-        if (r.consumedAlso) { const k = alsoItems.indexOf(r.consumedAlso); if (k >= 0) alsoItems.splice(k, 1); }
-        const optsText = (it.field as any)._printText || ((it.field as any)._printOptions ? 'GOOD / FAIR / POOR' : answerCellText(it.field));
-        if (it.field.id === 'outlet_valve_type') {
-          const valves = pickValveChoices(r.value);
-          picked = { valves };
-          if (!valves.length && fillText(r.value)) alsoItems.push(`Outlet valve type: ${fillText(r.value)}`);
-        } else if (optsText) {
-          const opt = pickOption(optsText.split(' / '), r.value);
-          if (opt) {
-            // Long option lists (e.g. SCREWDOWN / SLUICE / PILLAR / SURFACE BOX)
-            // can't fit the answer column; print just the chosen one, boxed.
-            const ansMaxW = margin + maxWidth - colSplit - 4;
-            cellAns = doc.getTextWidth(optsText) > ansMaxW ? opt : optsText; picked = { option: opt };
-          }
-          else cellAns = fillText(r.value) || optsText;
-        } else cellAns = fillText(r.value) || (visit && /outlet/i.test(it.field.label) && it.field.type === 'number' ? String(visit.outlets_count ?? '') : '');
-      }
+      const { cellAns, picked } = cellAnswer(it.field, true);
       drawCell(label, cellAns, y, fieldH, false, it.field, picked);
       y += fieldH;
     }

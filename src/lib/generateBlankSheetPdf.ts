@@ -52,6 +52,10 @@ export type BlankSheetJobInfo = {
   other_service_type?: string | null;
   due_date?: string | null;
   printNotes?: string | null;
+  /** Label for the location cell, e.g. "HYDRANT NO. / LOCATION:". */
+  locationLabel?: string | null;
+  /** Print only a real customer PO (blank when none), never the internal ref. */
+  poOnly?: boolean;
   /** Opt-in blank visit paperwork, never used by completed report exports. */
   riserVisit?: Record<string, any> | null;
   /** Converted paper sheet answers (customer-facing filled sheet). */

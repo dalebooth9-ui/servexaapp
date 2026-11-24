@@ -682,7 +682,7 @@ export async function generateJobSheetPdf(
   // captured by the OCR pipeline into header.additional_notes and seeded into
   // responses as `_additional_notes`. Rendered as its own "Additional notes"
   // block below Comments/Materials — only when present.
-  const additionalNotesVal = String((resolvedFormData as any)._additional_notes || "").trim();
+  const additionalNotesVal = String((resolvedFormData as any)._additional_notes || "").replace(/\\r\\n|\\n/g, "\n").trim();
   const additionalNotesLines = additionalNotesVal
     ? doc.splitTextToSize(additionalNotesVal, (pageWidth - margin * 2) - 24).length
     : 0;

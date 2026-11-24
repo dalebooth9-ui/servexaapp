@@ -1,3 +1,4 @@
+import { fixLineBreaksInAnswers, realLineBreaks } from "@/lib/paperSheetNotes";
 // Edit a converted paper report with the original scan alongside.
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -80,14 +81,14 @@ export default function EditPaperReportDialog({ open, onOpenChange, responseId, 
         setUserName((me as any)?.full_name || user?.email || "");
         setTemplateName((tpl as any)?.name || "");
         setFields(((tpl as any)?.fields || []).filter((f: any) => f?.id && !SKIP_TYPES.has(f.type)));
-        setAnswers(r);
+        setAnswers(fixLineBreaksInAnswers(r));
         setDateText(r._paper_completion_at ? paperDateText(String(r._paper_completion_at)) : String(r.date || ""));
         setCustomers((cs as any[]) || []);
         setCustomerId((job as any)?.customer_id || "");
         setSiteId((job as any)?.site_id || "");
         setRiserId(r.riser_asset_id || (job as any)?.asset_id || "");
         setEngineer(String(r.technician_name || r._paper_pdf_input?.header?.engineer || ""));
-        setNotes(String(r.additional_notes ?? r._paper_pdf_input?.header?.additional_notes ?? ""));
+        setNotes(realLineBreaks(String(r.additional_notes ?? r._paper_pdf_input?.header?.additional_notes ?? "")));
         setUnmapped(cleanUnmapped(r._sheet_unmapped ?? r._paper_pdf_input?.header?.unmapped_items));
         setHasCustSig(!!r._paper_pdf_input?.manualCustomerSignaturePath);
         const urls: string[] = [];
