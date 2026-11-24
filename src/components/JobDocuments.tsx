@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Download, Trash2, Upload, Loader2, Building2, Printer, Eye, ImagePlus, Check, Images } from "lucide-react";
 import PaperVsElectronicViewer from "@/components/paper-scan/PaperVsElectronicViewer";
+import EditPaperReportDialog from "@/components/paper-scan/EditPaperReportDialog";
+import RedoConversionDialog from "@/components/paper-scan/RedoConversionDialog";
+import { isConvertedPaperResponse } from "@/lib/paperReportEdit";
 import { generateRamsPdf } from "@/lib/ramsPdf";
 import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf, generateInstallationRamsPdf } from "@/lib/ramsPdfVariants";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
@@ -133,7 +136,21 @@ export default function JobDocuments({ jobId, job, engineers, hideReportExports 
   const reportDoc = reportDocs[0];
   const hasSideBySide = sourceScanDocs.length > 0;
 
+  const [paperReports, setPaperReports] = useState<{ id: string; name: string; riserLinked: boolean }[]>([]);
+  const [editPaper, setEditPaper] = useState<{ id: string; focusRiser: boolean } | null>(null);
+  const [redoPaper, setRedoPaper] = useState<string | null>(null);
+  const loadPaperReports = async () => {
+    const { data } = await supabase.from("job_sheet_responses").select("id, responses, created_at, job_sheet_templates(name)").eq("job_id", jobId).order("created_at");
+    const { data: j } = await supabase.from("jobs").select("asset_id").eq("id", jobId).maybeSingle();
+    setPaperReports(((data as any[]) || []).filter((r) => isConvertedPaperResponse(r.responses)).map((r) => ({
+      id: r.id, name: r.job_sheet_templates?.name || "Report",
+      riserLinked: !!(r.responses?.riser_asset_id || r.responses?._site_unit_id || (j as any)?.asset_id),
+    })));
+  };
+  const afterPaperChange = async () => { await fetchDocs(); await loadPaperReports(); await openPaperVsElectronic(); };
+
   const openPaperVsElectronic = async () => {
+    if (userRole === "admin") void loadPaperReports();
     setPaperVsElectronic({
       open: true,
       loading: true,
@@ -1049,6 +1066,37 @@ ${sections}
         electronicPdfUrls={paperVsElectronic.pdfUrls}
         error={paperVsElectronic.error}
         onRetry={openPaperVsElectronic}
+        actions={userRole === "admin" && paperReports.length > 0 ? (
+          <>
+            {paperReports.map((r, i) => {
+              const tag = paperReports.length > 1 ? ` (sheet ${i + 1})` : "";
+              return (
+                <span key={r.id} className="contents">
+                  <Button size="sm" variant="outline" onClick={() => setEditPaper({ id: r.id, focusRiser: false })}>Edit report{tag}</Button>
+                  <Button size="sm" variant="outline" onClick={() => setRedoPaper(r.id)}>Redo conversion{tag}</Button>
+                  {!r.riserLinked && (
+                    <Button size="sm" onClick={() => setEditPaper({ id: r.id, focusRiser: true })}>Link to riser{tag}</Button>
+                  )}
+                </span>
+              );
+            })}
+          </>
+        ) : undefined}
+      />
+      <EditPaperReportDialog
+        open={!!editPaper}
+        onOpenChange={(o) => !o && setEditPaper(null)}
+        responseId={editPaper?.id || null}
+        focusRiser={editPaper?.focusRiser}
+        jobId={jobId}
+        onSaved={afterPaperChange}
+      />
+      <RedoConversionDialog
+        open={!!redoPaper}
+        onOpenChange={(o) => !o && setRedoPaper(null)}
+        responseId={redoPaper}
+        jobId={jobId}
+        onDone={async (id) => { await afterPaperChange(); setEditPaper({ id, focusRiser: false }); }}
       />
     </div>
   );

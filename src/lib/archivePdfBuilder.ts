@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { generateJobSheetPdf } from "@/components/JobSheetPdfExport";
 import { cropSignatureFromScan } from "@/lib/archiveSignatureCrop";
+import { unmappedNotesText } from "@/lib/paperSheetItems";
 
 export type ArchivePdfInput = {
   archivedId: string;
@@ -115,6 +116,11 @@ function seedHeaderIntoResponses(
   if (header.additional_notes && !next._additional_notes) {
     const raw = String(header.additional_notes).trim();
     if (raw) next._additional_notes = raw;
+  }
+  // Sheet questions the template has no row for are printed, never dropped.
+  const unmapped = unmappedNotesText(Array.isArray(next._sheet_unmapped) ? next._sheet_unmapped : header.unmapped_items);
+  if (unmapped && !String(next._additional_notes || "").includes("Also on the paper sheet:")) {
+    next._additional_notes = next._additional_notes ? `${next._additional_notes}\n\n${unmapped}` : unmapped;
   }
   // Map header values onto template field ids by label match.
   for (const alias of HEADER_FIELD_ALIASES) {

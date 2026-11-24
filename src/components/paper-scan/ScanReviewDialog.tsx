@@ -18,6 +18,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { paperCompletionIso, paperDateText, parseSheetDate, sheetDateProblem } from "@/lib/paperReportDate";
+import { cleanUnmapped } from "@/lib/paperSheetItems";
+import { applyRecordIdentity } from "@/lib/paperReportEdit";
 import { suggestFromSiblings, type DateSource } from "@/lib/scanSiblingSuggest";
 import { UNIT_KINDS, unitKindForTemplate, unitNumberFrom, unitResultFrom, proposeUnitDefects } from "@/lib/siteUnits";
 import { useAuth } from "@/hooks/useAuth";
@@ -949,6 +951,13 @@ export default function ScanReviewDialog({
       // 12-month pressure / 6-month visual renewal) updates on filing.
       let responsesToSave: Record<string, any> = { ...answers, _paper_review_defects: proposedDefects.filter(p => defectSelection[p.key] !== false).map(p => ({ ...p, ...(defectOverrides[p.key] || {}) })) };
       if (riserId && riserId !== "none") responsesToSave.riser_asset_id = riserId;
+      const unmappedItems = cleanUnmapped((item.header as any)?.unmapped_items);
+      if (unmappedItems.length) responsesToSave._sheet_unmapped = unmappedItems;
+      responsesToSave = applyRecordIdentity(responsesToSave, templateFields as any[], {
+        customerName: customers.find((c) => c.id === customerId)?.name || null,
+        siteName: siteName || null,
+        siteAddress: siteAddress || null,
+      });
       const tplName = `${item.templateName || ""}`.toLowerCase();
       const riserType = tplName.includes("wet riser") ? "Wet Riser" : tplName.includes("dry riser") ? "Dry Riser" : null;
       if (riserType && !responsesToSave.riser_asset_id && riserId !== "none") {
@@ -1038,7 +1047,7 @@ export default function ScanReviewDialog({
             const { path, pageCount } = await buildElectronicReportPdf({
               archivedId: result.jobId, // used only for filename
               template: tpl as any,
-              responses: { ...answers, date: paperDateText(paperCompletionIso(ukDate)) },
+              responses: { ...responsesToSave, date: paperDateText(paperCompletionIso(ukDate)) },
               header: { ...headerWithPo, date: paperDateText(paperCompletionIso(ukDate)) },
               sourcePaths: item.imagePaths || [],
               customerId,
@@ -1604,6 +1613,18 @@ export default function ScanReviewDialog({
               />
             </div>
 
+
+            {cleanUnmapped((item.header as any)?.unmapped_items).length > 0 && (
+              <div className="rounded border border-amber-300 bg-amber-50 text-amber-900 p-3 space-y-1">
+                <div className="text-sm font-medium">On the sheet but not on this template</div>
+                <div className="text-xs">These are kept and printed under "Also on the paper sheet" on the report. Check them against the scan.</div>
+                <ul className="text-xs list-disc pl-5">
+                  {cleanUnmapped((item.header as any)?.unmapped_items).map((u, i) => (
+                    <li key={i}>{u.label}{u.value ? `: ${u.value}` : ""}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Destination-specific section — the ONLY per-mode UI */}
             {isJob && (

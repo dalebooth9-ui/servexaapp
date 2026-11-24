@@ -61,6 +61,8 @@ const RULES: SlugRule[] = [
   // Bulk archive conversion stays unlinked and Needs review until office confirmation.
   // Review: default-on editable Raise as defect ticks create job/site/riser defects;
   // View last report compares the newest earlier matched report alongside the sheet.
+  // Job > Paperwork > Paper scan vs electronic: office Edit report, Redo conversion (optional other
+  // template, keep old copy) and Link to riser; see guide paper-report-edit-redo.
   { test: (p) => p === "/paper-scans" || p.startsWith("/paper-scans"), slug: "paper-scans" },
   { test: (p) => p === "/customers", slug: "customers" },
   { test: (p) => p === '/customers/print-branding' || p === '/customers/logo-help', slug: 'customers.print-branding' },

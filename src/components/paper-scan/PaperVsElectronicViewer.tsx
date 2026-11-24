@@ -29,6 +29,8 @@ interface PaperVsElectronicViewerProps {
    *  instead of an infinite spinner. */
   error?: string | null;
   onRetry?: () => void;
+  /** Office actions (Edit report, Redo conversion, Link to riser). */
+  actions?: React.ReactNode;
 }
 
 export default function PaperVsElectronicViewer({
@@ -43,6 +45,7 @@ export default function PaperVsElectronicViewer({
   electronicPdfUrls,
   error,
   onRetry,
+  actions,
 }: PaperVsElectronicViewerProps) {
   const pdfList = (electronicPdfUrls && electronicPdfUrls.length > 0)
     ? electronicPdfUrls
@@ -58,6 +61,7 @@ export default function PaperVsElectronicViewer({
           {subtitle && (
             <div className="text-sm text-muted-foreground">{subtitle}</div>
           )}
+          {actions && <div className="flex flex-wrap gap-2 pt-1">{actions}</div>}
         </DialogHeader>
 
         {error ? (

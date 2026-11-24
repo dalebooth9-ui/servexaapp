@@ -273,6 +273,10 @@ function mergeExtractionParts(
         if (!mergedHeader[k]) mergedHeader[k] = bbox;
         continue;
       }
+      if (k === "unmapped_items" && Array.isArray(v)) {
+        mergedHeader[k] = [...(Array.isArray(mergedHeader[k]) ? mergedHeader[k] : []), ...v];
+        continue;
+      }
       if (k === "additional_notes" && typeof v === "string") {
         // Notes from different pages should combine, not overwrite.
         const existing = String(mergedHeader[k] || "").trim();
@@ -443,7 +447,7 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
         : "";
       fieldProperties[f.id] = {
         type: "string",
-        description: `"${f.label}" — pick the closest match: ${f.options.join(", ")}. Return an option value ONLY if the engineer has clearly ticked, circled, struck through, or otherwise marked one of them (or written a matching answer). If the handwritten answer is descriptive text (e.g. "NOT VISIBLE", "NO ACCESS", "N/A – EXPOSED INLET"), return the FULL text exactly as written and do NOT force it to the nearest option.${OMIT_IF_UNCERTAIN}${extraInstruction}`,
+        description: `"${f.label}" — options: ${f.options.join(", ")}. If the engineer WROTE the answer as words (e.g. "Hydraulic Pressure Test"), return the written words EXACTLY, even when they contain or resemble an option — never shorten them to the option. Return a bare option value ONLY if the engineer has clearly ticked, circled, struck through, or otherwise marked one of them (or written a matching answer). If the handwritten answer is descriptive text (e.g. "NOT VISIBLE", "NO ACCESS", "N/A – EXPOSED INLET"), return the FULL text exactly as written and do NOT force it to the nearest option.${OMIT_IF_UNCERTAIN}${extraInstruction}`,
       };
     } else if (f.type === "repeating_table" && Array.isArray(f.columns) && f.columns.length > 0) {
       // Repeating table (grid) — one array entry per printed data row on the
@@ -540,6 +544,11 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
                   x_max: { type: "number" }, y_max: { type: "number" },
                   page_index: { type: "number" },
                 },
+              },
+              unmapped_items: {
+                type: "array",
+                description: "EVERY printed question, label or answer on the sheet that does NOT correspond to any field in the fields schema (e.g. 'Have all inspection and test records been filled in? (BS9990:2015 7.4.6)' when no such field exists). One entry per item with the printed question as label and the marked/written answer as value (yes/no/n/a or the text). Do NOT repeat items you already returned in fields or other header properties. Return an empty array when everything was mapped.",
+                items: { type: "object", properties: { label: { type: "string" }, value: { type: "string" } }, required: ["label"] },
               },
               engineer_signature_bbox: {
                 type: "object",
