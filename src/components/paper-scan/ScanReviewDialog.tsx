@@ -356,10 +356,23 @@ export default function ScanReviewDialog({
       if ((item as any).batchId) {
         const { data: sib } = await supabase
           .from("paper_scan_batch_items")
-          .select("id, header_data")
+          .select("id, header_data, created_job_id")
           .eq("batch_id", (item as any).batchId)
           .neq("id", item.itemId);
-        siblings = ((sib as any[]) || []).map((r) => r.header_data || {});
+        // A sibling the office already filed: prefer the date it was filed with
+        // (the reviewed date), not the raw scanner read.
+        const jobIds = ((sib as any[]) || []).map((r) => r.created_job_id).filter(Boolean);
+        const filedDates = new Map<string, string>();
+        if (jobIds.length) {
+          const { data: js } = await supabase.from("jobs").select("id, completed_at").in("id", jobIds);
+          for (const j of (js as any[]) || []) if (j.completed_at) filedDates.set(j.id, String(j.completed_at).slice(0, 10));
+        }
+        siblings = ((sib as any[]) || [])
+          .map((r) => {
+            const filed = r.created_job_id ? filedDates.get(r.created_job_id) : undefined;
+            return { ...(r.header_data || {}), ...(filed ? { date: filed } : {}), _filed: !!filed };
+          })
+          .sort((a, b) => Number(b._filed) - Number(a._filed));
       }
       const sug = suggestFromSiblings({ guessDate: item.guessDate, header: item.header as any }, siblings);
       setUkDate(paperDateText(sug.dateIso));
@@ -854,12 +867,20 @@ export default function ScanReviewDialog({
       if (!opts?.forceNew && !opts?.existingJobId && !matchExistingJobId && item.batchId) {
         const { data: sib } = await supabase
           .from("paper_scan_batch_items")
-          .select("created_job_id, jobs:created_job_id(site_id, status)")
+          .select("created_job_id")
           .eq("batch_id", item.batchId)
           .neq("id", item.itemId)
           .not("created_job_id", "is", null);
-        const hit = ((sib as any[]) || []).find((r) => r.jobs?.site_id === effectiveSiteId && r.jobs?.status !== "cancelled");
-        sameScanJobId = hit?.created_job_id || null;
+        // No foreign key from created_job_id to jobs, so look the jobs up directly
+        // (an embedded join silently returned nothing and every sheet made a new job).
+        const ids = ((sib as any[]) || []).map((r) => r.created_job_id).filter(Boolean);
+        if (ids.length) {
+          const { data: sibJobs, error: sibJobsErr } = await supabase
+            .from("jobs").select("id, site_id, status").in("id", ids);
+          if (sibJobsErr) throw sibJobsErr;
+          const hit = ((sibJobs as any[]) || []).find((j) => j.site_id === effectiveSiteId && j.status !== "cancelled");
+          sameScanJobId = hit?.id || null;
+        }
       }
       const chosenExistingJobId =
         opts?.existingJobId ?? (matchExistingJobId || sameScanJobId || null);

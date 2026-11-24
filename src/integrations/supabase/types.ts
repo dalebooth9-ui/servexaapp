@@ -12843,6 +12843,7 @@ export type Database = {
         Args: { _answers: Json; _at: string; _template: string }
         Returns: Json
       }
+      parse_sheet_date: { Args: { _raw: string }; Returns: string }
       platform_list_organisations: {
         Args: never
         Returns: {

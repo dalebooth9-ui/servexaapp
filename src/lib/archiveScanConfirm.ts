@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { resolveSubmissionsSignedUrl } from "@/lib/resolveSubmissionsPath";
 import { generateAndUploadArchivePdf } from "@/lib/archivePdfBuilder";
+import { parseSheetDate } from "@/lib/paperReportDate";
 
 export type ArchiveScanConfirmInput = {
   userId: string;
@@ -72,7 +73,7 @@ export async function archiveScanConfirm(
     customerId,
     siteId,
     assetId = null,
-    documentDate,
+    documentDate: rawDocumentDate,
     title,
     notes,
     siteName,
@@ -87,6 +88,8 @@ export async function archiveScanConfirm(
     manualEngineerSignaturePath,
     needsReview = false,
   } = input;
+  // Always store ISO yyyy-mm-dd; a dd/mm/yyyy string would be misread by the database.
+  const documentDate = parseSheetDate(rawDocumentDate);
 
   // Preserve manual signatures in header_data so a later re-convert can
   // pick them up and never re-derive over the office's choice.
