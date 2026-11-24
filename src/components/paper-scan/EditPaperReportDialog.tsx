@@ -25,10 +25,12 @@ type Props = {
   onSaved: () => void;
 };
 
+import { isRatingField, RATING_OPTIONS } from "@/lib/ratingFields";
 const SKIP_TYPES = new Set(["date", "section", "heading", "info", "photo", "photos", "signature", "repeating_table", "image"]);
 const sel = "h-9 w-full rounded-md border border-input bg-background px-2 text-sm";
 
 function choicesFor(f: any): string[] | null {
+  if (isRatingField(f)) return RATING_OPTIONS;
   if (f.type === "checkbox") return ["yes", "no", "N/A"];
   if (f.type === "pass_fail") return ["pass", "fail", "N/A"];
   if (f.type === "select" && Array.isArray(f.options)) return f.options.map(String);

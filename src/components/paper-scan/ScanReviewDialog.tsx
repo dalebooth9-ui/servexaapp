@@ -22,6 +22,7 @@ import { cleanUnmapped } from "@/lib/paperSheetItems";
 import { applyRecordIdentity } from "@/lib/paperReportEdit";
 import { suggestFromSiblings, type DateSource } from "@/lib/scanSiblingSuggest";
 import { dateCheckReasons } from "@/lib/scanDateCheck";
+import { isRatingField, normaliseRating, RATING_OPTIONS } from "@/lib/ratingFields";
 import { DateCropPreview, DateCheckNotice } from "@/components/paper-scan/ScanDateCheck";
 import { UNIT_KINDS, unitKindForTemplate, unitNumberFrom, unitResultFrom, proposeUnitDefects } from "@/lib/siteUnits";
 import { useAuth } from "@/hooks/useAuth";
@@ -588,6 +589,16 @@ export default function ScanReviewDialog({
       }
       case "checkbox":
       case "boolean":
+        if (isRatingField(field)) {
+          const cur = normaliseRating(value);
+          return (
+            <div className="flex flex-wrap gap-1.5">
+              {RATING_OPTIONS.map((o) => (
+                <Button key={o} type="button" size="sm" variant={cur === o ? "default" : "outline"} onClick={() => updateAnswer(field.id, o)}>{o}</Button>
+              ))}
+            </div>
+          );
+        }
         return (
           <Checkbox
             checked={!!value}

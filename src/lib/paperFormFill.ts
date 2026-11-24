@@ -41,8 +41,9 @@ export function pickOption(options: string[], value: any): string | null {
     NA: ["NA", "NOTAPPLICABLE", "N/A"],
     PASS: ["PASS", "OK", "YES", "SATISFACTORY"],
     FAIL: ["FAIL", "NO", "UNSATISFACTORY"],
-    GOOD: ["GOOD", "YES", "PASS", "OK"],
-    POOR: ["POOR", "NO", "FAIL"],
+    GOOD: ["GOOD", "G", "YES", "Y", "TRUE", "PASS", "OK"],
+    FAIR: ["FAIR", "F", "AVERAGE"],
+    POOR: ["POOR", "P", "NO", "N", "FALSE", "FAIL"],
   };
   const exact = options.find((o) => norm(o) === t);
   if (exact) return exact;

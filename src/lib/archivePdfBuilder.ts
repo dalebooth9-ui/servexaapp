@@ -1,3 +1,4 @@
+import { usesPrintedSheetLayout } from "@/lib/printedSheetLayout";
 // Build the "electronic" filled report PDF for an archived (digitised-only)
 // document. Reuses the same generator as job-mode sheets so branding,
 // watermark, accreditations and layout are identical — the only difference
@@ -315,7 +316,7 @@ export async function generateAndUploadArchivePdf(
 
   // Dry riser sheets print on the same Viva sheet as the QR-flow paperwork,
   // filled in from the scan, so converted reports look the same.
-  if (usesRiserPaperForm(template.name)) {
+  if (usesPrintedSheetLayout(template.name)) {
     const blob = await renderFilledRiserSheet({
       archivedId, template, responses: responsesWithDate, header, customer, site, effectiveSite,
       documentDate, technicianName, sigImages, customerSig, engineerSigOverride,
@@ -373,6 +374,7 @@ export async function generateAndUploadArchivePdf(
 export function usesRiserPaperForm(name: string): boolean {
   return /dry\s*riser/i.test(name || "") && /pressure\s*test|visual|commission/i.test(name || "");
 }
+export { usesPrintedSheetLayout };
 
 function imageToFill(img: HTMLImageElement | null | undefined): FillImage | null {
   if (!img || !img.naturalWidth) return null;
@@ -393,10 +395,12 @@ async function dataUrlToFill(dataUrl: string | null | undefined): Promise<FillIm
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const ukDate = (iso: string | null | undefined) => { const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : (iso || ""); };
 
-async function renderFilledRiserSheet(o: {
+export async function renderFilledRiserSheet(o: {
   archivedId: string; template: ArchivePdfInput["template"]; responses: Record<string, any>; header: any;
   customer: any; site: any; effectiveSite: any; documentDate: string | null; technicianName?: string | null;
   sigImages: Record<string, HTMLImageElement>; customerSig: any; engineerSigOverride: any;
+  /** Tablet report: customer's printed name / signing date from the captured signature. */
+  custName?: string | null; custDate?: string | null;
 }): Promise<Blob> {
   const { responses: r, header } = o;
   const fields: any[] = Array.isArray(o.template.fields) ? o.template.fields : [];
@@ -428,16 +432,19 @@ async function renderFilledRiserSheet(o: {
   }
   const custSig = o.customerSig ? imageToFill(o.sigImages[o.customerSig.id]) : null;
   const date = ukDate(o.documentDate) || r.date || "";
+  const riserKind = /wet\s*riser/i.test(o.template.name) ? "Wet Riser" : "Dry Riser";
+  const isHydrant = /hydrant/i.test(o.template.name);
   const fill: PaperFormFill = {
     answers: { ...r, _scan_header: header || r._scan_header },
-    issues: byLabel(/issues found|defects found|comments/i) || r.comments || "",
+    // Some scans store line breaks as a literal "\n"; print real line breaks.
+    issues: String(byLabel(/issues found|defects found|comments/i) || r.comments || "").replace(/\\n/g, "\n"),
     recommendation: byLabel(/recommendation/i),
     priority: byLabel(/^\s*priority/i),
     also,
     techName: o.technicianName || header?.engineer || r.technician_name || byLabel(/technician name|engineer/i) || null,
     techDate: date,
-    custName: o.customerSig ? (header?.customer_signed_name || o.customerSig.signer_name || null) : null,
-    custDate: o.customerSig ? (r._customer_sign_date || date) : null,
+    custName: o.customerSig ? (o.custName || header?.customer_signed_name || o.customerSig.signer_name || null) : null,
+    custDate: o.customerSig ? (o.custDate || r._customer_sign_date || date) : null,
     techSig, custSig,
   };
   return generateBlankSheetPdfBlob(
@@ -451,7 +458,7 @@ async function renderFilledRiserSheet(o: {
       due_date: o.documentDate || null,
       site_id: o.site?.id,
       site: { name: o.effectiveSite?.name || "", address: o.effectiveSite?.address || null, postcode: null, contact_name: null, contact_phone: null, contact_email: null, riser_location: riserLocation },
-      riserVisit: { asset_id: asset?.id || null, asset_tag: asset?.asset_tag || null, riser_name: asset ? (/^dry\s*riser/i.test(asset.name || "") ? asset.name : `Dry Riser - ${asset.riser_location || asset.name || ""}`.replace(/ - $/, "")) : null, riser_location: riserLocation, outlets_count: outlets, job_reference: job?.reference_number || null },
+      riserVisit: isHydrant && !asset ? null : { asset_id: asset?.id || null, asset_tag: asset?.asset_tag || null, riser_name: asset ? (/^(dry|wet)\s*riser/i.test(asset.name || "") ? asset.name : `${riserKind} - ${asset.riser_location || asset.name || ""}`.replace(/ - $/, "")) : null, riser_location: riserLocation, outlets_count: outlets, job_reference: job?.reference_number || null },
       filled: fill,
     },
     { copiesOverride: 1, watermarkOverride: { mode: "untinted", opacity: 0.12 } as any },

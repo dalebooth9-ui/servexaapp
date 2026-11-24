@@ -173,6 +173,8 @@ function complianceSentence(templateName: string): string {
     ? "flow test"
     : /commission/.test(n)
     ? "commissioning"
+    : /annual\s*service|service\s*&\s*test/.test(n)
+    ? "annual service and test"
     : "visual inspection";
   const standard = /sprinkler/.test(n) ? "BS EN 12845" : "BS 9990:2015";
   return `We have, today, carried out a ${asset} ${activity} to the requirements of ${standard}`;
@@ -580,7 +582,8 @@ export function renderPaperFormPage(
     const fields = bySection.get(sec) || [];
     if (fields.length === 0) continue;
     // Uppercase, formatted section header (e.g. "EXTERNAL EQUIPMENT: VISUAL").
-    const secLabel = sec.toUpperCase() + (!/^REMEDIAL WORKS/.test(sec) && /visual|pressure test|test/i.test(template.name) && !/:/.test(sec) ? `: ${/pressure/i.test(template.name) ? "PRESSURE TEST" : "VISUAL"}` : "");
+    const secSuffix = /pressure/i.test(template.name) ? "PRESSURE TEST" : /visual/i.test(template.name) ? "VISUAL" : "";
+    const secLabel = sec.toUpperCase() + (secSuffix && !/^REMEDIAL WORKS/.test(sec) && !/:/.test(sec) ? `: ${secSuffix}` : "");
     items.push({ kind: "section", label: secLabel });
     for (const f of fields) {
       items.push({ kind: "row", field: f });
@@ -739,7 +742,12 @@ export function renderPaperFormPage(
           if (!valves.length && fillText(r.value)) alsoItems.push(`Outlet valve type: ${fillText(r.value)}`);
         } else if (optsText) {
           const opt = pickOption(optsText.split(' / '), r.value);
-          if (opt) { cellAns = optsText; picked = { option: opt }; }
+          if (opt) {
+            // Long option lists (e.g. SCREWDOWN / SLUICE / PILLAR / SURFACE BOX)
+            // can't fit the answer column; print just the chosen one, boxed.
+            const ansMaxW = margin + maxWidth - colSplit - 4;
+            cellAns = doc.getTextWidth(optsText) > ansMaxW ? opt : optsText; picked = { option: opt };
+          }
           else cellAns = fillText(r.value) || optsText;
         } else cellAns = fillText(r.value) || (visit && /outlet/i.test(it.field.label) && it.field.type === 'number' ? String(visit.outlets_count ?? '') : '');
       }

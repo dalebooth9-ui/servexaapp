@@ -411,6 +411,14 @@ function extractStructuredPayload(result: any) {
 
 // ── Build extraction tool schema ──
 
+function isRatingField(f: any): boolean {
+  const label = String(f?.label || "");
+  if (/outlet\s+cabinets?\s+in\s+good\s+condition/i.test(label)) return true;
+  if (/good\s*[/,]\s*fair|fair\s*[/,]\s*poor/i.test(label)) return true;
+  const opts = (f?.options || []).map((o: any) => String(o).toLowerCase());
+  return opts.includes("fair") && (opts.includes("good") || opts.includes("poor"));
+}
+
 function buildExtractionTool(fields: any[], forVision: boolean) {
   const fieldProperties: Record<string, any> = {};
   // Anti-fabrication rule shared by every ticked/circled field type.
@@ -428,6 +436,11 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
       fieldProperties[f.id] = {
         type: "string",
         description: `"${f.label}" — If clearly ticked YES/P/PASS or circled → "pass". If clearly ticked NO/F/FAIL or circled → "fail". If explicitly ticked/circled N/A or handwritten "N/A" → "n/a". If a handwritten exception note is written beside the row (e.g. "NOT VISIBLE", "NO ACCESS", "EXPOSED VALVE") return that FULL text instead.${OMIT_IF_UNCERTAIN}${extraInstruction}`,
+      };
+    } else if ((f.type === "checkbox" || f.type === "select") && isRatingField(f)) {
+      fieldProperties[f.id] = {
+        type: "string",
+        description: `"${f.label}" — a three-way condition rating printed as GOOD / FAIR / POOR. Return "Good", "Fair" or "Poor" for whichever is ticked/circled/written (keep Fair — never turn it into yes or no), "N/A" only if explicitly marked N/A, or the full handwritten text if something else is written.${OMIT_IF_UNCERTAIN}`,
       };
     } else if (f.type === "checkbox") {
       fieldProperties[f.id] = {

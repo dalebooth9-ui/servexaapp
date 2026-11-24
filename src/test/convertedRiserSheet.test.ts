@@ -10,7 +10,7 @@ describe('converted dry riser reports use the QR-flow sheet', () => {
     expect(usesRiserPaperForm('Dry Riser - Pressure Test')).toBe(true);
     expect(usesRiserPaperForm('Dry Riser - Visual Inspection')).toBe(true);
     expect(usesRiserPaperForm('Dry Riser Commissioning')).toBe(true);
-    expect(usesRiserPaperForm('Fire Hydrant Annual Inspection')).toBe(false);
+    expect(usesRiserPaperForm('Fire Hydrant Annual Inspection')).toBe(false); // riser-only helper; hydrants use usesPrintedSheetLayout
   });
   it('ticks the answer written on the sheet', () => {
     expect(pickOption(['YES', 'NO', 'N/A'], true)).toBe('YES');

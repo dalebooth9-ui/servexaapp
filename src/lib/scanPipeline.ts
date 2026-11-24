@@ -1,3 +1,4 @@
+import { isRatingField, normaliseRating } from "@/lib/ratingFields";
 // scanPipeline.ts — SINGLE canonical extraction pipeline for every paper-scan
 // door in the app: Scan Paper Report (job door), Paper Scan Queue (queue door),
 // Archive Paper Backlog (archive door), plus the admin QuickScan/BatchScan
@@ -109,6 +110,7 @@ export function normalizeExtractedAnswers(
       // Extraction hint that this is unmarked — never persist a fabricated N/A.
       continue;
     }
+    if (isRatingField(f as any)) { out[f.id] = normaliseRating(v); continue; }
     if (
       f.type === "checkbox" ||
       f.type === "yes_no" ||

@@ -1,3 +1,4 @@
+import { usesPrintedSheetLayout, hasTableAnswers } from "@/lib/printedSheetLayout";
 import { useState } from "react";
 import { isPaperReport } from "@/lib/paperReportDate";
 import { paperReportFilename } from "@/lib/paperReportDownload";
@@ -209,8 +210,10 @@ export async function generateJobSheetPdf(
   const normalizeFieldLabel = (label: string) => label.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const hasValue = (value: unknown) => value !== undefined && value !== null && value !== "";
   // Load saved job attachments for every live print path; never silently omit them.
+  let carriedCount = 0;
   if (/^[0-9a-f-]{36}$/i.test(jobId)) {
     const carried = carriedReportFields(await loadCarriedRemedials(jobId, formData.riser_asset_id || null));
+    carriedCount = carried.fields.length;
     template = { ...template, fields: [...template.fields, ...carried.fields] };
     Object.assign(resolvedFormData, carried.answers);
   }
@@ -390,6 +393,13 @@ export async function generateJobSheetPdf(
     }
   }
   
+
+  // Tablet reports on templates with a printed Viva sheet print page 1 on that
+  // sheet (signatures in its boxes); outlet checks and site photos follow on
+  // their own pages. Drafts, carried remedials and table answers keep the
+  // report layout so nothing is dropped.
+  const paperSheetMode = isValidUuid && isLiveReport && !options?.draft && carriedCount === 0
+    && usesPrintedSheetLayout(template.name) && !hasTableAnswers(template.fields as any, formData);
 
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -1372,7 +1382,7 @@ export async function generateJobSheetPdf(
   // above the accreditation strip; extras go above it when there is room.
   const stackH = computeFlowStack(0).stackEndY;
   const bottomAnchor = signOffBottomY - stackH;
-  const extrasOnMain = extrasH > 0 && y + extrasH <= bottomAnchor;
+  const extrasOnMain = !paperSheetMode && extrasH > 0 && y + extrasH <= bottomAnchor;
   if (extrasOnMain) drawExtras(y, false);
   let footerFlow = computeFlowStack(Math.max(y, bottomAnchor));
   if (footerFlow.stackEndY > signOffBottomY + 0.01) {
@@ -1482,6 +1492,28 @@ export async function generateJobSheetPdf(
     accreditationsRendered: accredLogosForRender.length,
     accreditationsSuppressedForSpace: accredLogos.length > 0 && accredLogosForRender.length === 0,
   });
+  if (paperSheetMode) {
+    const engSig = signatures.find((x: any) => (x.signer_role === "engineer" || x.signer_role === "admin") && sigImages[x.id]);
+    const custSig = signatures.find((x: any) => x.signer_role === "customer" && sigImages[x.id]);
+    const { renderFilledRiserSheet } = await import("@/lib/archivePdfBuilder");
+    const sheet = await renderFilledRiserSheet({
+      archivedId: jobId, template: template as any, responses: formData, header: formData._scan_header || {},
+      customer: { name: customerName, logo_url: jobInfo?.customers?.logo_url ?? null },
+      site: null, effectiveSite: { name: (jobInfo as any)?.site?.name || "", address: (jobInfo as any)?.site?.address || jobInfo?.address || null },
+      documentDate: (submittedAt || formData.date || "").slice(0, 10) || null,
+      technicianName: engSig?.signer_name || submittedBy || null,
+      sigImages, customerSig: custSig || null, engineerSigOverride: engSig || null,
+      custName: custSig?.signer_name || null,
+    });
+    const { PDFDocument } = await import("pdf-lib");
+    const out = await PDFDocument.load(await sheet.arrayBuffer());
+    const extraIdx = Array.from({ length: doc.getNumberOfPages() - mainSheetPages }, (_, i) => mainSheetPages + i);
+    if (extraIdx.length) {
+      const old = await PDFDocument.load(doc.output("arraybuffer"));
+      (await out.copyPages(old, extraIdx)).forEach((pg) => out.addPage(pg));
+    }
+    return { base64: await out.saveAsBase64(), fileName, pageCount: out.getPageCount() };
+  }
   const pageCount = doc.getNumberOfPages();
   if (options?.draft) stampDraftWatermark(doc);
   const base64 = doc.output("datauristring").split(",")[1];
