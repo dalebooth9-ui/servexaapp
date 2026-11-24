@@ -26,3 +26,6 @@ describe("hydrant units", () => {
   });
   it("normalises written types", () => expect(normaliseUnitType("sluice", "hydrant")).toBe("Sluice"));
 });
+describe("scanner comment text", () => {
+  it("splits a comment read with a literal \\n", () => expect(remedialLinesFromComment("LID NEEDS PAINTING\\nGAUGE READER FAULTY")).toEqual(["LID NEEDS PAINTING", "GAUGE READER FAULTY"]));
+});

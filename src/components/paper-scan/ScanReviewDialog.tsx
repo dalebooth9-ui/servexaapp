@@ -475,8 +475,8 @@ export default function ScanReviewDialog({
   const unitKind = useMemo(() => unitKindForTemplate({ ...templateMeta, name: templateMeta.name || item?.templateName || null }), [templateMeta, item]);
   useEffect(() => {
     if (!open || !unitKind) { setUnitNumber(""); return; }
-    const n = unitNumberFrom({ ...(item?.header || {}), ...answers }, unitKind);
-    setUnitNumber((cur) => cur || (n ? String(n) : ""));
+    const n = unitNumberFrom({ ...(item?.header || {}), ...(item?.extracted || {}) }, unitKind);
+    setUnitNumber(n ? String(n) : "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, unitKind, item]);
   useEffect(() => {
@@ -498,11 +498,12 @@ export default function ScanReviewDialog({
     );
     if (!unitKind) return base;
     const label = `${UNIT_KINDS[unitKind].singular}${unitNumber ? ` ${unitNumber}` : ""}`;
-    const seen = new Set(base.map((p) => p.title.toLowerCase().replace(/[^a-z0-9]/g, "")));
+    const norm = (t: string) => t.toLowerCase().replace(/^.*?:\s*/, "").replace(/[^a-z0-9]/g, "");
     const extra = proposeUnitDefects(answers, unitKind, label)
-      .filter((p) => !Array.from(seen).some((t) => t.includes(p.title.toLowerCase().replace(/^.*?:\s*/, "").replace(/[^a-z0-9]/g, ""))))
       .map((p) => ({ key: p.key, title: p.title, description: p.description, severity: p.severity, category: p.category, location_on_site: unitMatch?.location || "", source_field_label: "" }));
-    return [...base, ...extra];
+    // One defect per remedial line: drop a combined comment proposal that the per-line ones cover.
+    const kept = base.filter((b) => !extra.some((e) => norm(b.title).replace(/^.*?:/, "").includes(norm(e.title)) || b.title.toLowerCase().replace(/[^a-z0-9]/g, "").includes(norm(e.title))));
+    return [...kept, ...extra];
   }, [item, mode, templateFields, answers, unitKind, unitNumber, unitMatch]);
 
   const renderFieldInput = (field: TemplateField) => {

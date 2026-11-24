@@ -84,6 +84,7 @@ const PROBLEM_WORDS = /\b(needs?|faulty|fault|broken|damaged|missing|leak(?:ing|
 /** Lines in a comment that describe work needed, e.g. "grid needs painting", "gauge reader faulty". */
 export function remedialLinesFromComment(text: string): string[] {
   return String(text || "")
+    .replace(/\\n/g, "\n")
     .split(/\r?\n|;|\.\s+/)
     .map((l) => l.replace(/^[-•*\d.)\s]+/, "").trim())
     .filter((l) => l.length > 2 && PROBLEM_WORDS.test(l));
