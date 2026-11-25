@@ -1,5 +1,6 @@
 import OfficeEmailSettings from "@/components/settings/OfficeEmailSettings";
 import DigitalTwinSettings from '@/components/settings/DigitalTwinSettings';
+import LocationSharingSettings from '@/components/settings/LocationSharingSettings';
 import AccessPrintSettings from '@/components/settings/AccessPrintSettings';
 import CompanyBrandColourCard from '@/components/settings/CompanyBrandColourCard';
 import QuoteInvoiceDetailsCard from '@/components/settings/QuoteInvoiceDetailsCard';
@@ -224,6 +225,7 @@ export default function SettingsPage() {
         <TabsContent value="team" className="space-y-6 mt-0">
           <UserRoleSettings />
           <VansSettings />
+          <LocationSharingSettings />
 
         {/* Engineer App Install QR Code */}
         <Card>

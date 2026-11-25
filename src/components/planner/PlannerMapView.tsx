@@ -4,6 +4,7 @@ import { format } from "date-fns";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useLiveEngineerLocations, EngineerLocation } from "@/hooks/useLiveEngineerLocations";
+import { locationChipStatus } from "@/lib/locationSharing";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -180,27 +181,8 @@ export default function PlannerMapView({
 
   // ---- Staleness helper ----
   type LocationStatus = { status: "live" | "stale" | "offline"; label: string; tooltip: string };
-  const getLocationStatus = useCallback((loc: EngineerLocation | null): LocationStatus => {
-    if (!loc || !loc.updated_at) {
-      return { status: "offline", label: "Location off", tooltip: "Location sharing is off — this engineer's device isn't reporting a live position" };
-    }
-    const ageMs = Date.now() - new Date(loc.updated_at).getTime();
-    const ageMin = Math.floor(ageMs / 60000);
-    if (ageMin < 5) {
-      return {
-        status: "live",
-        label: "Location live",
-        tooltip: `Sharing live location · last update ${ageMin < 1 ? "just now" : `${ageMin} min${ageMin !== 1 ? "s" : ""} ago`}`,
-      };
-    }
-    if (ageMin <= 30) {
-      return { status: "stale", label: "Location stale", tooltip: `Last location update ${ageMin} min${ageMin !== 1 ? "s" : ""} ago — may be outdated` };
-    }
-    const ageHr = Math.floor(ageMin / 60);
-    const remMin = ageMin % 60;
-    const timeAgo = ageHr > 0 ? `${ageHr}h ${remMin > 0 ? `${remMin}m` : ""}` : `${ageMin}m`;
-    return { status: "offline", label: "Location off", tooltip: `Location sharing off — last update ${timeAgo} ago` };
-  }, []);
+  const getLocationStatus = useCallback((loc: EngineerLocation | null): LocationStatus =>
+    locationChipStatus(loc?.updated_at, (loc && engineers.find((e) => e.user_id === loc.user_id)?.full_name) || ""), [engineers]);
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEngineer = (id: string) => engineers.find((e) => e.user_id === id);

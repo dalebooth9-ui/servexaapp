@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useState as useReactState } from "react";
 import servexaLogo from "@/assets/servexa-logo.png";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useEngineerLocation } from "@/hooks/useEngineerLocation";
+import LocationSharingPrompt from "@/components/LocationSharingPrompt";
 import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
 import { useOrgStatus } from "@/hooks/useOrgStatus";
 import AccountPaused from "@/components/AccountPaused";
@@ -192,7 +192,6 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   const [previewDialogOpen, setPreviewDialogOpen] = useReactState(false);
 
   const location = useLocation();
-  useEngineerLocation();
   const { hasAccess } = useEngineerPageAccess();
   const orgStatus = useOrgStatus();
   const isPlatformRoute = location.pathname.startsWith("/platform");
@@ -370,6 +369,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <EngineerPreviewBanner />
+      <LocationSharingPrompt />
       <EngineerPreviewDialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen} />
       <div className="flex flex-1 overflow-hidden">
 

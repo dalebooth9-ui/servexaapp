@@ -143,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [sending, setSending] = useState(false);
 
   const doSignOut = async () => {
+    try { (await import('@/hooks/useEngineerLocation')).stopLocationSharing(); } catch { /* ignore */ }
     try { await supabase.auth.signOut(); } catch { /* still clear the device */ }
     await wipeDeviceData();
     window.location.replace('/auth');
