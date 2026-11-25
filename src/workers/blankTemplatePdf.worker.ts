@@ -218,7 +218,7 @@ async function loadImage(url: string | null | undefined): Promise<LoadedImage | 
   }
 }
 
-/** Locate visible ink so transparent logo padding does not become page spacing. */
+/** Crop the logo to its visible ink on all sides so transparent/white padding never shrinks the printed brand. */
 async function measureVisibleLogoBounds(image: LoadedImage): Promise<LoadedImage> {
   if (!image.bitmap || typeof OffscreenCanvas === "undefined") return image;
   try {
@@ -227,20 +227,28 @@ async function measureVisibleLogoBounds(image: LoadedImage): Promise<LoadedImage
     if (!context) return image;
     context.drawImage(image.bitmap, 0, 0);
     const pixels = context.getImageData(0, 0, image.width, image.height).data;
-    let top = image.height;
-    let bottom = -1;
+    let top = image.height, bottom = -1, left = image.width, right = -1;
     for (let y = 0; y < image.height; y++) {
       for (let x = 0; x < image.width; x++) {
         const i = (y * image.width + x) * 4;
         if (pixels[i + 3] > 16 && Math.min(255 - pixels[i], 255 - pixels[i + 1], 255 - pixels[i + 2]) > 15) {
-          top = Math.min(top, y);
+          if (y < top) top = y;
           bottom = y;
-          break;
+          if (x < left) left = x;
+          if (x > right) right = x;
         }
       }
     }
-    if (bottom < top) return image;
-    return { ...image, visibleTop: top / image.height, visibleBottom: (bottom + 1) / image.height };
+    if (bottom < top || right < left) return image;
+    const w = right - left + 1, h = bottom - top + 1;
+    if (w === image.width && h === image.height) return { ...image, visibleTop: 0, visibleBottom: 1 };
+    const out = new OffscreenCanvas(w, h);
+    const octx = out.getContext("2d");
+    if (!octx) return { ...image, visibleTop: top / image.height, visibleBottom: (bottom + 1) / image.height };
+    octx.drawImage(image.bitmap, left, top, w, h, 0, 0, w, h);
+    const blob = await out.convertToBlob({ type: "image/png" });
+    const dataUrl = `data:image/png;base64,${bytesToBase64(new Uint8Array(await blob.arrayBuffer()))}`;
+    return { dataUrl, width: w, height: h, format: "PNG", visibleTop: 0, visibleBottom: 1 };
   } catch {
     return image;
   }

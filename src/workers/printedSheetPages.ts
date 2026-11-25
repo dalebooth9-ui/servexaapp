@@ -15,7 +15,8 @@ import type { SheetModel } from "@/lib/printedSheetModel";
 import type { PaperFormJobInfo, LoadedImage } from "@/workers/paperFormRenderer";
 
 const M = 10;
-const HEADER_H = 52;
+const LOGO_MAX_H = 28;
+const HEADER_H = 62;
 
 export function renderPrintedSheetPages(doc: jsPDF, o: {
   model: SheetModel; jobInfo: PaperFormJobInfo | null | undefined; logo: LoadedImage | null;
@@ -149,7 +150,7 @@ function drawHeader(doc: jsPDF, o: Parameters<typeof renderPrintedSheetPages>[1]
   const j = o.jobInfo; const tag = j?.riserVisit?.asset_tag;
   let y = 6;
   if (o.logo) {
-    const a = o.logo.width / o.logo.height; let lh = 18, lw = lh * a; const lmax = maxW - 60; if (lw > lmax) { lw = lmax; lh = lw / a; }
+    const a = o.logo.width / o.logo.height; let lh = LOGO_MAX_H, lw = lh * a; const lmax = Math.min(W * 0.57, W - 2 * (M + 22)); if (lw > lmax) { lw = lmax; lh = lw / a; }
     try { doc.addImage(o.logo.dataUrl, o.logo.format, (W - lw) / 2, y, lw, lh); } catch { /* skip */ }
     y += lh;
   } else y += 12;
@@ -164,7 +165,7 @@ function drawHeader(doc: jsPDF, o: Parameters<typeof renderPrintedSheetPages>[1]
   const scope = (doc.splitTextToSize(model.scope, maxW - 46) as string[])[0];
   const sw = doc.getTextWidth(scope); const sx = (W - sw) / 2; const scy = Math.max(y + 4.5, 29);
   doc.text(scope, sx, scy); doc.setDrawColor(0); doc.setLineWidth(0.4); doc.line(sx, scy + 1.2, sx + sw, scy + 1.2);
-  const top = scy + 3; const bh = 52 - top; const leftW = maxW * 0.55; const rx = M + leftW; const rw = maxW - leftW; const split = rx + rw * 0.42;
+  const top = scy + 3; const bh = HEADER_H - top; const leftW = maxW * 0.55; const rx = M + leftW; const rw = maxW - leftW; const split = rx + rw * 0.42;
   doc.setLineWidth(0.3); doc.rect(M, top, maxW, bh); doc.line(rx, top, rx, top + bh); doc.line(rx, top + 7, M + maxW, top + 7); doc.line(split, top, split, top + 7);
   doc.setFontSize(9); doc.text("Customer/Site Details:", M + 2, top + 4);
   const showPo = !!j?.customer_po || !!j?.poOnly;

@@ -65,7 +65,6 @@ describe("sprinkler printed sheet", () => {
     expect(text).toContain("REVISIT / NO ACCESS");
     expect(text).toContain("BS 9251:2021");
     expect((text.match(/\(Flat no\.\)/g) || []).length).toBeGreaterThan(1);
-    writeFileSync("/tmp/browser/spr/test-block.pdf", Buffer.from(doc.output("arraybuffer")));
   });
   it("single-house register report omits tank, pump, zone and monitoring sections", () => {
     const s = sprinklerReportSheet({ report: { visit_type: "annual", answers: {} }, system: { system_type: "house", register: {} }, units: [] });

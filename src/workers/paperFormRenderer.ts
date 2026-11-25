@@ -22,6 +22,7 @@ import { printName, printInspectionDate, printInspectionType, printInspectionRes
 import { siteDetailLines } from '@/lib/siteDetailsPrint';
 import { fillText, pickOption, pickValveChoices, resolveFillValue, type PaperFormFill } from '@/lib/paperFormFill';
 
+export const PRINTED_SHEET_LOGO_WIDTH_RATIO = 0.57;
 export type LoadedImage = {
   dataUrl: string;
   width: number;
@@ -309,10 +310,10 @@ export function renderPaperFormPage(
   // Keep the logo's drawn dimensions unchanged. Its visible ink starts 5mm
   // from the top on riser sheets, excluding transparent source-image padding.
   const logoTop = isRiserInspection ? 5 : margin;
-  const logoScale = isRiserInspection ? 2.5 : 1;
-  const logoMaxH = (bodyCount > 30 ? 16 : bodyCount > 24 ? 19 : 22) * logoScale;
-  // Centred logo stops before the right-hand QR, even with wide company logos.
-  const logoMaxW = isRiserInspection ? Math.min(70 * logoScale, pageWidth - 2 * (margin + 26)) : 70;
+  // Logo is pre-cropped to its ink; print it at ~57% of the page width, centred,
+  // never into the right-hand QR column and capped in height so the sheet fits.
+  const logoMaxH = bodyCount > 30 ? 36 : bodyCount > 24 ? 44 : 50;
+  const logoMaxW = Math.min(pageWidth * PRINTED_SHEET_LOGO_WIDTH_RATIO, pageWidth - 2 * (margin + 26));
   let cursorY = logoTop;
   let riserLogoVisibleBottom: number | null = null;
   if (logo) {
