@@ -1,4 +1,6 @@
 import { normalisePhotoPathForDedupe } from "@/lib/jobPhotos";
+import { placeSheetItems } from "@/lib/paperSheetNotes";
+import { cleanUnmapped } from "@/lib/paperSheetItems";
 // jobScanReportSave — confirm step for the job-scoped "Scan Paper Report" flow.
 //
 // The engineer is already standing on a known job, so there is no job matching,
@@ -137,8 +139,14 @@ export async function saveJobScanReport(
   // ── B) extracted fields → job_sheet_responses ──────────────────────────
   const nowIso = new Date().toISOString();
   const completedAt = paperCompletionIso(header?.date || responses.date || responses.inspection_date);
-  const payload: Record<string, any> = {
+  const { data: template, error: templateError } = await supabase.from("job_sheet_templates").select("fields").eq("id", templateId).single();
+  if (templateError) throw templateError;
+  const placed = await placeSheetItems(supabase, templateId, (template.fields || []) as any[], {
     ...responses,
+    additional_notes: responses.additional_notes ?? header?.additional_notes,
+  }, cleanUnmapped(header?.unmapped_items));
+  const payload: Record<string, any> = {
+    ...placed.responses,
     date: paperDateText(completedAt),
     _paper_completion_at: completedAt,
     _scan_source: convertFrom ? "job_media_conversion" : "paper_scan_job_page",

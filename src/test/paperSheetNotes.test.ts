@@ -66,6 +66,14 @@ describe("hydrant answers only from the sheet", () => {
     expect(r.kept.flow_rate).toBe(295);
   });
   it("matches a printed question", () => expect(questionOnSheet("Surrounding Pavement Sound", ocr)).toBe(true));
+  it("does not invent overall pass or a flow-test answer from working order and LPM", () => {
+    const r = dropAnswersNotOnSheet({ overall_result: "pass", flow_test: "yes", working_order: "yes" }, [
+      { id: "overall_result", label: "Overall Inspection Result", type: "pass_fail" },
+      { id: "flow_test", label: "Flow Test Carried Out", type: "checkbox" },
+      fields[2],
+    ], ocr);
+    expect(r.kept).toEqual({ working_order: "yes" });
+  });
   it("sheet wording maps to the existing row instead of a new one", () => {
     const p = promote2([{ id: "outlet_cap", label: "Outlet Cap / Blank Present (Fitted With Cap)", type: "checkbox" }, { id: "marker_post", label: "Marker Post / Indicator Plate Visible and Correct", type: "checkbox" }], [{ label: "8. Fitted with cap?", value: "yes" }, { label: "5. Indicator plate correct", value: "yes" }] as any);
     expect(p.added).toHaveLength(0);

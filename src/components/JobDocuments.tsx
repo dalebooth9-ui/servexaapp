@@ -160,9 +160,14 @@ export default function JobDocuments({ jobId, job, engineers, hideReportExports 
       error: null,
     });
     try {
+      // Read the latest saved URLs here, not the previous render's docs.
+      // Edit/Redo can replace a PDF immediately before reopening this viewer.
+      const { data: latest, error: latestError } = await supabase.from("job_documents").select("*").eq("job_id", jobId).order("created_at");
+      if (latestError) throw latestError;
+      const currentDocs = (latest || []) as unknown as JobDoc[];
       const scanUrls: string[] = [];
       let scanFailed = 0;
-      for (const d of sourceScanDocs) {
+      for (const d of currentDocs.filter(d => d.document_type === "source_scan")) {
         try {
           const u = await resolveToSignedUrl(d.file_url || "", "submissions", 600);
           if (u) scanUrls.push(u);
@@ -173,7 +178,7 @@ export default function JobDocuments({ jobId, job, engineers, hideReportExports 
         }
       }
       const pdfUrls: string[] = [];
-      for (const d of reportDocs) {
+      for (const d of currentDocs.filter(d => d.document_type === "report" && d.file_url)) {
         try {
           const u = await resolveToSignedUrl(d.file_url || "", "submissions", 600);
           if (u) pdfUrls.push(u);

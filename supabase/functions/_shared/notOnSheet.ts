@@ -5,7 +5,7 @@
 // Header-type rows (site, customer, date, engineer, hydrant no, comments,
 // notes) and overall result / remedial rows are kept. Pure; safe for tests.
 const norm = (s: string) => ` ${String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
-const KEEP = /site|customer|client|date|engineer|inspector|technician|reference|hydrant no|comment|note|signature|remedial|overall|result|location/i;
+const KEEP = /site|customer|client|date|engineer|inspector|technician|reference|hydrant no|comment|note|signature|location/i;
 
 export function questionOnSheet(label: string, text: string): boolean {
   const t = norm(text);

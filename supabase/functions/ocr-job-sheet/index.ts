@@ -537,6 +537,7 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
             type: "object",
             description: "Header information from the form.",
             properties: {
+              printed_questions: { type: "array", items: { type: "string" }, description: "For hydrant sheets, transcribe EVERY physically printed question label on this page, including blank-answer rows. Never list a template question absent from the image. This is independent evidence used to reject invented answers." },
               paperwork_owner_company: { type: "string", description: "The COMPANY that OWNS this paperwork — the company whose LOGO or COMPANY NAME appears in the LETTERHEAD/BRANDING at the very TOP of the sheet (e.g. 'BESSEGES', 'SAFELY COMPLY', 'VIVA FIRE PROTECTION'). Read this from the logo/branding block ONLY — do NOT read from the 'Customer:' or 'Site:' form fields. If the letterhead has a stylised logo, transcribe the visible company name text. Leave blank if there is no letterhead/branding on the sheet." },
               customer: { type: "string", description: "The COMPANY/ORGANISATION name written in the form's 'Customer:' or 'Client:' field (the FILLED-IN VALUE next to that label). NOT the letterhead — that goes in paperwork_owner_company. NOT a person's name from the signature block. On many subcontractor sheets this 'Customer:' field is blank because the details box only shows a site address — leave this blank in that case." },
               site: { type: "string", description: "FULL site address including street, city/town, and postcode. Look for fields labelled 'Site:', 'Site Address:', 'Address:', 'Location:' or similar in the header area. Include ALL address lines — do NOT omit any part. Read postcodes character by character: 0↔O, 6↔G, 8↔B, 9↔Q, N↔H. If multiple address lines exist, join them with ', '." },
@@ -734,6 +735,7 @@ NOTE: You are being sent ONE PAGE (${pageLabel}) of a possibly multi-page bundle
 DATE FIELDS: Dates are UK day/month/year, never month first. Sheets are normally from the last few weeks before ${todayIso}. Handwritten 1, 4, 7 and 0 are easily confused (e.g. '11' misread as '04'). If your reading is more than 14 days before ${todayIso} or in the future, give your best alternative reading in header.date_alternative and set header.date_low_confidence = true. Also return header.date_bbox (percentages, page_index 0) around the written date. If genuinely unreadable, leave blank and set field_confidence <0.5.
 
 NEVER FABRICATE "N/A": omit unmarked fields entirely.
+ONLY PRINTED QUESTIONS: omit every question absent from this page. Working order does not imply main valve condition or overall result; flow rate does not imply flow test carried out. For hydrants return header.printed_questions with the actual printed labels, including unanswered questions.
 CONFIDENCE: populate field_confidence 0.0–1.0 per returned field; <0.6 when ambiguous.
 ROW-ASSOCIATION: attach each YES/NO/N/A mark to the row whose printed answer TOKEN it surrounds/overlaps in the answer column.
 HEADER: "Customer:" at TOP = COMPANY. "Customer:" at BOTTOM signature block = PERSON's name.
@@ -811,6 +813,14 @@ Use the extract_job_sheet tool.`;
 
     try {
       const payload = extractStructuredPayload(result);
+      if (/hydrant/i.test(templateName)) {
+        const labels = payload.header?.printed_questions;
+        const evidence = Array.isArray(labels) ? labels.join("\n") : "";
+        // No evidence means no unsupported inspection answer may pass through.
+        const checked = dropAnswersNotOnSheet(payload.extracted || {}, fields, evidence || "No printed question evidence supplied. ".repeat(3));
+        payload.extracted = checked.kept;
+        for (const id of checked.dropped) delete payload.field_confidence?.[id];
+      }
       if (hasMeaningfulValues(payload.extracted) || hasMeaningfulValues(payload.header)) {
         return payload;
       }

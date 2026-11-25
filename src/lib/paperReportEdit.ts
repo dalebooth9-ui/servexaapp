@@ -44,6 +44,9 @@ export function applyRecordIdentity(
   const cust = String(ids.customerName || "").trim();
   for (const f of fields || []) {
     const label = String(f?.label || "").toLowerCase().replace(/[:\s]+$/, "").trim();
+    if (label === "site name / location" && !String(next[f.id] || "").trim()) {
+      next[f.id] = [ids.siteName, ids.siteAddress].filter(Boolean).join(", ");
+    }
     if (!cust) continue;
     if (label === "customer details") {
       next[f.id] = siteDetailLines({ customer: cust, siteName: ids.siteName, address: ids.siteAddress }).join("\n");

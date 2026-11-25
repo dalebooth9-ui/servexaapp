@@ -17,6 +17,12 @@ describe("converted paper report edit/redo", () => {
     const out = applyRecordIdentity({ customer_name: "WATKINS" }, [{ id: "customer_name", label: "Customer Name:" }], { customerName: "Watkin's" });
     expect(out.customer_name).toBe("Watkin's");
   });
+  it("fills missing site identity from confirmed records without replacing the sheet's own wording", () => {
+    const fields = [{ id: "site_name", label: "Site Name / Location" }];
+    const ids = { siteName: "Midlands House", siteAddress: "Nelson Street, Derby DE1 2SA" };
+    expect(applyRecordIdentity({}, fields, ids).site_name).toBe("Midlands House, Nelson Street, Derby DE1 2SA");
+    expect(applyRecordIdentity({ site_name: "REAR OF BUILDING" }, fields, ids).site_name).toBe("REAR OF BUILDING");
+  });
   it("redo/edit always keeps the previous answers", () => {
     const v = withPreviousVersion({ a: 1, _previous_versions: [{ reason: "x" }] }, { at: "t", byUserId: "u", reason: "redo conversion", templateId: "t1" });
     expect(v).toHaveLength(2);

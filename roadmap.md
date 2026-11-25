@@ -1,5 +1,10 @@
 # Roadmap
 
+## Priority hydrant scan repair
+- [x] Traced scan filing, archive conversion, Edit/Redo, date rebuild and saved-document viewers; preserved previous PDFs and answer snapshots on VFP-00300/00302.
+- [x] Fresh two-sheet upload/review filed both sheets onto VFP-00303; no invented main-valve answer and no unmapped questions.
+- [x] Verified rebuilt pages against originals and VFP-00302 viewer; 17 regression tests pass. Fresh filing reused one job; vision fallback, archive redo and job-attached scans read in code but not exercised end to end. Attached samples disclose OCR and original blank-signature limitations.
+
 ## Sticker options and unknown outlet counts
 - [x] Per-print Leave logo off in both sticker dialogs; default branding unchanged.
 - [x] Inlet-only printing before counting; printed-label defaults/statuses; first-report unknown counts left blank and existing report/office count synchronisation retained.
