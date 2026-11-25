@@ -19,6 +19,7 @@ import CustomerDefectsCard from "@/components/customers/CustomerDefectsCard";
 import CustomerAgreementsCard from "@/components/CustomerAgreementsCard";
 import CustomerAccreditationLogos from "@/components/CustomerAccreditationLogos";
 import CustomerLogo from '@/components/customers/CustomerLogo';
+import CustomerArchiveControl from "@/components/customers/CustomerArchiveControl";
 import { CustomerAtAGlance } from "@/components/AtAGlanceStrip";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -906,6 +907,15 @@ export default function CustomerDetail() {
               {customer.address && (
                 <MapAddress address={customer.address} />
               )}
+            </div>
+            <div className="mt-2">
+              <CustomerArchiveControl
+                customerId={id!}
+                archivedAt={(customer as any).archived_at}
+                archivedBy={(customer as any).archived_by}
+                isAdmin={isAdmin}
+                onChanged={(archived_at, archived_by) => setCustomer((prev) => prev ? ({ ...prev, archived_at, archived_by } as any) : prev)}
+              />
             </div>
           </div>
         </div>

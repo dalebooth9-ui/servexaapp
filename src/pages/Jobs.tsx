@@ -325,7 +325,7 @@ export default function Jobs() {
 
   useEffect(() => {
     const fetchCustomers = async () => {
-      const { data } = await supabase.from("customers").select("id, name").order("name");
+      const { data } = await supabase.from("customers").select("id, name").is("archived_at", null).order("name");
       setCustomers(data || []);
     };
     fetchCustomers();

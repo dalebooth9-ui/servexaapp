@@ -2237,6 +2237,8 @@ export type Database = {
         Row: {
           accreditation_logos: string[]
           address: string | null
+          archived_at: string | null
+          archived_by: string | null
           brand_colour: string | null
           created_at: string
           created_by: string | null
@@ -2260,6 +2262,8 @@ export type Database = {
         Insert: {
           accreditation_logos?: string[]
           address?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           brand_colour?: string | null
           created_at?: string
           created_by?: string | null
@@ -2283,6 +2287,8 @@ export type Database = {
         Update: {
           accreditation_logos?: string[]
           address?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           brand_colour?: string | null
           created_at?: string
           created_by?: string | null
@@ -12992,6 +12998,40 @@ export type Database = {
       seed_org_reference_data: {
         Args: { _new_org_id: string; _source_org_id?: string }
         Returns: undefined
+      }
+      set_customer_archived: {
+        Args: { _archive: boolean; _customer_id: string }
+        Returns: {
+          accreditation_logos: string[]
+          address: string | null
+          archived_at: string | null
+          archived_by: string | null
+          brand_colour: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          freeagent_contact_id: string | null
+          id: string
+          import_batch_id: string | null
+          imported_at: string | null
+          logo_url: string | null
+          name: string
+          org_id: string | null
+          phone: string | null
+          print_logo_url: string | null
+          quickbooks_contact_id: string | null
+          renewal_reminders_opt_out: boolean
+          sage_contact_id: string | null
+          updated_at: string
+          use_print_branding: boolean
+          xero_contact_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "customers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       set_defect_chargeable: {
         Args: { _chargeable: boolean; _defect_id: string; _reason?: string }

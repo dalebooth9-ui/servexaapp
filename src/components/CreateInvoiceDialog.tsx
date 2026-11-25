@@ -93,7 +93,7 @@ export default function CreateInvoiceDialog({
   // Load customers and parts library when dialog opens
   useEffect(() => {
     if (open) {
-      supabase.from("customers").select("id, name, email, address").order("name").then(({ data }) => {
+      supabase.from("customers").select("id, name, email, address").is("archived_at", null).order("name").then(({ data }) => {
         setCustomers(data || []);
         // Auto-fill email/address from customer record if we have a name but no email
         if (customerName && !customerEmail) {

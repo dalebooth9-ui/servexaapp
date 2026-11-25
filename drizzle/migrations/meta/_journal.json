@@ -743,6 +743,20 @@
       "when": 1795604112358,
       "tag": "0105_quote_default_vat_from_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1795622769380,
+      "tag": "0106_customer_archive",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1795622789124,
+      "tag": "0107_customer_archive_fix_org_check",
+      "breakpoints": true
     }
   ]
 }

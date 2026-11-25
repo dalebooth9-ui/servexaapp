@@ -22,6 +22,9 @@ import TableSkeleton from "@/components/TableSkeleton";
 import { fuzzyFilter } from "@/lib/fuzzyMatch";
 import { useLookAlike, LookAlikeNotice, findExistingLookAlike } from "@/components/shared/LookAlikeNotice";
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { visibleCustomers, isCustomerArchived } from "@/lib/customerArchive";
 import PrintBrandingFields from '@/components/customers/PrintBrandingFields';
 import CustomerLogo from '@/components/customers/CustomerLogo';
 
@@ -36,6 +39,7 @@ type Customer = {
   print_logo_url:string|null;
   brand_colour:string|null;
   use_print_branding:boolean;
+  archived_at?: string | null;
 };
 
 type CustomerForm = {
@@ -60,6 +64,7 @@ export default function Customers() {
   const [liveCheckOn, setLiveCheckOn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm, clearFormDraft] = useAutoSave<CustomerForm>("customer-form", emptyForm);
@@ -93,7 +98,7 @@ export default function Customers() {
     fetchCustomers();
   }, [fetchCustomers]);
 
-  const filtered = fuzzyFilter(customers, search, (c) => [c.name, c.email, c.phone, c.address]);
+  const filtered = fuzzyFilter(visibleCustomers(customers, showArchived), search, (c) => [c.name, c.email, c.phone, c.address]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -415,6 +420,10 @@ export default function Customers() {
           className="pl-9"
         />
       </div>
+      <div className="mb-4 flex items-center gap-2">
+        <Switch id="show-archived-customers" checked={showArchived} onCheckedChange={setShowArchived} />
+        <Label htmlFor="show-archived-customers" className="text-sm">Show archived</Label>
+      </div>
 
       <div
         onDragEnter={isAdmin ? handleDragEnter : undefined}
@@ -478,6 +487,7 @@ export default function Customers() {
                             <ImageIcon className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
                           )}
                           {c.name}
+                          {isCustomerArchived(c) && <Badge variant="secondary" className="ml-2">Archived</Badge>}
                         </Link>
                       </TableCell>
                       <TableCell>{c.email || "—"}</TableCell>
@@ -588,7 +598,7 @@ export default function Customers() {
                   <SelectValue placeholder="Choose a customer…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {customers.map((c) => (
+                  {visibleCustomers(customers).map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>

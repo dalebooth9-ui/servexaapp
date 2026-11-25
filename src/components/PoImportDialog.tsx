@@ -66,7 +66,7 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated,
   const isMisdrop = extracted?.document_kind === "job_sheet" && !continueAnyway;
 
   useEffect(() => {
-    supabase.from("customers").select("id, name").order("name").then(({ data }) => {
+    supabase.from("customers").select("id, name").is("archived_at", null).order("name").then(({ data }) => {
       setCustomers(data || []);
     });
   }, []);
@@ -78,7 +78,7 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated,
     setParseError(null);
     setContinueAnyway(false);
     // Ensure customers are loaded before parsing so we can match them
-    supabase.from("customers").select("id, name").order("name").then(({ data }) => {
+    supabase.from("customers").select("id, name").is("archived_at", null).order("name").then(({ data }) => {
       const loaded = data || [];
       setCustomers(loaded);
       parseFile(file, loaded);
