@@ -17,6 +17,9 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { computeVatTotals, lineVatLabel } from "@/lib/vat";
+import { loadQuoteInvoiceSettings, quoteValidityText, customerNotes, DEFAULT_QI_SETTINGS, type CompanyFooter } from "@/lib/quoteInvoiceSettings";
+import { trimLogoToInk } from "@/lib/trimLogo";
 import { useRef } from "react";
 import DeleteRecordAction from "@/components/common/DeleteRecordAction";
 import { syncInvoiceToXero } from "@/lib/invoiceHelpers";
@@ -84,6 +87,10 @@ export default function InvoiceDetail() {
   const [inlineSaving, setInlineSaving] = useState(false);
 
   const isQuote = invoice?.document_type === "quote";
+  const [qiSettings, setQiSettings] = useState(DEFAULT_QI_SETTINGS);
+  const [company, setCompany] = useState<CompanyFooter | null>(null);
+  useEffect(() => { loadQuoteInvoiceSettings().then(({ settings, company }) => { setQiSettings(settings); setCompany(company); }).catch(() => {}); }, []);
+  const vatTotals = computeVatTotals(lineItems, Number(invoice?.tax_rate) || 0);
 
   const fetchData = async () => {
     if (!id) return;
@@ -114,7 +121,8 @@ export default function InvoiceDetail() {
         getGeneratingOrgFallbackLogoUrl(),
         getGeneratingOrgWatermarkUrl(),
       ]);
-      const logoUrl = logo.startsWith('/') ? logo : await resolveToSignedUrl(logo);
+      const rawLogo = logo.startsWith('/') ? logo : await resolveToSignedUrl(logo);
+      const logoUrl = rawLogo ? await trimLogoToInk(rawLogo) : rawLogo;
       const watermarkUrl = wm?.startsWith('/') ? wm : await resolveToSignedUrl(wm);
       if (!alive) return;
       setBrandLogo(logoUrl || '');
@@ -158,9 +166,10 @@ export default function InvoiceDetail() {
     setEditItems((prev) => [...prev, { id: `new-${Date.now()}`, description: "", quantity: 1, unit_price: 0, amount: 0 }]);
   };
 
-  const editSubtotal = editItems.reduce((s, it) => s + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0);
-  const editTaxAmount = editSubtotal * ((editForm.tax_rate || 0) / 100);
-  const editTotal = editSubtotal + editTaxAmount;
+  const editVat = computeVatTotals(editItems, Number(editForm.tax_rate) || 0);
+  const editSubtotal = editVat.subtotal;
+  const editTaxAmount = editVat.vat;
+  const editTotal = editVat.total;
 
   const handleSaveEdit = async () => {
     if (!id) return;
@@ -198,6 +207,7 @@ export default function InvoiceDetail() {
           unit_price: Number(it.unit_price) || 0,
           amount: ((Number(it.quantity) || 0) * (Number(it.unit_price) || 0)).toFixed(2),
           sort_order: idx,
+          vat_rate: it.vat_rate === '' || it.vat_rate === undefined ? null : it.vat_rate, vat_exempt: !!it.vat_exempt,
           org_id: invoice.org_id, automated_charge: !!it.automated_charge, price_match: it.price_match, price_candidates: it.price_candidates || [], price_book_item_id: it.price_book_item_id || null, source_defect_ids: it.source_defect_ids,
         }));
         const { error: itemsErr } = await supabase.from("invoice_line_items").insert(rows as any);
@@ -249,9 +259,8 @@ export default function InvoiceDetail() {
       const updatedItems = lineItems.map((it, i) =>
         i === inlineEditIdx ? { ...it, description: inlineEditData.description.trim(), quantity: qty, unit_price: price, amount: Number(amount) } : it
       );
-      const newSubtotal = updatedItems.reduce((s, it) => s + Number(it.quantity) * Number(it.unit_price), 0);
-      const newTax = newSubtotal * (Number(invoice.tax_rate) / 100);
-      const newTotal = newSubtotal + newTax;
+      const t = computeVatTotals(updatedItems, Number(invoice.tax_rate) || 0);
+      const newSubtotal = t.subtotal, newTax = t.vat, newTotal = t.total;
 
       const { error: invErr } = await supabase.from("invoices").update({
         subtotal: newSubtotal.toFixed(2),
@@ -535,7 +544,10 @@ export default function InvoiceDetail() {
           customerEmail: invoice.customer_email,
           customerName: invoice.customer_name,
           invoiceNumber: invoice.invoice_number,
-          total: invoice.total,
+          total: vatTotals.total,
+          subtotal: vatTotals.subtotal,
+          vatAmount: vatTotals.vat,
+          documentType: isQuote ? "quote" : "invoice",
           pdfBase64,
         },
       });
@@ -872,7 +884,7 @@ export default function InvoiceDetail() {
                 <UKDateInput  value={editForm.due_date} onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })} />
               </div>
               <div>
-                <Label>Tax Rate (%)</Label>
+                <Label>VAT rate (%)</Label>
                 <Input type="number" min={0} max={100} step={0.01} value={editForm.tax_rate} onChange={(e) => setEditForm({ ...editForm, tax_rate: parseFloat(e.target.value) || 0 })} />
               </div>
             </div>
@@ -916,6 +928,20 @@ export default function InvoiceDetail() {
                         onChange={(e) => updateEditItem(idx, "unit_price", parseFloat(e.target.value) || 0)}
                       />
                     </div>
+                    <div className="w-28">
+                      <select
+                        aria-label="VAT for this line"
+                        className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
+                        value={item.vat_exempt ? "exempt" : item.vat_rate === null || item.vat_rate === undefined || item.vat_rate === "" ? "default" : String(Number(item.vat_rate))}
+                        onChange={(e) => { const v = e.target.value; setEditItems((prev) => prev.map((it, i) => i !== idx ? it : v === "exempt" ? { ...it, vat_exempt: true, vat_rate: null } : v === "default" ? { ...it, vat_exempt: false, vat_rate: null } : { ...it, vat_exempt: false, vat_rate: Number(v) })); }}
+                      >
+                        <option value="default">VAT {Number(editForm.tax_rate) || 0}%</option>
+                        <option value="20">20%</option>
+                        <option value="5">5%</option>
+                        <option value="0">0% zero-rated</option>
+                        <option value="exempt">Exempt</option>
+                      </select>
+                    </div>
                     <div className="w-24 flex items-center justify-end gap-1 pt-2">
                       <span className="text-sm font-medium">£{((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)).toFixed(2)}</span>
                       {editItems.length > 1 && (
@@ -933,15 +959,15 @@ export default function InvoiceDetail() {
             <div className="flex justify-end">
               <div className="w-64 space-y-1 text-sm">
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Subtotal</span><span>£{editSubtotal.toFixed(2)}</span>
+                  <span>Subtotal (ex VAT)</span><span>£{editSubtotal.toFixed(2)}</span>
                 </div>
-                {editForm.tax_rate > 0 && (
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Tax ({editForm.tax_rate}%)</span><span>£{editTaxAmount.toFixed(2)}</span>
+                {editVat.breakdown.map((g) => (
+                  <div key={g.label} className="flex justify-between text-muted-foreground">
+                    <span>VAT {g.label === "Exempt" ? "exempt" : `at ${g.label}`}</span><span>£{g.vat.toFixed(2)}</span>
                   </div>
-                )}
+                ))}
                 <div className="flex justify-between border-t pt-1 font-bold">
-                  <span>Total</span><span>£{editTotal.toFixed(2)}</span>
+                  <span>Total (inc VAT)</span><span>£{editTotal.toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -949,7 +975,7 @@ export default function InvoiceDetail() {
             {/* Notes */}
             <div>
               <Label>Notes</Label>
-              <Textarea value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} rows={3} placeholder="Payment terms, bank details, etc." />
+              <Textarea value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} rows={3} placeholder="Notes for the customer (printed on the document)" />
             </div>
           </CardContent>
         </Card>
@@ -1005,12 +1031,22 @@ export default function InvoiceDetail() {
                     src={brandLogo}
                     alt={brandName || "Company logo"}
                     className="mb-2"
-                    style={{ maxHeight: 56, maxWidth: 180, objectFit: "contain" }}
+                    style={{ width: "52%", height: "auto", objectFit: "contain" }}
                     crossOrigin="anonymous"
                   />
                 ) : brandName ? (
                   <p className="mb-2 text-xl font-bold" style={{ color: "#213D63" }}>{brandName}</p>
                 ) : null}
+                {company && (() => {
+                  const l1 = [company.company_name, company.address].filter(Boolean).join(" · ");
+                  const l2 = [company.phone && `Tel ${company.phone}`, company.email, company.website].filter(Boolean).join(" · ");
+                  const l3 = [company.company_number && `Company no. ${company.company_number}`, company.vat_number && `VAT no. ${company.vat_number}`].filter(Boolean).join(" · ");
+                  return (l1 || l2 || l3) ? (
+                    <div className="mb-3 text-center text-xs leading-snug" style={{ color: "#555" }} data-company-details>
+                      {l1 && <p>{l1}</p>}{l2 && <p>{l2}</p>}{l3 && <p>{l3}</p>}
+                    </div>
+                  ) : null;
+                })()}
 
                 <h2
                   className="text-lg font-bold tracking-widest uppercase"
@@ -1035,9 +1071,11 @@ export default function InvoiceDetail() {
                   <p>Date: {format(new Date(invoice.created_at), "dd MMM yyyy")}</p>
                   {invoice.due_date && <p>{isQuote ? "Valid Until" : "Due"}: {format(new Date(invoice.due_date), "dd MMM yyyy")}</p>}
                   {invoice.customer_po && <p>PO: {invoice.customer_po}</p>}
-                  <Badge variant="secondary" className={`mt-1 ${statusStyles[invoice.status]}`}>
-                    {invoice.status}
-                  </Badge>
+                  {invoice.status === "draft" && (
+                    <Badge variant="secondary" className={`mt-1 ${statusStyles[invoice.status]}`}>
+                      {invoice.status}
+                    </Badge>
+                  )}
                 </div>
               </div>
 
@@ -1048,6 +1086,7 @@ export default function InvoiceDetail() {
                   <col style={{ width: "12%" }} />
                   <col style={{ width: "18%" }} />
                   <col style={{ width: "18%" }} />
+                  {vatTotals.mixedRates && <col style={{ width: "12%" }} />}
                   {userRole === "admin" && <col data-print-hide style={{ width: "5rem" }} />}
                 </colgroup>
                 <thead>
@@ -1055,6 +1094,7 @@ export default function InvoiceDetail() {
                     <th className="py-2 text-left text-xs font-semibold uppercase" style={{ color: "#213D63" }}>Description</th>
                     <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#213D63" }}>Qty</th>
                     <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#213D63" }}>Unit Price</th>
+                    {vatTotals.mixedRates && <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#213D63" }}>VAT</th>}
                     <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#213D63" }}>Amount</th>
                     {userRole === "admin" && <th data-print-hide className="py-2 w-20" />}
                   </tr>
@@ -1086,6 +1126,7 @@ export default function InvoiceDetail() {
                             className="h-8 w-28 text-sm text-right ml-auto"
                           />
                         </td>
+                        {vatTotals.mixedRates && <td className="py-1.5 text-sm text-right" style={{ color: "#555" }}>{lineVatLabel(item, Number(invoice.tax_rate) || 0)}</td>}
                         <td className="py-1.5 text-sm text-right font-medium" style={{ color: "#1a1a1a" }}>
                           £{((Number(inlineEditData.quantity) || 0) * (Number(inlineEditData.unit_price) || 0)).toFixed(2)}
                         </td>
@@ -1111,7 +1152,8 @@ export default function InvoiceDetail() {
                         <td className="py-2.5 pr-3 text-sm whitespace-pre-line" style={{ color: "#1a1a1a", overflowWrap: "anywhere" }}>{item.description}</td>
                         <td className="py-2.5 text-sm text-right" style={{ color: "#555" }}>{Number(item.quantity)}</td>
                         <td className="py-2.5 text-sm text-right" style={{ color: "#555" }}>£{Number(item.unit_price).toFixed(2)}</td>
-                        <td className="py-2.5 text-sm text-right font-medium" style={{ color: "#1a1a1a" }}>£{Number(item.amount).toFixed(2)}</td>
+                        {vatTotals.mixedRates && <td className="py-2.5 text-sm text-right" style={{ color: "#555" }}>{lineVatLabel(item, Number(invoice.tax_rate) || 0)}</td>}
+                        <td className="py-2.5 text-sm text-right font-medium" style={{ color: "#1a1a1a" }}>£{((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)).toFixed(2)}</td>
                         {userRole === "admin" && (
                           <td data-print-hide className="py-2.5 text-right">
                             <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 inline-block" />
@@ -1127,27 +1169,35 @@ export default function InvoiceDetail() {
               <div className="flex justify-end mb-8" data-pdf-row>
                 <div className="w-64 space-y-1 text-sm">
                   <div className="flex justify-between" style={{ color: "#555" }}>
-                    <span>Subtotal</span>
-                    <span>£{Number(invoice.subtotal).toFixed(2)}</span>
+                    <span>Subtotal (ex VAT)</span>
+                    <span>£{vatTotals.subtotal.toFixed(2)}</span>
                   </div>
-                  {Number(invoice.tax_rate) > 0 && (
-                    <div className="flex justify-between" style={{ color: "#555" }}>
-                      <span>Tax ({Number(invoice.tax_rate)}%)</span>
-                      <span>£{Number(invoice.tax_amount).toFixed(2)}</span>
+                  {(vatTotals.breakdown.length ? vatTotals.breakdown : [{ label: `${Number(invoice.tax_rate) || 0}%`, vat: 0 }]).map((g) => (
+                    <div key={g.label} className="flex justify-between" style={{ color: "#555" }}>
+                      <span>VAT {g.label === "Exempt" ? "exempt" : `at ${g.label}`}</span>
+                      <span>£{g.vat.toFixed(2)}</span>
                     </div>
-                  )}
+                  ))}
                   <div className="flex justify-between border-t pt-1 text-base font-bold" style={{ borderColor: "#213D63", color: "#213D63" }}>
-                    <span>Total</span>
-                    <span>£{Number(invoice.total).toFixed(2)}</span>
+                    <span>Total (inc VAT)</span>
+                    <span>£{vatTotals.total.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Notes */}
-              {invoice.notes && (
+              {customerNotes(invoice) && (
                 <div data-pdf-row className="mb-8 rounded border p-3 text-sm" style={{ borderColor: "#e5e5e5", color: "#555", breakInside: "avoid" }}>
                   <p className="text-xs font-semibold uppercase mb-1" style={{ color: "#888" }}>Notes</p>
-                  <p className="whitespace-pre-line">{invoice.notes}</p>
+                  <p className="whitespace-pre-line">{customerNotes(invoice)}</p>
+                </div>
+              )}
+
+              {/* Validity and payment terms (from Settings) */}
+              {(isQuote || qiSettings.payment_terms.trim()) && (
+                <div data-pdf-row className="mb-6 text-xs space-y-1" style={{ color: "#555" }}>
+                  {isQuote && <p>{quoteValidityText(qiSettings.quote_valid_days)}</p>}
+                  {qiSettings.payment_terms.trim() && <p className="whitespace-pre-line"><span className="font-semibold">Payment terms: </span>{qiSettings.payment_terms.trim()}</p>}
                 </div>
               )}
 

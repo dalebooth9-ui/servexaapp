@@ -4455,6 +4455,8 @@ export type Database = {
           sort_order: number
           source_defect_ids: string[] | null
           unit_price: number
+          vat_exempt: boolean
+          vat_rate: number | null
         }
         Insert: {
           ai_flag?: string | null
@@ -4471,6 +4473,8 @@ export type Database = {
           sort_order?: number
           source_defect_ids?: string[] | null
           unit_price?: number
+          vat_exempt?: boolean
+          vat_rate?: number | null
         }
         Update: {
           ai_flag?: string | null
@@ -4487,6 +4491,8 @@ export type Database = {
           sort_order?: number
           source_defect_ids?: string[] | null
           unit_price?: number
+          vat_exempt?: boolean
+          vat_rate?: number | null
         }
         Relationships: [
           {
@@ -4591,7 +4597,7 @@ export type Database = {
           status?: string
           subtotal?: number
           tax_amount?: number
-          tax_rate?: number
+          tax_rate: number
           total?: number
           updated_at?: string
           xero_invoice_id?: string | null

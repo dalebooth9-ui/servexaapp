@@ -52,7 +52,7 @@ serve(async (req) => {
       });
     }
 
-    const { customerEmail, customerName, invoiceNumber, total, pdfBase64, invoiceId } = await req.json();
+    const { customerEmail, customerName, invoiceNumber, total, subtotal, vatAmount, documentType, pdfBase64, invoiceId } = await req.json();
     const __c = await resolveCaller(req);
     if ("error" in __c) return new Response(JSON.stringify({ error: __c.error }), { status: __c.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     if (invoiceId && !(await ownsRecord(__c, "invoices", invoiceId))) return new Response(JSON.stringify({ error: "This record does not belong to your company" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -74,11 +74,18 @@ serve(async (req) => {
     const branding = await getEmailBranding(orgId, supabaseAdmin);
     const identity = getSendIdentity(branding);
 
-    const subject = `Invoice ${invoiceNumber} — £${Number(total || 0).toFixed(2)}`;
+    const docWord = documentType === "quote" ? "quote" : "invoice";
+    const money = (n: unknown) => `£${Number(n || 0).toFixed(2)}`;
+    const esc = (v: unknown) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+    const subject = `${documentType === "quote" ? "Quote" : "Invoice"} ${invoiceNumber} — ${money(total)} inc VAT`;
+    const vatTable = subtotal !== undefined && vatAmount !== undefined
+      ? `<table style="border-collapse:collapse;margin:8px 0"><tr><td style="padding:2px 16px 2px 0">Subtotal (ex VAT)</td><td style="text-align:right">${money(subtotal)}</td></tr><tr><td style="padding:2px 16px 2px 0">VAT</td><td style="text-align:right">${money(vatAmount)}</td></tr><tr><td style="padding:2px 16px 2px 0"><strong>Total (inc VAT)</strong></td><td style="text-align:right"><strong>${money(total)}</strong></td></tr></table>`
+      : "";
     const body = `
-      <p>Dear ${customerName || "Customer"},</p>
-      <p>Please find attached your invoice <strong>${invoiceNumber}</strong> for <strong>£${Number(total || 0).toFixed(2)}</strong>.</p>
-      <p>Any questions about this invoice, just reply to this email or give us a call.</p>
+      <p>Dear ${esc(customerName || "Customer")},</p>
+      <p>Please find attached your ${docWord} <strong>${esc(invoiceNumber)}</strong> for <strong>${money(total)}</strong> (inc VAT).</p>
+      ${vatTable}
+      <p>Any questions about this ${docWord}, just reply to this email or give us a call.</p>
       <p>Kind regards,<br/>${branding.company_name}</p>
     `;
     const html = wrapCustomerEmail(branding, { previewText: subject, bodyHtml: body });

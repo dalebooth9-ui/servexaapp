@@ -252,8 +252,9 @@ serve(async (req) => {
         `AI-drafted from ${defects.length} defect${defects.length === 1 ? "" : "s"} on ${new Date().toLocaleDateString("en-GB")}.`,
         unpriced ? `${unpriced} line${unpriced === 1 ? " needs" : "s need"} a price or an office match choice.` : "All lines matched the price book.",
         flagged ? `${flagged} line${flagged === 1 ? "" : "s"} flagged for checking.` : null,
+        // The AI summary is office-only; customer Notes stay for text the office types.
+        drafted.summary && typeof drafted.summary === "string" ? `Summary: ${drafted.summary.trim().slice(0, 500)}` : null,
       ].filter(Boolean).join(" "),
-      notes: drafted.summary && typeof drafted.summary === "string" ? drafted.summary.trim().slice(0, 500) : null,
     } as any).eq("id", quoteId as string);
     const { error: chargesError } = await db.rpc("refresh_quote_charges", { p_quote: quoteId });
     if (chargesError) throw chargesError;

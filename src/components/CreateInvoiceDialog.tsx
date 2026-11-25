@@ -1,3 +1,5 @@
+import { computeVatTotals } from "@/lib/vat";
+import { loadQuoteInvoiceSettings } from "@/lib/quoteInvoiceSettings";
 import { useState, useEffect } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
@@ -67,7 +69,7 @@ export default function CreateInvoiceDialog({
     customer_address: customerAddress || "",
     due_date: isQuote ? "" : defaultInvoiceDueDate(),
     notes: "",
-    tax_rate: isQuote ? 0 : DEFAULT_INVOICE_VAT,
+    tax_rate: DEFAULT_INVOICE_VAT,
     customer_po: customerPo || "",
   });
 
@@ -163,9 +165,12 @@ export default function CreateInvoiceDialog({
     setItems((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const subtotal = items.reduce((s, it) => s + it.quantity * (it.unit_price ?? 0), 0);
-  const taxAmount = subtotal * (form.tax_rate / 100);
-  const total = subtotal + taxAmount;
+  const vatCalc = computeVatTotals(items.map((it) => ({ quantity: it.quantity, unit_price: it.unit_price ?? 0 })), form.tax_rate);
+  const subtotal = vatCalc.subtotal;
+  const taxAmount = vatCalc.vat;
+  const total = vatCalc.total;
+  // Default VAT rate comes from Settings > Documents (20% unless changed).
+  useEffect(() => { loadQuoteInvoiceSettings().then(({ settings }) => setForm((f) => ({ ...f, tax_rate: settings.default_vat_rate }))).catch(() => {}); }, []);
 
   const filteredParts = partsLibrary.filter((p) => {
     if (!partsSearch) return true;

@@ -1,3 +1,4 @@
+import { computeVatTotals } from "@/lib/vat";
 import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { getGeneratingOrgBranding } from "@/lib/generatingOrgBranding";
@@ -56,7 +57,7 @@ export async function buildInvoicePdf(invoiceId: string): Promise<{ base64: stri
     doc.text(desc, L, y);
     doc.text(String(Number(it.quantity) || 0), cols.qty, y, { align: "right" });
     doc.text(gbp(it.unit_price), cols.unit, y, { align: "right" });
-    doc.text(gbp(it.amount), cols.amt, y, { align: "right" });
+    doc.text(gbp((Number(it.quantity) || 0) * (Number(it.unit_price) || 0)), cols.amt, y, { align: "right" });
     y += desc.length * 4.5 + 2;
     doc.setDrawColor(240, 240, 240); doc.setLineWidth(0.2); doc.line(L, y - 1, R, y - 1);
   }
@@ -65,9 +66,10 @@ export async function buildInvoicePdf(invoiceId: string): Promise<{ base64: stri
     doc.setFont("helvetica", bold ? "bold" : "normal");
     doc.text(label, 150, y); doc.text(val, R, y, { align: "right" }); y += 5;
   };
-  tot("Subtotal", gbp(inv.subtotal));
-  if (Number(inv.tax_rate) > 0) tot(`VAT (${Number(inv.tax_rate)}%)`, gbp(inv.tax_amount));
-  doc.setTextColor(...NAVY); tot("Total", gbp(inv.total), true);
+  const vt = computeVatTotals(items, Number(inv.tax_rate) || 0);
+  tot("Subtotal (ex VAT)", gbp(vt.subtotal));
+  for (const g of (vt.breakdown.length ? vt.breakdown : [{ label: `${Number(inv.tax_rate) || 0}%`, vat: 0 }])) tot(g.label === "Exempt" ? "VAT exempt" : `VAT at ${g.label}`, gbp(g.vat));
+  doc.setTextColor(...NAVY); tot("Total (inc VAT)", gbp(vt.total), true);
   if (inv.notes) {
     y += 4; doc.setTextColor(85, 85, 85); doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
     doc.text(doc.splitTextToSize(inv.notes, R - L), L, y);

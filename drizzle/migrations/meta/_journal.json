@@ -729,6 +729,20 @@
       "when": 1795533409009,
       "tag": "0103_safe_sheet_date_parsing",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1795603980610,
+      "tag": "0104_quote_invoice_vat_lines",
+      "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1795604112358,
+      "tag": "0105_quote_default_vat_from_settings",
+      "breakpoints": true
     }
   ]
 }

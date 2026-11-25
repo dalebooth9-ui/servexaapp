@@ -2,6 +2,7 @@ import OfficeEmailSettings from "@/components/settings/OfficeEmailSettings";
 import DigitalTwinSettings from '@/components/settings/DigitalTwinSettings';
 import AccessPrintSettings from '@/components/settings/AccessPrintSettings';
 import CompanyBrandColourCard from '@/components/settings/CompanyBrandColourCard';
+import QuoteInvoiceDetailsCard from '@/components/settings/QuoteInvoiceDetailsCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -331,6 +332,7 @@ export default function SettingsPage() {
 
         <TabsContent value="documents" className="space-y-6 mt-0">
           <CompanyBrandColourCard />
+          <QuoteInvoiceDetailsCard />
           <div className="grid gap-6 md:grid-cols-2">
             <PoIntakeEmailCard />
             <ScanIntakeEmailCard />
