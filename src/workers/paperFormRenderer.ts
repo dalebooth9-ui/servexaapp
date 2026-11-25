@@ -283,7 +283,7 @@ export function renderPaperFormPage(
   const bodyCount = template.fields.filter((f) => !skipInBody(f)).length;
   const isRiserInspection = /(?:dry|wet)\s*riser/i.test(template.name) && /pressure\s*test|visual/i.test(template.name);
   const isRiserPressure = isRiserInspection && /pressure\s*test/i.test(template.name);
-  const isDryRiser = /dry\s*riser/i.test(template.name);
+  const isDryRiser = !jobInfo?.filled || /dry\s*riser/i.test(template.name); // blank paperwork unchanged
   const fill = jobInfo?.filled || null;
   // Filled hydrant sheets print only what is on the paper hydrant sheet.
   const hydrantSheet = !!fill && /hydrant/i.test(template.name);
