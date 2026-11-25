@@ -89,6 +89,9 @@ export function isPaperFormTemplate(name: string): boolean {
 
 /** Hydrant template rows that are not on the Viva paper hydrant sheet. */
 export const HYDRANT_APP_ONLY = new Set(['valve_condition', 'access_clear', 'flow_test', 'residual_pressure', 'flow_result']);
+/** Filled hydrant sheets never print these: they repeat the header/signature
+ *  boxes or are not on the Viva paper hydrant sheet. */
+export const HYDRANT_NOT_PRINTED = new Set(['site_name', 'reference', 'engineer', 'remedial_required', 'overall_result', ...HYDRANT_APP_ONLY]);
 
 /** Field IDs to skip from the body because they render in the header/footer. */
 const realLineBreaksText = (t: string) => t.replace(/\\r\\n|\\n|\\r/g, "\n");
@@ -280,7 +283,10 @@ export function renderPaperFormPage(
   const bodyCount = template.fields.filter((f) => !skipInBody(f)).length;
   const isRiserInspection = /(?:dry|wet)\s*riser/i.test(template.name) && /pressure\s*test|visual/i.test(template.name);
   const isRiserPressure = isRiserInspection && /pressure\s*test/i.test(template.name);
+  const isDryRiser = /dry\s*riser/i.test(template.name);
   const fill = jobInfo?.filled || null;
+  // Filled hydrant sheets print only what is on the paper hydrant sheet.
+  const hydrantSheet = !!fill && /hydrant/i.test(template.name);
   const alsoItems: string[] = [...(fill?.also || [])];
   const answered = (f: PdfTemplateField) => !!fill && !!fillText(fill.answers?.[f.id]);
   if (fill && isRiserInspection) {
@@ -294,7 +300,7 @@ export function renderPaperFormPage(
     /^(?:test pressure\s*\(bar\)|hold time\s*\(minutes\))\s*:?$/i.test(f.label.trim())
   )) && !(isRiserInspection && /^\s*general\s*$/i.test(f.section || "General"))
     // Filled hydrant sheets: app-only questions the paper sheet doesn't carry print only when answered.
-    && !(fill && /hydrant/i.test(template.name) && HYDRANT_APP_ONLY.has(f.id) && !answered(f)));
+    && !(hydrantSheet && (HYDRANT_NOT_PRINTED.has(f.id) || /^(?:site name|hydrant no\.?|inspector name|remedial action required|overall (?:inspection )?result)\b/i.test(f.label.trim()))));
   const margin = bodyCount > 30 ? 6 : bodyCount > 24 ? 8 : 10;
   const maxWidth = pageWidth - margin * 2;
   const visit = jobInfo?.riserVisit;
@@ -352,10 +358,10 @@ export function renderPaperFormPage(
   const rightW = maxWidth - leftW;
   const rightX = margin + leftW;
   const detailRowH = 7;
-  const rightRowCount = isRiserInspection ? 2 : 3;
+  const rightRowCount = isRiserInspection || hydrantSheet ? 2 : 3;
   // CABINET KEYS row grows to hold access info (priority order), max ~24mm,
   // shrinking to 7pt then trimming with "(see site record)". Never fails.
-  const accessLinesIn = (jobInfo?.engineerAccess?.lines || []).filter(line =>
+  const accessLinesIn = hydrantSheet ? [] : (jobInfo?.engineerAccess?.lines || []).filter(line =>
     !isRiserInspection || !/^cabinet\s+keys?\s*:/i.test(line));
   const accessFit = accessLinesIn.length ? fitAccessLines(doc, accessLinesIn, rightW - 4, 24 - 5) : null;
   const keysH = accessFit ? Math.max(detailRowH, 5 + accessFit.lines.length * accessFit.lineH + 1) : detailRowH;
@@ -434,8 +440,9 @@ export function renderPaperFormPage(
 
   // Riser location fills the remaining right-hand cell. Keep engineer access
   // below the location, but Cabinet keys itself is a blank body answer row.
-  if (isRiserInspection) {
-    const locationAccess = accessLinesIn.length
+  if (isRiserInspection || hydrantSheet) {
+    // Hydrant keys/contact live in the Access notes row, never a CABINET KEYS box.
+    const locationAccess = hydrantSheet ? null : accessLinesIn.length
       ? fitAccessLines(doc, accessLinesIn, rightW - 4, leftBlockH - detailRowH - 9)
       : null;
     if (locationAccess) {
@@ -537,8 +544,8 @@ export function renderPaperFormPage(
   if (isRiserInspection) {
     const external = sectionOrder.find(section => /^external equipment\b/i.test(section)) ?? 'External Equipment';
     if (!bySection.has(external)) { bySection.set(external, []); sectionOrder.unshift(external); }
-    bySection.get(external)?.unshift({ id: 'cabinet_keys', label: 'Cabinet keys:', type: 'text', section: external, required: true });
-    {
+    if (isDryRiser) bySection.get(external)?.unshift({ id: 'cabinet_keys', label: 'Cabinet keys:', type: 'text', section: external, required: true });
+    if (isDryRiser) {
       const ext = bySection.get(external)!;
       const records = { id: 'inspection_records_complete', label: 'BS9990:2015 7.4.6 Have all inspection and test records been filled in?', type: 'select', options: ['YES', 'NO'], section: external, required: false, _printText: 'YES / NO' } as PdfTemplateField;
       const summaryIdx = ext.findIndex(f => /^\s*external\s+equipment\s*:?\s*$/i.test(f.label));
@@ -556,7 +563,7 @@ export function renderPaperFormPage(
       for (const f of cleaned) {
         if (/outlet\s+cabinets?\s+in\s+good\s+condition/i.test(f.label)) {
           out.push({ ...f, type: 'select', options: ['GOOD', 'FAIR', 'POOR'], _printOptions: true } as PdfTemplateField);
-          out.push({ id: 'outlet_cabinet_keys', label: 'Cabinet keys:', type: 'text', section: sec } as PdfTemplateField);
+          if (isDryRiser) out.push({ id: 'outlet_cabinet_keys', label: 'Cabinet keys:', type: 'text', section: sec } as PdfTemplateField);
           continue;
         }
         out.push(f);
@@ -627,7 +634,9 @@ export function renderPaperFormPage(
             // Long option lists (e.g. SCREWDOWN / SLUICE / PILLAR / SURFACE BOX)
             // can't fit the answer column; print just the chosen one, boxed.
             const ansMaxW = margin + maxWidth - colSplit - 4;
-            cellAns = doc.getTextWidth(optsText) > ansMaxW ? opt : optsText; picked = { option: opt };
+            // Hydrant YES/NO ticks print just the ticked answer, as on the paper sheet.
+            const yesNo = hydrantSheet && /^(?:checkbox|yes_?no|boolean|toggle)$/i.test(String(it.field.type || ''));
+            cellAns = yesNo || doc.getTextWidth(optsText) > ansMaxW ? opt : optsText; picked = { option: opt };
           }
           else cellAns = fillText(r.value) || optsText;
         } else cellAns = fillText(r.value) || (visit && /outlet/i.test(it.field.label) && it.field.type === 'number' ? String(visit.outlets_count ?? '') : '');
@@ -791,16 +800,22 @@ export function renderPaperFormPage(
   doc.rect(margin, issuesTop, maxWidth, issuesBoxH);
   const labelW = maxWidth * 0.24;
   // horizontal divider between each labelled section
-  const thirds = issuesBoxH / 3;
-  doc.line(margin, issuesTop + thirds, margin + maxWidth, issuesTop + thirds);
-  doc.line(margin, issuesTop + thirds * 2, margin + maxWidth, issuesTop + thirds * 2);
+  // Hydrant paper sheets only have a Comments box: ISSUES FOUND takes the whole block.
+  const issuesOnly = hydrantSheet;
+  const thirds = issuesOnly ? issuesBoxH : issuesBoxH / 3;
+  if (!issuesOnly) {
+    doc.line(margin, issuesTop + thirds, margin + maxWidth, issuesTop + thirds);
+    doc.line(margin, issuesTop + thirds * 2, margin + maxWidth, issuesTop + thirds * 2);
+  }
   doc.line(margin + labelW, issuesTop, margin + labelW, issuesTop + issuesBoxH);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(0, 0, 0);
-  doc.text("ISSUES FOUND:", margin + 2, issuesTop + thirds * 0.55);
-  doc.text("RECOMMENDATION:", margin + 2, issuesTop + thirds * 1.55);
-  doc.text("PRIORITY:", margin + 2, issuesTop + thirds * 2.55);
+  doc.text("ISSUES FOUND:", margin + 2, issuesTop + (issuesOnly ? 4 : thirds * 0.55));
+  if (!issuesOnly) {
+    doc.text("RECOMMENDATION:", margin + 2, issuesTop + thirds * 1.55);
+    doc.text("PRIORITY:", margin + 2, issuesTop + thirds * 2.55);
+  }
   // Answer boxes intentionally have no internal rules; retain borders and signing lines.
   if (fill) {
     doc.setFont("helvetica", "normal");
@@ -815,8 +830,10 @@ export function renderPaperFormPage(
     };
     const issues = [fill.issues || "", alsoItems.length ? `Also on the paper sheet: ${alsoItems.join("; ")}` : ""].filter(Boolean).join("\n");
     writeIn(issues, issuesTop);
-    writeIn(fill.recommendation || "", issuesTop + thirds);
-    writeIn(fill.priority || "", issuesTop + thirds * 2);
+    if (!issuesOnly) {
+      writeIn(fill.recommendation || "", issuesTop + thirds);
+      writeIn(fill.priority || "", issuesTop + thirds * 2);
+    }
   }
 
   // ─── SIGNATURE ROWS ────────────────────────────────────────────────

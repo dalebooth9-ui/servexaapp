@@ -94,5 +94,31 @@ describe("filled hydrant sheet", () => {
     expect(t).not.toContain("Main Valve Condition");
     expect(t).toContain("Pit Dry");
   });
-  it("prints it when it was actually answered", () => expect(run({ valve_condition: "Stiff" })).toContain("Main Valve Condition"));
+  it("never prints it on a hydrant sheet, even if answered", () => expect(run({ valve_condition: "Stiff" })).not.toContain("Main Valve Condition"));
+});
+
+describe("hydrant sheet prints only its own paper fields", () => {
+  const fields = [
+    { id: "site_name", label: "Site Name / Location", type: "text", section: "Site Details" },
+    { id: "reference", label: "Hydrant No.", type: "text", section: "Site Details" },
+    { id: "engineer", label: "Inspector Name", type: "text", section: "Site Details" },
+    { id: "pit_dry", label: "Pit Dry", type: "checkbox", section: "Hydrant Pit Details" },
+    { id: "remedial_required", label: "Remedial Action Required", type: "checkbox", section: "Result" },
+    { id: "overall_result", label: "Overall Inspection Result", type: "pass_fail", section: "Result" },
+  ] as any;
+  const run = (name: string) => { const doc = new jsPDF(); renderPaperFormPage(doc, { template: { name, fields }, jobInfo: { filled: { answers: { site_name: "X", reference: "1", engineer: "C W", pit_dry: "yes", remedial_required: "yes", overall_result: "pass" }, issues: "GRID NEEDS PAINTING" } } as any, logo: null, accreditationLogos: [], handfill: false }); return doc.output() as string; };
+  const t = run("Fire Hydrant — Annual Inspection");
+  it("no cabinet keys box", () => expect(t).not.toContain("CABINET KEYS"));
+  it("no duplicated header rows", () => { expect(t).not.toContain("Site Name / Location"); expect(t).not.toContain("Hydrant No."); expect(t).not.toContain("Inspector Name"); });
+  it("no remedial / overall rows", () => { expect(t).not.toContain("Remedial Action Required"); expect(t).not.toContain("Overall Inspection Result"); });
+  it("only Issues Found box", () => { expect(t).toContain("ISSUES FOUND"); expect(t).not.toContain("RECOMMENDATION"); expect(t).not.toContain("PRIORITY:"); });
+  it("YES/NO prints only the ticked answer", () => { expect(t).toContain("Pit Dry"); expect(t).not.toContain("YES / NO"); });
+  it("wet riser sheets get no dry-riser cabinet keys or 7.4.6 rows", () => {
+    const doc = new jsPDF(); renderPaperFormPage(doc, { template: { name: "Wet Riser — Visual Inspection", fields: [{ id: "x", label: "Landing valves sound", type: "checkbox", section: "External Equipment" }] as any }, jobInfo: { filled: { answers: { x: "yes" } } } as any, logo: null, accreditationLogos: [], handfill: false });
+    const w = doc.output() as string; expect(w).not.toContain("Cabinet keys"); expect(w).not.toContain("7.4.6");
+  });
+  it("dry riser sheets keep them", () => {
+    const doc = new jsPDF(); renderPaperFormPage(doc, { template: { name: "Dry Riser — Visual Inspection", fields: [{ id: "x", label: "Inlet sound", type: "checkbox", section: "External Equipment" }] as any }, jobInfo: { filled: { answers: { x: "yes" } } } as any, logo: null, accreditationLogos: [], handfill: false });
+    const d = doc.output() as string; expect(d).toContain("Cabinet keys"); expect(d).toContain("7.4.6");
+  });
 });
