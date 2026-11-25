@@ -26,7 +26,9 @@ const RULES: SlugRule[] = [
   { test: (p) => p === '/due-visits', slug: 'riser-visits' },
   // Pressure/Visual riser PDF sheets: unchanged larger logo with visible ink 5mm
   // from the top, 3.5mm title gap and aligned QR; one A4. Pressure/hold rows omitted.
-  // Cabinet keys is a blank first External Equipment row, not a large header box.
+  // Cabinet keys is a dry-riser blank External Equipment row, not a large header box.
+  // Hydrant sheets (including blank hand-filled stock) never have a Cabinet keys box;
+  // use the Hydrant no. / location box and separate Access notes row.
   // The GENERAL section (incl. Materials required) is removed; the declaration matches
   // the job type — Pressure: BS 9990:2015 at 12 bar for 15 minutes; Visual: BS 9990:2015
   // visual inspection with no pressure/bar/minutes wording.

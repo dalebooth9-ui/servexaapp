@@ -286,8 +286,9 @@ export function renderPaperFormPage(
   const isRiserPressure = isRiserInspection && /pressure\s*test/i.test(template.name);
   const isDryRiser = !jobInfo?.filled || /dry\s*riser/i.test(template.name); // blank paperwork unchanged
   const fill = jobInfo?.filled || null;
+  const isHydrantTemplate = /hydrant/i.test(template.name);
   // Filled hydrant sheets print only what is on the paper hydrant sheet.
-  const hydrantSheet = !!fill && /hydrant/i.test(template.name);
+  const hydrantSheet = !!fill && isHydrantTemplate;
   const alsoItems: string[] = [...(fill?.also || [])];
   const answered = (f: PdfTemplateField) => !!fill && !!fillText(fill.answers?.[f.id]);
   if (fill && isRiserInspection) {
@@ -359,10 +360,10 @@ export function renderPaperFormPage(
   const rightW = maxWidth - leftW;
   const rightX = margin + leftW;
   const detailRowH = 7;
-  const rightRowCount = isRiserInspection || hydrantSheet ? 2 : 3;
+  const rightRowCount = isRiserInspection || isHydrantTemplate ? 2 : 3;
   // CABINET KEYS row grows to hold access info (priority order), max ~24mm,
   // shrinking to 7pt then trimming with "(see site record)". Never fails.
-  const accessLinesIn = hydrantSheet ? [] : (jobInfo?.engineerAccess?.lines || []).filter(line =>
+  const accessLinesIn = isHydrantTemplate ? [] : (jobInfo?.engineerAccess?.lines || []).filter(line =>
     !isRiserInspection || !/^cabinet\s+keys?\s*:/i.test(line));
   const accessFit = accessLinesIn.length ? fitAccessLines(doc, accessLinesIn, rightW - 4, 24 - 5) : null;
   const keysH = accessFit ? Math.max(detailRowH, 5 + accessFit.lines.length * accessFit.lineH + 1) : detailRowH;
@@ -433,7 +434,7 @@ export function renderPaperFormPage(
   const riserY = detailsTop + detailRowH;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
-  doc.text(jobInfo?.locationLabel || "RISER LOCATION:", rightX + 2, riserY + 3.2);
+  doc.text(jobInfo?.locationLabel || (isHydrantTemplate ? "HYDRANT NO. / LOCATION:" : "RISER LOCATION:"), rightX + 2, riserY + 3.2);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   const riserLoc = printName(jobInfo?.site?.riser_location);
@@ -441,9 +442,9 @@ export function renderPaperFormPage(
 
   // Riser location fills the remaining right-hand cell. Keep engineer access
   // below the location, but Cabinet keys itself is a blank body answer row.
-  if (isRiserInspection || hydrantSheet) {
+  if (isRiserInspection || isHydrantTemplate) {
     // Hydrant keys/contact live in the Access notes row, never a CABINET KEYS box.
-    const locationAccess = hydrantSheet ? null : accessLinesIn.length
+    const locationAccess = isHydrantTemplate ? null : accessLinesIn.length
       ? fitAccessLines(doc, accessLinesIn, rightW - 4, leftBlockH - detailRowH - 9)
       : null;
     if (locationAccess) {

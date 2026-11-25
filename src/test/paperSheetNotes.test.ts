@@ -97,6 +97,17 @@ describe("filled hydrant sheet", () => {
   it("never prints it on a hydrant sheet, even if answered", () => expect(run({ valve_condition: "Stiff" })).not.toContain("Main Valve Condition"));
 });
 
+describe("blank hydrant paperwork", () => {
+  it.each(["Fire Hydrant — Annual Inspection", "Fire Hydrant — 6 Month Visual", "Fire Hydrant — 5 Year Major Overhaul"])("never borrows cabinet keys for %s", (name) => {
+    const doc = new jsPDF();
+    renderPaperFormPage(doc, { template: { name, fields: [{ id: "pit_dry", label: "Pit Dry", type: "checkbox", section: "Hydrant Pit Details" }] as any }, jobInfo: null, logo: null, accreditationLogos: [], handfill: true });
+    const pdf = doc.output();
+    expect(pdf).not.toMatch(/cabinet keys/i);
+    expect(pdf).toContain("HYDRANT NO. / LOCATION:");
+    expect(pdf).toContain("Pit Dry");
+  });
+});
+
 describe("hydrant sheet prints only its own paper fields", () => {
   const fields = [
     { id: "site_name", label: "Site Name / Location", type: "text", section: "Site Details" },

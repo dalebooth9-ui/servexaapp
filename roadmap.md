@@ -1,5 +1,9 @@
 # Roadmap
 
+## Blank hydrant sheet correction
+- [x] Removed blank-sheet Cabinet keys header without changing dry-riser paperwork; all eight hydrant template definitions used by tablet forms have no cabinet-key question.
+- [x] 47 tests passed; regenerated real-template blank sheet and both VFP-00302 PDFs inspected, larger centred logo/tagline readable at approximately 51% page width, one A4 each. Help updated; build OK 07:45:30 UTC. No publishing. Archived job has no live engineer-entry action, so tablet check used its field definitions and shared form rendering code.
+
 ## Priority hydrant scan repair
 - [x] Traced scan filing, archive conversion, Edit/Redo, date rebuild and saved-document viewers; preserved previous PDFs and answer snapshots on VFP-00300/00302.
 - [x] Fresh two-sheet upload/review filed both sheets onto VFP-00303; no invented main-valve answer and no unmapped questions.
