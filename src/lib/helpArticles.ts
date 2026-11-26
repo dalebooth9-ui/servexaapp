@@ -97,6 +97,7 @@ const RULES: SlugRule[] = [
   { test: (p) => p.startsWith("/assets/"), slug: "assets.detail" },
   { test: (p) => p === "/engineers", slug: "engineers" },
   { test: (p) => p === "/planner", slug: "planner" },
+  { test: (p) => p === "/cheat-sheet", slug: "cheat-sheet" },
   { test: (p) => p === "/leave", slug: "leave" },
   // Each next-report result names its job/report or failure; Choose job manually
   // supports duplicate/missing sites while enforcing the customer's ownership.
