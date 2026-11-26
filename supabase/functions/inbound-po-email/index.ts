@@ -605,7 +605,7 @@ serve(async (req) => {
   }
 
   // Diagnostic log for EVERY inbound email — so failed intakes are traceable
-  // even if we bail early later. Michelle can grep function logs by subject/from.
+  // even if we bail early later. The office can grep function logs by subject/from.
   console.log("[inbound-po-email] received", {
     email_id: emailId,
     from: email.from,
@@ -1272,7 +1272,7 @@ serve(async (req) => {
     } catch (e) { console.error("raw eml decode failed", e); }
   } else {
     // Resend didn't hand us a raw .eml — synthesize a minimal RFC 822 message
-    // from the metadata we do have, so Michelle can always open the source
+    // from the metadata we do have, so the office can always open the source
     // (critical for body-only PO emails with no attachments).
     try {
       const synth =

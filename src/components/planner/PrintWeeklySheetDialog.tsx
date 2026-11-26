@@ -7,7 +7,9 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { buildWeeklySheetRows, groupSheets, type WeeklySheetInput } from "@/lib/weeklySheet";
 import { buildWeeklySheetPdf } from "@/lib/weeklySheetPdf";
-import { getGeneratingOrgFallbackLogoUrl } from "@/lib/generatingOrgBranding";
+import { getGeneratingOrgBranding, getGeneratingOrgFallbackLogoUrl } from "@/lib/generatingOrgBranding";
+import { usePlannerConfig } from "@/hooks/usePlannerConfig";
+import { Switch } from "@/components/ui/switch";
 import { resolveToSignedUrl } from "@/lib/durableStorageRef";
 import { trimLogoToInk } from "@/lib/trimLogo";
 import { plainError } from "@/lib/plainError";
@@ -19,6 +21,8 @@ const pcRe = /[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i;
 export default function PrintWeeklySheetDialog({ open, onOpenChange, weekStart, engineers }: Props) {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [combined, setCombined] = useState(false);
+  const [sortByPostcode, setSortByPostcode] = useState(true);
+  const { config, on } = usePlannerConfig();
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState<{ blob: Blob; name: string } | null>(null);
   useEffect(() => { if (open) { setPicked(new Set(engineers.map((e) => e.user_id))); setReady(null); setCombined(false); } }, [open, engineers]);
@@ -51,16 +55,18 @@ export default function PrintWeeklySheetDialog({ open, onOpenChange, weekStart, 
           scheduleNotes: s.notes, access: byAccess.get(j.site_id) || null, tags: j.tags, flags: j,
         }];
       });
-      const rows = buildWeeklySheetRows(inputs);
+      const rows = buildWeeklySheetRows(inputs, { tagDefs: on("tags") ? config.tags : [], sortByPostcode, showFlags: on("flags") });
       let sheets = groupSheets(rows, combined);
       if (!combined) {
         const have = new Set(sheets.map((s) => s.title));
         for (const id of picked) { const n = (engName.get(id) || "").toUpperCase(); if (n && !have.has(n)) sheets.push({ title: n, rows: [] }); }
         sheets = sheets.sort((a, b) => a.title.localeCompare(b.title));
       }
-      let logo: string | null = null;
-      try { const l = await getGeneratingOrgFallbackLogoUrl(); const raw = l?.startsWith("/") ? l : await resolveToSignedUrl(l); logo = raw ? await trimLogoToInk(raw) : null; } catch { logo = null; }
-      const blob = await buildWeeklySheetPdf(weekStart, sheets, logo);
+      // Same company branding source as other documents: own logo, name and brand colour; name as text when no logo.
+      let logo: string | null = null; let companyName: string | null = null; let color: string | null = null;
+      try { const b = await getGeneratingOrgBranding(); companyName = b.name; color = b.primaryColor; } catch { /* plain sheet */ }
+      try { const l = await getGeneratingOrgFallbackLogoUrl(); const raw = !l ? null : l.startsWith("/") ? l : await resolveToSignedUrl(l); logo = raw ? await trimLogoToInk(raw) : null; } catch { logo = null; }
+      const blob = await buildWeeklySheetPdf(weekStart, sheets, { logo, companyName, color });
       setReady({ blob, name: `Weekly sheet ${format(weekStart, "dd-MM-yyyy")}${combined ? " - All engineers" : ""}.pdf` });
     } catch (e) { toast.error("Weekly sheet not made", { description: plainError(e) }); }
     finally { setBusy(false); }
@@ -104,7 +110,11 @@ export default function PrintWeeklySheetDialog({ open, onOpenChange, weekStart, 
             <input type="checkbox" checked={combined} onChange={(e) => { setReady(null); setCombined(e.target.checked); }} />
             One combined sheet for the whole company
           </label>
-          <p className="text-xs text-muted-foreground">Rows go by date then postcode area. Remedial, priority and SOS jobs are shaded pink.</p>
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="ws-sort-pc" className="text-sm font-normal">Sort each day by postcode area</Label>
+            <Switch id="ws-sort-pc" checked={sortByPostcode} onCheckedChange={(v) => { setReady(null); setSortByPostcode(v); }} />
+          </div>
+          <p className="text-xs text-muted-foreground">Rows go by date{sortByPostcode ? ", then postcode area" : ", then customer"}. Jobs with a tag set to "highlight on printed sheet" are shaded pink (Settings › Planner features).</p>
         </div>
         <DialogFooter className="gap-2">
           {!ready ? (

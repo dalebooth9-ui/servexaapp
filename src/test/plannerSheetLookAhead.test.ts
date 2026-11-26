@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { buildWeeklySheetRows, jobDescription, isHighlighted, groupSheets, type WeeklySheetInput } from "@/lib/weeklySheet";
 import { provisionalLabel, bucketLookAhead, lookAheadMonths, isProvisional, targetMonthValue } from "@/lib/lookAhead";
 
-const base: WeeklySheetInput = { date: "2026-11-30", engineerId: "e1", engineerName: "Calvin", company: "A", siteName: "S", siteAddress: "", postcode: "", jobName: "Job", pressureQty: 0, visualQty: 0, otherQty: 0, otherType: null, priority: "normal", isRemedial: false, jobType: "service", po: null, scheduleNotes: null, access: null };
+const base: WeeklySheetInput = { date: "2026-11-30", engineerId: "e1", engineerName: "Sam", company: "A", siteName: "S", siteAddress: "", postcode: "", jobName: "Job", pressureQty: 0, visualQty: 0, otherQty: 0, otherType: null, priority: "normal", isRemedial: false, jobType: "service", po: null, scheduleNotes: null, access: null };
 
 describe("weekly sheet", () => {
   it("describes quantities like the paper sheet", () => {
@@ -27,7 +27,7 @@ describe("weekly sheet", () => {
   it("puts PO in the comment and groups per engineer or combined", () => {
     const rows = buildWeeklySheetRows([{ ...base, po: "4512" }, { ...base, engineerId: "e2", engineerName: "Ann" }]);
     expect(rows[0].comment).toContain("PO 4512");
-    expect(groupSheets(rows, false).map((g) => g.title)).toEqual(["ANN", "CALVIN"]);
+    expect(groupSheets(rows, false).map((g) => g.title)).toEqual(["ANN", "SAM"]);
     expect(groupSheets(rows, true)).toHaveLength(1);
   });
 });

@@ -1,8 +1,8 @@
 import type { AccessDetails } from "@/lib/siteAccessRules";
-import { hasPinkTag } from "@/lib/jobTags";
+import { DEFAULT_JOB_TAGS, effectiveTagKeys, isTagHighlighted, type JobTagDef } from "@/lib/plannerConfig";
 import { jobFlagLines, type JobFlags } from "@/lib/jobFlags";
 
-/** One planner booking flattened for Michelle's printed weekly sheet. */
+/** One planner booking flattened for the office's printed weekly sheet. */
 export interface WeeklySheetInput {
   date: string; // yyyy-MM-dd
   engineerId: string;
@@ -48,13 +48,10 @@ export function jobDescription(i: Pick<WeeklySheetInput, "pressureQty" | "visual
   return p.length ? p.join(", ") : i.jobName;
 }
 
-/** Remedial, high/urgent priority or SOS jobs are shaded pink. */
-export function isHighlighted(i: Pick<WeeklySheetInput, "priority" | "isRemedial" | "jobType" | "jobName"> & { tags?: string[] | null }): boolean {
-  if (i.isRemedial || hasPinkTag(i.tags)) return true;
-  const pr = (i.priority || "").toLowerCase();
-  if (["high", "urgent", "critical", "sos", "emergency"].includes(pr)) return true;
-  const t = `${i.jobType || ""} ${i.jobName || ""}`.toLowerCase();
-  return /\b(sos|remedial|emergency)\b/.test(t);
+/** Shaded only when one of the job's tags (including remedial/priority/SOS implied by the job) has
+ *  "highlight on printed sheet" ticked in the company's tag settings. */
+export function isHighlighted(i: Pick<WeeklySheetInput, "priority" | "isRemedial" | "jobType" | "jobName"> & { tags?: string[] | null }, defs: JobTagDef[] = DEFAULT_JOB_TAGS): boolean {
+  return isTagHighlighted(effectiveTagKeys(i), defs);
 }
 
 /** Outward postcode letters ("DE1 2SA" -> "DE") so a day's jobs cluster by town. */
@@ -63,10 +60,10 @@ export function postcodeArea(pc: string): string {
   return m ? `${m[1]}${m[2].padStart(2, "0")}` : "~"; // unknown postcodes go last
 }
 
-export function sheetComment(i: Pick<WeeklySheetInput, "po" | "scheduleNotes" | "access"> & { flags?: JobFlags | null }): string {
+export function sheetComment(i: Pick<WeeklySheetInput, "po" | "scheduleNotes" | "access"> & { flags?: JobFlags | null }, showFlags = true): string {
   const out: string[] = [];
   if (i.po) out.push(`PO ${i.po}`);
-  if (i.flags) out.push(...jobFlagLines(i.flags, { po: false }));
+  if (i.flags && showFlags) out.push(...jobFlagLines(i.flags, { po: false }));
   if (i.scheduleNotes) out.push(i.scheduleNotes);
   const a = i.access || {};
   if (a.opening_hours) out.push(`Hours: ${a.opening_hours}`);
@@ -84,13 +81,14 @@ function ukDate(d: string): string {
   return `${wd} ${day}/${m}/${y}`;
 }
 
-/** Sorted by date, then postcode area, then postcode, then company. */
-export function buildWeeklySheetRows(inputs: WeeklySheetInput[]): WeeklySheetRow[] {
+export interface WeeklySheetOptions { tagDefs?: JobTagDef[]; sortByPostcode?: boolean; showFlags?: boolean }
+/** Sorted by date, then (optionally) postcode area and postcode, then customer. */
+export function buildWeeklySheetRows(inputs: WeeklySheetInput[], opts: WeeklySheetOptions = {}): WeeklySheetRow[] {
+  const byPc = opts.sortByPostcode !== false;
   return [...inputs]
     .sort((a, b) =>
       a.date.localeCompare(b.date) ||
-      postcodeArea(a.postcode).localeCompare(postcodeArea(b.postcode)) ||
-      a.postcode.localeCompare(b.postcode) ||
+      (byPc ? postcodeArea(a.postcode).localeCompare(postcodeArea(b.postcode)) || a.postcode.localeCompare(b.postcode) : 0) ||
       a.company.localeCompare(b.company))
     .map((i) => ({
       date: i.date,
@@ -101,8 +99,8 @@ export function buildWeeklySheetRows(inputs: WeeklySheetInput[]): WeeklySheetRow
       site: [i.siteName, i.siteAddress && i.siteAddress !== i.siteName ? i.siteAddress : ""].filter(Boolean).join("\n"),
       postcode: i.postcode,
       description: jobDescription(i),
-      comment: sheetComment(i),
-      highlight: isHighlighted(i),
+      comment: sheetComment(i, opts.showFlags !== false),
+      highlight: isHighlighted(i, opts.tagDefs),
     }));
 }
 

@@ -14,8 +14,8 @@ describe("converted paper report edit/redo", () => {
     expect(cleanUnmapped([{ label: "" }, { label: "A", value: "x" }, { label: "a", value: "X" }])).toEqual([{ label: "A", value: "x" }]);
   });
   it("customer wording follows the chosen customer record", () => {
-    const out = applyRecordIdentity({ customer_name: "WATKINS" }, [{ id: "customer_name", label: "Customer Name:" }], { customerName: "Watkin's" });
-    expect(out.customer_name).toBe("Watkin's");
+    const out = applyRecordIdentity({ customer_name: "SMITHS" }, [{ id: "customer_name", label: "Customer Name:" }], { customerName: "Smith's" });
+    expect(out.customer_name).toBe("Smith's");
   });
   it("fills missing site identity from confirmed records without replacing the sheet's own wording", () => {
     const fields = [{ id: "site_name", label: "Site Name / Location" }];

@@ -8,10 +8,12 @@ import { Label } from "@/components/ui/label";
 import { UKDateInput } from "@/components/ui/uk-date-input";
 import { toast } from "sonner";
 import { plainError } from "@/lib/plainError";
+import { usePlannerConfig } from "@/hooks/usePlannerConfig";
 import JobFlagsFields, { flagsFromJob, flagsToUpdate, type JobFlagsValue } from "@/components/jobs/JobFlagsFields";
 
 /** Office-only: time/access flags, tags, two-engineer tick and follow-up reminders for one job. */
 export default function JobPlanningCard({ job, onSaved }: { job: any; onSaved?: () => void }) {
+  const { on } = usePlannerConfig();
   const [v, setV] = useState<JobFlagsValue>(flagsFromJob(job));
   const [two, setTwo] = useState(!!job.two_engineer_ok);
   const [saving, setSaving] = useState(false);
@@ -23,7 +25,7 @@ export default function JobPlanningCard({ job, onSaved }: { job: any; onSaved?: 
 
   const save = async () => {
     setSaving(true);
-    const { error } = await supabase.from("jobs").update({ ...flagsToUpdate(v), two_engineer_ok: two } as any).eq("id", job.id);
+    const { error } = await supabase.from("jobs").update({ ...flagsToUpdate(v, { flags: on("flags"), tags: on("tags") }), ...(on("clash") ? { two_engineer_ok: two } : {}) } as any).eq("id", job.id);
     setSaving(false);
     if (error) toast.error("Not saved", { description: plainError(error) }); else { toast.success("Time, access and tags saved"); onSaved?.(); }
   };
@@ -39,12 +41,14 @@ export default function JobPlanningCard({ job, onSaved }: { job: any; onSaved?: 
 
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle className="text-base">Time, access &amp; tags</CardTitle></CardHeader>
+      <CardHeader className="pb-2"><CardTitle className="text-base">Planning</CardTitle></CardHeader>
       <CardContent className="space-y-4">
-        <JobFlagsFields value={v} onChange={setV} idPrefix="jp" />
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={two} onChange={(e) => setTwo(e.target.checked)} />Deliberate two-engineer job (no double-booking warning)</label>
+        {(on("flags") || on("tags") || on("clash")) && <>
+        {(on("flags") || on("tags")) && <JobFlagsFields value={v} onChange={setV} idPrefix="jp" />}
+        {on("clash") && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={two} onChange={(e) => setTwo(e.target.checked)} />Deliberate two-engineer job (no double-booking warning)</label>}
         <Button size="sm" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
-        <div className="border-t pt-3 space-y-2">
+        </>}
+        {on("followUps") && <div className="border-t pt-3 space-y-2">
           <h4 className="text-sm font-semibold">Follow-up reminders</h4>
           {!fus.length && <p className="text-xs text-muted-foreground">None yet. Due reminders show on the office dashboard.</p>}
           {fus.map((f) => (
@@ -59,7 +63,7 @@ export default function JobPlanningCard({ job, onSaved }: { job: any; onSaved?: 
             <div className="space-y-1"><Label className="text-xs" htmlFor="fu-note">What to do</Label><Input id="fu-note" placeholder="e.g. email in March with quote for April" value={fuNote} onChange={(e) => setFuNote(e.target.value)} /></div>
             <Button size="sm" variant="outline" onClick={addFu} disabled={!fuDate || !fuNote.trim()}>Add reminder</Button>
           </div>
-        </div>
+        </div>}
       </CardContent>
     </Card>
   );

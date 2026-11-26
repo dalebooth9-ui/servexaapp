@@ -32,6 +32,7 @@ import { format as fmtDate, endOfWeek as _endOfWeek } from "date-fns";
 import { UKDateInput } from "@/components/ui/uk-date-input";
 import PrintWeeklySheetDialog from "@/components/planner/PrintWeeklySheetDialog";
 import LookAheadView from "@/components/planner/LookAheadView";
+import { usePlannerConfig } from "@/hooks/usePlannerConfig";
 import PlannerImportDialog from "@/components/planner/PlannerImportDialog";
 import { PlannerExtrasContext } from "@/components/planner/PlannerExtrasContext";
 import JobFlagsFields, { emptyFlags, flagsFromJob, flagsToUpdate, type JobFlagsValue } from "@/components/jobs/JobFlagsFields";
@@ -122,6 +123,7 @@ export default function WeeklyPlanner() {
   const { userRole, user, effectiveUserId, isPreviewingAsEngineer, previewEngineerId, previewEngineerName } = useAuth();
   const { toast } = useToast();
   const isAdmin = userRole === "admin";
+  const { on: plannerOn } = usePlannerConfig();
   // For non-admins the planner is strictly personal: use the effective engineer id
   // (real user, or the previewed engineer when an admin is impersonating a specific one).
   // In generic engineer preview (no engineer chosen) there is no real id — we show a
@@ -136,6 +138,8 @@ export default function WeeklyPlanner() {
   const [view, setView] = useState<"grid" | "month" | "list" | "map" | "lookahead">("grid");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [addMode, setAddMode] = useState<"day" | "month">("day");
+  const provisionalOn = plannerOn("provisional");
+  useEffect(() => { if (!provisionalOn) { setAddMode("day"); setView((v) => (v === "lookahead" ? "grid" : v)); } }, [provisionalOn]);
   const [addMonth, setAddMonth] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [addFlags, setAddFlags] = useState<JobFlagsValue>(emptyFlags);
@@ -736,12 +740,12 @@ export default function WeeklyPlanner() {
   // Add entry
   const clashJobs: ClashJob[] = useMemo(() => jobs.map((j: any) => ({ id: j.id, site_id: j.site_id, site_name: j.site?.name || j.address || "This site", job_type: j.job_type || j.category || "", two_engineer_ok: j.two_engineer_ok })), [jobs]);
   const engNameOf = useCallback((id: string) => engineers.find((e) => e.user_id === id)?.full_name || "another engineer", [engineers]);
-  const clashes = useMemo(() => (isAdmin ? findClashes(schedule, clashJobs, engNameOf) : new Map<string, string>()), [isAdmin, schedule, clashJobs, engNameOf]);
+  const clashes = useMemo(() => (isAdmin && plannerOn("clash") ? findClashes(schedule, clashJobs, engNameOf) : new Map<string, string>()), [isAdmin, schedule, clashJobs, engNameOf]);
   const addClash = useMemo(() => {
-    if (addMode !== "day" || !addJobId || !addEngineerId || !addDay) return null;
+    if (!plannerOn("clash") || addMode !== "day" || !addJobId || !addEngineerId || !addDay) return null;
     const cj = addSiteId ? clashJobs.map((j) => (j.id === addJobId ? { ...j, site_id: addSiteId, site_name: sites.find((x) => x.id === addSiteId)?.name || j.site_name } : j)) : clashJobs;
     return clashForNew({ job_id: addJobId, engineer_id: addEngineerId, schedule_date: addDay }, schedule, cj, engNameOf);
-  }, [addMode, addJobId, addEngineerId, addDay, addSiteId, schedule, clashJobs, engNameOf, sites]);
+  }, [addMode, addJobId, addEngineerId, addDay, addSiteId, schedule, clashJobs, engNameOf, sites, plannerOn]);
   const markTwoEngineer = useCallback(async (jobId: string) => {
     const { error } = await supabase.from("jobs").update({ two_engineer_ok: true } as any).eq("id", jobId);
     if (error) toast({ title: "Not saved", description: error.message, variant: "destructive" });
@@ -749,8 +753,9 @@ export default function WeeklyPlanner() {
   }, [toast]);
 
   const handleAddEntry = async () => {
-    if (addJobId && addFlagsOpen) {
-      const { error: fe } = await supabase.from("jobs").update(flagsToUpdate(addFlags) as any).eq("id", addJobId);
+    const flagParts = { flags: plannerOn("flags"), tags: plannerOn("tags") };
+    if (addJobId && addFlagsOpen && (flagParts.flags || flagParts.tags)) {
+      const { error: fe } = await supabase.from("jobs").update(flagsToUpdate(addFlags, flagParts) as any).eq("id", addJobId);
       if (fe) toast({ title: "Time and access details not saved", description: fe.message, variant: "destructive" });
     }
     if (addMode === "month") {
@@ -985,12 +990,12 @@ export default function WeeklyPlanner() {
               <Plus className="mr-1.5 h-4 w-4" /> Add Entry
             </Button>
           )}
-          {isAdmin && (
+          {isAdmin && plannerOn("weeklySheet") && (
             <Button size="sm" variant="outline" onClick={() => setSheetOpen(true)}>
               <Printer className="mr-1.5 h-4 w-4" /> Print weekly sheet
             </Button>
           )}
-          {isAdmin && (
+          {isAdmin && plannerOn("import") && (
             <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
               <FileText className="mr-1.5 h-4 w-4" /> Import from photo / paste
             </Button>
@@ -1138,7 +1143,7 @@ export default function WeeklyPlanner() {
           <TabsTrigger value="month" className="gap-1.5"><CalendarIcon className="h-3.5 w-3.5" /> Monthly</TabsTrigger>
           <TabsTrigger value="list" className="gap-1.5"><List className="h-3.5 w-3.5" /> List</TabsTrigger>
           <TabsTrigger value="map" className="gap-1.5"><MapIcon className="h-3.5 w-3.5" /> Map</TabsTrigger>
-          {isAdmin && <TabsTrigger value="lookahead" className="gap-1.5"><CalendarRange className="h-3.5 w-3.5" /> Look-ahead</TabsTrigger>}
+          {isAdmin && plannerOn("provisional") && <TabsTrigger value="lookahead" className="gap-1.5"><CalendarRange className="h-3.5 w-3.5" /> Look-ahead</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="grid" className="mt-4">
@@ -1223,7 +1228,7 @@ export default function WeeklyPlanner() {
 
         {isAdmin && (
           <TabsContent value="lookahead" className="mt-4">
-            {view === "lookahead" && <LookAheadView engineers={sortedEngineers} onChanged={fetchData} />}
+            {view === "lookahead" && plannerOn("provisional") && <LookAheadView engineers={sortedEngineers} onChanged={fetchData} />}
           </TabsContent>
         )}
         <TabsContent value="map" className="mt-4">
@@ -1314,17 +1319,17 @@ export default function WeeklyPlanner() {
         </DialogContent>
       </Dialog>
 
-      {isAdmin && <PlannerImportDialog open={importOpen} onOpenChange={setImportOpen} engineers={sortedEngineers} onCreated={fetchData} />}
-      {isAdmin && <PrintWeeklySheetDialog open={sheetOpen} onOpenChange={setSheetOpen} weekStart={weekStart} engineers={sortedEngineers} />}
+      {isAdmin && plannerOn("import") && <PlannerImportDialog open={importOpen} onOpenChange={setImportOpen} engineers={sortedEngineers} onCreated={fetchData} />}
+      {isAdmin && plannerOn("weeklySheet") && <PrintWeeklySheetDialog open={sheetOpen} onOpenChange={setSheetOpen} weekStart={weekStart} engineers={sortedEngineers} />}
       {/* Add Entry Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add Schedule Entry</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="flex gap-4 text-sm" role="radiogroup" aria-label="Booking type">
+            {plannerOn("provisional") && <div className="flex gap-4 text-sm" role="radiogroup" aria-label="Booking type">
               <label className="flex items-center gap-2"><input type="radio" checked={addMode === "day"} onChange={() => setAddMode("day")} />Date</label>
               <label className="flex items-center gap-2"><input type="radio" checked={addMode === "month"} onChange={() => setAddMode("month")} />Target month (provisional)</label>
-            </div>
+            </div>}
             {addMode === "day" ? (
             <div className="space-y-2">
               <Label>Date</Label>
@@ -1401,12 +1406,12 @@ export default function WeeklyPlanner() {
                 </div>
               )}
             </div>
-            <div className="rounded-md border">
+            {(plannerOn("flags") || plannerOn("tags")) && <div className="rounded-md border">
               <button type="button" className="w-full px-3 py-2 text-left text-sm font-medium" aria-expanded={addFlagsOpen} onClick={() => setAddFlagsOpen((o) => !o)}>
                 {addFlagsOpen ? "▾" : "▸"} Time, access &amp; tags {addJobId ? "" : "(pick a job first)"}
               </button>
               {addFlagsOpen && addJobId && <div className="border-t p-3"><JobFlagsFields value={addFlags} onChange={setAddFlags} idPrefix="add" /></div>}
-            </div>
+            </div>}
             {addClash && (
               <div role="status" className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-sm text-amber-900 dark:text-amber-200">
                 {addClash}. You can still book it.

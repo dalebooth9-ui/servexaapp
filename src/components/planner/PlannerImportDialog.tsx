@@ -89,7 +89,7 @@ export default function PlannerImportDialog({ open, onOpenChange, engineers, onC
             <div className="space-y-1"><Label htmlFor="imp-file">Photo of a weekly sheet or whiteboard, or a spreadsheet</Label>
               <Input id="imp-file" type="file" accept="image/*,.xlsx,.xls" onChange={(e) => setFile(e.target.files?.[0] || null)} /></div>
             <div className="space-y-1"><Label htmlFor="imp-text">…or paste lines</Label>
-              <Textarea id="imp-text" rows={6} disabled={!!file} placeholder={"Brondesbury Park x1 test\nMts Walford x1 test early 7am"} value={text} onChange={(e) => setText(e.target.value)} /></div>
+              <Textarea id="imp-text" rows={6} disabled={!!file} placeholder={"Customer name - Site name x1 service\nSite name x2 inspection early 7am"} value={text} onChange={(e) => setText(e.target.value)} /></div>
             <p className="text-xs text-muted-foreground">Nothing is created until you check the table and press Create entries.</p>
           </div>
         ) : (

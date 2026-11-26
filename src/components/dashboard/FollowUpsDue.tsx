@@ -4,9 +4,12 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BellRing } from "lucide-react";
+import { usePlannerConfig } from "@/hooks/usePlannerConfig";
 
 /** Office dashboard: job follow-up reminders that are due (today or earlier) and not done. */
 export default function FollowUpsDue() {
+  const { on } = usePlannerConfig();
+  const enabled = on("followUps");
   const [rows, setRows] = useState<any[] | null>(null);
   const load = async () => {
     const today = format(new Date(), "yyyy-MM-dd");
@@ -14,8 +17,8 @@ export default function FollowUpsDue() {
       .is("done_at", null).lte("due_date", today).order("due_date").limit(50);
     setRows(data || []);
   };
-  useEffect(() => { load(); }, []);
-  if (!rows?.length) return null;
+  useEffect(() => { if (enabled) load(); }, [enabled]);
+  if (!enabled || !rows?.length) return null;
   const done = async (id: string) => { await supabase.from("job_follow_ups").update({ done_at: new Date().toISOString() } as any).eq("id", id); load(); };
   return (
     <Card>

@@ -1,4 +1,4 @@
-// Reads a photo of Michelle's weekly sheet / whiteboard, or pasted/spreadsheet text,
+// Reads a photo of the office's weekly sheet / whiteboard, or pasted/spreadsheet text,
 // into draft planner lines. Never writes anything: the office reviews and creates.
 import { resolveCaller } from "../_shared/callerOrg.ts";
 
@@ -19,9 +19,9 @@ const LINE = {
 };
 const SCHEMA = { type: "object", additionalProperties: false, required: ["lines"], properties: { lines: { type: "array", items: LINE } } };
 
-const SYSTEM = (today: string) => `You read a UK fire-protection company's planning notes (printed weekly sheets, whiteboards, spreadsheets or pasted lines) into planner lines.
+const SYSTEM = (today: string) => `You read a UK field-service company's planning notes (printed weekly sheets, whiteboards, spreadsheets or pasted lines) into planner lines.
 Today is ${today}. Dates are UK day/month/year; resolve to yyyy-MM-dd using the week/month written on the sheet, else the nearest future date. If only a month is given, fill target_month (yyyy-MM) and leave date empty.
-One output line per job line. Examples: "Brondesbury Park x1 test" -> site "Brondesbury Park", job_type "pressure test", quantity 1. "Mts Walford x1 test early 7am" -> site "Mts Walford", quantity 1, job_type "pressure test", time_window "early start 7am". "vis"/"visual" = visual inspection; "test"/"PT" = pressure test.
+One output line per job line. Examples: "Site name x2 service" -> site "Site name", job_type "service", quantity 2. "Site name x1 inspection early 7am" -> site "Site name", quantity 1, job_type "inspection", time_window "early start 7am". Keep the job type in the company's own words as written; expand only obvious abbreviations.
 Copy names exactly as written; never invent sites, companies, postcodes, engineers or dates — leave them empty if not written. Put PO numbers, access, contact and call-ahead notes in comments. Set confidence "low" for any handwriting you are unsure of or anything guessed. raw = the line as written.`;
 
 async function read(apiKey: string, content: any[], today: string) {

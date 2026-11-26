@@ -1,5 +1,6 @@
 import { TagChips } from "@/components/jobs/JobFlagsFields";
 import { jobFlagLines } from "@/lib/jobFlags";
+import { usePlannerConfig } from "@/hooks/usePlannerConfig";
 import { BookOpen } from "lucide-react";
 import MapAddress from "@/components/MapAddress";
 import { isQueued } from "@/lib/reportReview";
@@ -83,6 +84,7 @@ function statusLabel(s?: string) {
 
 /** Big, glove-friendly job card: who, where, what, and two large actions. */
 function BigJobCard({ job, showDate = false }: { job: JobLite; showDate?: boolean }) {
+  const { on: plannerOn } = usePlannerConfig();
   const needsAck = job.schedule_id && !job.acknowledged_at;
   const w3w = (job.what3words || "").replace(/^\/+/, "");
   const destination = { address: job.address, postcode: job.site_postcode };
@@ -139,7 +141,7 @@ function BigJobCard({ job, showDate = false }: { job: JobLite; showDate?: boolea
         </div>
 
         <TagChips tags={(job as any).tags} />
-        {jobFlagLines(job as any).length > 0 && (
+        {plannerOn("flags") && jobFlagLines(job as any).length > 0 && (
           <div role="note" aria-label="Time and access" className="rounded-xl border-2 border-amber-500/50 bg-amber-500/10 p-3 space-y-1">
             {jobFlagLines(job as any).map((l) => (
               <p key={l} className="text-base font-semibold text-foreground break-words">
@@ -214,6 +216,7 @@ function BigJobCard({ job, showDate = false }: { job: JobLite; showDate?: boolea
 
 
 export default function EngineerTodayHome() {
+  const { on: plannerOn } = usePlannerConfig();
   const { user, effectiveUserId, isPreviewingAsEngineer, previewEngineerId } = useAuth();
   const engineerId = effectiveUserId ?? user?.id ?? null;
   const isGenericPreview = isPreviewingAsEngineer && !previewEngineerId;
@@ -444,10 +447,10 @@ export default function EngineerTodayHome() {
 
       <FieldConnectivityTip />
 
-      <Link to="/cheat-sheet" className="flex items-center justify-between rounded-xl border bg-card p-3 text-sm font-medium hover:bg-muted">
-        <span className="flex items-center gap-2"><BookOpen className="h-4 w-4 text-primary" /> Cheat sheet — bulb sizes, cover plates, keys, numbers</span>
+      {plannerOn("cheatSheet") && <Link to="/cheat-sheet" className="flex items-center justify-between rounded-xl border bg-card p-3 text-sm font-medium hover:bg-muted">
+        <span className="flex items-center gap-2"><BookOpen className="h-4 w-4 text-primary" /> Cheat sheet — quick reference</span>
         <span aria-hidden>›</span>
-      </Link>
+      </Link>}
 
 
 

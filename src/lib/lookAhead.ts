@@ -10,6 +10,7 @@ export interface LookAheadItem {
   jobType: string;
   jobId?: string;
   date?: string;
+  link?: string;
 }
 
 export function monthKey(d: string | Date): string {

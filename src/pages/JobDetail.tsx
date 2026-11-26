@@ -1,5 +1,6 @@
 import { updateJobStatus } from "@/lib/jobStatusUpdate";
 import { provisionalLabel } from "@/lib/lookAhead";
+import { usePlannerConfig } from "@/hooks/usePlannerConfig";
 import JobPlanningCard from "@/components/jobs/JobPlanningCard";
 import { jobHeadline } from "@/lib/jobHeadline";
 import MapAddress from "@/components/MapAddress";
@@ -158,6 +159,7 @@ export default function JobDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { userRole, user, realUserRole, orgId, isPreviewingAsEngineer } = useAuth();
+  const { on: plannerOn } = usePlannerConfig();
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
   const { convert: convertW3W } = useWhat3Words();
@@ -1067,7 +1069,7 @@ export default function JobDetail() {
                     <Label className="text-xs">Due Date</Label>
                     <UKDateInput  value={editForm.due_date} onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })} className="mt-1" />
                   </div>
-                  {userRole === "admin" && (
+                  {userRole === "admin" && plannerOn("provisional") && (
                   <div>
                     <Label className="text-xs" htmlFor="job-target-month">Target month (provisional, instead of a date)</Label>
                     <Input id="job-target-month" type="month" value={editForm.target_month || ""} onChange={(e) => setEditForm({ ...editForm, target_month: e.target.value })} className="mt-1" />
@@ -1083,7 +1085,7 @@ export default function JobDetail() {
                   <Button size="sm" disabled={editSaving || !editForm.name.trim()} onClick={async () => {
                     setEditSaving(true);
                     const updatePayload: any = { name: editForm.name.trim(), address: editForm.address.trim() || null, site_id: editForm.site_id || null, other_qty: editForm.other_qty, due_date: editForm.due_date || null, allocated_days: editForm.allocated_days ? parseInt(editForm.allocated_days) : null };
-                    if (userRole === "admin") updatePayload.target_month = editForm.target_month ? `${editForm.target_month}-01` : null;
+                    if (userRole === "admin" && plannerOn("provisional")) updatePayload.target_month = editForm.target_month ? `${editForm.target_month}-01` : null;
                     if (job.category !== "installation") {
                       updatePayload.pressure_test_qty = editForm.pressure_test_qty;
                       updatePayload.visual_qty = editForm.visual_qty;
@@ -1254,7 +1256,7 @@ export default function JobDetail() {
       </Dialog>
 
       {activeTab === "overview" && (<>
-      {userRole === "admin" && job && <div className="mb-6"><JobPlanningCard job={job} onSaved={() => supabase.from("jobs").select("*, customers(id, name, email, logo_url), sites(id, name, address, postcode, what3words)").eq("id", job.id).single().then(({ data }) => data && setJob(data))} /></div>}
+      {userRole === "admin" && job && (plannerOn("flags") || plannerOn("tags") || plannerOn("clash") || plannerOn("followUps")) && <div className="mb-6"><JobPlanningCard job={job} onSaved={() => supabase.from("jobs").select("*, customers(id, name, email, logo_url), sites(id, name, address, postcode, what3words)").eq("id", job.id).single().then(({ data }) => data && setJob(data))} /></div>}
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Engineer Assignments

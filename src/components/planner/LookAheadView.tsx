@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { UKDateInput } from "@/components/ui/uk-date-input";
 import { toast } from "sonner";
 import { loadRiserVisitData } from "@/lib/riserVisitData";
+import { loadOtherDueItems } from "@/lib/lookAheadDue";
 import { VISIT_LABELS } from "@/lib/riserVisits";
 import { bucketLookAhead, lookAheadMonths, provisionalLabel, type LookAheadItem } from "@/lib/lookAhead";
 import { plainError } from "@/lib/plainError";
@@ -62,6 +63,7 @@ export default function LookAheadView({ engineers, onChanged }: { engineers: { u
           out.push({ id: `d-${r.asset.id}`, kind: "due", month: d.slice(0, 7), date: d, title: `${r.customer?.name || "Customer not linked"} · ${r.site?.name || ""} · ${r.asset.riser_location || r.asset.name}`, customerId: r.customer?.id || null, customerName: r.customer?.name || "", jobType: r.cycle.type ? VISIT_LABELS[r.cycle.type as keyof typeof VISIT_LABELS] : "Due visit" });
         }
       } catch (e) { console.warn("look-ahead due visits", e); }
+      out.push(...(await loadOtherDueItems(from, to)));
       setItems(out);
     } catch (e) { toast.error("Look-ahead not loaded", { description: plainError(e) }); }
     finally { setBusy(false); }
@@ -116,7 +118,7 @@ export default function LookAheadView({ engineers, onChanged }: { engineers: { u
                   <p className="text-muted-foreground">{it.jobType}</p>
                   <p className="mt-1">{it.kind === "provisional" ? provisionalLabel(`${it.month}-01`) : it.kind === "booked" ? `Booked ${format(new Date(`${it.date}T12:00:00`), "dd/MM/yyyy")}` : `Due ${format(new Date(`${it.date}T12:00:00`), "dd/MM/yyyy")} · not booked`}</p>
                   {it.kind === "provisional" && <Button size="sm" variant="outline" className="mt-1 h-7" onClick={() => startConfirm(it)}>Pick a day</Button>}
-                  {it.kind === "due" && <Button size="sm" variant="link" className="h-6 px-0" asChild><Link to="/due-visits">Open Due visits</Link></Button>}
+                  {it.kind === "due" && <Button size="sm" variant="link" className="h-6 px-0" asChild><Link to={it.link || "/due-visits"}>{it.link && it.link !== "/due-visits" ? "Open" : "Open Due visits"}</Link></Button>}
                 </div>
               ))}
             </div>

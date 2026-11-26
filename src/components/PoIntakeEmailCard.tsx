@@ -76,7 +76,7 @@ export default function PoIntakeEmailCard() {
           <ol className="list-decimal list-inside space-y-1">
             <li>Forward the customer's PO email (or CC this address on new orders).</li>
             <li>Servexa reads the subject, body, and attachments and creates a job with status <strong>Pending Review</strong>.</li>
-            <li>Michelle (or any admin) approves it from the Jobs list — the original PDF stays attached.</li>
+            <li>An office admin approves it from the Jobs list — the original PDF stays attached.</li>
           </ol>
           <p className="pt-1">
             The address is unique to your organisation. Do not share it publicly — treat it like a

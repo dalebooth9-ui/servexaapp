@@ -24,6 +24,7 @@ import FreeAgentSettings from "@/components/FreeAgentSettings";
 import RamsTemplateSettings from "@/components/RamsTemplateSettings";
 import RenewalsSettingsCard from "@/components/settings/RenewalsSettingsCard";
 import DueVisitSettings from '@/components/riser-visits/DueVisitSettings';
+import PlannerFeaturesCard from "@/components/settings/PlannerFeaturesCard";
 import FollowUpReminderSettings from "@/components/FollowUpReminderSettings";
 import EmailDeliveryTestCard from "@/components/EmailDeliveryTestCard";
 // StorageMigrationPanel intentionally not imported — one-off migration completed.
@@ -223,6 +224,7 @@ export default function SettingsPage() {
         </TabsList>
 
         <TabsContent value="team" className="space-y-6 mt-0">
+          <PlannerFeaturesCard />
           <UserRoleSettings />
           <VansSettings />
           <LocationSharingSettings />

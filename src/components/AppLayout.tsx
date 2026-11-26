@@ -1,3 +1,4 @@
+import { usePlannerConfig } from "@/hooks/usePlannerConfig";
 import { NotebookText } from "lucide-react";
 import { ReactNode, useEffect, useState as useReactState } from "react";
 import servexaLogo from "@/assets/servexa-logo.png";
@@ -191,6 +192,7 @@ function NavItem({
 
 export default function AppLayout({ children }: {children: ReactNode;}) {
   const { user, userRole, realUserRole, profile, signOut, isPreviewingAsEngineer, effectiveUserId, previewEngineerId } = useAuth();
+  const { on: plannerOn } = usePlannerConfig();
   const [previewDialogOpen, setPreviewDialogOpen] = useReactState(false);
 
   const location = useLocation();
@@ -333,6 +335,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
 
 
   const canSee = (item: NavItemDef) => {
+    if (item.to === "/cheat-sheet" && !plannerOn("cheatSheet")) return false;
     if (item.platformOnly) {
       if (userRole === "engineer") return false;
       return orgStatus.is_platform_admin;

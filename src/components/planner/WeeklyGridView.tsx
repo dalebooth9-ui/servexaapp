@@ -42,7 +42,8 @@ import type { AdhocEntry } from "@/pages/WeeklyPlanner";
 import { usePlannerExtras } from "@/components/planner/PlannerExtrasContext";
 import { TagChips } from "@/components/jobs/JobFlagsFields";
 import { jobFlagLines } from "@/lib/jobFlags";
-import { JOB_TAGS } from "@/lib/jobTags";
+import { usePlannerConfig } from "@/hooks/usePlannerConfig";
+import { tagDef, tagChipStyle } from "@/lib/plannerConfig";
 
 interface ScheduleEntry {
   id: string;
@@ -112,6 +113,7 @@ function DraggableUnallocatedJob({
   selected?: boolean;
   onToggleSelect?: (jobId: string) => void;
 }) {
+  const { config: plannerConfig, on: plannerOn } = usePlannerConfig();
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `unalloc-${job.id}`,
     data: { type: "unallocated", job },
@@ -185,7 +187,7 @@ function DraggableUnallocatedJob({
         <JobCardSubtitle job={job} className="text-muted-foreground break-words whitespace-normal text-[10px]" />
         {((job as any).customers?.name || job.customer) && <div className="text-muted-foreground break-words line-clamp-2 text-[10px]">{(job as any).customers?.name || job.customer}</div>}
         <TagChips tags={(job as any).tags} className="mt-0.5" />
-        {jobFlagLines(job as any, { po: false }).length > 0 && <div className="text-[9px] text-primary font-medium break-words">{jobFlagLines(job as any, { po: false }).slice(0, 2).join(" · ")}</div>}
+        {plannerOn("flags") && jobFlagLines(job as any, { po: false }).length > 0 && <div className="text-[9px] text-primary font-medium break-words">{jobFlagLines(job as any, { po: false }).slice(0, 2).join(" · ")}</div>}
         <div className="flex flex-wrap gap-1 mt-0.5">
           {(job as any).preassigned_engineer_name && (
             <span
@@ -230,9 +232,10 @@ function DraggableScheduleCard({ entry, job, engineerName, dayIndex, dayCount, i
     disabled: !isAdmin,
   });
   const { clashes, onMarkTwoEngineer } = usePlannerExtras();
+  const { config: plannerConfig, on: plannerOn } = usePlannerConfig();
   if (!job) return null;
   const clash = clashes.get(entry.id);
-  const flags = jobFlagLines(job as any, { po: true });
+  const flags = jobFlagLines(job as any, { po: true }).filter((l) => plannerOn("flags") || l.startsWith("PO "));
   return (
     <HoverCard openDelay={200} closeDelay={250}>
       <HoverCardTrigger asChild>
@@ -254,7 +257,7 @@ function DraggableScheduleCard({ entry, job, engineerName, dayIndex, dayCount, i
           </div>
           <div className="pl-2.5 flex items-center gap-1 min-w-0 text-[10px] text-muted-foreground">
             {clash && <AlertTriangle className="h-3 w-3 shrink-0 text-amber-600" aria-label="Possible double booking" />}
-            {((job as any).tags || []).map((k: string) => { const t = JOB_TAGS.find((x) => x.key === k); return t ? <span key={k} title={t.label} className={cn("shrink-0 rounded border px-0.5 text-[8px] font-bold leading-3", t.chip)}>{t.label.split(" ")[0].slice(0, 3).toUpperCase()}</span> : null; })}
+            {plannerOn("tags") && ((job as any).tags || []).map((k: string) => { const t = tagDef(plannerConfig.tags, k); return t ? <span key={k} title={t.label} style={tagChipStyle(t.color)} className="shrink-0 rounded border px-0.5 text-[8px] font-bold leading-3">{t.label.split(" ")[0].slice(0, 3).toUpperCase()}</span> : null; })}
             <span className="truncate font-mono">{job.reference_number}</span>
           </div>
         </div>
@@ -542,10 +545,11 @@ export default function WeeklyGridView({
   const getJob = (id: string) => jobs.find((j) => j.id === id);
 
   const [tagFilter, setTagFilter] = useState("all");
+  const { config: plannerConfig, on: plannerOn } = usePlannerConfig();
   const groupedUnallocated = useMemo(() => {
     const overdue: Job[] = [];
     const rest: Job[] = [];
-    for (const job of unallocatedJobs.filter((j) => tagFilter === "all" || ((j as any).tags || []).includes(tagFilter))) {
+    for (const job of unallocatedJobs.filter((j) => tagFilter === "all" || !plannerOn("tags") || ((j as any).tags || []).includes(tagFilter))) {
       if (job.due_date && isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date())) {
         overdue.push(job);
       } else {
@@ -717,11 +721,11 @@ export default function WeeklyGridView({
                   </button>
                 )}
               </div>
-              <select aria-label="Filter job pool by tag" value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}
+              {plannerOn("tags") && plannerConfig.tags.length > 0 && <select aria-label="Filter job pool by tag" value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}
                 className="mb-2 w-full rounded border border-input bg-background px-1.5 py-1 text-[11px]">
                 <option value="all">All tags</option>
-                {JOB_TAGS.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
-              </select>
+                {plannerConfig.tags.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+              </select>}
               <div className="flex gap-1 mb-2">
                 <button
                   className={cn(

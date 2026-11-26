@@ -12,7 +12,7 @@
 //   {
 //     "file_base64": "<PDF as base64, no data: prefix>",
 //     "file_name": "PurchaseOrder-3198.pdf",
-//     "email_from": "sales@argosfire.co.uk",        // optional
+//     "email_from": "sales@customer.example",        // optional
 //     "email_subject": "Purchase Order PO-3198",    // optional
 //     "email_received_at": "2026-05-28T09:14:00Z"   // optional, ISO 8601
 //   }
@@ -21,7 +21,7 @@
 //   { ok: true, job_id, reference_number, extracted: {...} }
 //
 // The created job lands with status='pending_review' and source='email-intake'
-// so Michelle can confirm before it goes live.
+// so the office can confirm before it goes live.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { suggestOrgCategory } from "../_shared/matchJobCategory.ts";
@@ -247,7 +247,7 @@ serve(async (req) => {
     const safeName = (extracted.job_description || extracted.po_number || file_name.replace(/\.[^.]+$/, "")).slice(0, 200);
     const priority = ["high", "medium", "low"].includes(extracted.priority || "") ? extracted.priority : "medium";
 
-    // Notes get an email-context prefix so Michelle can see where the job came from
+    // Notes get an email-context prefix so the office can see where the job came from
     const noteParts: string[] = [];
     if (email_from) noteParts.push(`From: ${email_from}`);
     if (email_subject) noteParts.push(`Subject: ${email_subject}`);
@@ -355,7 +355,7 @@ async function uploadAndRespond(
     console.error("Attachment handling failed:", e);
   }
 
-  // Add a job message with the email context so Michelle sees it in the timeline.
+  // Add a job message with the email context so the office sees it in the timeline.
   if (noteParts.length > 0) {
     try {
       await admin.from("job_messages").insert({

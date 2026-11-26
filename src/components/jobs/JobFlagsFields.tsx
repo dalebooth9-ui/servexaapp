@@ -1,7 +1,8 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { JOB_TAGS } from "@/lib/jobTags";
+import { usePlannerConfig } from "@/hooks/usePlannerConfig";
+import { tagDef, tagChipStyle } from "@/lib/plannerConfig";
 import { cn } from "@/lib/utils";
 
 export interface JobFlagsValue {
@@ -17,23 +18,29 @@ export function flagsFromJob(j: any): JobFlagsValue {
     access_notes: j?.access_notes || "", customer_po: j?.customer_po || "", tags: j?.tags || [],
   };
 }
-export function flagsToUpdate(v: JobFlagsValue) {
+/** Only the parts switched on are written, so hidden fields never blank saved values. */
+export function flagsToUpdate(v: JobFlagsValue, parts: { flags: boolean; tags: boolean } = { flags: true, tags: true }) {
   const t = (s: string) => s.trim() || null;
   const m = parseInt(v.call_ahead_minutes);
-  return { time_window: t(v.time_window), call_ahead_minutes: m > 0 ? m : null, access_contact_name: t(v.access_contact_name),
+  const all = { time_window: t(v.time_window), call_ahead_minutes: m > 0 ? m : null, access_contact_name: t(v.access_contact_name),
     access_contact_phone: t(v.access_contact_phone), access_notes: t(v.access_notes), customer_po: t(v.customer_po), tags: v.tags };
+  const { tags, ...flags } = all;
+  return { ...(parts.flags ? flags : {}), ...(parts.tags ? { tags } : {}) };
 }
 
 export function TagChips({ tags, className }: { tags?: string[] | null; className?: string }) {
-  if (!tags?.length) return null;
-  return <span className={cn("inline-flex flex-wrap gap-1", className)}>{tags.map((k) => { const t = JOB_TAGS.find((x) => x.key === k); return t ? <span key={k} className={cn("rounded border px-1 py-0 text-[9px] font-semibold leading-4", t.chip)}>{t.label}</span> : null; })}</span>;
+  const { config, on } = usePlannerConfig();
+  if (!tags?.length || !on("tags")) return null;
+  return <span className={cn("inline-flex flex-wrap gap-1", className)}>{tags.map((k) => { const t = tagDef(config.tags, k); return t ? <span key={k} style={tagChipStyle(t.color)} className="rounded border px-1 py-0 text-[9px] font-semibold leading-4">{t.label}</span> : null; })}</span>;
 }
 
 export default function JobFlagsFields({ value, onChange, idPrefix = "jf" }: { value: JobFlagsValue; onChange: (v: JobFlagsValue) => void; idPrefix?: string }) {
   const set = (k: keyof JobFlagsValue, v: any) => onChange({ ...value, [k]: v });
+  const { config, on } = usePlannerConfig();
   const toggle = (k: string) => set("tags", value.tags.includes(k) ? value.tags.filter((x) => x !== k) : [...value.tags, k]);
   return (
     <div className="space-y-3">
+      {on("flags") && <>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1"><Label htmlFor={`${idPrefix}-tw`} className="text-xs">Time window</Label>
           <Input id={`${idPrefix}-tw`} placeholder="e.g. 9am-12pm or early start 7am" value={value.time_window} onChange={(e) => set("time_window", e.target.value)} /></div>
@@ -48,11 +55,13 @@ export default function JobFlagsFields({ value, onChange, idPrefix = "jf" }: { v
       </div>
       <div className="space-y-1"><Label htmlFor={`${idPrefix}-an`} className="text-xs">Access notes</Label>
         <Textarea id={`${idPrefix}-an`} rows={2} value={value.access_notes} onChange={(e) => set("access_notes", e.target.value)} /></div>
-      <div className="space-y-1"><Label className="text-xs">Tags</Label>
-        <div className="flex flex-wrap gap-2">{JOB_TAGS.map((t) => (
-          <button key={t.key} type="button" aria-pressed={value.tags.includes(t.key)} onClick={() => toggle(t.key)}
-            className={cn("rounded-full border px-2.5 py-1 text-xs font-medium", value.tags.includes(t.key) ? t.chip : "bg-background text-muted-foreground")}>{t.label}</button>
-        ))}</div></div>
+      </>}
+      {on("tags") && config.tags.length > 0 && <div className="space-y-1"><Label className="text-xs">Tags</Label>
+        <div className="flex flex-wrap gap-2">{config.tags.map((t) => (
+          <button key={t.key} type="button" aria-pressed={value.tags.includes(t.key)} onClick={() => toggle(t.key)} style={tagChipStyle(t.color, value.tags.includes(t.key))}
+            className={cn("rounded-full border px-2.5 py-1 text-xs font-medium", !value.tags.includes(t.key) && "bg-background text-muted-foreground")}>{t.label}</button>
+        ))}</div></div>}
+      {!on("flags") && !on("tags") && <p className="text-xs text-muted-foreground">Time, access and tags are switched off in Settings › Planner features.</p>}
     </div>
   );
 }
