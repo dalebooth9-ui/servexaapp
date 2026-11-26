@@ -757,6 +757,13 @@
       "when": 1795622789124,
       "tag": "0107_customer_archive_fix_org_check",
       "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1795678421305,
+      "tag": "0108_job_target_month",
+      "breakpoints": true
     }
   ]
 }

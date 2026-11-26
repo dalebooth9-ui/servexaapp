@@ -1,4 +1,5 @@
 import { updateJobStatus } from "@/lib/jobStatusUpdate";
+import { provisionalLabel } from "@/lib/lookAhead";
 import { jobHeadline } from "@/lib/jobHeadline";
 import MapAddress from "@/components/MapAddress";
 import OutletResults from "@/components/assets/OutletResults";
@@ -171,7 +172,7 @@ export default function JobDetail() {
   const [filters, setFilters] = useState<Filters>({ type: "all", engineerId: "all", dateFrom: "", dateTo: "" });
   const [sites, setSites] = useState<{ id: string; name: string; address: string | null; postcode: string | null; latitude?: number | null; longitude?: number | null }[]>([]);
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm, clearEditDraft] = useAutoSave(`job-edit-${id}`, { name: "", address: "", site_id: "", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
+  const [editForm, setEditForm, clearEditDraft] = useAutoSave(`job-edit-${id}`, { name: "", address: "", site_id: "", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "", target_month: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [chooserOpen, setChooserOpen] = useState(false);
   const [chooserSlots, setChooserSlots] = useState<MatchSlot[]>([]);
@@ -970,7 +971,7 @@ export default function JobDetail() {
                     )}
                   </div>
                   {userRole === "admin" && (
-                    <Button size="sm" variant="outline" onClick={() => { setEditForm({ name: job.name || "", address: job.address || "", site_id: job.site_id || "", pressure_test_qty: job.pressure_test_qty || 0, visual_qty: job.visual_qty || 0, other_qty: (job as any).other_qty || 0, other_service_type: (job as any).other_service_type || "", due_date: job.due_date || "", allocated_days: (job as any).allocated_days != null ? String((job as any).allocated_days) : "" }); setEditing(true); }}>
+                    <Button size="sm" variant="outline" onClick={() => { setEditForm({ name: job.name || "", address: job.address || "", site_id: job.site_id || "", pressure_test_qty: job.pressure_test_qty || 0, visual_qty: job.visual_qty || 0, other_qty: (job as any).other_qty || 0, other_service_type: (job as any).other_service_type || "", due_date: job.due_date || "", allocated_days: (job as any).allocated_days != null ? String((job as any).allocated_days) : "", target_month: (job as any).target_month ? String((job as any).target_month).slice(0, 7) : "" }); setEditing(true); }}>
                       <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
                     </Button>
                   )}
@@ -1065,6 +1066,13 @@ export default function JobDetail() {
                     <Label className="text-xs">Due Date</Label>
                     <UKDateInput  value={editForm.due_date} onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })} className="mt-1" />
                   </div>
+                  {userRole === "admin" && (
+                  <div>
+                    <Label className="text-xs" htmlFor="job-target-month">Target month (provisional, instead of a date)</Label>
+                    <Input id="job-target-month" type="month" value={editForm.target_month || ""} onChange={(e) => setEditForm({ ...editForm, target_month: e.target.value })} className="mt-1" />
+                    {editForm.target_month && <p className="text-xs text-muted-foreground mt-1">{provisionalLabel(`${editForm.target_month}-01`)} — shown on the Planner Look-ahead until a day is booked.</p>}
+                  </div>
+                  )}
                   <div>
                     <Label className="text-xs">Allocated Days</Label>
                     <Input type="number" min={1} placeholder="e.g. 5" value={editForm.allocated_days} onChange={(e) => setEditForm({ ...editForm, allocated_days: e.target.value })} className="mt-1" />
@@ -1074,6 +1082,7 @@ export default function JobDetail() {
                   <Button size="sm" disabled={editSaving || !editForm.name.trim()} onClick={async () => {
                     setEditSaving(true);
                     const updatePayload: any = { name: editForm.name.trim(), address: editForm.address.trim() || null, site_id: editForm.site_id || null, other_qty: editForm.other_qty, due_date: editForm.due_date || null, allocated_days: editForm.allocated_days ? parseInt(editForm.allocated_days) : null };
+                    if (userRole === "admin") updatePayload.target_month = editForm.target_month ? `${editForm.target_month}-01` : null;
                     if (job.category !== "installation") {
                       updatePayload.pressure_test_qty = editForm.pressure_test_qty;
                       updatePayload.visual_qty = editForm.visual_qty;

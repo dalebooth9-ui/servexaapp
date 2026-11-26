@@ -6490,6 +6490,7 @@ export type Database = {
           site_longitude: number | null
           source: string | null
           status: string
+          target_month: string | null
           template_mismatch_reason: string | null
           updated_at: string
           visual_qty: number
@@ -6552,6 +6553,7 @@ export type Database = {
           site_longitude?: number | null
           source?: string | null
           status?: string
+          target_month?: string | null
           template_mismatch_reason?: string | null
           updated_at?: string
           visual_qty?: number
@@ -6614,6 +6616,7 @@ export type Database = {
           site_longitude?: number | null
           source?: string | null
           status?: string
+          target_month?: string | null
           template_mismatch_reason?: string | null
           updated_at?: string
           visual_qty?: number

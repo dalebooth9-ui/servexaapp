@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Plus, Printer, Copy, LayoutGrid, Calendar as CalendarIcon, List, Map as MapIcon, Zap, Users, Download, FileText, FileSpreadsheet, Sparkles, Briefcase, Bot, MoreHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Printer, Copy, LayoutGrid, Calendar as CalendarIcon, List, Map as MapIcon, Zap, Users, Download, FileText, FileSpreadsheet, Sparkles, Briefcase, Bot, MoreHorizontal, CalendarRange } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { exportWorksheetPdf, exportWorksheetXlsx } from "@/components/planner/PlannerWorksheetExport";
 import { format, addDays, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
@@ -30,6 +30,9 @@ import BulkPrintSheetsDialog from "@/components/planner/BulkPrintSheetsDialog";
 import type { BulkPrintSelection } from "@/lib/bulkPrintJobSheets";
 import { format as fmtDate, endOfWeek as _endOfWeek } from "date-fns";
 import { UKDateInput } from "@/components/ui/uk-date-input";
+import PrintWeeklySheetDialog from "@/components/planner/PrintWeeklySheetDialog";
+import LookAheadView from "@/components/planner/LookAheadView";
+import { targetMonthValue, provisionalLabel } from "@/lib/lookAhead";
 
 const NOTE_COLORS = [
   { value: null,      label: "Default",  swatch: "bg-foreground/10 border border-border" },
@@ -126,7 +129,10 @@ export default function WeeklyPlanner() {
       ? null
       : (effectiveUserId ?? user?.id ?? null);
 
-  const [view, setView] = useState<"grid" | "month" | "list" | "map">("grid");
+  const [view, setView] = useState<"grid" | "month" | "list" | "map" | "lookahead">("grid");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [addMode, setAddMode] = useState<"day" | "month">("day");
+  const [addMonth, setAddMonth] = useState("");
   const [showWeekend, setShowWeekend] = useState(() => { try { return localStorage.getItem("planner-show-weekend") === "1"; } catch { return false; } });
   const toggleWeekend = (v: boolean) => { setShowWeekend(v); try { localStorage.setItem("planner-show-weekend", v ? "1" : "0"); } catch { /* ignore */ } };
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -722,6 +728,18 @@ export default function WeeklyPlanner() {
 
   // Add entry
   const handleAddEntry = async () => {
+    if (addMode === "month") {
+      // Provisional booking: month only, no planner day, so engineers never see it on Today.
+      if (!addJobId || !addMonth) return;
+      setSaving(true);
+      const upd: any = { target_month: targetMonthValue(addMonth) };
+      if (addSiteId) upd.site_id = addSiteId;
+      const { error } = await supabase.from("jobs").update(upd).eq("id", addJobId);
+      if (error) toast({ title: "Not saved", description: error.message, variant: "destructive" });
+      else toast({ title: provisionalLabel(targetMonthValue(addMonth)), description: "Shown on the Look-ahead tab until a day is booked." });
+      setAddOpen(false); setAddMode("day"); setAddMonth(""); setSaving(false);
+      return;
+    }
     if (!addDay || !addEngineerId || !addJobId) return;
     setSaving(true);
     if (addSiteId) {
@@ -731,6 +749,7 @@ export default function WeeklyPlanner() {
       job_id: addJobId, engineer_id: addEngineerId, schedule_date: addDay,
       notes: addNotes.trim() || null, notes_color: addNotesColor, created_by: user?.id, ...editStamp(),
     } as any);
+    if (!error) await supabase.from("jobs").update({ target_month: null } as any).eq("id", addJobId).not("target_month", "is", null);
     if (error) {
       toast({ title: "Error", description: error.code === "23505" ? "Already scheduled." : "Failed to assign.", variant: "destructive" });
     } else {
@@ -941,6 +960,11 @@ export default function WeeklyPlanner() {
             </Button>
           )}
           {isAdmin && (
+            <Button size="sm" variant="outline" onClick={() => setSheetOpen(true)}>
+              <Printer className="mr-1.5 h-4 w-4" /> Print weekly sheet
+            </Button>
+          )}
+          {isAdmin && (
             <EngineerVisibilityFilter
               engineers={sortedEngineers}
               hidden={hiddenEngineers}
@@ -1082,6 +1106,7 @@ export default function WeeklyPlanner() {
           <TabsTrigger value="month" className="gap-1.5"><CalendarIcon className="h-3.5 w-3.5" /> Monthly</TabsTrigger>
           <TabsTrigger value="list" className="gap-1.5"><List className="h-3.5 w-3.5" /> List</TabsTrigger>
           <TabsTrigger value="map" className="gap-1.5"><MapIcon className="h-3.5 w-3.5" /> Map</TabsTrigger>
+          {isAdmin && <TabsTrigger value="lookahead" className="gap-1.5"><CalendarRange className="h-3.5 w-3.5" /> Look-ahead</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="grid" className="mt-4">
@@ -1164,6 +1189,11 @@ export default function WeeklyPlanner() {
           />
         </TabsContent>
 
+        {isAdmin && (
+          <TabsContent value="lookahead" className="mt-4">
+            {view === "lookahead" && <LookAheadView engineers={sortedEngineers} onChanged={fetchData} />}
+          </TabsContent>
+        )}
         <TabsContent value="map" className="mt-4">
           <PlannerMapView schedule={filteredSchedule} jobs={scopedJobs} engineers={visibleEngineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
             const j = jobs.find((x) => x.id === jobId);
@@ -1173,7 +1203,7 @@ export default function WeeklyPlanner() {
       </Tabs>
 
       {/* Always-visible map for admins (hidden when map tab is active to avoid duplication) */}
-      {isAdmin && view !== "map" && (
+      {isAdmin && view !== "map" && view !== "lookahead" && (
         <div className="mt-4">
           <PlannerMapView schedule={filteredSchedule} jobs={scopedJobs} engineers={visibleEngineers} unallocatedJobs={unallocatedJobs} adhocEntries={filteredAdhoc} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
             const j = jobs.find((x) => x.id === jobId);
@@ -1251,15 +1281,28 @@ export default function WeeklyPlanner() {
         </DialogContent>
       </Dialog>
 
+      {isAdmin && <PrintWeeklySheetDialog open={sheetOpen} onOpenChange={setSheetOpen} weekStart={weekStart} engineers={sortedEngineers} />}
       {/* Add Entry Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add Schedule Entry</DialogTitle></DialogHeader>
           <div className="space-y-4">
+            <div className="flex gap-4 text-sm" role="radiogroup" aria-label="Booking type">
+              <label className="flex items-center gap-2"><input type="radio" checked={addMode === "day"} onChange={() => setAddMode("day")} />Date</label>
+              <label className="flex items-center gap-2"><input type="radio" checked={addMode === "month"} onChange={() => setAddMode("month")} />Target month (provisional)</label>
+            </div>
+            {addMode === "day" ? (
             <div className="space-y-2">
               <Label>Date</Label>
               <UKDateInput  value={addDay} onChange={(e) => setAddDay(e.target.value)} />
             </div>
+            ) : (
+            <div className="space-y-2">
+              <Label htmlFor="add-target-month">Target month</Label>
+              <Input id="add-target-month" type="month" value={addMonth} onChange={(e) => setAddMonth(e.target.value)} />
+              {addMonth && <p className="text-xs text-muted-foreground">{provisionalLabel(targetMonthValue(addMonth))} — no day yet, not on engineers' Today screens.</p>}
+            </div>
+            )}
             <div className="space-y-2">
               <Label>Engineer</Label>
               <Select value={addEngineerId} onValueChange={setAddEngineerId}>
@@ -1323,8 +1366,8 @@ export default function WeeklyPlanner() {
                 </div>
               )}
             </div>
-            <Button onClick={handleAddEntry} className="w-full" disabled={!addJobId || !addEngineerId || !addDay || saving}>
-              {saving ? "Saving..." : "Add to Schedule"}
+            <Button onClick={handleAddEntry} className="w-full" disabled={addMode === "month" ? (!addJobId || !addMonth || saving) : (!addJobId || !addEngineerId || !addDay || saving)}>
+              {saving ? "Saving..." : addMode === "month" ? "Save provisional month" : "Add to Schedule"}
             </Button>
           </div>
         </DialogContent>
