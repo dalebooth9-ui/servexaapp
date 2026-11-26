@@ -1,3 +1,4 @@
+import { NotebookText } from "lucide-react";
 import { ReactNode, useEffect, useState as useReactState } from "react";
 import servexaLogo from "@/assets/servexa-logo.png";
 import { Link, useLocation } from "react-router-dom";
@@ -109,6 +110,7 @@ const BADGE_HINTS: Record<string, string> = {
 
 const UTILITY_ITEMS: NavItemDef[] = [
   { to: "/help", label: "Help & guides", icon: BookOpen },
+  { to: "/cheat-sheet", label: "Cheat sheet", icon: NotebookText, everyone: true } as NavItemDef,
   { to: "/sync-status", label: "Sync status", icon: CloudUpload },
   { to: "/support/my-tickets", label: "My tickets", icon: LifeBuoy },
   { to: "/admin/support-tickets", label: "Org support tickets", icon: LifeBuoy, adminOnly: true },
@@ -335,7 +337,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
       if (userRole === "engineer") return false;
       return orgStatus.is_platform_admin;
     }
-    if (item.to === "/") return true;
+    if (item.to === "/" || (item as any).everyone) return true;
     if (userRole === "admin") return true;
     if (userRole === "engineer") {
       const slug = ROUTE_TO_SLUG[item.to];

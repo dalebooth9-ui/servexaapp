@@ -32,7 +32,7 @@ export default function PrintWeeklySheetDialog({ open, onOpenChange, weekStart, 
       if (error) throw error;
       const jobIds = [...new Set((sched || []).map((s) => s.job_id))];
       const { data: jobs } = jobIds.length ? await supabase.from("jobs")
-        .select("id, name, priority, is_remedial, job_type, category, customer, customer_po, address, site_id, pressure_test_qty, visual_qty, other_qty, other_service_type, sites(name, address, postcode), customers(name)")
+        .select("id, name, priority, is_remedial, job_type, category, customer, customer_po, address, site_id, pressure_test_qty, visual_qty, other_qty, other_service_type, tags, time_window, call_ahead_minutes, access_contact_name, access_contact_phone, access_notes, sites(name, address, postcode), customers(name)")
         .in("id", jobIds) : { data: [] as any[] };
       const siteIds = [...new Set((jobs || []).map((j: any) => j.site_id).filter(Boolean))];
       const { data: access } = siteIds.length ? await supabase.from("site_access_info").select("site_id, details").in("site_id", siteIds) : { data: [] as any[] };
@@ -48,7 +48,7 @@ export default function PrintWeeklySheetDialog({ open, onOpenChange, weekStart, 
           postcode: j.sites?.postcode || (addr.match(pcRe)?.[0] || "").toUpperCase(), jobName: j.name,
           pressureQty: j.pressure_test_qty || 0, visualQty: j.visual_qty || 0, otherQty: j.other_qty || 0, otherType: j.other_service_type,
           priority: j.priority, isRemedial: !!j.is_remedial, jobType: `${j.job_type || ""} ${j.category || ""}`, po: j.customer_po,
-          scheduleNotes: s.notes, access: byAccess.get(j.site_id) || null,
+          scheduleNotes: s.notes, access: byAccess.get(j.site_id) || null, tags: j.tags, flags: j,
         }];
       });
       const rows = buildWeeklySheetRows(inputs);

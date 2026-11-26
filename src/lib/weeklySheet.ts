@@ -1,4 +1,6 @@
 import type { AccessDetails } from "@/lib/siteAccessRules";
+import { hasPinkTag } from "@/lib/jobTags";
+import { jobFlagLines, type JobFlags } from "@/lib/jobFlags";
 
 /** One planner booking flattened for Michelle's printed weekly sheet. */
 export interface WeeklySheetInput {
@@ -20,6 +22,8 @@ export interface WeeklySheetInput {
   po: string | null;
   scheduleNotes: string | null;
   access: AccessDetails | null;
+  tags?: string[] | null;
+  flags?: JobFlags | null;
 }
 
 export interface WeeklySheetRow {
@@ -45,8 +49,8 @@ export function jobDescription(i: Pick<WeeklySheetInput, "pressureQty" | "visual
 }
 
 /** Remedial, high/urgent priority or SOS jobs are shaded pink. */
-export function isHighlighted(i: Pick<WeeklySheetInput, "priority" | "isRemedial" | "jobType" | "jobName">): boolean {
-  if (i.isRemedial) return true;
+export function isHighlighted(i: Pick<WeeklySheetInput, "priority" | "isRemedial" | "jobType" | "jobName"> & { tags?: string[] | null }): boolean {
+  if (i.isRemedial || hasPinkTag(i.tags)) return true;
   const pr = (i.priority || "").toLowerCase();
   if (["high", "urgent", "critical", "sos", "emergency"].includes(pr)) return true;
   const t = `${i.jobType || ""} ${i.jobName || ""}`.toLowerCase();
@@ -59,9 +63,10 @@ export function postcodeArea(pc: string): string {
   return m ? `${m[1]}${m[2].padStart(2, "0")}` : "~"; // unknown postcodes go last
 }
 
-export function sheetComment(i: Pick<WeeklySheetInput, "po" | "scheduleNotes" | "access">): string {
+export function sheetComment(i: Pick<WeeklySheetInput, "po" | "scheduleNotes" | "access"> & { flags?: JobFlags | null }): string {
   const out: string[] = [];
   if (i.po) out.push(`PO ${i.po}`);
+  if (i.flags) out.push(...jobFlagLines(i.flags, { po: false }));
   if (i.scheduleNotes) out.push(i.scheduleNotes);
   const a = i.access || {};
   if (a.opening_hours) out.push(`Hours: ${a.opening_hours}`);

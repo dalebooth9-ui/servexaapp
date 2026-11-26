@@ -1194,6 +1194,57 @@ export type Database = {
           },
         ]
       }
+      cheat_sheet_entries: {
+        Row: {
+          body: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          org_id: string | null
+          section: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          org_id?: string | null
+          section: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          org_id?: string | null
+          section?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cheat_sheet_entries_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheat_sheet_entries_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_errors: {
         Row: {
           context: Json
@@ -5183,6 +5234,68 @@ export type Database = {
           },
         ]
       }
+      job_follow_ups: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          done_at: string | null
+          due_date: string
+          id: string
+          job_id: string
+          note: string
+          org_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          done_at?: string | null
+          due_date: string
+          id?: string
+          job_id: string
+          note: string
+          org_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          done_at?: string | null
+          due_date?: string
+          id?: string
+          job_id?: string
+          note?: string
+          org_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_follow_ups_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "customer_job_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_follow_ups_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_follow_ups_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_follow_ups_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_merge_previews: {
         Row: {
           actor_id: string
@@ -6433,10 +6546,14 @@ export type Database = {
       }
       jobs: {
         Row: {
+          access_contact_name: string | null
+          access_contact_phone: string | null
+          access_notes: string | null
           address: string | null
           allocated_days: number | null
           asset_id: string | null
           brief: string | null
+          call_ahead_minutes: number | null
           category: string
           category_other_types: string[] | null
           category_suggestion: string | null
@@ -6490,16 +6607,23 @@ export type Database = {
           site_longitude: number | null
           source: string | null
           status: string
+          tags: string[]
           target_month: string | null
           template_mismatch_reason: string | null
+          time_window: string | null
+          two_engineer_ok: boolean
           updated_at: string
           visual_qty: number
         }
         Insert: {
+          access_contact_name?: string | null
+          access_contact_phone?: string | null
+          access_notes?: string | null
           address?: string | null
           allocated_days?: number | null
           asset_id?: string | null
           brief?: string | null
+          call_ahead_minutes?: number | null
           category?: string
           category_other_types?: string[] | null
           category_suggestion?: string | null
@@ -6553,16 +6677,23 @@ export type Database = {
           site_longitude?: number | null
           source?: string | null
           status?: string
+          tags?: string[]
           target_month?: string | null
           template_mismatch_reason?: string | null
+          time_window?: string | null
+          two_engineer_ok?: boolean
           updated_at?: string
           visual_qty?: number
         }
         Update: {
+          access_contact_name?: string | null
+          access_contact_phone?: string | null
+          access_notes?: string | null
           address?: string | null
           allocated_days?: number | null
           asset_id?: string | null
           brief?: string | null
+          call_ahead_minutes?: number | null
           category?: string
           category_other_types?: string[] | null
           category_suggestion?: string | null
@@ -6616,8 +6747,11 @@ export type Database = {
           site_longitude?: number | null
           source?: string | null
           status?: string
+          tags?: string[]
           target_month?: string | null
           template_mismatch_reason?: string | null
+          time_window?: string | null
+          two_engineer_ok?: boolean
           updated_at?: string
           visual_qty?: number
         }

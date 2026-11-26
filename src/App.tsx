@@ -83,6 +83,7 @@ const DueVisits = lazy(() => import('@/pages/DueVisits'));
 const RamsDetail = lazy(() => import("@/pages/RamsDetail"));
 const Offline = lazy(() => import("@/pages/Offline"));
 const LeaveCalendar = lazy(() => import("@/pages/LeaveCalendar"));
+const CheatSheet = lazy(() => import("@/pages/CheatSheet"));
 const Defects = lazy(() => import("@/pages/Defects"));
 const QuoteApproval = lazy(() => import("@/pages/QuoteApproval"));
 const FireLog = lazy(() => import("@/pages/FireLog"));
@@ -215,6 +216,7 @@ const App = () => (
               <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
               <Route path="/my-timesheet" element={<ProtectedRoute><MyTimesheet /></ProtectedRoute>} />
               <Route path="/help" element={<ProtectedRoute><HelpGuides /></ProtectedRoute>} />
+              <Route path="/cheat-sheet" element={<ProtectedRoute><Suspense fallback={<PageFallback />}><CheatSheet /></Suspense></ProtectedRoute>} />
               <Route path="/help/:slug" element={<ProtectedRoute><HelpGuides /></ProtectedRoute>} />
               <Route path="/sync-status" element={<ProtectedRoute><SyncStatus /></ProtectedRoute>} />
 

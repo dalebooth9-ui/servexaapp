@@ -16,6 +16,7 @@ import VehicleCheckReviewCard from "@/components/VehicleCheckReviewCard";
 import SetupChecklist from "@/components/SetupChecklist";
 import FirstStepsChecklist from "@/components/dashboard/FirstStepsChecklist";
 import NeedsAttentionToday from "@/components/dashboard/NeedsAttentionToday";
+import FollowUpsDue from "@/components/dashboard/FollowUpsDue";
 
 import { toast } from "sonner";
 import RenewalsTile from "@/components/renewals/RenewalsTile";
@@ -366,6 +367,7 @@ export default function DirectorDashboard() {
       <SetupChecklist />
 
       <NeedsAttentionToday />
+      <FollowUpsDue />
       <DueVisitsCard />
 
 

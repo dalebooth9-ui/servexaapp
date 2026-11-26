@@ -1,5 +1,6 @@
 import { updateJobStatus } from "@/lib/jobStatusUpdate";
 import { provisionalLabel } from "@/lib/lookAhead";
+import JobPlanningCard from "@/components/jobs/JobPlanningCard";
 import { jobHeadline } from "@/lib/jobHeadline";
 import MapAddress from "@/components/MapAddress";
 import OutletResults from "@/components/assets/OutletResults";
@@ -1253,6 +1254,7 @@ export default function JobDetail() {
       </Dialog>
 
       {activeTab === "overview" && (<>
+      {userRole === "admin" && job && <div className="mb-6"><JobPlanningCard job={job} onSaved={() => supabase.from("jobs").select("*, customers(id, name, email, logo_url), sites(id, name, address, postcode, what3words)").eq("id", job.id).single().then(({ data }) => data && setJob(data))} /></div>}
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Engineer Assignments

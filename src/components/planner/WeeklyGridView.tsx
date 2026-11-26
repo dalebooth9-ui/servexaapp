@@ -39,6 +39,11 @@ import BulkAssignBar from "./BulkAssignBar";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { AdhocEntry } from "@/pages/WeeklyPlanner";
 
+import { usePlannerExtras } from "@/components/planner/PlannerExtrasContext";
+import { TagChips } from "@/components/jobs/JobFlagsFields";
+import { jobFlagLines } from "@/lib/jobFlags";
+import { JOB_TAGS } from "@/lib/jobTags";
+
 interface ScheduleEntry {
   id: string;
   job_id: string;
@@ -179,6 +184,8 @@ function DraggableUnallocatedJob({
         </div>
         <JobCardSubtitle job={job} className="text-muted-foreground break-words whitespace-normal text-[10px]" />
         {((job as any).customers?.name || job.customer) && <div className="text-muted-foreground break-words line-clamp-2 text-[10px]">{(job as any).customers?.name || job.customer}</div>}
+        <TagChips tags={(job as any).tags} className="mt-0.5" />
+        {jobFlagLines(job as any, { po: false }).length > 0 && <div className="text-[9px] text-primary font-medium break-words">{jobFlagLines(job as any, { po: false }).slice(0, 2).join(" · ")}</div>}
         <div className="flex flex-wrap gap-1 mt-0.5">
           {(job as any).preassigned_engineer_name && (
             <span
@@ -222,7 +229,10 @@ function DraggableScheduleCard({ entry, job, engineerName, dayIndex, dayCount, i
     data: { type: "scheduled", entry, job },
     disabled: !isAdmin,
   });
+  const { clashes, onMarkTwoEngineer } = usePlannerExtras();
   if (!job) return null;
+  const clash = clashes.get(entry.id);
+  const flags = jobFlagLines(job as any, { po: true });
   return (
     <HoverCard openDelay={200} closeDelay={250}>
       <HoverCardTrigger asChild>
@@ -242,7 +252,11 @@ function DraggableScheduleCard({ entry, job, engineerName, dayIndex, dayCount, i
             <span className="truncate min-w-0 flex-1 font-medium" title={job.name}>{job.name}</span>
             {dayCount > 1 && <span className="shrink-0 text-[9px] text-muted-foreground">Day {dayIndex}/{dayCount}</span>}
           </div>
-          <div className="pl-2.5 truncate font-mono text-[10px] text-muted-foreground">{job.reference_number}</div>
+          <div className="pl-2.5 flex items-center gap-1 min-w-0 text-[10px] text-muted-foreground">
+            {clash && <AlertTriangle className="h-3 w-3 shrink-0 text-amber-600" aria-label="Possible double booking" />}
+            {((job as any).tags || []).map((k: string) => { const t = JOB_TAGS.find((x) => x.key === k); return t ? <span key={k} title={t.label} className={cn("shrink-0 rounded border px-0.5 text-[8px] font-bold leading-3", t.chip)}>{t.label.split(" ")[0].slice(0, 3).toUpperCase()}</span> : null; })}
+            <span className="truncate font-mono">{job.reference_number}</span>
+          </div>
         </div>
       </HoverCardTrigger>
       <HoverCardContent side="top" align="start" className="w-72 space-y-1 text-xs" onPointerDown={(e) => e.stopPropagation()}>
@@ -254,6 +268,12 @@ function DraggableScheduleCard({ entry, job, engineerName, dayIndex, dayCount, i
         <div><span className="text-muted-foreground">Engineer:</span> {engineerName}</div>
         <div><span className="text-muted-foreground">Dates:</span> {dayCount > 1 ? `Day ${dayIndex} of ${dayCount} · ` : ""}{format(parseISO(entry.schedule_date), "dd/MM/yyyy")}{job.due_date ? ` · Due ${format(parseISO(job.due_date), "dd/MM/yyyy")}` : ""}</div>
         {entry.notes && <div className="break-words">{entry.notes}</div>}
+        <TagChips tags={(job as any).tags} />
+        {flags.map((l) => <div key={l} className="font-medium text-primary break-words">{l}</div>)}
+        {clash && isAdmin && <div className="rounded border border-amber-500/40 bg-amber-500/10 p-1.5 text-amber-800 dark:text-amber-200">
+          {clash}
+          {onMarkTwoEngineer && <Button size="sm" variant="link" className="h-5 px-1 text-[11px]" onClick={() => onMarkTwoEngineer(job.id)}>Mark as two-engineer job</Button>}
+        </div>}
         {isAdmin && <div className="flex justify-end gap-1 pt-1 border-t border-border">
           {onAdjustSpan && <Button size="sm" variant="ghost" onClick={() => onAdjustSpan(1)} title="Add one day">+1 day</Button>}
           <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" aria-label="Remove visit" title="Remove visit" onClick={() => onRemove(entry.id)}><X className="h-4 w-4" /></Button>
@@ -521,10 +541,11 @@ export default function WeeklyGridView({
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
 
+  const [tagFilter, setTagFilter] = useState("all");
   const groupedUnallocated = useMemo(() => {
     const overdue: Job[] = [];
     const rest: Job[] = [];
-    for (const job of unallocatedJobs) {
+    for (const job of unallocatedJobs.filter((j) => tagFilter === "all" || ((j as any).tags || []).includes(tagFilter))) {
       if (job.due_date && isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date())) {
         overdue.push(job);
       } else {
@@ -547,7 +568,7 @@ export default function WeeklyGridView({
     return overdue.length > 0
       ? [["⚠ Overdue", overdue] as [string, Job[]], ...areaGroups]
       : areaGroups;
-  }, [unallocatedJobs]);
+  }, [unallocatedJobs, tagFilter]);
 
   const unallocatedAdhoc = useMemo(() =>
     adhocEntries.filter((a) => !a.schedule_date),
@@ -696,6 +717,11 @@ export default function WeeklyGridView({
                   </button>
                 )}
               </div>
+              <select aria-label="Filter job pool by tag" value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}
+                className="mb-2 w-full rounded border border-input bg-background px-1.5 py-1 text-[11px]">
+                <option value="all">All tags</option>
+                {JOB_TAGS.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+              </select>
               <div className="flex gap-1 mb-2">
                 <button
                   className={cn(

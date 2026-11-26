@@ -32,6 +32,10 @@ import { format as fmtDate, endOfWeek as _endOfWeek } from "date-fns";
 import { UKDateInput } from "@/components/ui/uk-date-input";
 import PrintWeeklySheetDialog from "@/components/planner/PrintWeeklySheetDialog";
 import LookAheadView from "@/components/planner/LookAheadView";
+import PlannerImportDialog from "@/components/planner/PlannerImportDialog";
+import { PlannerExtrasContext } from "@/components/planner/PlannerExtrasContext";
+import JobFlagsFields, { emptyFlags, flagsFromJob, flagsToUpdate, type JobFlagsValue } from "@/components/jobs/JobFlagsFields";
+import { findClashes, clashForNew, type ClashJob } from "@/lib/plannerClash";
 import { targetMonthValue, provisionalLabel } from "@/lib/lookAhead";
 
 const NOTE_COLORS = [
@@ -133,6 +137,9 @@ export default function WeeklyPlanner() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [addMode, setAddMode] = useState<"day" | "month">("day");
   const [addMonth, setAddMonth] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
+  const [addFlags, setAddFlags] = useState<JobFlagsValue>(emptyFlags);
+  const [addFlagsOpen, setAddFlagsOpen] = useState(false);
   const [showWeekend, setShowWeekend] = useState(() => { try { return localStorage.getItem("planner-show-weekend") === "1"; } catch { return false; } });
   const toggleWeekend = (v: boolean) => { setShowWeekend(v); try { localStorage.setItem("planner-show-weekend", v ? "1" : "0"); } catch { /* ignore */ } };
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -318,7 +325,7 @@ export default function WeeklyPlanner() {
       const rowLimit = view === "month" ? 500 : 200;
       const [engRolesRes, jobsRes, schedRes, sitesRes, adhocRangeRes, adhocUnallocRes] = await Promise.all([
         supabase.from("user_roles").select("user_id").eq("role", "engineer"),
-        supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, customer_id, address, site_id, pressure_test_qty, visual_qty, other_qty, other_service_type, due_date, created_at, sites(name, address, postcode), customers(id, name)").in("status", ["active", "scheduled", "revisit", "in_progress", "awaiting_parts", "on_hold", "requires_revisit", "pending_review"]),
+        supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, customer_id, address, site_id, pressure_test_qty, visual_qty, other_qty, other_service_type, due_date, created_at, job_type, customer_po, tags, time_window, call_ahead_minutes, access_contact_name, access_contact_phone, access_notes, two_engineer_ok, sites(name, address, postcode), customers(id, name)").in("status", ["active", "scheduled", "revisit", "in_progress", "awaiting_parts", "on_hold", "requires_revisit", "pending_review"]),
         supabase.from("job_schedule").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd).limit(rowLimit),
         supabase.from("sites").select("id, name, address, postcode").order("name"),
         supabase.from("planner_adhoc_entries").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
@@ -727,7 +734,25 @@ export default function WeeklyPlanner() {
   };
 
   // Add entry
+  const clashJobs: ClashJob[] = useMemo(() => jobs.map((j: any) => ({ id: j.id, site_id: j.site_id, site_name: j.site?.name || j.address || "This site", job_type: j.job_type || j.category || "", two_engineer_ok: j.two_engineer_ok })), [jobs]);
+  const engNameOf = useCallback((id: string) => engineers.find((e) => e.user_id === id)?.full_name || "another engineer", [engineers]);
+  const clashes = useMemo(() => (isAdmin ? findClashes(schedule, clashJobs, engNameOf) : new Map<string, string>()), [isAdmin, schedule, clashJobs, engNameOf]);
+  const addClash = useMemo(() => {
+    if (addMode !== "day" || !addJobId || !addEngineerId || !addDay) return null;
+    const cj = addSiteId ? clashJobs.map((j) => (j.id === addJobId ? { ...j, site_id: addSiteId, site_name: sites.find((x) => x.id === addSiteId)?.name || j.site_name } : j)) : clashJobs;
+    return clashForNew({ job_id: addJobId, engineer_id: addEngineerId, schedule_date: addDay }, schedule, cj, engNameOf);
+  }, [addMode, addJobId, addEngineerId, addDay, addSiteId, schedule, clashJobs, engNameOf, sites]);
+  const markTwoEngineer = useCallback(async (jobId: string) => {
+    const { error } = await supabase.from("jobs").update({ two_engineer_ok: true } as any).eq("id", jobId);
+    if (error) toast({ title: "Not saved", description: error.message, variant: "destructive" });
+    else { setJobs((js) => js.map((j: any) => (j.id === jobId ? { ...j, two_engineer_ok: true } : j))); toast({ title: "Marked as a two-engineer job" }); }
+  }, [toast]);
+
   const handleAddEntry = async () => {
+    if (addJobId && addFlagsOpen) {
+      const { error: fe } = await supabase.from("jobs").update(flagsToUpdate(addFlags) as any).eq("id", addJobId);
+      if (fe) toast({ title: "Time and access details not saved", description: fe.message, variant: "destructive" });
+    }
     if (addMode === "month") {
       // Provisional booking: month only, no planner day, so engineers never see it on Today.
       if (!addJobId || !addMonth) return;
@@ -757,6 +782,7 @@ export default function WeeklyPlanner() {
       if (job?.status === "scheduled") {
         await supabase.from("jobs").update({ status: "active" } as any).eq("id", addJobId);
       }
+      if (addClash) toast({ title: "Booked — please check", description: addClash });
       fetchData();
     }
     setAddOpen(false);
@@ -955,13 +981,18 @@ export default function WeeklyPlanner() {
           </Button>
 
           {isAdmin && (
-            <Button size="sm" onClick={() => { setAddDay(format(new Date(), "yyyy-MM-dd")); setAddEngineerId(""); setAddJobId(""); setAddSiteId(""); setAddNotes(""); setAddOpen(true); }}>
+            <Button size="sm" onClick={() => { setAddDay(format(new Date(), "yyyy-MM-dd")); setAddEngineerId(""); setAddJobId(""); setAddSiteId(""); setAddNotes(""); setAddFlags(emptyFlags); setAddFlagsOpen(false); setAddOpen(true); }}>
               <Plus className="mr-1.5 h-4 w-4" /> Add Entry
             </Button>
           )}
           {isAdmin && (
             <Button size="sm" variant="outline" onClick={() => setSheetOpen(true)}>
               <Printer className="mr-1.5 h-4 w-4" /> Print weekly sheet
+            </Button>
+          )}
+          {isAdmin && (
+            <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
+              <FileText className="mr-1.5 h-4 w-4" /> Import from photo / paste
             </Button>
           )}
           {isAdmin && (
@@ -1100,6 +1131,7 @@ export default function WeeklyPlanner() {
       )}
 
       {/* View Tabs */}
+      <PlannerExtrasContext.Provider value={{ clashes, onMarkTwoEngineer: isAdmin ? markTwoEngineer : undefined }}>
       <Tabs value={view} onValueChange={(v) => setView(v as any)} className="mb-4">
         <TabsList>
           <TabsTrigger value="grid" className="gap-1.5"><LayoutGrid className="h-3.5 w-3.5" /> Weekly Grid</TabsTrigger>
@@ -1201,6 +1233,7 @@ export default function WeeklyPlanner() {
           }} />
         </TabsContent>
       </Tabs>
+      </PlannerExtrasContext.Provider>
 
       {/* Always-visible map for admins (hidden when map tab is active to avoid duplication) */}
       {isAdmin && view !== "map" && view !== "lookahead" && (
@@ -1281,6 +1314,7 @@ export default function WeeklyPlanner() {
         </DialogContent>
       </Dialog>
 
+      {isAdmin && <PlannerImportDialog open={importOpen} onOpenChange={setImportOpen} engineers={sortedEngineers} onCreated={fetchData} />}
       {isAdmin && <PrintWeeklySheetDialog open={sheetOpen} onOpenChange={setSheetOpen} weekStart={weekStart} engineers={sortedEngineers} />}
       {/* Add Entry Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
@@ -1318,6 +1352,7 @@ export default function WeeklyPlanner() {
                 setAddJobId(v);
                 // Pre-select site if job already has one
                 const job = jobs.find((j) => j.id === v);
+                setAddFlags(flagsFromJob(job));
                 setAddSiteId(job?.site_id || "");
               }}>
                 <SelectTrigger><SelectValue placeholder="Select job..." /></SelectTrigger>
@@ -1366,6 +1401,18 @@ export default function WeeklyPlanner() {
                 </div>
               )}
             </div>
+            <div className="rounded-md border">
+              <button type="button" className="w-full px-3 py-2 text-left text-sm font-medium" aria-expanded={addFlagsOpen} onClick={() => setAddFlagsOpen((o) => !o)}>
+                {addFlagsOpen ? "▾" : "▸"} Time, access &amp; tags {addJobId ? "" : "(pick a job first)"}
+              </button>
+              {addFlagsOpen && addJobId && <div className="border-t p-3"><JobFlagsFields value={addFlags} onChange={setAddFlags} idPrefix="add" /></div>}
+            </div>
+            {addClash && (
+              <div role="status" className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-sm text-amber-900 dark:text-amber-200">
+                {addClash}. You can still book it.
+                <Button type="button" size="sm" variant="link" className="h-6 px-1" onClick={() => markTwoEngineer(addJobId)}>Mark as two-engineer job</Button>
+              </div>
+            )}
             <Button onClick={handleAddEntry} className="w-full" disabled={addMode === "month" ? (!addJobId || !addMonth || saving) : (!addJobId || !addEngineerId || !addDay || saving)}>
               {saving ? "Saving..." : addMode === "month" ? "Save provisional month" : "Add to Schedule"}
             </Button>
