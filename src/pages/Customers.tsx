@@ -24,7 +24,9 @@ import { useLookAlike, LookAlikeNotice, findExistingLookAlike } from "@/componen
 import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { visibleCustomers, isCustomerArchived } from "@/lib/customerArchive";
+import { visibleCustomers, isCustomerArchived, bulkArchiveConfirmText, bulkArchivedMessage, splitSelection } from "@/lib/customerArchive";
+import { ToastAction } from "@/components/ui/toast";
+import { Archive, ArchiveRestore } from "lucide-react";
 import PrintBrandingFields from '@/components/customers/PrintBrandingFields';
 import CustomerLogo from '@/components/customers/CustomerLogo';
 
@@ -73,6 +75,8 @@ export default function Customers() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
+  const [bulkArchiving, setBulkArchiving] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [bulkEnrichOpen, setBulkEnrichOpen] = useState(false);
@@ -230,6 +234,40 @@ export default function Customers() {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
+    });
+  };
+
+  const { toArchive, toRestore } = splitSelection(filtered, selectedIds);
+
+  const setArchived = async (ids: string[], archive: boolean): Promise<string[]> => {
+    const done: string[] = [];
+    let failure = "";
+    for (const id of ids) {
+      const { error } = await supabase.rpc("set_customer_archived" as any, { _customer_id: id, _archive: archive } as any);
+      if (error) failure = error.message; else done.push(id);
+    }
+    if (failure) toast({ title: archive ? "Some customers could not be archived" : "Some customers could not be restored", description: failure, variant: "destructive" });
+    await fetchCustomers();
+    return done;
+  };
+
+  const runBulkArchive = async (archive: boolean) => {
+    const ids = archive ? toArchive : toRestore;
+    if (!ids.length) return;
+    setBulkArchiving(true);
+    const done = await setArchived(ids, archive);
+    setBulkArchiving(false);
+    setBulkArchiveOpen(false);
+    setSelectedIds(new Set());
+    if (!done.length) return;
+    toast({
+      title: bulkArchivedMessage(done.length, archive),
+      action: (
+        <ToastAction altText="Undo" onClick={async () => {
+          const undone = await setArchived(done, !archive);
+          if (undone.length) toast({ title: bulkArchivedMessage(undone.length, !archive) });
+        }}>Undo</ToastAction>
+      ),
     });
   };
 
@@ -404,6 +442,16 @@ export default function Customers() {
       {isAdmin && selectedIds.size > 0 && (
         <div className="mb-4 flex items-center gap-3">
           <span className="text-sm text-muted-foreground">{selectedIds.size} selected</span>
+          {toArchive.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setBulkArchiveOpen(true)} disabled={bulkArchiving}>
+              <Archive className="mr-1 h-4 w-4" /> Archive{toRestore.length ? ` ${toArchive.length}` : ""}
+            </Button>
+          )}
+          {showArchived && toRestore.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => runBulkArchive(false)} disabled={bulkArchiving}>
+              <ArchiveRestore className="mr-1 h-4 w-4" /> {bulkArchiving ? "Restoring…" : `Restore${toArchive.length ? ` ${toRestore.length}` : ""}`}
+            </Button>
+          )}
           <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
             <Trash2 className="mr-1 h-4 w-4" /> Delete Selected
           </Button>
@@ -564,6 +612,22 @@ export default function Customers() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteId(null)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDelete}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Archive Confirmation */}
+      <Dialog open={bulkArchiveOpen} onOpenChange={setBulkArchiveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive customers</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{bulkArchiveConfirmText(toArchive.length)}</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkArchiveOpen(false)}>Cancel</Button>
+            <Button onClick={() => runBulkArchive(true)} disabled={bulkArchiving}>
+              {bulkArchiving ? "Archiving…" : `Archive ${toArchive.length}`}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

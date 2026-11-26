@@ -26,3 +26,18 @@ describe("customer archive", () => {
     expect(ARCHIVE_CONFIRM_TEXT).toBe("Archive this customer? You can restore it any time.");
   });
 });
+
+import { bulkArchiveConfirmText, bulkArchivedMessage, splitSelection } from "./customerArchive";
+describe("bulk customer archive", () => {
+  it("uses the agreed bulk wording", () => {
+    expect(bulkArchiveConfirmText(3)).toBe("Archive 3 customers? You can restore them any time.");
+    expect(bulkArchivedMessage(3)).toBe("3 customers archived");
+    expect(bulkArchivedMessage(2, false)).toBe("2 customers restored");
+  });
+  it("archives only active ticked rows and restores only archived ticked rows", () => {
+    const s = splitSelection(list, new Set(["a", "b"]));
+    expect(s.toArchive).toEqual(["a"]);
+    expect(s.toRestore).toEqual(["b"]);
+    expect(splitSelection(list, new Set(["a"])).toRestore).toEqual([]);
+  });
+});
