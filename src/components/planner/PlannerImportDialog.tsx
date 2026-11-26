@@ -32,7 +32,7 @@ export default function PlannerImportDialog({ open, onOpenChange, engineers, onC
       else body = { text };
       const [{ data, error }, s] = await Promise.all([
         supabase.functions.invoke("parse-planner-import", { body }),
-        (async () => { const all: any[] = []; for (let f = 0; ; f += 1000) { const { data } = await supabase.from("sites").select("id, name, postcode, customer_id").is("deleted_at", null).range(f, f + 999); all.push(...(data || [])); if (!data || data.length < 1000) break; } return all; })(),
+        (async () => { const all: any[] = []; for (let f = 0; ; f += 1000) { const { data } = await supabase.from("sites").select("id, name, postcode, customer_sites(customer_id)").is("deleted_at", null).range(f, f + 999); all.push(...(data || []).map((x: any) => ({ id: x.id, name: x.name, postcode: x.postcode, customer_id: x.customer_sites?.[0]?.customer_id || null }))); if (!data || data.length < 1000) break; } return all; })(),
       ]);
       if (error) throw new Error((await (error as any).context?.json?.().catch(() => null))?.error || error.message);
       if (data?.error) throw new Error(data.error);
